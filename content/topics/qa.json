@@ -31,12 +31,12 @@
     {
       "tier": "must",
       "title": "Boundary value: บั๊กชอบอยู่ที่ขอบ",
-      "body": "ความผิดพลาดอย่างใช้ > แทน >= หรือ off-by-one ในลูปจะโผล่เฉพาะค่าที่อยู่ตรงขอบของเงื่อนไข ให้แบ่ง input เป็นกลุ่มที่ระบบทำแบบเดียวกัน (equivalence partition) แล้วทดสอบค่าติดขอบทั้งสองฝั่ง เช่น กฎส่งฟรีตั้งแต่ 500 ควรทดสอบ 499 กับ 500 ไม่ใช่ 100 กับ 1000 และอย่าลืมขอบที่มักถูกมองข้าม เช่น 0 ค่าติดลบ list ว่าง string ว่าง และ null"
+      "body": "ความผิดพลาดอย่างใช้ > แทน >= หรือ off-by-one ในลูปมักหลุดรอดถ้าทดสอบแต่ค่ากลาง ๆ เพราะหลายแบบโผล่เฉพาะค่าที่อยู่ตรงขอบของเงื่อนไข ให้แบ่ง input เป็นกลุ่มที่ระบบทำแบบเดียวกัน (equivalence partition) แล้วทดสอบค่าติดขอบทั้งสองฝั่ง เช่น กฎส่งฟรีตั้งแต่ 500 ควรทดสอบ 499 กับ 500 ไม่ใช่ 100 กับ 1000 และอย่าลืมขอบที่มักถูกมองข้าม เช่น 0 ค่าติดลบ list ว่าง string ว่าง และ null"
     },
     {
       "tier": "must",
       "title": "Linter, formatter และ static analysis",
-      "body": "เครื่องมือที่ตรวจโค้ดโดยไม่ต้องรัน เช่น ESLint, type checker ของ TypeScript และ formatter อย่าง Prettier จับปัญหาได้ทั้งคลาส เช่น ตัวแปรที่ไม่ได้ใช้ type ไม่ตรง หรือ promise ที่ลืม await (ผ่านกฎของ typescript-eslint) ได้เร็วและถูกกว่าการเขียน test ทีละกรณี ควรรันให้ผลเหมือนกันทั้งใน editor, pre-commit และ CI เพื่อให้คนรีวิวโฟกัสที่ logic และการออกแบบแทนการถกเรื่องสไตล์ แต่เครื่องมือเหล่านี้ไม่รู้ว่า business rule ถูกหรือไม่ จึงใช้แทน test ไม่ได้"
+      "body": "เครื่องมือที่ตรวจโค้ดโดยไม่ต้องรัน เช่น ESLint, type checker ของ TypeScript และ formatter อย่าง Prettier ตรวจจับปัญหาประเภทเดียวกันได้ทั่วทั้งโค้ด เช่น ตัวแปรที่ไม่ได้ใช้ type ที่ไม่ตรงกัน หรือ promise ที่ลืม await (ผ่านกฎของ typescript-eslint) ได้เร็วและถูกกว่าการเขียน test ทีละกรณี ควรรันให้ผลเหมือนกันทั้งใน editor, pre-commit และ CI เพื่อให้คนรีวิวโฟกัสที่ logic และการออกแบบแทนการถกเรื่องสไตล์ แต่เครื่องมือเหล่านี้ไม่รู้ว่า business rule ถูกหรือไม่ จึงใช้แทน test ไม่ได้"
     },
     {
       "tier": "should",
@@ -68,13 +68,13 @@
     {
       "tier": "advanced",
       "title": "Contract testing และ mutation testing",
-      "body": "Contract testing ตรวจว่า consumer กับ provider ยังคุยกันรู้เรื่อง ในแบบ consumer-driven (เช่น Pact) consumer บันทึกสิ่งที่คาดหวังจาก API เป็น contract แล้ว CI ของ provider นำไปตรวจทุกครั้ง จึงจับการเปลี่ยน field ได้โดยไม่ต้องมี E2E ข้ามทุก service ส่วน mutation testing (เช่น StrykerJS สำหรับ JavaScript หรือ PIT สำหรับ Java) แก้โค้ดทีละจุด เช่น เปลี่ยน >= เป็น > แล้วรัน test ถ้า test ยังผ่าน (mutant survived) แปลว่าไม่มี test ตรวจพฤติกรรมนั้นจริง เป็นมาตรวัดคุณภาพ test ที่ตรงกว่า coverage แต่รันช้า จึงมักรันเฉพาะโค้ดที่เปลี่ยนหรือรันเป็นรอบ"
+      "body": "Contract testing ตรวจว่า consumer กับ provider ยังคุยกันรู้เรื่อง ในแบบ consumer-driven (เช่น Pact) consumer บันทึกสิ่งที่คาดหวังจาก API เป็น contract แล้ว CI ของ provider นำไปตรวจทุกครั้ง จึงจับการเปลี่ยน field ได้โดยไม่ต้องมี E2E ข้ามทุก service ส่วน mutation testing (เช่น StrykerJS สำหรับ JavaScript หรือ PIT สำหรับ Java) แก้โค้ดทีละจุด เช่น เปลี่ยน >= เป็น > แล้วรัน test ถ้า test ยังผ่าน (mutant survived) มักแปลว่าไม่มี test ตรวจพฤติกรรมนั้นจริง (ยกเว้น equivalent mutant ที่ให้ผลเหมือนโค้ดเดิม ซึ่งไม่มี test ใดแยกได้) เป็นมาตรวัดคุณภาพ test ที่ตรงกว่า coverage แต่รันช้า จึงมักรันเฉพาะโค้ดที่เปลี่ยนหรือรันเป็นรอบ"
     },
     {
       "tier": "must",
       "exam": true,
       "title": "หลักการทดสอบ 7 ข้อของ ISTQB",
-      "body": "หลักทั่วไปที่ใช้ได้กับการทดสอบทุกแบบมี 7 ข้อ คือ การทดสอบแสดงได้ว่ามี defect แต่พิสูจน์ไม่ได้ว่าไม่มี, ทดสอบทุกอย่างไม่ได้จึงต้องเลือกด้วย technique และความเสี่ยง, ทดสอบเร็วประหยัดกว่า, defect มักกระจุกอยู่ในไม่กี่ component, test ที่รันซ้ำจนชินจะจับ defect ใหม่ได้น้อยลง (tests wear out) ต้องปรับ test และข้อมูล, วิธีทดสอบขึ้นกับบริบท และ absence-of-defects fallacy คือการผ่านทุก requirement ไม่ได้แปลว่าระบบตอบโจทย์ผู้ใช้ ต้องมี validation ควบคู่กับ verification ข้อที่มักพลาดคือเหมาเอาว่าการรัน regression ซ้ำไม่มีประโยชน์ ทั้งที่เอกสารระบุว่าการรันซ้ำบางกรณี เช่น automated regression ยังให้ผลดี",
+      "body": "หลักทั่วไปที่ใช้ได้กับการทดสอบทุกแบบมี 7 ข้อ คือ การทดสอบแสดงได้ว่ามี defect แต่พิสูจน์ไม่ได้ว่าไม่มี, ทดสอบทุกอย่างไม่ได้จึงต้องเลือกด้วย technique และความเสี่ยง, เริ่มทดสอบตั้งแต่ระยะแรกช่วยลดเวลาและค่าใช้จ่าย, defect มักกระจุกอยู่ในไม่กี่ component, test ที่รันซ้ำจนชินจะจับ defect ใหม่ได้น้อยลง (tests wear out) ต้องปรับ test และข้อมูล, วิธีทดสอบขึ้นกับบริบท และ absence-of-defects fallacy คือการผ่านทุก requirement ไม่ได้แปลว่าระบบตอบโจทย์ผู้ใช้ ต้องมี validation ควบคู่กับ verification ข้อที่มักพลาดคือเหมาเอาว่าการรัน regression ซ้ำไม่มีประโยชน์ ทั้งที่เอกสารระบุว่าการรันซ้ำบางกรณี เช่น automated regression ยังให้ผลดี",
       "ref": "https://astqb.org/assets/documents/ISTQB_CTFL_Syllabus_v4.0.1.pdf#page=17"
     },
     {
@@ -94,7 +94,7 @@
     {
       "tier": "must",
       "title": "ทดสอบโค้ด async: ต้อง await หรือ return promise",
-      "body": "Jest ต้องรู้ว่าโค้ดทำงานเสร็จเมื่อไร จึงต้อง return promise หรือใช้ async/await ถ้าลืม test จะจบก่อนที่ promise จะ resolve หรือ reject และผลที่ได้ไม่น่าเชื่อถือ ใช้ .resolves และ .rejects ได้เมื่อต้องการให้อ่านง่าย แต่ต้อง await หรือ return ด้วยเสมอ ถ้าเลือกเขียนแบบ try/catch ต้องใส่ expect.assertions(n) เพราะไม่อย่างนั้น promise ที่ fulfilled (ไม่ throw) จะทำให้ test ผ่านโดยไม่เคยตรวจอะไรเลย",
+      "body": "Jest ต้องรู้ว่าโค้ดทำงานเสร็จเมื่อไร จึงต้อง return promise หรือใช้ async/await ถ้าลืม test จะจบก่อนที่ promise จะ resolve หรือ reject และผลที่ได้ไม่น่าเชื่อถือ ใช้ .resolves และ .rejects ได้เมื่อต้องการให้อ่านง่าย แต่ต้อง await หรือ return ด้วยเสมอ ถ้าเลือกเขียนแบบ try/catch ต้องทำให้ test fail เมื่อ promise fulfilled (ไม่ throw) เช่นใส่ expect.assertions(n) หรือเก็บ error ไว้ในตัวแปรแล้ว expect นอก catch เพราะไม่อย่างนั้น test จะผ่านโดยไม่เคยตรวจอะไรเลย",
       "code": "test('ดึงผู้ใช้สำเร็จ', async () => {\n  await expect(fetchUser(1)).resolves.toMatchObject({ id: 1 });\n});\n\ntest('throw เมื่อไม่พบผู้ใช้', async () => {\n  await expect(fetchUser(999)).rejects.toThrow('not found');\n});\n\n// แบบ try/catch ต้องล็อกจำนวน assertion\ntest('throw เมื่อไม่พบผู้ใช้ (try/catch)', async () => {\n  expect.assertions(1);\n  try { await fetchUser(999); } catch (e) { expect(e.message).toBe('not found'); }\n});",
       "ref": "https://jestjs.io/docs/asynchronous"
     },
@@ -130,7 +130,7 @@
     {
       "tier": "should",
       "title": "Snapshot testing: ใช้ให้ถูกที่และรีวิวให้จริง",
-      "body": "snapshot test เก็บค่าที่ serialize แล้วลงไฟล์ข้อความ และรอบถัดไปเทียบด้วย diff จึงเหมาะกับผลลัพธ์ที่เล็กและโฟกัสซึ่งโครงสร้างสำคัญ เช่น output ของ component หรือ error message ต้องถือไฟล์ .snap เป็นส่วนหนึ่งของ test คือ commit เข้า repo และดู diff ตอนรีวิว และค่าที่เปลี่ยนทุกครั้ง เช่น เวลา กับ id สุ่ม ต้องควบคุมให้ deterministic หรือใช้ property matcher บน CI Jest จะไม่เขียน snapshot ใหม่ให้เอง ถ้ากด jest -u เพื่อให้เขียวโดยไม่อ่านว่าอะไรเปลี่ยน test ก็จะกลายเป็นตรายางที่อนุมัติทุกอย่าง",
+      "body": "snapshot test เก็บค่าที่ serialize แล้วลงไฟล์ข้อความ และรอบถัดไปเทียบด้วย diff จึงเหมาะกับผลลัพธ์ขนาดเล็กที่ต้องการตรวจโครงสร้างอย่างเจาะจง เช่น output ของ component หรือ error message ต้องถือไฟล์ .snap เป็นส่วนหนึ่งของ test คือ commit เข้า repo และดู diff ตอนรีวิว และค่าที่เปลี่ยนทุกครั้ง เช่น เวลา กับ id สุ่ม ต้องควบคุมให้ deterministic หรือใช้ property matcher บน CI Jest จะไม่เขียน snapshot ใหม่ให้เอง ถ้ากด jest -u เพื่อให้เขียวโดยไม่อ่านว่าอะไรเปลี่ยน test ก็จะกลายเป็นตรายางที่อนุมัติทุกอย่าง",
       "code": "test('สรุปคำสั่งซื้อ', () => {\n  const order = createOrder(cart);   // id สุ่มทุกครั้ง\n  expect(order).toMatchSnapshot({\n    id: expect.any(String),          // คุมค่าที่ไม่คงที่\n  });\n});",
       "ref": "https://jestjs.io/docs/snapshot-testing"
     },
@@ -293,7 +293,7 @@
       "explain": "หลัก defects cluster บอกว่า component จำนวนน้อยมักมี defect ส่วนใหญ่ และข้อมูล defect เก่าเป็นข้อมูลนำเข้าของการจัดลำดับตามความเสี่ยง จึงควรทุ่มที่นั่น การแบ่งเท่ากันดูยุติธรรมแต่ไม่สัมพันธ์กับความเสี่ยง ส่วนการข้ามไปเพราะบั๊กเยอะคือทำตรงข้ามกับหลักการ"
     },
     {
-      "prompt": "ทีมทดสอบครบทุก requirement ใน spec และแก้บั๊กที่พบหมดแล้ว แต่หลัง release ผู้ใช้บ่นว่าขั้นตอนไม่ตรงกับงานจริงและยากเกินใช้ สถานการณ์นี้ตรงกับแนวคิดใด?",
+      "prompt": "ทีมทดสอบครบทุก requirement ใน spec และแก้บั๊กที่พบหมดแล้ว แต่หลัง release ผู้ใช้บ่นว่าขั้นตอนไม่ตรงกับงานจริงและใช้งานยากเกินไป สถานการณ์นี้ตรงกับแนวคิดใด?",
       "options": [
         "Pesticide paradox: test ชุดเดิมที่รันซ้ำจับ defect ใหม่ไม่ได้อีกแล้ว",
         "Exhaustive testing is impossible: ทดสอบไม่ครบทุก input และทุกเส้นทางที่เป็นไปได้",
@@ -329,12 +329,12 @@
       "prompt": "ในระบบ e-commerce บั๊กข้อใดอธิบายได้ว่าเป็น \"severity ต่ำ แต่ priority สูง\"?",
       "options": [
         "หน้าชำระเงินล่มทุกครั้งที่ลูกค้าใช้บัตรเครดิตในช่วง flash sale จนขายไม่ได้",
-        "ฟีเจอร์ส่งออกรายงานเก่าที่ไม่มีใครเปิดใช้ทำให้ระบบ crash เมื่อกดปุ่ม",
+        "ฟีเจอร์ส่งออกรายงานเก่าที่ไม่มีใครเปิดใช้ ทำให้ทั้งระบบ crash เมื่อกดปุ่ม",
         "ชื่อแบรนด์สะกดผิดบนหน้าแคมเปญที่เปิดตัวพรุ่งนี้เช้า ระบบยังใช้งานได้ปกติ",
         "ปุ่มเปลี่ยนภาษาเลื่อนผิดตำแหน่งสองพิกเซลบนมือถือบางรุ่นซึ่งแทบไม่มีใครสังเกต"
       ],
       "answer": 2,
-      "explain": "severity คือระดับผลกระทบ ส่วน priority คือความเร่งด่วนในการแก้ ซึ่งไม่จำเป็นต้องสอดคล้องกัน ชื่อแบรนด์ผิดมีผลกระทบเชิงระบบต่ำแต่ต้องแก้ก่อนเปิดตัว ส่วนหน้าชำระเงินล่มคือสูงทั้งสองค่า และ crash ในฟีเจอร์ที่ไม่มีใครใช้คือ severity สูงแต่ priority ต่ำ"
+      "explain": "severity คือระดับผลกระทบ ส่วน priority คือความเร่งด่วนในการแก้ ซึ่งไม่จำเป็นต้องสอดคล้องกัน ชื่อแบรนด์ผิดมีผลกระทบเชิงระบบต่ำแต่ต้องแก้ก่อนเปิดตัว ส่วนหน้าชำระเงินล่มคือสูงทั้งสองค่า และการที่ฟีเจอร์ที่ไม่มีใครใช้ทำให้ทั้งระบบ crash คือ severity สูงแต่ priority ต่ำ เพราะแทบไม่มีผู้ใช้ที่เจอ"
     },
     {
       "prompt": "กฎค่าส่ง: ลูกค้ามีเงื่อนไข 3 ข้อแบบ จริง/เท็จ คือ เป็นสมาชิก ยอดถึงเกณฑ์ และมีคูปองส่งฟรี ผลลัพธ์ของแต่ละ combination ต่างกัน ถ้าสร้าง decision table แบบเต็มและยังไม่ได้ตัดอะไรออก จะมีกฎกี่ข้อ และ coverage วัดอย่างไร?",
@@ -440,7 +440,7 @@
       "explain": "locator ที่ผูกกับโครงสร้าง DOM หรือ class จะพังเมื่อโครงสร้าง markup เปลี่ยนทั้งที่พฤติกรรมเหมือนเดิม Playwright แนะนำให้ใช้ locator ที่ใกล้กับสิ่งที่ผู้ใช้รับรู้ เช่น role หรือกำหนด test id เป็นข้อตกลง ส่วน XPath ยาว ๆ เปราะกว่าเดิม"
     },
     {
-      "prompt": "test \"แก้ไขโปรไฟล์\" ใน E2E พึ่งว่า test \"ล็อกอิน\" ก่อนหน้ารันเสร็จและทิ้ง session ไว้ พอรันเดี่ยวหรือรันขนานก็ fail ควรแก้อย่างไร?",
+      "prompt": "test \"แก้ไขโปรไฟล์\" ใน E2E พึ่งว่า test \"ล็อกอิน\" ก่อนหน้ารันเสร็จและทิ้ง session ไว้ พอรันเดี่ยวหรือรันขนานก็ fail ควรแก้อย่างไรโดยให้ test แต่ละข้อรันขนานได้และบอกได้ว่าพังที่ฟีเจอร์ไหน?",
       "options": [
         "บังคับลำดับการรันให้ test ล็อกอินรันก่อนเสมอ แล้วปิดการรันขนาน",
         "รวมทุกขั้นตอนเป็น test เดียวยาว ๆ เพื่อไม่ต้องพึ่งกัน",
@@ -448,7 +448,7 @@
         "ให้แต่ละ test ล็อกอินเองใน beforeEach โดยไม่พึ่ง test อื่น"
       ],
       "answer": 3,
-      "explain": "แต่ละ test ควรแยกอิสระด้วย storage, cookie และข้อมูลของตัวเอง ซึ่งช่วยให้ผลทำซ้ำได้และ debug ง่าย การบังคับลำดับแก้อาการแต่ทำให้ test หนึ่งพังแล้วลามไปอีกหลายข้อ ส่วน test เดียวยาว ๆ ก็บอกไม่ได้ว่าพังตรงไหน"
+      "explain": "แต่ละ test ควรแยกอิสระด้วย storage, cookie และข้อมูลของตัวเอง ซึ่งช่วยให้ผลทำซ้ำได้และ debug ง่าย การบังคับลำดับแก้อาการแต่ทำให้ test หนึ่งพังแล้วลามไปอีกหลายข้อ ส่วน test เดียวยาว ๆ แม้ไม่พึ่ง test อื่น ก็รวมหลายพฤติกรรมไว้ด้วยกันจนบอกทันทีไม่ได้ว่าฟีเจอร์ไหนพัง"
     },
     {
       "prompt": "property test นี้ผ่านเสมอแม้ sortNumbers จะคืน array ที่ไม่ได้เรียงเลย ควรเพิ่ม property ใดเพื่อให้จับบั๊กเรื่องการเรียงได้?",
@@ -515,19 +515,19 @@
       "checks": [
         {
           "label": "มี test อย่างน้อย 4 กรณี",
-          "pattern": "(\\b(test|it)\\([\\s\\S]*){4}"
+          "pattern": "(?:\\b(?:test|it)\\s*\\([\\s\\S]*){4}|(?=[\\s\\S]*\\b(?:test|it)\\.each\\s*\\(\\s*\\[\\s*(?:(?:-?\\d+(?:\\.\\d+)?|'[^']*'|\"[^\"]*\"|\\[[^\\[\\]]*\\])\\s*,\\s*){3}(?:-?\\d+(?:\\.\\d+)?|'[^']*'|\"[^\"]*\"|\\[[^\\[\\]]*\\]))|(?=[\\s\\S]*\\b(?:test|it)\\.each\\s*\\(\\s*\\[\\s*(?:(?:-?\\d+(?:\\.\\d+)?|'[^']*'|\"[^\"]*\"|\\[[^\\[\\]]*\\])\\s*,\\s*){2}(?:-?\\d+(?:\\.\\d+)?|'[^']*'|\"[^\"]*\"|\\[[^\\[\\]]*\\]))(?=(?:[\\s\\S]*\\b(?:test|it)\\s*\\(){1})|(?=[\\s\\S]*\\b(?:test|it)\\.each\\s*\\(\\s*\\[\\s*(?:(?:-?\\d+(?:\\.\\d+)?|'[^']*'|\"[^\"]*\"|\\[[^\\[\\]]*\\])\\s*,\\s*){1}(?:-?\\d+(?:\\.\\d+)?|'[^']*'|\"[^\"]*\"|\\[[^\\[\\]]*\\]))(?=(?:[\\s\\S]*\\b(?:test|it)\\s*\\(){2})|(?=[\\s\\S]*\\b(?:test|it)\\.each\\s*\\(\\s*\\[\\s*(?:(?:-?\\d+(?:\\.\\d+)?|'[^']*'|\"[^\"]*\"|\\[[^\\[\\]]*\\])\\s*,\\s*){0}(?:-?\\d+(?:\\.\\d+)?|'[^']*'|\"[^\"]*\"|\\[[^\\[\\]]*\\]))(?=(?:[\\s\\S]*\\b(?:test|it)\\s*\\(){3})"
         },
         {
           "label": "ทดสอบค่าขอบ 500 พอดี",
-          "pattern": "shippingfee\\(\\s*500\\s*\\)"
+          "pattern": "shippingfee\\(\\s*500(?:\\.0+)?\\s*\\)|\\[\\s*500(?:\\.0+)?\\s*,|\\.each\\s*\\(\\s*\\[\\s*(?:-?\\d+(?:\\.\\d+)?\\s*,\\s*)*500(?:\\.0+)?\\s*[,\\]]"
         },
         {
           "label": "ทดสอบค่าใต้ขอบ 499",
-          "pattern": "shippingfee\\(\\s*499(\\.\\d+)?\\s*\\)"
+          "pattern": "shippingfee\\(\\s*499(?:\\.\\d+)?\\s*\\)|\\[\\s*499(?:\\.\\d+)?\\s*,|\\.each\\s*\\(\\s*\\[\\s*(?:-?\\d+(?:\\.\\d+)?\\s*,\\s*)*499(?:\\.\\d+)?\\s*[,\\]]"
         },
         {
           "label": "ทดสอบยอด 0",
-          "pattern": "shippingfee\\(\\s*0(\\.0+)?\\s*\\)"
+          "pattern": "shippingfee\\(\\s*0(?:\\.0+)?\\s*\\)|\\[\\s*0(?:\\.0+)?\\s*,|\\.each\\s*\\(\\s*\\[\\s*(?:-?\\d+(?:\\.\\d+)?\\s*,\\s*)*0(?:\\.0+)?\\s*[,\\]]"
         },
         {
           "label": "ทดสอบกรณี error ด้วย toThrow",
@@ -561,31 +561,31 @@
       "checks": [
         {
           "label": "มี test อย่างน้อย 3 กรณี",
-          "pattern": "(\\b(test|it)\\([\\s\\S]*){3}"
+          "pattern": "(\\b(test|it)\\s*\\([\\s\\S]*){3}"
         },
         {
-          "label": "test เป็น async และใช้ await",
-          "pattern": "async[\\s\\S]*await\\s"
+          "label": "test เป็น async ใช้ await และ stub ของ repo คืน promise (mockResolvedValue, async function หรือ Promise.resolve)",
+          "pattern": "^(?=[\\s\\S]*async[\\s\\S]*await\\s)(?=[\\s\\S]*(mockresolvedvalue(once)?\\(|mockimplementation(once)?\\(\\s*async|findbyid\\s*[:=]\\s*async|promise\\.resolve\\(|jest\\.fn\\(\\s*async))"
         },
         {
-          "label": "stub ของ repo คืน promise (mockResolvedValue, async function หรือ Promise.resolve)",
-          "pattern": "mockresolvedvalue(once)?\\(|mockimplementation(once)?\\(\\s*async|findbyid\\s*[:=]\\s*async|promise\\.resolve\\(|jest\\.fn\\(\\s*async"
+          "label": "ตรวจผลคืนทั้ง sent true (มีอีเมล) และ sent false (ไม่มีอีเมล)",
+          "pattern": "^(?=[\\s\\S]*(['\"]?sent['\"]?\\s*:\\s*true|\\bsent\\s*\\)\\s*\\.(tobe|toequal|tostrictequal)\\(\\s*true\\s*\\)|\\bsent\\s*\\)\\s*\\.tobetruthy\\(|tohaveproperty\\(\\s*['\"]sent['\"]\\s*,\\s*true\\s*\\)))(?=[\\s\\S]*(['\"]?sent['\"]?\\s*:\\s*false|\\bsent\\s*\\)\\s*\\.(tobe|toequal|tostrictequal)\\(\\s*false\\s*\\)|\\bsent\\s*\\)\\s*\\.tobefalsy\\(|tohaveproperty\\(\\s*['\"]sent['\"]\\s*,\\s*false\\s*\\)))"
         },
         {
           "label": "ตรวจว่า mailer.send ถูกเรียกด้วยอีเมลของผู้ใช้",
-          "pattern": "tohavebeencalledwith\\([\\s\\S]*?\\bto\\s*[:,}]|mock\\.calls\\[\\d+\\]\\[0\\]\\.to\\b"
+          "pattern": "tohavebeen(last|nth)?calledwith\\([\\s\\S]*?\\bto\\s*[:,}]|tohavebeen(last|nth)?calledwith\\(\\s*[a-z_]\\w*\\s*\\)|mock\\.calls\\[\\d+\\]\\[0\\](\\.to\\b|\\)\\.(toequal|tostrictequal|tomatchobject))"
         },
         {
           "label": "ตรวจว่ากรณีไม่มีอีเมลไม่เรียก mailer.send",
-          "pattern": "\\.not\\.tohavebeencalled"
+          "pattern": "\\.not\\.tohavebeencalled|tohavebeencalledtimes\\(\\s*0\\s*\\)|mock\\.calls\\.length\\)\\.(tobe|toequal|tostrictequal)\\(\\s*0\\s*\\)|mock\\.calls\\)\\.tohavelength\\(\\s*0\\s*\\)"
         },
         {
-          "label": "กรณีไม่พบผู้ใช้ตรวจ reject ด้วย rejects หรือ expect.assertions",
-          "pattern": "\\.rejects\\.(tothrow|toequal|tostrictequal|tomatch|tobe)|expect\\.assertions\\("
+          "label": "กรณีไม่พบผู้ใช้ตรวจ reject ด้วย rejects, expect.assertions หรือเก็บ error ไว้ตรวจนอก catch",
+          "pattern": "\\.rejects\\.(?:tothrow|toequal|tostrictequal|tomatch|tobe)|expect\\.(?:has)?assertions\\(|catch\\s*\\(\\s*(?<c>\\w+)\\s*\\)\\s*\\{\\s*(?<v>\\w+)\\s*=\\s*\\k<c>\\s*;?\\s*\\}[\\s\\S]*expect\\(\\s*\\k<v>\\b[^)]*\\)\\s*\\.(?:tothrow|toequal|tostrictequal|tomatch|tomatchobject|tohaveproperty|tobe)\\("
         },
         {
           "label": "ไม่ลืม await หรือ return หน้า expect(...).rejects/resolves",
-          "pattern": "^\\s*expect\\([^\\n]*\\.(rejects|resolves)",
+          "pattern": "^[ \\t]*expect\\((?:(?!\\.to\\w|\\bawait\\b|\\breturn\\b|;)[\\s\\S])*?\\)\\s*\\.(rejects|resolves)",
           "negate": true
         }
       ]
@@ -595,7 +595,7 @@
       "level": "ยาก",
       "tags": "Jest · fake timers · async · retry",
       "lang": "javascript",
-      "prompt": "ฟังก์ชัน retry เรียก fn ซ้ำเมื่อ reject โดยรอ delayMs ระหว่างรอบ และ reject ด้วย error ล่าสุดเมื่อลองครบจำนวน retries ทีมมี test เดิมที่รอเวลาจริงกว่าสองวินาที ช้าและพึ่งนาฬิกาจริง ให้เขียนใหม่ด้วย fake timers โดยไม่รอเวลาจริงเลย ครอบคลุม (1) สำเร็จในครั้งที่ 3 หลังล้มเหลวสองครั้ง fn ถูกเรียก 3 ครั้ง (2) ก่อนครบ delayMs fn ยังถูกเรียกแค่ 1 ครั้ง และเรียกครั้งที่สองเมื่อครบเวลา (3) ล้มเหลวทุกครั้งแล้ว reject ด้วย error ของครั้งสุดท้าย และคืน real timers หลังจบทุก test",
+      "prompt": "ฟังก์ชัน retry เรียก fn ซ้ำเมื่อ reject โดยรอ delayMs ระหว่างรอบ และ reject ด้วย error ล่าสุดเมื่อล้มเหลวครบทุกครั้ง (เรียกครั้งแรก 1 ครั้งและลองซ้ำอีกตามจำนวน retries) ทีมมี test เดิมที่รอเวลาจริงกว่าสองวินาที ช้าและพึ่งนาฬิกาจริง ให้เขียนใหม่ด้วย fake timers โดยไม่รอเวลาจริงเลย ครอบคลุม (1) สำเร็จในครั้งที่ 3 หลังล้มเหลวสองครั้ง fn ถูกเรียก 3 ครั้ง (2) ก่อนครบ delayMs fn ยังถูกเรียกแค่ 1 ครั้ง และเรียกครั้งที่สองเมื่อครบเวลา (3) ล้มเหลวทุกครั้งแล้ว reject ด้วย error ของครั้งสุดท้าย และคืน real timers หลังจบทุก test",
       "context": "async function retry(fn, { retries, delayMs }) {\n  let lastError;\n  for (let attempt = 0; attempt <= retries; attempt++) {\n    try {\n      return await fn(attempt);\n    } catch (err) {\n      lastError = err;\n      if (attempt < retries) {\n        await new Promise((resolve) => setTimeout(resolve, delayMs));\n      }\n    }\n  }\n  throw lastError;\n}\nmodule.exports = { retry };",
       "starter": "const { retry } = require('./retry');\n\n// test เดิม: รอเวลาจริงสองวินาที ช้าและพึ่งนาฬิกาจริง\ntest('retry สำเร็จในครั้งที่ 3', async () => {\n  const fn = jest\n    .fn()\n    .mockRejectedValueOnce(new Error('fail 1'))\n    .mockRejectedValueOnce(new Error('fail 2'))\n    .mockResolvedValue('ok');\n\n  await expect(retry(fn, { retries: 3, delayMs: 1000 })).resolves.toBe('ok');\n  expect(fn).toHaveBeenCalledTimes(3);\n});\n",
       "solution": "const { retry } = require('./retry');\n\ndescribe('retry', () => {\n  beforeEach(() => {\n    jest.useFakeTimers();\n  });\n\n  afterEach(() => {\n    jest.useRealTimers();\n  });\n\n  test('สำเร็จในครั้งที่ 3 หลังล้มเหลว 2 ครั้ง', async () => {\n    const fn = jest\n      .fn()\n      .mockRejectedValueOnce(new Error('fail 1'))\n      .mockRejectedValueOnce(new Error('fail 2'))\n      .mockResolvedValue('ok');\n\n    const promise = retry(fn, { retries: 3, delayMs: 1000 });\n    await jest.advanceTimersByTimeAsync(2000);\n\n    await expect(promise).resolves.toBe('ok');\n    expect(fn).toHaveBeenCalledTimes(3);\n  });\n\n  test('ยังไม่เรียกซ้ำจนกว่าจะครบ delayMs', async () => {\n    const fn = jest.fn().mockRejectedValueOnce(new Error('fail')).mockResolvedValue('ok');\n\n    const promise = retry(fn, { retries: 1, delayMs: 1000 });\n    await jest.advanceTimersByTimeAsync(999);\n    expect(fn).toHaveBeenCalledTimes(1);\n\n    await jest.advanceTimersByTimeAsync(1);\n    expect(fn).toHaveBeenCalledTimes(2);\n    await expect(promise).resolves.toBe('ok');\n  });\n\n  test('reject ด้วย error ล่าสุดเมื่อลองครบตามจำนวน retries', async () => {\n    const fn = jest.fn().mockImplementation(async (attempt) => {\n      throw new Error(`fail ${attempt}`);\n    });\n\n    const assertion = expect(retry(fn, { retries: 2, delayMs: 500 })).rejects.toThrow('fail 2');\n    await jest.advanceTimersByTimeAsync(1000);\n\n    await assertion;\n    expect(fn).toHaveBeenCalledTimes(3);\n  });\n});\n",
@@ -619,11 +619,11 @@
         },
         {
           "label": "ยืนยันว่า fn ถูกเรียกแค่ 1 ครั้งก่อนครบ delay",
-          "pattern": "tohavebeencalledtimes\\(\\s*1\\s*\\)|mock\\.calls\\.length\\)\\.tobe\\(\\s*1\\s*\\)"
+          "pattern": "tohavebeencalledtimes\\(\\s*1\\s*\\)|mock\\.calls\\.length\\)\\.(tobe|toequal|tostrictequal)\\(\\s*1\\s*\\)|mock\\.calls\\)\\.tohavelength\\(\\s*1\\s*\\)"
         },
         {
           "label": "ยืนยันว่า fn ถูกเรียกครบ 3 ครั้ง",
-          "pattern": "tohavebeencalledtimes\\(\\s*3\\s*\\)|mock\\.calls\\.length\\)\\.tobe\\(\\s*3\\s*\\)"
+          "pattern": "tohavebeencalledtimes\\(\\s*3\\s*\\)|mock\\.calls\\.length\\)\\.(tobe|toequal|tostrictequal)\\(\\s*3\\s*\\)|mock\\.calls\\)\\.tohavelength\\(\\s*3\\s*\\)"
         },
         {
           "label": "ตรวจกรณีล้มเหลวทุกรอบด้วย .rejects",

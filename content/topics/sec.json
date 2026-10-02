@@ -47,8 +47,8 @@
     {
       "tier": "should",
       "title": "OAuth 2.0, OIDC และการตรวจ JWT",
-      "body": "OAuth 2.0 ใช้มอบสิทธิ์ให้แอปเรียก API แทนผู้ใช้ผ่าน access token ส่วน OIDC เพิ่มการยืนยันตัวตนด้วย ID token ซึ่งมีไว้ให้ client รู้ว่าใคร login ไม่ใช่ให้ API รับแทน access token แอปใหม่ควรใช้ Authorization Code + PKCE และเลิกใช้ implicit flow ตาม RFC 9700 เมื่อ API รับ JWT ต้องตรวจ signature ด้วย algorithm ที่กำหนดเอง (ไม่เชื่อ alg ใน header และไม่ยอมรับ none) แล้วตรวจ exp, iss และ aud ทุกครั้ง",
-      "code": "const claims = jwt.verify(token, publicKey, {\n  algorithms: ['RS256'],\n  issuer: 'https://auth.example.com',\n  audience: 'orders-api',\n}); // ตรวจ signature และ exp ให้ด้วย ไม่ผ่านจะ throw\n// ห้ามใช้ jwt.decode() เพื่อยืนยันตัวตน เพราะไม่ตรวจ signature"
+      "body": "OAuth 2.0 ใช้มอบสิทธิ์ให้แอปเรียก API แทนผู้ใช้ผ่าน access token ส่วน OIDC เพิ่มการยืนยันตัวตนด้วย ID token ซึ่งมีไว้ให้ client รู้ว่าใคร login ไม่ใช่ให้ API รับแทน access token แอปใหม่ควรใช้ Authorization Code + PKCE และเลิกใช้ implicit flow ตาม RFC 9700 เมื่อ API รับ JWT ต้องตรวจ signature ด้วย algorithm ที่กำหนดเอง (ไม่เชื่อ alg ใน header และไม่ยอมรับ none) แล้วตรวจ exp, iss และ aud ทุกครั้ง และบังคับให้ token ต้องมี exp ด้วย (ไลบรารีบางตัว เช่น jsonwebtoken ข้ามการตรวจวันหมดอายุถ้า token ไม่มี exp)",
+      "code": "const claims = jwt.verify(token, publicKey, {\n  algorithms: ['RS256'],\n  issuer: 'https://auth.example.com',\n  audience: 'orders-api',\n}); // ตรวจ signature, iss, aud และ exp (ถ้ามี) ไม่ผ่านจะ throw\nif (typeof claims.exp !== 'number') throw new Error('missing exp');\n// ห้ามใช้ jwt.decode() เพื่อยืนยันตัวตน เพราะไม่ตรวจ signature"
     },
     {
       "tier": "should",
@@ -83,14 +83,14 @@
       "tier": "must",
       "title": "Session management: regenerate, timeout และ logout",
       "body": "session ID ต้องเดายาก OWASP ระบุว่ามี entropy อย่างน้อย 64 bit และต้องออก ID ใหม่ทุกครั้งที่ระดับสิทธิ์เปลี่ยน โดยเฉพาะหลัง login เพื่อกัน session fixation (ผู้โจมตีกำหนด ID ไว้ก่อนแล้วรอให้เหยื่อ login ด้วย ID นั้น) ควรมีทั้ง idle timeout และ absolute timeout และ logout ต้องทำลาย session ที่ฝั่ง server ด้วย ไม่ใช่แค่ลบ cookie ในเบราว์เซอร์ ส่วนตัว cookie ตั้ง Secure, HttpOnly, SameSite และไม่ส่ง session ID ผ่าน URL เพราะจะไปค้างใน history, log และ Referer",
-      "code": "// หลังตรวจรหัสผ่านผ่าน: ออก session ID ใหม่ก่อนเก็บ userId\nreq.session.regenerate((err) => {\n  if (err) return next(err);\n  req.session.userId = user.id;\n  res.redirect('/');\n});\n\n// logout: ทำลาย session ที่ server แล้วค่อยลบ cookie\nreq.session.destroy(() => {\n  res.clearCookie('connect.sid').redirect('/login');\n});",
+      "code": "// หลังตรวจสอบรหัสผ่านสำเร็จ: ออก session ID ใหม่ก่อนเก็บ userId\nreq.session.regenerate((err) => {\n  if (err) return next(err);\n  req.session.userId = user.id;\n  res.redirect('/');\n});\n\n// logout: ทำลาย session ที่ server แล้วค่อยลบ cookie\nreq.session.destroy(() => {\n  res.clearCookie('connect.sid').redirect('/login');\n});",
       "exam": true,
       "ref": "https://cheatsheetseries.owasp.org/cheatsheets/Session_Management_Cheat_Sheet.html"
     },
     {
       "tier": "must",
       "title": "Cryptography: ใช้ของมาตรฐาน, GCM และ CSPRNG",
-      "body": "อย่าออกแบบ algorithm เอง ให้ใช้ library ที่ผ่านการพิสูจน์แล้ว OWASP แนะนำ AES ที่ key อย่างน้อย 128 bit (ควร 256 bit) ในโหมด authenticated อย่าง GCM ที่ให้ทั้งความลับและการตรวจว่าข้อมูลไม่ถูกแก้ และไม่ควรใช้ ECB (OWASP ระบุว่าไม่ควรใช้นอกกรณีเฉพาะมาก) ค่าที่เกี่ยวกับความปลอดภัย (key, IV, token) ต้องมาจาก CSPRNG ไม่ใช่ Math.random ซึ่งไม่ได้ออกแบบมาให้ปลอดภัยเชิงการเข้ารหัส และควรเก็บ key แยกจากข้อมูลที่เข้ารหัส เช่นใน KMS หรือ secret manager เพื่อให้หลุดทีละที่แล้วยังถอดรหัสไม่ได้",
+      "body": "อย่าออกแบบ algorithm เอง ให้ใช้ library ที่ผ่านการพิสูจน์แล้ว OWASP แนะนำ AES ที่ key อย่างน้อย 128 bit (ควร 256 bit) ในโหมด authenticated อย่าง GCM ที่ให้ทั้งความลับและการตรวจว่าข้อมูลไม่ถูกแก้ และไม่ควรใช้ ECB (OWASP ระบุว่าไม่ควรใช้นอกกรณีเฉพาะมาก) key และ token ต้องมาจาก CSPRNG ไม่ใช่ Math.random ซึ่งไม่ได้ออกแบบมาให้ปลอดภัยเชิงการเข้ารหัส ส่วน IV ของ GCM ต้องไม่ซ้ำภายใต้ key เดิม (สุ่มจาก CSPRNG หรือใช้ตัวนับก็ได้ แต่ซ้ำเมื่อไรความปลอดภัยของ GCM พังทันที) และควรเก็บ key แยกจากข้อมูลที่เข้ารหัส เช่นใน KMS หรือ secret manager เพื่อให้หลุดทีละที่แล้วยังถอดรหัสไม่ได้",
       "code": "import { randomBytes } from 'node:crypto';\n\n// token รีเซ็ตรหัสผ่าน: 32 byte จาก CSPRNG\nconst token = randomBytes(32).toString('hex');\n\n// ห้าม: Math.random().toString(36) ไม่ปลอดภัยสำหรับ token",
       "exam": true,
       "ref": "https://cheatsheetseries.owasp.org/cheatsheets/Cryptographic_Storage_Cheat_Sheet.html"
@@ -139,14 +139,14 @@
     {
       "tier": "advanced",
       "title": "CSP แบบ nonce และ hash แทน unsafe-inline",
-      "body": "MDN ระบุว่าควรหลีกเลี่ยง 'unsafe-inline' เพราะทำให้ CSP เสียประโยชน์ไปมาก inline script เป็นช่องทาง XSS ที่พบบ่อยที่สุด และ event handler อย่าง onerror ก็ถูกบล็อกโดย CSP ปกติ ทางที่ดีกว่าคือ nonce ซึ่ง server สุ่มค่าใหม่ในทุก response แล้วใส่ทั้งใน header และ attribute nonce ของ <script> (ค่าต้องเดาไม่ได้และห้ามใช้ซ้ำ) หรือใช้ hash กับสคริปต์ที่เป็น static ถ้าสคริปต์ที่มี nonce หรือ hash ต้องโหลดสคริปต์อื่นต่อ ใช้ 'strict-dynamic' ส่งต่อความเชื่อใจได้ แต่จะอ่อนลงถ้าสคริปต์นั้นสร้าง <script> จากข้อมูลที่ XSS แทรกได้ ก่อนบังคับใช้จริงให้ทดสอบด้วย Content-Security-Policy-Report-Only ก่อน",
+      "body": "MDN ระบุว่าควรหลีกเลี่ยง 'unsafe-inline' เพราะทำให้ CSP เสียประโยชน์ไปมาก inline script เป็นหนึ่งในช่องทาง XSS ที่พบบ่อย และ event handler อย่าง onerror ก็ถูกบล็อกโดย CSP ปกติ ทางที่ดีกว่าคือ nonce ซึ่ง server สุ่มค่าใหม่ในทุก response แล้วใส่ทั้งใน header และ attribute nonce ของ <script> (ค่าต้องเดาไม่ได้และห้ามใช้ซ้ำ) หรือใช้ hash กับสคริปต์ที่เป็น static ถ้าสคริปต์ที่มี nonce หรือ hash ต้องโหลดสคริปต์อื่นต่อ ใช้ 'strict-dynamic' ส่งต่อความเชื่อใจได้ แต่จะอ่อนลงถ้าสคริปต์นั้นสร้าง <script> จากข้อมูลที่ XSS แทรกได้ ก่อนบังคับใช้จริงให้ทดสอบด้วย Content-Security-Policy-Report-Only ก่อน",
       "code": "const nonce = crypto.randomUUID(); // ใหม่ทุก response\nres.setHeader('Content-Security-Policy', `script-src 'nonce-${nonce}'`);\nres.send(`<script nonce=\"${nonce}\" src=\"/main.js\"></script>`);",
       "ref": "https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/CSP"
     },
     {
       "tier": "advanced",
       "title": "Insecure deserialization และ integrity (A08)",
-      "body": "A08:2025 Software or Data Integrity Failures คือระบบเชื่อโค้ดหรือข้อมูลโดยไม่ตรวจความถูกต้อง เช่นพึ่ง library จาก CDN หรือ repository ที่ไม่น่าเชื่อถือ, CI/CD และ auto-update ที่ไม่ตรวจ integrity หรือ deserialize ข้อมูลที่ client เห็นและแก้ได้ OWASP แนะนำให้ตรวจด้วย digital signature หรือกลไกคล้ายกัน และไม่รับ serialized data ที่ไม่ได้เซ็นจาก client ที่ไม่น่าเชื่อถือโดยไม่ตรวจ integrity ส่วนรายละเอียดจากเอกสารอื่น: Python docs ระบุว่า pickle ไม่ปลอดภัยเพราะข้อมูลที่ถูกสร้างมาอย่างประสงค์ร้ายรันโค้ดได้ตอน unpickle แนะนำให้เซ็นด้วย hmac และว่ารูปแบบอย่าง json อาจเหมาะกว่ากับข้อมูลที่ไม่น่าเชื่อถือ (ยังต้อง validate ค่าหลัง parse) และ MDN อธิบาย Subresource Integrity: ใส่ attribute integrity (และ crossorigin สำหรับไฟล์ข้าม origin) ใน <script src=\"https://cdn.example.com/lib.min.js\" integrity=\"sha384-...\" crossorigin=\"anonymous\"> แล้วเบราว์เซอร์จะปฏิเสธไฟล์ที่ hash ไม่ตรง",
+      "body": "A08:2025 Software or Data Integrity Failures คือระบบเชื่อโค้ดหรือข้อมูลโดยไม่ตรวจความถูกต้อง เช่นพึ่ง library จาก CDN หรือ repository ที่ไม่น่าเชื่อถือ, CI/CD และ auto-update ที่ไม่ตรวจ integrity หรือ deserialize ข้อมูลที่ client เห็นและแก้ได้ OWASP แนะนำให้ตรวจด้วย digital signature หรือกลไกคล้ายกัน และไม่รับ serialized data ที่ไม่ได้เซ็นจาก client ที่ไม่น่าเชื่อถือโดยไม่ตรวจ integrity ส่วนรายละเอียดจากเอกสารอื่น: Python docs ระบุว่า pickle ไม่ปลอดภัยเพราะข้อมูลที่ถูกสร้างมาอย่างประสงค์ร้ายรันโค้ดได้ตอน unpickle แนะนำให้เซ็นด้วย hmac และว่ารูปแบบอย่าง json อาจเหมาะกว่ากับข้อมูลที่ไม่น่าเชื่อถือ (ยังต้อง validate ค่าหลัง parse) และ MDN อธิบาย Subresource Integrity: ใส่ attribute integrity (และ crossorigin สำหรับไฟล์ข้าม origin) ใน <script src=\"https://cdn.example.com/lib.min.js\" integrity=\"sha384-...\" crossorigin=\"anonymous\"> แล้วเบราว์เซอร์จะปฏิเสธไฟล์ที่ hash ไม่ตรง (ไฟล์ข้าม origin ต้องมี crossorigin และ CDN ต้องส่ง Access-Control-Allow-Origin ที่อนุญาตด้วย ไม่เช่นนั้นไฟล์ถูกบล็อกแม้ hash ถูกต้อง)",
       "code": "import base64, hmac, hashlib, json, pickle\n\n# เสี่ยง: pickle รันโค้ดได้ตอนโหลด ห้ามใช้กับข้อมูลที่ client แก้ได้\nprefs = pickle.loads(base64.b64decode(cookie))\n\n# ปลอดภัยกว่า: ตรวจ signature (hmac) ก่อน แล้วค่อย parse เป็น JSON และ validate\nraw, _, sig = cookie.rpartition('.')\nexpected = hmac.new(SECRET_KEY, raw.encode(), hashlib.sha256).hexdigest()\nif not hmac.compare_digest(sig, expected):\n    raise ValueError('tampered')\nprefs = json.loads(base64.b64decode(raw))",
       "ref": "https://top10.owasp.org/2025/A08_2025-Software_or_Data_Integrity_Failures/"
     },
@@ -338,7 +338,7 @@
         "ควรแปลง token เป็น Base64 ก่อนส่งทางอีเมลเพื่อให้เดายากขึ้นอีกชั้นหนึ่งจากเดิมที่เป็นอยู่"
       ],
       "answer": 1,
-      "explain": "ค่าจาก Math.random ไม่ได้ออกแบบมาให้เดาไม่ได้ในเชิงการเข้ารหัส ต่อกันหรือผสมเวลาก็ไม่ทำให้ดีขึ้น Base64 เป็นแค่การเข้ารหัสรูปแบบ ไม่เพิ่ม entropy ให้ token ต้องสร้างด้วย CSPRNG เช่น crypto.randomBytes"
+      "explain": "ค่าจาก Math.random ไม่ได้ออกแบบมาให้เดาไม่ได้ในเชิงการเข้ารหัส ต่อกันหรือผสมเวลาก็ไม่ทำให้ดีขึ้น Base64 เป็นเพียงการแปลงรูปแบบข้อมูล ไม่เพิ่ม entropy ให้ token ต้องสร้างด้วย CSPRNG เช่น crypto.randomBytes"
     },
     {
       "prompt": "ระบบเข้ารหัสเลขบัตรด้วย AES-256-GCM แล้วเก็บ ciphertext ไว้ในตาราง customers โดยเก็บ key ไว้ในคอลัมน์ encryption_key ของตารางเดียวกัน ถ้าฐานข้อมูลถูก dump ไป ข้อใดถูกต้อง?",
@@ -501,7 +501,7 @@
         "hash ไม่ตรง เบราว์เซอร์ปฏิเสธไฟล์ สคริปต์ไม่ถูกรัน แม้ฟีเจอร์ที่พึ่งพาสคริปต์นั้นจะพัง"
       ],
       "answer": 3,
-      "explain": "SRI ให้เบราว์เซอร์เทียบ hash กับ attribute integrity ถ้าไม่ตรงจะปฏิเสธไฟล์ ไม่ใช่แค่เตือน (cross-origin ต้องมี crossorigin ซึ่งโค้ดนี้มีอยู่แล้ว) และไม่มีการถอยไปใช้ไฟล์เก่าให้ ฟีเจอร์อาจพัง แต่ดีกว่ารันโค้ดที่ถูกแก้"
+      "explain": "SRI ให้เบราว์เซอร์เทียบ hash กับ attribute integrity ถ้าไม่ตรงจะปฏิเสธไฟล์ ไม่ใช่แค่เตือน (ไฟล์ข้าม origin ต้องมี crossorigin ซึ่งโค้ดนี้มีอยู่แล้ว และ CDN ต้องส่ง Access-Control-Allow-Origin ด้วย) และไม่มีการถอยไปใช้ไฟล์เก่าให้ ฟีเจอร์อาจพัง แต่ดีกว่ารันโค้ดที่ถูกแก้"
     }
   ],
   "exercises": [
@@ -521,12 +521,12 @@
       ],
       "checks": [
         {
-          "label": "อ่านรหัสผ่านจาก process.env",
-          "pattern": "process\\.env"
+          "label": "อ่านรหัสผ่านจาก process.env.DB_PASSWORD",
+          "pattern": "process\\.env(?:\\.|\\[\\s*[\"'`])db_password|\\{[^}]*\\bdb_password\\b[^}]*\\}\\s*=\\s*process\\.env"
         },
         {
-          "label": "ไม่มีรหัสผ่าน hard-code",
-          "pattern": "sup3rs3cret",
+          "label": "ไม่มีรหัสผ่านเป็น string literal ในโค้ด",
+          "pattern": "sup3rs3cret|password[\"']?\\s*[:=]\\s*[\"'`]",
           "negate": true
         },
         {
@@ -534,8 +534,8 @@
           "pattern": "\\$1\\b"
         },
         {
-          "label": "ส่งค่า email เป็น array parameter",
-          "pattern": "\\[[^\\]]*email[^\\]]*\\]"
+          "label": "ส่งค่าจากผู้ใช้เป็น array parameter",
+          "pattern": "\\$1[\\s\\S]*?(?:,|values\\s*:)\\s*\\[\\s*[^\\]\\s]|(?:const|let|var)\\s+(\\w+)\\s*=\\s*\\[\\s*[^\\]\\s][\\s\\S]*?\\$1[\\s\\S]*?(?:,\\s*\\1\\s*\\)|values\\s*:\\s*\\1\\b)|(?:const|let|var)\\s+values\\s*=\\s*\\[\\s*[^\\]\\s][\\s\\S]*?\\$1[\\s\\S]*?\\{[^}]*\\bvalues\\s*[,}]"
         },
         {
           "label": "ไม่ต่อ string หรือ template ด้วยค่าจากผู้ใช้",
@@ -543,8 +543,8 @@
           "negate": true
         },
         {
-          "label": "ไม่ใช้ SELECT * (ไม่ส่ง password_hash กลับ)",
-          "pattern": "select\\s+\\*",
+          "label": "ไม่ใช้ SELECT * และไม่เลือก password_hash",
+          "pattern": "select\\s+(?:distinct\\s+)?(?:\\w+\\.)?\\*|password_hash",
           "negate": true
         }
       ]
@@ -574,16 +574,16 @@
         },
         {
           "label": "ตอบสถานะ 500",
-          "pattern": "status\\(\\s*500\\s*\\)|statuscode\\s*=\\s*500|sendstatus\\(\\s*500\\s*\\)"
+          "pattern": "status\\s*\\(\\s*500\\s*\\)|statuscode\\s*=\\s*500|sendstatus\\s*\\(\\s*500\\s*\\)"
         },
         {
           "label": "ไม่ส่ง err.message หรือ err.stack ใน response",
-          "pattern": "\\.(json|send|end)\\((?:[^;\\n]*(?:\\.(?:stack|message)\\b|\\(\\s*err(?:or)?\\s*\\))|\\s*(?=\\{)[^}]*(?:\\.(?:stack|message)\\b|:\\s*err(?:or)?\\s*[,}]|[{,]\\s*err(?:or)?\\s*[,}]))",
+          "pattern": "\\(\\s*(\\w+)\\s*,\\s*\\w+\\s*,\\s*\\w+\\s*,\\s*\\w+\\s*\\)[\\s\\S]*?\\.(?:json|send|end)\\s*\\((?:'[^'\\n]*'|\"[^\"\\n]*\"|`(?:[^`$]|\\$(?!\\{))*`|`(?=[^`]*\\$\\{)|(?!\\)\\s*;|\\)\\s*\\n)[^'\"`])*?\\b\\1\\b(?!\\s*:)",
           "negate": true
         },
         {
           "label": "จัดการกรณี res.headersSent ด้วย next(err)",
-          "pattern": "headerssent[\\s\\S]{0,40}next\\(\\s*\\w+\\s*\\)"
+          "pattern": "headerssent[^}]*?\\bnext\\s*\\(\\s*\\w+\\s*\\)"
         }
       ]
     },
@@ -592,13 +592,13 @@
       "level": "ยาก",
       "tags": "CI/CD security · least privilege · script injection · supply chain",
       "lang": "yaml",
-      "prompt": "repo สาธารณะนี้ใช้ workflow ตรวจ pull request ที่รับ PR จาก fork ได้ แก้ให้ปลอดภัยโดยเปลี่ยน trigger ไม่ให้เป็น pull_request_target (trigger นี้รันด้วยสิทธิ์ของ repo หลัก และ workflow นี้ยัง checkout โค้ดจาก PR มารันด้วย ซึ่ง GitHub ระบุว่าอันตราย), จำกัด GITHUB_TOKEN ให้อ่าน contents อย่างเดียว, ปักทุก action ด้วย commit SHA 40 ตัวแทน tag, ส่ง title ของ PR ให้ shell ผ่าน environment variable แทนการแทรก ${{ }} ลงใน script และติดตั้ง dependency ด้วย npm ci ที่ตามเฉพาะ lockfile",
+      "prompt": "repo สาธารณะนี้ใช้ workflow ตรวจ pull request ที่รับ PR จาก fork ได้ แก้ให้ปลอดภัยโดยเปลี่ยน trigger ไม่ให้เป็น pull_request_target (trigger นี้รันด้วยสิทธิ์ของ repo หลัก และ workflow นี้ checkout โค้ดจาก PR มารันด้วย ซึ่ง GitHub ระบุว่าอันตราย actions/checkout รุ่นใหม่บล็อกกรณีนี้เป็นค่าเริ่มต้น workflow เดิมจึงเปิด allow-unsafe-pr-checkout เพื่อข้ามการป้องกัน), จำกัด GITHUB_TOKEN ให้อ่าน contents อย่างเดียว, ปักทุก action ด้วย commit SHA 40 ตัวแทน tag, ส่ง title ของ PR ให้ shell ผ่าน environment variable แทนการแทรก ${{ }} ลงใน script และติดตั้ง dependency ด้วย npm ci ที่ตามเฉพาะ lockfile โดยยังต้องตรวจ title ใหม่เมื่อผู้ใช้แก้ชื่อ PR (event edited)",
       "context": "GitHub Actions บน repo สาธารณะ\nไม่ต้องใช้ secret ใด ๆ ในงานนี้\nactions/checkout v7.0.1 = 3d3c42e5aac5ba805825da76410c181273ba90b1\nactions/setup-node v7.0.0 = 820762786026740c76f36085b0efc47a31fe5020\nPR title ต้องขึ้นต้นด้วย feat หรือ fix",
-      "starter": "name: pr-check\non:\n  pull_request_target:\n    types: [opened, synchronize]\n\njobs:\n  check:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v7\n        with:\n          ref: ${{ github.event.pull_request.head.sha }}\n      - uses: actions/setup-node@v7\n        with:\n          node-version: 24\n      - name: Check PR title\n        run: |\n          case \"${{ github.event.pull_request.title }}\" in\n            feat*|fix*) ;;\n            *) echo \"PR title must start with feat or fix\"; exit 1 ;;\n          esac\n      - run: npm install\n      - run: npm test\n",
-      "solution": "name: pr-check\non:\n  pull_request:\n    types: [opened, synchronize]\n\npermissions:\n  contents: read\n\njobs:\n  check:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1\n      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0\n        with:\n          node-version: 24\n      - name: Check PR title\n        env:\n          TITLE: ${{ github.event.pull_request.title }}\n        run: |\n          case \"$TITLE\" in\n            feat*|fix*) ;;\n            *) echo \"PR title must start with feat or fix\"; exit 1 ;;\n          esac\n      - run: npm ci\n      - run: npm test",
+      "starter": "name: pr-check\non:\n  pull_request_target:\n    types: [opened, synchronize, edited]\n\njobs:\n  check:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v7\n        with:\n          ref: ${{ github.event.pull_request.head.sha }}\n          allow-unsafe-pr-checkout: true\n      - uses: actions/setup-node@v7\n        with:\n          node-version: 24\n      - name: Check PR title\n        run: |\n          case \"${{ github.event.pull_request.title }}\" in\n            feat*|fix*) ;;\n            *) echo \"PR title must start with feat or fix\"; exit 1 ;;\n          esac\n      - run: npm install\n      - run: npm test\n",
+      "solution": "name: pr-check\non:\n  pull_request:\n    types: [opened, synchronize, edited]\n\npermissions:\n  contents: read\n\njobs:\n  check:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1\n      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0\n        with:\n          node-version: 24\n      - name: Check PR title\n        env:\n          TITLE: ${{ github.event.pull_request.title }}\n        run: |\n          case \"$TITLE\" in\n            feat*|fix*) ;;\n            *) echo \"PR title must start with feat or fix\"; exit 1 ;;\n          esac\n      - run: npm ci\n      - run: npm test",
       "hints": [
         "มีปัญหา 5 เรื่อง: trigger ที่มีสิทธิ์สูงเกินไป, token สิทธิ์กว้าง, action ที่อิง tag ซึ่งย้ายได้, การแทรกค่าที่ผู้ใช้ควบคุมลงใน script และ npm install",
-        "เปลี่ยน on: เป็น pull_request เพิ่ม permissions: contents: read ที่ระดับ workflow และเปลี่ยน npm install เป็น npm ci",
+        "เปลี่ยน on: เป็น pull_request (คง types ที่มี edited ไว้เพื่อตรวจ title ที่ถูกแก้) เพิ่ม permissions: contents: read ที่ระดับ workflow และเปลี่ยน npm install เป็น npm ci",
         "เขียน uses: owner/action@<sha 40 ตัว> และย้าย ${{ github.event.pull_request.title }} ไปไว้ใน env: ของ step (เช่น TITLE) แล้วอ้างใน script เป็น \"$TITLE\""
       ],
       "checks": [
@@ -609,7 +609,7 @@
         },
         {
           "label": "จำกัด permissions ให้อ่าน contents อย่างเดียว",
-          "pattern": "permissions\\s*:\\s*(read-all|[\\s\\S]*?contents\\s*:\\s*read\\b)"
+          "pattern": "permissions\\s*:\\s*(?:\\{\\s*(?:[\\w-]+\\s*:\\s*none\\s*,\\s*)*contents\\s*:\\s*read\\s*(?:,\\s*[\\w-]+\\s*:\\s*none\\s*)*,?\\s*\\}|\\n([ \\t]+)(?:[\\w-]+[ \\t]*:[ \\t]*none[ \\t]*\\n\\1)*contents[ \\t]*:[ \\t]*read[ \\t]*(?:\\n\\1[\\w-]+[ \\t]*:[ \\t]*none[ \\t]*)*(?!\\n(?:[ \\t]*\\n)*\\1[ \\t]*\\w))"
         },
         {
           "label": "ปัก actions/checkout ด้วย commit SHA 40 ตัว",
@@ -622,12 +622,16 @@
         },
         {
           "label": "ส่ง title ผ่าน env ของ step",
-          "pattern": "env:\\s*\\n(?:\\s*[\\w-]+:[^\\n]*\\n)*?\\s*[\\w-]+:\\s*[\"\\x27]?\\$\\{\\{\\s*github\\.event\\.pull_request\\.title\\s*\\}\\}"
+          "pattern": "env:\\s*\\n(?:\\s*[\\w-]+:[^\\n]*\\n)*?\\s*[\\w-]+:\\s*[\"\\x27]?\\$\\{\\{\\s*github\\.event\\.pull_request\\.title\\s*\\}\\}|env:\\s*\\{[^}\\n]*?[\\w-]+:\\s*[\"\\x27]?\\$\\{\\{\\s*github\\.event\\.pull_request\\.title\\s*\\}\\}"
         },
         {
           "label": "ไม่แทรก github.event ลงใน script โดยตรง",
-          "pattern": "^\\s+(?!\\s*[\\w-]+:\\s*[\"\\x27]?\\$\\{\\{)[^\\n]*\\$\\{\\{\\s*github\\.(event\\.|head_ref)",
+          "pattern": "^\\s+(?!\\s*(?!run:)[\\w-]+:\\s*[\"\\x27]?\\$\\{\\{|\\s*env:\\s*\\{[^}\\n]*?[\\w-]+:\\s*[\"\\x27]?\\$\\{\\{)[^\\n]*\\$\\{\\{\\s*github\\.(event\\.|head_ref)",
           "negate": true
+        },
+        {
+          "label": "ตรวจ title ใหม่เมื่อแก้ชื่อ PR (types มี edited)",
+          "pattern": "types\\s*:\\s*(?:\\[[^\\]]*\\bedited\\b|(?:\\n\\s*-\\s*[\\w]+[ \\t]*)*?\\n\\s*-\\s*edited\\b)"
         },
         {
           "label": "ติดตั้งด้วย npm ci",

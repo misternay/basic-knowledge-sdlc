@@ -14,7 +14,7 @@
     {
       "tier": "must",
       "title": "Container ไม่ใช่ VM",
-      "body": "VM จำลองฮาร์ดแวร์และมี kernel ของตัวเอง ส่วน container คือ process ธรรมดาบน host ที่ถูกแยกมุมมองด้วย namespaces (process, network, filesystem) และจำกัดทรัพยากรด้วย cgroups โดยใช้ kernel ของ host ร่วมกัน จึงเริ่มได้ในเสี้ยววินาทีแต่แยกตัวได้อ่อนกว่า VM ช่องโหว่ใน kernel หรือการให้สิทธิ์ root เกินจำเป็นจึงกระทบ host ได้ ผลอีกข้อคือ binary ใน image ต้องตรงกับ CPU architecture ของเครื่องที่รัน (amd64 กับ arm64) และบน macOS/Windows นั้น Docker Desktop รัน Linux VM ไว้เบื้องหลังเพื่อให้รัน Linux container ได้"
+      "body": "VM จำลองฮาร์ดแวร์และมี kernel ของตัวเอง ส่วน container คือ process ธรรมดาบน host ที่ถูกแยกมุมมองด้วย namespaces (process, network, filesystem) และจำกัดทรัพยากรด้วย cgroups โดยใช้ kernel ของ host ร่วมกัน จึงเริ่มได้ในเสี้ยววินาทีแต่แยกตัวได้อ่อนกว่า VM ช่องโหว่ใน kernel หรือการให้สิทธิ์ root เกินจำเป็นจึงกระทบ host ได้ ผลอีกข้อคือ binary ใน image ต้องตรงกับ CPU architecture ของเครื่องที่รัน (amd64 กับ arm64 ข้ามได้ด้วย emulation เช่น QEMU แต่ช้ากว่า) และบน macOS/Windows นั้น Docker Desktop รัน Linux VM ไว้เบื้องหลังเพื่อให้รัน Linux container ได้"
     },
     {
       "tier": "must",
@@ -31,7 +31,7 @@
     {
       "tier": "must",
       "title": "Non-root USER และ .dockerignore",
-      "body": "ถ้าไม่ระบุ USER process ใน container จะรันเป็น root (UID 0) เมื่อแอปถูกเจาะหรือมีช่องโหว่ให้หลุดออกจาก container ผู้โจมตีจะเริ่มจากสิทธิ์สูงสุด จึงควรใช้ user ที่ไม่ใช่ root (image node มี user ชื่อ node ให้แล้ว) และตั้ง USER ก่อน CMD ส่วน .dockerignore ใช้กันไฟล์ไม่ให้ถูกส่งเข้า build context เลย ทำให้ build เร็วขึ้น cache ไม่หลุดเพราะไฟล์ที่ไม่เกี่ยวข้อง และ COPY . . ไม่เผลอพา .env หรือ .git เข้าไปใน image (Docker ไม่อ่าน .gitignore)",
+      "body": "ถ้า image ไม่ได้กำหนด USER ไว้ (base image ส่วนใหญ่ไม่กำหนด) process ใน container จะรันเป็น root (UID 0) เมื่อแอปถูกเจาะหรือมีช่องโหว่ให้หลุดออกจาก container ผู้โจมตีจะเริ่มจากสิทธิ์สูงสุด จึงควรใช้ user ที่ไม่ใช่ root (image node มี user ชื่อ node ให้แล้ว) และตั้ง USER ก่อน CMD ส่วน .dockerignore ใช้กันไฟล์ไม่ให้ถูกส่งเข้า build context เลย ทำให้ build เร็วขึ้น cache ไม่หลุดเพราะไฟล์ที่ไม่เกี่ยวข้อง และ COPY . . ไม่เผลอพา .env หรือ .git เข้าไปใน image (Docker ไม่อ่าน .gitignore)",
       "code": "# .dockerignore\n.git\nnode_modules\ndist\n.env\n*.log"
     },
     {
@@ -61,7 +61,7 @@
     {
       "tier": "should",
       "title": "SIGTERM และ graceful shutdown",
-      "body": "docker stop ส่ง SIGTERM ให้ process หลัก (PID 1) แล้วรอ 10 วินาทีตามค่า default ก่อนส่ง SIGKILL ส่วน Kubernetes รอตาม terminationGracePeriodSeconds ซึ่ง default 30 วินาที แอปที่ดีต้องรับ SIGTERM แล้วหยุดรับ request ใหม่ ทำงานที่ค้างให้เสร็จ ปิด connection แล้วค่อย exit กับดักคือ process ที่เป็น PID 1 ไม่ได้ default handler ของสัญญาณ (Node.js จึงไม่ปิดเองถ้าไม่เขียน handler) และ CMD แบบ shell form รันผ่าน /bin/sh -c ทำให้สัญญาณอาจไปไม่ถึงแอป ให้ใช้ exec form (JSON array) หรือ docker run --init",
+      "body": "docker stop ส่ง SIGTERM ให้ process หลัก (PID 1) แล้วรอ 10 วินาทีตามค่า default ก่อนส่ง SIGKILL ส่วน Kubernetes รอตาม terminationGracePeriodSeconds ซึ่ง default 30 วินาที แอปที่ดีต้องรับ SIGTERM แล้วหยุดรับ request ใหม่ ทำงานที่ค้างให้เสร็จ ปิด connection แล้วค่อย exit กับดักคือ process ที่เป็น PID 1 ไม่ได้รับ default action ของสัญญาณจาก kernel (Node.js ที่เป็น PID 1 จึงไม่ปิดเองถ้าไม่เขียน handler) และ CMD แบบ shell form รันผ่าน /bin/sh -c ทำให้สัญญาณอาจไปไม่ถึงแอป ให้ใช้ exec form (JSON array) หรือ docker run --init",
       "code": "# Dockerfile: exec form ให้ node เป็น PID 1 และได้รับสัญญาณโดยตรง\nCMD [\"node\", \"dist/server.js\"]\n\n// server.js\nprocess.on('SIGTERM', () => {\n  server.close(() => process.exit(0)); // รอ request ที่ค้างจบก่อน\n});"
     },
     {
@@ -88,14 +88,14 @@
       "tier": "must",
       "title": "ARG กับ ENV: ตัวแปรตอน build และตอนรัน",
       "body": "ARG คือตัวแปรช่วง build ที่ส่งด้วย --build-arg ใช้ได้ตั้งแต่บรรทัดที่ประกาศ และไม่เป็นตัวแปรใน container ตอนรัน ส่วน ENV ถูกเก็บใน image และมีอยู่ใน container ตอนรัน (แก้ทับได้ด้วย docker run -e) ถ้า ARG กับ ENV ชื่อเดียวกัน ENV จะชนะเสมอ จึงใช้ ENV X=${X} เมื่ออยากส่งค่าตอน build ต่อไปถึงตอนรัน กับดักคือ ARG ที่ประกาศก่อน FROM อยู่นอก build stage ต้องประกาศ ARG ซ้ำ (ไม่ต้องใส่ค่า) ใน stage ก่อนใช้ และห้ามส่ง secret ผ่าน ARG เพราะเห็นได้จาก docker history",
-      "code": "ARG NODE_VERSION=24\nFROM node:${NODE_VERSION}-slim\n# ประกาศซ้ำใน stage จึงจะใช้ต่อได้\nARG APP_ENV=production\n# ENV ทำให้ค่านี้อยู่ใน container ตอนรัน\nENV APP_ENV=${APP_ENV}",
+      "code": "ARG NODE_VERSION=24\nFROM node:${NODE_VERSION}-slim\n# ARG ก่อน FROM อยู่นอก stage: ประกาศซ้ำ (ไม่ต้องใส่ค่า) จึงจะใช้ใน stage นี้ได้\nARG NODE_VERSION\n# ARG ที่ประกาศใน stage ใช้ได้ทันที ส่วน ENV ทำให้ค่าอยู่ใน container ตอนรัน\nARG APP_ENV=production\nENV APP_ENV=${APP_ENV}",
       "exam": true,
       "ref": "https://docs.docker.com/reference/dockerfile/#arg"
     },
     {
       "tier": "must",
       "title": "RUN apt-get: update กับ install ต้องอยู่ใน RUN เดียว",
-      "body": "ถ้าเขียน RUN apt-get update แยกบรรทัด Docker จะ cache บรรทัดนั้นไว้ แล้วตอนเพิ่มแพ็กเกจในบรรทัด install ภายหลังมันยังใช้ผลของ update เก่าจาก cache จึงติดตั้งไม่ได้หรือได้แพ็กเกจเวอร์ชันล้าสมัย วิธีที่ถูกคือรวม update กับ install ไว้ใน RUN เดียวกัน และลบ /var/lib/apt/lists ใน RUN เดียวกันนั้นด้วย เพื่อไม่ให้ cache ของ apt ถูกเก็บอยู่ใน layer ถ้า RUN มี pipe ให้ขึ้นต้นด้วย set -o pipefail เพื่อไม่ให้ความผิดพลาดกลางทางถูกกลืน",
+      "body": "ถ้าเขียน RUN apt-get update แยกบรรทัด Docker จะ cache บรรทัดนั้นไว้ แล้วตอนเพิ่มแพ็กเกจในบรรทัด install ภายหลังมันยังใช้ผลของ update เก่าจาก cache จึงติดตั้งไม่ได้หรือได้แพ็กเกจเวอร์ชันล้าสมัย วิธีที่ถูกคือรวม update กับ install ไว้ใน RUN เดียวกัน และลบ /var/lib/apt/lists ใน RUN เดียวกันนั้นด้วย เพื่อไม่ให้ cache ของ apt ถูกเก็บอยู่ใน layer ถ้า RUN มี pipe ให้ขึ้นต้นด้วย set -o pipefail && เพื่อไม่ให้ความผิดพลาดกลางทางถูกกลืน แต่ shell บางตัว (เช่น dash บน image ฐาน Debian) ไม่รองรับ จึงควรใช้ RUN แบบ exec form เพื่อเลือก shell ที่รองรับ เช่น /bin/bash",
       "code": "RUN apt-get update && apt-get install -y --no-install-recommends \\\n      curl ca-certificates \\\n && rm -rf /var/lib/apt/lists/*",
       "ref": "https://docs.docker.com/build/building/best-practices/#apt-get"
     },
@@ -110,7 +110,7 @@
     {
       "tier": "must",
       "title": "Bind mount กับ volume: -v, --mount และของที่ถูกบัง",
-      "body": "bind mount ผูกโฟลเดอร์ของ host เข้า container ส่วน named volume ให้ Docker จัดการที่เก็บเอง ถ้า mount ทับ path ที่ใน image มีไฟล์อยู่แล้ว ไฟล์เดิมใน image จะถูกบัง เช่น bind ทั้งโปรเจกต์ไปที่ /app จะทำให้ node_modules ที่ติดตั้งไว้ใน image หายไป (ส่วน volume ว่างจะได้สำเนาเนื้อหาจาก image ครั้งแรกเท่านั้น) syntax ก็ต่างกัน -v จะสร้างโฟลเดอร์ฝั่ง host ที่ยังไม่มีให้เงียบ ๆ ทำให้พิมพ์ path ผิดแล้วได้ที่ว่างโดยไม่ error แต่ --mount type=bind จะ error ทันที และควรใส่ readonly กับ bind mount ที่ container ไม่ต้องเขียน",
+      "body": "bind mount ผูกโฟลเดอร์ของ host เข้า container ส่วน named volume ให้ Docker จัดการที่เก็บเอง ถ้า mount ทับ path ที่ใน image มีไฟล์อยู่แล้ว ไฟล์เดิมใน image จะถูกบัง เช่น bind ทั้งโปรเจกต์ไปที่ /app จะทำให้ node_modules ที่ติดตั้งไว้ใน image หายไป (ส่วน volume ว่างจะได้สำเนาเนื้อหาจาก image ครั้งแรกเท่านั้น) syntax ก็ต่างกัน -v จะสร้างโฟลเดอร์ฝั่ง host ที่ยังไม่มีให้เงียบ ๆ ทำให้เมื่อพิมพ์ path ผิด กลับได้โฟลเดอร์ว่างโดยไม่มี error แต่ --mount type=bind จะ error ทันที และควรใส่ readonly กับ bind mount ที่ container ไม่ต้องเขียน",
       "code": "# error ถ้า ./config ไม่มีอยู่ และ container อ่านได้อย่างเดียว\ndocker run -d \\\n  --mount type=bind,source=\"$(pwd)\"/config,target=/app/config,readonly \\\n  myapp",
       "exam": true,
       "ref": "https://docs.docker.com/engine/storage/bind-mounts/"
@@ -134,20 +134,20 @@
       "tier": "should",
       "title": "Publish port อย่างปลอดภัย: ระบุ 127.0.0.1",
       "body": "port ของ container บน bridge network เข้าถึงได้จาก host และ container ใน network เดียวกันอยู่แล้วโดยไม่ต้อง publish ส่วน -p เป็นสิ่งที่เปิดให้เข้าถึงจากภายนอก host ซึ่งเอกสารระบุว่าไม่ปลอดภัยโดย default เพราะเปิดให้โลกภายนอกเข้าถึงด้วย ถ้าใส่ 127.0.0.1 นำหน้า จะเข้าได้เฉพาะจากเครื่อง host เช่น database ที่มีแค่แอปบนเครื่องเดียวกันเรียก (หรือถ้ามีแต่ container อื่นเรียกก็ไม่ต้อง publish เลย) และใน Docker ก่อน 28.0.0 เครื่องใน L2 segment เดียวกันยังเข้าถึง port ที่ผูกกับ localhost ได้",
-      "code": "# เข้าถึงได้จากภายนอก host ด้วย (ทุก interface)\ndocker run -p 5432:5432 postgres:18\n# เข้าถึงได้จากเครื่อง host เท่านั้น\ndocker run -p 127.0.0.1:5432:5432 postgres:18",
+      "code": "# เข้าถึงได้จากภายนอก host ด้วย (ทุก interface)\ndocker run -p 5432:5432 -e POSTGRES_PASSWORD=dev postgres:18\n# เข้าถึงได้จากเครื่อง host เท่านั้น\ndocker run -p 127.0.0.1:5432:5432 -e POSTGRES_PASSWORD=dev postgres:18",
       "ref": "https://docs.docker.com/engine/network/port-publishing/"
     },
     {
       "tier": "should",
       "title": "Compose: ลำดับความสำคัญของ environment variable",
-      "body": "ตัวแปรเดียวกันตั้งได้หลายที่ Compose จึงมีลำดับตัดสิน (สูงไปต่ำ) คือ docker compose run -e, ค่าที่ environment หรือ env_file อ้างและแทนจาก shell หรือไฟล์ .env, environment ในไฟล์ Compose, env_file, แล้วจึง ENV ใน image ค่า ARG/ENV ใน Dockerfile จะถูกใช้ก็ต่อเมื่อไม่มีค่าจาก Compose เลย ค่าในไฟล์ .env ใช้แทนที่ ${VAR} ในไฟล์ Compose และจะเข้า container ก็ต่อเมื่อถูกอ้างผ่าน environment หรือ env_file",
+      "body": "ตัวแปรเดียวกันตั้งได้หลายที่ Compose จึงมีลำดับตัดสิน (สูงไปต่ำ) คือ docker compose run -e, ค่าที่ environment หรือ env_file อ้างและแทนจาก shell หรือไฟล์ .env, environment ในไฟล์ Compose, env_file, แล้วจึง ENV ใน image ค่า ENV ใน Dockerfile จะถูกใช้ก็ต่อเมื่อไม่มีค่าจาก Compose เลย (ส่วน ARG ใช้ตอน build เท่านั้น ไม่เข้า container เว้นแต่ส่งต่อด้วย ENV) ค่าในไฟล์ .env ใช้แทนที่ ${VAR} ในไฟล์ Compose และจะเข้า container ก็ต่อเมื่อถูกอ้างผ่าน environment หรือ env_file",
       "code": "services:\n  api:\n    image: myapi\n    env_file: [app.env]   # LOG_LEVEL=info\n    environment:\n      LOG_LEVEL: debug    # ชนะ env_file และ ENV ใน image\n# docker compose run -e LOG_LEVEL=trace api   -> ชนะทุกที่",
       "ref": "https://docs.docker.com/compose/how-tos/environment-variables/envvars-precedence/"
     },
     {
       "tier": "advanced",
       "title": "BuildKit cache mount: RUN --mount=type=cache",
-      "body": "cache mount ให้ builder เก็บโฟลเดอร์อย่าง cache ของ compiler หรือ package manager ไว้ข้ามการ build โดยไม่ถูกเขียนเข้า layer และไม่ทำให้ cache ของ instruction เสีย จึงเมื่อ layer ต้อง build ใหม่ (เช่นแก้โค้ด) ก็ยังคอมไพล์หรือดาวน์โหลดเฉพาะส่วนที่เปลี่ยน ใช้เพื่อความเร็วเท่านั้น เพราะ build ต้องสำเร็จได้แม้โฟลเดอร์ cache ว่าง (builder อาจล้างเมื่อพื้นที่ไม่พอ) และถ้ามี build ขนานกับเครื่องมืออย่าง apt ที่ต้องการสิทธิ์เดี่ยวให้ใช้ sharing=locked",
+      "body": "cache mount ให้ builder เก็บโฟลเดอร์อย่าง cache ของ compiler หรือ package manager ไว้ข้ามการ build โดยไม่ถูกเขียนเข้า layer และไม่ทำให้ cache ของ instruction เสีย ดังนั้น เมื่อ layer ต้อง build ใหม่ (เช่น เมื่อแก้โค้ด) ก็ยังคอมไพล์หรือดาวน์โหลดเฉพาะส่วนที่เปลี่ยน ใช้เพื่อความเร็วเท่านั้น เพราะ build ต้องสำเร็จได้แม้โฟลเดอร์ cache ว่าง (builder อาจล้างเมื่อพื้นที่ไม่พอ) และถ้ามีหลาย build ทำงานพร้อมกัน และใช้เครื่องมืออย่าง apt ที่ต้องเข้าถึง cache ทีละ build ให้ใช้ sharing=locked",
       "code": "# syntax=docker/dockerfile:1\nFROM golang:1.27 AS build\nWORKDIR /src\nCOPY . .\nRUN --mount=type=cache,target=/root/.cache/go-build \\\n    go build -o /out/api ./cmd/api",
       "ref": "https://docs.docker.com/reference/dockerfile/#run---mounttypecache"
     },
@@ -245,7 +245,7 @@
         "บน Mac แต่ละ container ได้ VM ของตัวเอง ส่วนบน Linux ต้องเปิด virtualization ใน BIOS ก่อน"
       ],
       "answer": 0,
-      "explain": "container ไม่ได้จำลองฮาร์ดแวร์แบบ VM binary ใน image จึงต้องตรงกับ CPU architecture ของเครื่องที่รัน แก้โดย build ด้วย docker buildx build --platform linux/amd64 (หรือหลาย platform) ส่วน distro ของ host ต่างจาก image ได้ตามปกติ เพราะใช้ร่วมกันแค่ kernel"
+      "explain": "container ไม่ได้จำลองฮาร์ดแวร์แบบ VM binary ใน image จึงต้องตรงกับ CPU architecture ของเครื่องที่รัน เว้นแต่ host จะตั้ง emulation ไว้ซึ่ง server ทั่วไปไม่ได้ตั้ง แก้โดย build ด้วย docker buildx build --platform linux/amd64 (หรือหลาย platform) ส่วน distro ของ host ต่างจาก image ได้ตามปกติ เพราะใช้ร่วมกันแค่ kernel"
     },
     {
       "prompt": "แอป Node.js รันด้วย CMD [\"node\", \"server.js\"] และไม่ได้เขียนโค้ดจัดการสัญญาณ ทุกครั้งที่ deploy คำสั่ง docker stop ค้างราว 10 วินาที และ request ที่กำลังทำอยู่ถูกตัดกลางทาง ควรแก้อย่างไร?",
@@ -256,7 +256,7 @@
         "ตั้ง restart: always เพื่อให้ container กลับมาเองถ้าถูกปิดระหว่างทำงาน"
       ],
       "answer": 0,
-      "explain": "node ที่เป็น PID 1 ไม่มี default handler ของ SIGTERM จึงไม่ตอบสนอง Docker รอครบ 10 วินาทีแล้วส่ง SIGKILL ตัดทุกอย่างทิ้ง การเขียน handler ให้ปิดตัวอย่างเรียบร้อยแก้ทั้งความช้าและ request ที่หาย ส่วน -t 0 หรือ docker kill แค่ตัดเร็วขึ้น request ก็ยังหายเหมือนเดิม"
+      "explain": "ถ้าแอปไม่มี handler ของ SIGTERM node ที่เป็น PID 1 จะไม่ถูกปิด เพราะ kernel ไม่ใช้ action เริ่มต้นของสัญญาณ (ฆ่า process) กับ PID 1 Docker จึงรอครบ 10 วินาทีแล้วส่ง SIGKILL ตัดทุกอย่างทิ้ง การเขียน handler ให้ปิดตัวอย่างเรียบร้อยแก้ทั้งความช้าและ request ที่หาย ส่วน -t 0 หรือ docker kill แค่ตัดเร็วขึ้น request ก็ยังหายเหมือนเดิม"
     },
     {
       "prompt": "ตั้ง livenessProbe ของ API ให้เรียก /health ซึ่งเช็กการเชื่อมต่อ database ด้วย วันหนึ่ง database ช้าไป 1 นาที แล้ว Pod ของ API ทุกตัวถูก restart วนพร้อมกัน ควรปรับอย่างไร?",
@@ -430,7 +430,7 @@
       "explain": "เอกสารระบุว่าการ mount socket ให้สิทธิ์เต็มในการสร้างและควบคุม daemon ซึ่งปกติรันด้วยสิทธิ์ root (ยกเว้น rootless mode) และสั่ง container ที่ mount / ของ host ได้ socket เป็น Unix socket ในเครื่อง ไม่ใช่ port ที่เปิดออกอินเทอร์เน็ต"
     },
     {
-      "prompt": "dev รัน docker run -d --name db postgres:18 กับ docker run --name app -e DB_HOST=db myapp โดยไม่ระบุ --network แอปหา host ชื่อ db ไม่เจอ ขณะที่โปรเจกต์เดียวกันรันผ่าน docker compose up ได้ สาเหตุคืออะไร?",
+      "prompt": "dev รัน docker run -d --name db -e POSTGRES_PASSWORD=dev postgres:18 กับ docker run --name app -e DB_HOST=db myapp โดยไม่ระบุ --network แอปหา host ชื่อ db ไม่เจอ ขณะที่โปรเจกต์เดียวกันรันผ่าน docker compose up ได้ สาเหตุคืออะไร?",
       "options": [
         "ชื่อ container ใช้เป็น hostname ได้เฉพาะเมื่อ publish port ของ container นั้นด้วย -p เท่านั้น",
         "default bridge ไม่ resolve ชื่อ ต้องสร้าง user-defined network ซึ่ง Compose ทำให้เอง",
@@ -476,7 +476,7 @@
     },
     {
       "prompt": "เพื่อนร่วมทีมรัน docker compose up แล้วบอกว่า adminer ไม่ขึ้น ทั้งที่อยู่ในไฟล์เดียวกับ app และ db จะทำให้ adminer ทำงานพร้อมกันได้อย่างไร?",
-      "code": "services:\n  app:\n    image: myapp\n  db:\n    image: postgres:18\n  adminer:\n    image: adminer\n    profiles: [debug]",
+      "code": "services:\n  app:\n    image: myapp\n  db:\n    image: postgres:18\n    environment:\n      POSTGRES_PASSWORD: dev\n  adminer:\n    image: adminer\n    profiles: [debug]",
       "options": [
         "ลบบรรทัด profiles ออกแล้วค่อยใส่กลับหลังรันครั้งแรก เพราะ Compose จำสถานะของ service เดิมไว้",
         "ใช้ docker compose up --build เพื่อให้ Compose สร้าง image ของ adminer ให้ครบก่อนเริ่ม",
@@ -527,24 +527,24 @@
       ],
       "checks": [
         {
-          "label": "มีอย่างน้อย 2 stage (FROM … AS …)",
-          "pattern": "from\\s+(--\\S+\\s+)?\\S+\\s+as\\s+\\w+[\\s\\S]*\\nfrom\\s+"
+          "label": "มีอย่างน้อย 2 stage (FROM สองครั้งขึ้นไป)",
+          "pattern": "^\\s*from\\s[\\s\\S]*^\\s*from\\s"
         },
         {
           "label": "COPY package*.json และติดตั้งก่อน COPY ทั้งโปรเจกต์",
-          "pattern": "copy\\s+package[\\s\\S]*npm (ci|install)[\\s\\S]*copy\\s+\\.\\s"
+          "pattern": "copy\\s+(--\\S+\\s+)*\\[?\\s*\"?\\.?/?package[\\s\\S]*npm\\s+(ci|install|i)\\b[\\s\\S]*copy\\s+(?:--(?!from\\b)\\S+\\s+)*(?!--from)\\[?\\s*\"?(?!\\.?/?package)[^\\s\"\\]]"
         },
         {
           "label": "copy ผลลัพธ์จาก build stage (--from)",
-          "pattern": "copy\\s+--from=\\w+"
+          "pattern": "copy\\s+(--\\S+\\s+)*--from=\\S+"
         },
         {
           "label": "runtime ติดตั้งเฉพาะ production dependency",
-          "pattern": "--omit[=\\s]dev|--only=prod|--production|node_env[=\\s]+[\"']?production"
+          "pattern": "^\\s*from\\s(?!(?:(?!^\\s*from\\s)[\\s\\S])*^\\s*from\\s)[\\s\\S]*?npm\\s+(?:ci|install|i)\\b(?:[^\\n]|\\\\\\n)*(?:--omit[=\\s]+dev|--only[=\\s]+prod|--production)|^\\s*from\\s(?!(?:(?!^\\s*from\\s)[\\s\\S])*^\\s*from\\s)[\\s\\S]*?env\\s[^\\n]*\\bnode_env[=\\s]+[\"']?production[\"']?[^\\n]*\\n[\\s\\S]*?npm\\s+(?:ci|install|i)\\b|^(?=[\\s\\S]*npm\\s+(?:ci|install|i|prune)\\b(?:[^\\n]|\\\\\\n)*(?:--omit[=\\s]+dev|--only[=\\s]+prod|--production))(?=[\\s\\S]*\\s*from\\s(?!(?:(?!^\\s*from\\s)[\\s\\S])*^\\s*from\\s)[\\s\\S]*?copy\\s[^\\n]*--from=\\S+[^\\n]*node_modules)"
         },
         {
-          "label": "รันด้วย user ที่ไม่ใช่ root",
-          "pattern": "^\\s*user\\s+(?!(root|0)(\\s|:|$))\\S+"
+          "label": "USER สุดท้ายของ image ไม่ใช่ root",
+          "pattern": "^\\s*user\\s+(?!(root|0)(\\s|:|$))\\S+(?![\\s\\S]*^\\s*(from|user)\\s)"
         },
         {
           "label": "CMD แบบ exec form (JSON array) สั่ง node",
@@ -573,27 +573,27 @@
         },
         {
           "label": "ตั้งชื่อ container เป็น api",
-          "pattern": "--name(=|\\s+)\"?api\"?(\\s|\\\\|$)"
+          "pattern": "--name(=|\\s+)[\"']?api[\"']?(\\s|\\\\|$)"
         },
         {
           "label": "restart policy เป็น unless-stopped",
-          "pattern": "--restart(=|\\s+)\"?unless-stopped"
+          "pattern": "--restart(=|\\s+)[\"']?unless-stopped[\"']?(\\s|\\\\|$)"
         },
         {
           "label": "publish เฉพาะ loopback: 127.0.0.1:8080:3000",
-          "pattern": "(-p|--publish)(=|\\s+)\"?127\\.0\\.0\\.1:8080:3000"
+          "pattern": "(-p|--publish)(=|\\s+)[\"']?127\\.0\\.0\\.1:8080:3000(/tcp)?[\"']?(\\s|\\\\|$)"
         },
         {
           "label": "จำกัด --memory 512m และ --cpus 1.5",
-          "pattern": "^(?=[\\s\\S]*(-m|--memory)(=|\\s+)\"?512(m|mb)\\b)(?=[\\s\\S]*--cpus(=|\\s+)\"?1\\.5\\b)"
+          "pattern": "^(?=[\\s\\S]*(^|\\s)(--memory(=|\\s+)|-m(=|\\s*))[\"']?(512(\\.0+)?(m|mb)|0?\\.50*(g|gb)|524288(k|kb)|536870912b?)[\"']?(\\s|\\\\|$))(?=[\\s\\S]*--cpus(=|\\s+)[\"']?1\\.50*[\"']?(\\s|\\\\|$))"
         },
         {
           "label": "อ่าน env จาก --env-file .env.production",
-          "pattern": "--env-file(=|\\s+)\"?(\\./)?\\.env\\.production"
+          "pattern": "--env-file(=|\\s+)[\"']?(\\./)?\\.env\\.production[\"']?(\\s|\\\\|$)"
         },
         {
           "label": "--read-only พร้อม --tmpfs /tmp",
-          "pattern": "^(?=[\\s\\S]*--read-only)(?=[\\s\\S]*(--tmpfs(=|\\s+)\"?/tmp|type=tmpfs,[^\\s]*(target|destination|dst)=/tmp))"
+          "pattern": "^(?=[\\s\\S]*--read-only(=true)?(\\s|\\\\|$))(?=[\\s\\S]*(--tmpfs(=|\\s+)[\"']?/tmp(?![\\w/-])|type=tmpfs,[^\\s]*(target|destination|dst)=/tmp(?![\\w/-])))"
         }
       ]
     },
@@ -603,7 +603,7 @@
       "tags": "Compose · interpolation · healthcheck · profiles · hardening",
       "lang": "yaml",
       "prompt": "ปรับ compose.yaml ที่ให้มาให้พร้อมใช้งานจริง โดย (1) image ของ api และรหัสผ่านฐานข้อมูลต้องมาจากตัวแปร API_IMAGE และ POSTGRES_PASSWORD และ docker compose up ต้องหยุดด้วย error ถ้าไม่ได้ตั้งตัวแปรทั้งสอง (2) api publish 8080 ไปที่ port 3000 ให้เข้าได้จากเครื่อง host เท่านั้น (3) api เริ่มหลัง db พร้อมจริง (healthy) (4) db มี healthcheck ด้วย pg_isready และเก็บข้อมูลใน named volume pgdata ที่ /var/lib/postgresql (5) api ใช้ root filesystem อ่านอย่างเดียวพร้อม tmpfs ที่ /tmp (6) api ตัด capability ทั้งหมดและกัน privilege escalation และ (7) เพิ่ม service adminer (image adminer, publish 8081 ไปที่ 8080 ของ container เฉพาะ host) ที่เริ่มเมื่อเปิด profile debug เท่านั้น",
-      "context": "docker compose up ปกติต้องเริ่มแค่ api กับ db\nadminer ใช้เฉพาะตอน debug ผ่าน docker compose --profile debug up\napi ต่อ database ผ่าน DATABASE_URL ที่ใช้ user app และ host ชื่อ db\nแอปเขียนไฟล์ชั่วคราวลง /tmp เท่านั้น",
+      "context": "docker compose up ปกติต้องเริ่มแค่ api กับ db\nadminer ใช้เฉพาะตอน debug ผ่าน docker compose --profile debug up\napi ต่อ database ผ่าน DATABASE_URL ที่ใช้ user app และ host ชื่อ db\nแอปเขียนไฟล์ชั่วคราวลง /tmp เท่านั้น\nรหัสผ่านเป็นตัวอักษรและตัวเลขล้วน (ถ้ามีอักขระอย่าง / # @ ต้อง percent-encode ก่อนใส่ใน DATABASE_URL)",
       "starter": "services:\n  api:\n    image: ghcr.io/acme/api:2.3.1\n    ports:\n      - \"8080:3000\"\n    environment:\n      DATABASE_URL: postgres://app:secret@db:5432/app\n  db:\n    image: postgres:18\n    environment:\n      POSTGRES_USER: app\n      POSTGRES_PASSWORD: secret\n",
       "solution": "services:\n  api:\n    image: ${API_IMAGE:?set API_IMAGE}\n    ports:\n      - \"127.0.0.1:8080:3000\"\n    environment:\n      DATABASE_URL: postgres://app:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}@db:5432/app\n    depends_on:\n      db:\n        condition: service_healthy\n    read_only: true\n    tmpfs:\n      - /tmp\n    cap_drop:\n      - ALL\n    security_opt:\n      - no-new-privileges:true\n  db:\n    image: postgres:18\n    environment:\n      POSTGRES_USER: app\n      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}\n    volumes:\n      - pgdata:/var/lib/postgresql\n    healthcheck:\n      test: [\"CMD-SHELL\", \"pg_isready -U app\"]\n      interval: 5s\n      timeout: 3s\n      retries: 10\n  adminer:\n    image: adminer\n    ports:\n      - \"127.0.0.1:8081:8080\"\n    profiles: [\"debug\"]\n    depends_on:\n      - db\nvolumes:\n  pgdata:\n",
       "hints": [
@@ -614,31 +614,31 @@
       "checks": [
         {
           "label": "image และรหัสผ่านใช้ ${VAR:?} ให้ Compose หยุดเมื่อไม่ตั้งค่า",
-          "pattern": "^(?=[\\s\\S]*\\$\\{api_image:?\\?)(?=[\\s\\S]*\\$\\{postgres_password:?\\?)"
+          "pattern": "^(?=[\\s\\S]*?^( +)[\"']?api[\"']?:[ ]*(?:#.*)?\\n(?=(?:(?!^(?!\\1[ \\t])[ ]*\\S)[\\s\\S])*?image:\\s*[\"']?\\$\\{api_image:?\\?))(?=[\\s\\S]*\\$\\{postgres_password:?\\?)"
         },
         {
           "label": "api publish เฉพาะ loopback: 127.0.0.1:8080:3000",
-          "pattern": "127\\.0\\.0\\.1:8080:3000|host_ip:\\s*[\"']?127\\.0\\.0\\.1"
+          "pattern": "^(?=[\\s\\S]*?^( +)[\"']?api[\"']?:[ ]*(?:#.*)?\\n(?:(?=(?:(?!^(?!\\1[ \\t])[ ]*\\S)[\\s\\S])*?[\"']?127\\.0\\.0\\.1:8080:3000(?!\\d))|(?=(?:(?!^(?!\\1[ \\t])[ ]*\\S)[\\s\\S])*?host_ip:\\s*[\"']?127\\.0\\.0\\.1)(?=(?:(?!^(?!\\1[ \\t])[ ]*\\S)[\\s\\S])*?published:\\s*[\"']?8080(?!\\d))(?=(?:(?!^(?!\\1[ \\t])[ ]*\\S)[\\s\\S])*?target:\\s*3000(?!\\d))))"
         },
         {
           "label": "api รอ db ด้วย condition: service_healthy",
-          "pattern": "depends_on:[\\s\\S]*?condition:\\s*service_healthy"
+          "pattern": "^(?=[\\s\\S]*?^( +)[\"']?api[\"']?:[ ]*(?:#.*)?\\n(?=(?:(?!^(?!\\1[ \\t])[ ]*\\S)[\\s\\S])*?depends_on:(?:(?!^(?!\\1[ \\t])[ ]*\\S)[\\s\\S])*?[\"']?db[\"']?:(?:(?!^(?!\\1[ \\t])[ ]*\\S)[\\s\\S])*?condition:\\s*[\"']?service_healthy))"
         },
         {
           "label": "db มี healthcheck ด้วย pg_isready และ volume pgdata ที่ /var/lib/postgresql",
-          "pattern": "^(?=[\\s\\S]*healthcheck:[\\s\\S]*pg_isready)(?=[\\s\\S]*pgdata:/var/lib/postgresql/?([\"'\\s]|$))"
+          "pattern": "^(?=[\\s\\S]*?^( +)[\"']?db[\"']?:[ ]*(?:#.*)?\\n(?=(?:(?!^(?!\\1[ \\t])[ ]*\\S)[\\s\\S])*?healthcheck:(?:(?!^(?!\\1[ \\t])[ ]*\\S)[\\s\\S])*?pg_isready)(?:(?=(?:(?!^(?!\\1[ \\t])[ ]*\\S)[\\s\\S])*?pgdata:/var/lib/postgresql/?(?![\\w/-]))|(?=(?:(?!^(?!\\1[ \\t])[ ]*\\S)[\\s\\S])*?type:\\s*[\"']?volume)(?=(?:(?!^(?!\\1[ \\t])[ ]*\\S)[\\s\\S])*?source:\\s*[\"']?pgdata[\"']?(\\s|$))(?=(?:(?!^(?!\\1[ \\t])[ ]*\\S)[\\s\\S])*?target:\\s*[\"']?/var/lib/postgresql/?(?![\\w/-]))))"
         },
         {
           "label": "api ใช้ read_only: true พร้อม tmpfs /tmp",
-          "pattern": "^(?=[\\s\\S]*read_only:\\s*true)(?=[\\s\\S]*tmpfs:[\\s\\S]*?/tmp)"
+          "pattern": "^(?=[\\s\\S]*?^( +)[\"']?api[\"']?:[ ]*(?:#.*)?\\n(?=(?:(?!^(?!\\1[ \\t])[ ]*\\S)[\\s\\S])*?read_only:\\s*[\"']?true[\"']?(\\s|$))(?:(?=(?:(?!^(?!\\1[ \\t])[ ]*\\S)[\\s\\S])*?tmpfs:(?:(?!^(?!\\1[ \\t])[ ]*\\S)[\\s\\S])*?[\"']?/tmp(?![\\w/-]))|(?=(?:(?!^(?!\\1[ \\t])[ ]*\\S)[\\s\\S])*?type:\\s*[\"']?tmpfs)(?=(?:(?!^(?!\\1[ \\t])[ ]*\\S)[\\s\\S])*?target:\\s*[\"']?/tmp(?![\\w/-]))))"
         },
         {
-          "label": "ตัด capability ทั้งหมด (cap_drop ALL) และ no-new-privileges",
-          "pattern": "^(?=[\\s\\S]*cap_drop:\\s*(\\[\\s*[\"']?all|\\n\\s*-\\s*[\"']?all))(?=[\\s\\S]*no-new-privileges[:=]\\s*true)"
+          "label": "api ตัด capability ทั้งหมด (cap_drop ALL) และตั้ง no-new-privileges",
+          "pattern": "^(?=[\\s\\S]*?^( +)[\"']?api[\"']?:[ ]*(?:#.*)?\\n(?=(?:(?!^(?!\\1[ \\t])[ ]*\\S)[\\s\\S])*?cap_drop:\\s*(\\[\\s*[\"']?all[\"']?\\s*[,\\]]|\\n\\s*-\\s*[\"']?all[\"']?\\s*(#.*)?$))(?=(?:(?!^(?!\\1[ \\t])[ ]*\\S)[\\s\\S])*?security_opt:(?:(?!^(?!\\1[ \\t])[ ]*\\S)[\\s\\S])*?[\"']?no-new-privileges(?:[=:]true)?[\"']?[ \\t]*(?:#.*)?(?:,|\\]|$)))"
         },
         {
           "label": "adminer อยู่ใน profile debug",
-          "pattern": "profiles:\\s*(\\[\\s*[\"']?debug|\\n\\s*-\\s*[\"']?debug)"
+          "pattern": "^(?=[\\s\\S]*?^( +)[\"']?adminer[\"']?:[ ]*(?:#.*)?\\n(?=(?:(?!^(?!\\1[ \\t])[ ]*\\S)[\\s\\S])*?profiles:\\s*(\\[(?:[^\\]\\n]*[,\\s])?[\"']?debug[\"']?\\s*[,\\]]|(\\n[ ]*-[ ]*[\"']?\\w+[\"']?[ ]*)*\\n[ ]*-[ ]*[\"']?debug[\"']?(\\s|$))))"
         }
       ]
     }

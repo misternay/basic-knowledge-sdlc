@@ -8,19 +8,19 @@
     {
       "tier": "must",
       "title": "Agent loop: คิด → ขอเรียก tool → ได้ผล → คิดต่อ",
-      "body": "Agent คือการเรียกโมเดลซ้ำเป็นรอบ ๆ แต่ละรอบโมเดลจะตอบเลย หรือขอเรียก tool (เช่น stop_reason เป็น \"tool_use\") จากนั้น harness รัน tool แล้วส่งผลกลับเป็น tool_result ในข้อความถัดไป ข้อสำคัญคือโมเดลไม่มีสถานะในตัว ทุกอย่างที่มันรู้มาจาก messages ที่ harness ส่งให้ในรอบนั้น loop จึงต้องมีทางออกเสมอ ทั้งตอนงานเสร็จและตอนถึงเพดาน",
-      "code": "const messages = [{ role: \"user\", content: task }];\nfor (let turn = 0; turn < MAX_TURNS; turn++) {\n  const res = await callModel({ messages, tools });\n  messages.push({ role: \"assistant\", content: res.content });\n  if (res.stop_reason !== \"tool_use\") return res; // ตอบเสร็จแล้ว\n  const results = [];\n  for (const call of res.content.filter((b) => b.type === \"tool_use\"))\n    results.push({ type: \"tool_result\", tool_use_id: call.id,\n                   content: await runTool(call.name, call.input) });\n  messages.push({ role: \"user\", content: results });\n}\nthrow new Error(\"ถึง MAX_TURNS ก่อนงานเสร็จ\");"
+      "body": "Agent คือการเรียกโมเดลซ้ำเป็นรอบ ๆ แต่ละรอบโมเดลจะตอบเลย หรือขอเรียก tool ซึ่งดูได้จาก stop_reason: \"tool_use\" แปลว่าให้รัน tool ต่อ \"end_turn\" คือจบปกติ ส่วนค่าอื่นอย่าง max_tokens แปลว่าคำตอบถูกตัดกลางคัน ไม่ใช่งานเสร็จ เมื่อโมเดลขอ tool harness จะรันแล้วส่งผลกลับเป็น tool_result ในข้อความถัดไป โมเดลไม่มีสถานะในตัว ทุกอย่างที่รู้มาจาก messages ที่ส่งให้ในรอบนั้น loop จึงต้องมีทางออกเสมอ ทั้งตอนงานเสร็จและตอนถึงเพดาน",
+      "code": "const messages = [{ role: \"user\", content: task }];\nfor (let turn = 0; turn < MAX_TURNS; turn++) {\n  const res = await callModel({ messages, tools });\n  messages.push({ role: \"assistant\", content: res.content });\n  if (res.stop_reason === \"end_turn\") return res; // จบปกติ\n  if (res.stop_reason !== \"tool_use\")\n    throw new Error(\"หยุดกลางทาง: \" + res.stop_reason); // เช่น max_tokens\n  const results = [];\n  for (const call of res.content.filter((b) => b.type === \"tool_use\"))\n    results.push({ type: \"tool_result\", tool_use_id: call.id,\n                   content: await runTool(call.name, call.input) });\n  messages.push({ role: \"user\", content: results });\n}\nthrow new Error(\"ถึง MAX_TURNS ก่อนงานเสร็จ\");"
     },
     {
       "tier": "must",
       "title": "Tool use: โมเดลขอ แต่ harness เป็นผู้รัน",
-      "body": "เรานิยาม tool ด้วยชื่อ คำอธิบาย และ JSON schema ของ input แล้วส่งไปกับ request โมเดลทำได้แค่สร้างคำขอ (ชื่อ tool และ input) ส่วนการรันจริงเกิดในโค้ดของเรา จุดนี้จึงเป็นที่ที่เราตรวจ input, เช็กสิทธิ์ หรือปฏิเสธคำขอได้ กับดักที่พบบ่อยคือคิดว่าเมื่อโมเดลตอบว่า \"ลบไฟล์แล้ว\" แปลว่าไฟล์ถูกลบจริง ทั้งที่ถ้า harness ไม่ได้รัน ก็ไม่มีอะไรเกิดขึ้น",
+      "body": "เรานิยาม tool ด้วยชื่อ คำอธิบาย และ JSON schema ของ input แล้วส่งไปกับ request สำหรับ client tool แบบนี้ โมเดลทำได้แค่สร้างคำขอ (ชื่อ tool และ input) ส่วนการรันจริงเกิดในโค้ดของเรา (ส่วน server tool อย่าง web_search ผู้ให้บริการรันให้เอง) จุดนี้จึงเป็นที่ที่เราตรวจ input, เช็กสิทธิ์ หรือปฏิเสธคำขอได้ กับดักที่พบบ่อยคือคิดว่าเมื่อโมเดลตอบว่า \"ลบไฟล์แล้ว\" แปลว่าไฟล์ถูกลบจริง ทั้งที่ถ้า harness ไม่ได้รัน ก็ไม่มีอะไรเกิดขึ้น",
       "code": "{\n  \"name\": \"get_order\",\n  \"description\": \"ดึงสถานะคำสั่งซื้อจากเลขคำสั่งซื้อ ใช้เมื่อผู้ใช้ให้เลขคำสั่งซื้อมาแล้ว\",\n  \"input_schema\": {\n    \"type\": \"object\",\n    \"properties\": {\n      \"order_id\": { \"type\": \"string\", \"description\": \"เช่น ORD-10293\" }\n    },\n    \"required\": [\"order_id\"]\n  }\n}"
     },
     {
       "tier": "must",
       "title": "Harness รับผิดชอบอะไร",
-      "body": "Harness คือซอฟต์แวร์รอบโมเดลที่ทำทุกอย่างที่โมเดลทำเองไม่ได้ ได้แก่ วน loop, รัน tool, ตรวจสิทธิ์และขอการยืนยัน, จัดการ context และ memory, บังคับเงื่อนไขหยุด และเก็บ log/trace ทุกขั้น โมเดลเดียวกันใน harness ที่ต่างกันจึงให้ผลต่างกันมาก เมื่อ agent ทำงานแย่ ให้ตรวจ harness (tool, context, prompt ระบบ) ก่อนจะโทษหรือเปลี่ยนโมเดล"
+      "body": "Harness คือซอฟต์แวร์รอบโมเดลที่ทำทุกอย่างที่โมเดลทำเองไม่ได้ ได้แก่ วน loop, รัน client tool (tool ที่เรานิยามเอง), ตรวจสิทธิ์และขอการยืนยัน, จัดการ context และ memory, บังคับเงื่อนไขหยุด และเก็บ log/trace ทุกขั้น โมเดลเดียวกันใน harness ที่ต่างกันจึงให้ผลต่างกันมาก เมื่อ agent ทำงานแย่ ให้ตรวจ harness (tool, context, prompt ระบบ) ก่อนจะโทษหรือเปลี่ยนโมเดล"
     },
     {
       "tier": "must",
@@ -86,7 +86,7 @@
     {
       "tier": "must",
       "title": "Excessive Agency: tool เกิน สิทธิ์เกิน หรือไม่มีคนยืนยัน",
-      "body": "OWASP LLM06:2025 คือช่องโหว่ที่ทำให้การกระทำเสียหายเกิดจากผลลัพธ์ของ LLM ที่ไม่คาดคิด กำกวม หรือถูกชักนำ ไม่ว่าสาเหตุจะเป็นการหลอน prompt injection หรือ agent เพื่อนร่วมระบบที่ถูกแทรกแซง ต้นเหตุมักเป็น excessive functionality (มี tool เกินจำเป็น) excessive permissions (identity ที่ tool ใช้มีสิทธิ์เกินงาน) หรือ excessive autonomy (งานผลกระทบสูงไม่มีการยืนยัน) แนวแก้ได้แก่ เลี่ยง tool แบบเปิดกว้างอย่าง \"รัน shell command\" ไปใช้ tool ที่ทำสิ่งเดียว ให้ tool ทำงานในบริบทของผู้ใช้คนนั้นด้วยสิทธิ์ขั้นต่ำ และให้ระบบปลายทางตรวจสิทธิ์เองแทนการเชื่อว่า LLM จะตัดสินถูก (complete mediation)",
+      "body": "OWASP LLM06:2025 หมายถึงช่องโหว่ที่เปิดให้เกิดการกระทำที่สร้างความเสียหายจากผลลัพธ์ของ LLM ที่ไม่คาดคิด กำกวม หรือถูกชักนำ ไม่ว่าสาเหตุจะเป็น hallucination, prompt injection หรือ agent อื่นในระบบที่ถูกแทรกแซง ต้นเหตุมักเป็น excessive functionality (มี tool เกินจำเป็น) excessive permissions (identity ที่ tool ใช้มีสิทธิ์เกินงาน) หรือ excessive autonomy (งานผลกระทบสูงไม่มีการยืนยัน) แนวแก้ได้แก่ เลี่ยง tool แบบเปิดกว้างอย่าง \"รัน shell command\" ไปใช้ tool ที่ทำสิ่งเดียว ให้ tool ทำงานในบริบทของผู้ใช้คนนั้นด้วยสิทธิ์ขั้นต่ำ และให้ระบบปลายทางตรวจสิทธิ์เองแทนการเชื่อว่า LLM จะตัดสินถูก (complete mediation)",
       "exam": true,
       "ref": "https://genai.owasp.org/llmrisk/llm062025-excessive-agency/"
     },
@@ -354,7 +354,7 @@
         "รับ path จาก tool input โดยตรง ควรรับผ่านพารามิเตอร์ HTTP เพื่อตรวจสิทธิ์ผู้เรียกได้ง่ายกว่า"
       ],
       "answer": 1,
-      "explain": "เอกสาร memory tool เตือนว่า path อย่าง /memories/../../secrets.env เข้าถึงไฟล์นอกโฟลเดอร์ได้ และ implementation ต้องตรวจทุก path ในทุกคำสั่ง (เช่น resolve แล้วตรวจ prefix) เพราะ client เป็นผู้รันทุกการกระทำ การเข้ารหัสไฟล์ไม่ช่วยเมื่อ path หลุดออกนอกโฟลเดอร์ไปแล้ว"
+      "explain": "เอกสาร memory tool เตือนว่า path อย่าง /memories/../../secrets.env เข้าถึงไฟล์นอกโฟลเดอร์ได้ และต้องตรวจทุก path ในทุกคำสั่ง โดย resolve เป็น path จริง (รวม symlink) แล้วเช็กว่าอยู่ใต้ MEM_ROOT ตามขอบเขต directory ไม่ใช่แค่เทียบ prefix ข้อความ เพราะ /var/app/memories_backup ก็ขึ้นต้นเหมือนกัน การเข้ารหัสไฟล์ไม่ช่วยเมื่อ path หลุดออกนอกโฟลเดอร์ไปแล้ว"
     },
     {
       "prompt": "agent ย้ายโค้ดหลายร้อยไฟล์ในงานที่ต้องทำต่อเนื่องหลายวัน ทุกครั้งที่เริ่ม session ใหม่มันสำรวจ repo ใหม่ทั้งหมดและทำงานซ้ำที่เคยทำแล้ว ควรเพิ่มอะไรเป็นอย่างแรก?",
@@ -398,7 +398,7 @@
         "ตอบ result ปกติที่มี isError: true พร้อมข้อความว่าวันต้องเป็นอนาคต"
       ],
       "answer": 3,
-      "explain": "spec แยก Protocol Errors (เช่น unknown tool, request ผิดโครงสร้าง) ที่โมเดลแก้ได้ยาก ออกจาก Tool Execution Errors (รวม input validation เช่นวันที่ผิด) ที่ส่งใน result ด้วย isError: true เพื่อให้โมเดลแก้ตัวเองได้ การใช้ JSON-RPC error กับกรณีนี้ทำให้โมเดลไม่ได้ข้อมูลที่ใช้แก้"
+      "explain": "spec แยก Protocol Errors (เช่น unknown tool, request ผิดโครงสร้าง) ที่โมเดลมักแก้เองไม่ได้ ออกจาก Tool Execution Errors (รวม input validation เช่นวันที่ผิด) ที่ส่งใน result ด้วย isError: true เพื่อให้โมเดลแก้ตัวเองได้ client จะส่ง protocol error ให้โมเดลก็ได้ แต่ spec ระบุว่าโอกาสแก้สำเร็จน้อยกว่า และให้ส่ง tool execution error ให้โมเดลเสมอ"
     },
     {
       "prompt": "client ของคุณเชื่อม MCP server ของบุคคลที่สามที่ไม่รู้จัก tool ตัวหนึ่งมี annotation บอกว่าไม่เป็นอันตราย ทีมเสนอให้ข้ามหน้าต่างขออนุมัติของ tool นั้นเพราะ annotation บอกไว้แล้ว ข้อใดสอดคล้องกับ spec?",
@@ -520,15 +520,15 @@
           "json": {
             "path": "description",
             "op": "matches",
-            "value": "(ใช้เมื่อ|when)[\\s\\S]*(คืน|return)|(คืน|return)[\\s\\S]*(ใช้เมื่อ|when)"
+            "value": "(ใช้เมื่อ|ใช้ตอน|ใช้สำหรับ|สำหรับ|เมื่อ|when|use|for)[\\s\\S]*(คืน|ส่งกลับ|ส่งคืน|ตอบกลับ|ผลลัพธ์|return|respons)|(คืน|ส่งกลับ|ส่งคืน|ตอบกลับ|ผลลัพธ์|return|respons)[\\s\\S]*(ใช้เมื่อ|ใช้ตอน|ใช้สำหรับ|สำหรับ|เมื่อ|when|use|for)"
           }
         },
         {
-          "label": "input_schema เป็น object",
+          "label": "email ประกาศเป็น string ใน properties",
           "json": {
-            "path": "input_schema.type",
+            "path": "input_schema.properties.email.type",
             "op": "equals",
-            "value": "object"
+            "value": "string"
           }
         },
         {
@@ -549,15 +549,11 @@
           "negate": true
         },
         {
-          "label": "status จำกัดค่าด้วย enum ครบ 3 ค่า",
+          "label": "status จำกัดค่าด้วย enum เฉพาะ 3 ค่านี้ (ไม่มีค่าอื่น)",
           "json": {
             "path": "input_schema.properties.status.enum",
-            "op": "containsAll",
-            "value": [
-              "pending",
-              "shipped",
-              "delivered"
-            ]
+            "op": "matches",
+            "value": "^(?=.*\\bpending\\b)(?=.*\\bshipped\\b)(?=.*\\bdelivered\\b)(?:pending|shipped|delivered)(?:,(?:pending|shipped|delivered)){2}$"
           }
         },
         {
@@ -616,19 +612,19 @@
       "level": "ยาก",
       "tags": "agent loop · tool_result · is_error · max turns · loop detection",
       "lang": "javascript",
-      "prompt": "แก้ฟังก์ชัน runAgent ให้ปลอดภัยสำหรับใช้งานจริง (1) มีเพดานจำนวนรอบที่โค้ดบังคับ (2) ตอบทุก tool_use ด้วย tool_result ที่มี tool_use_id ตรงกัน และรวมทุก tool_result ไว้ใน user message เดียวต่อหนึ่ง turn (3) ถ้า tool ไม่มีหรือ throw error ให้ส่ง tool_result ที่มี is_error: true แทนการให้ loop ล้ม (4) หยุดเมื่อมีการเรียก tool เดิมด้วย input เดิมครบ 3 ครั้ง และ (5) เมื่อหยุดก่อนงานเสร็จให้คืน object ที่ระบุเหตุผล",
+      "prompt": "แก้ฟังก์ชัน runAgent ให้ปลอดภัยสำหรับใช้งานจริง (1) มีเพดานจำนวนรอบที่โค้ดบังคับ (2) ตอบทุก tool_use ด้วย tool_result ที่มี tool_use_id ตรงกัน และรวมทุก tool_result ไว้ใน user message เดียวต่อหนึ่ง turn (3) ถ้า tool ไม่มีหรือ throw error ให้ส่ง tool_result ที่มี is_error: true แทนการให้ loop ล้ม (4) หยุดเมื่อมีการเรียก tool เดิมด้วย input เดิมครบ 3 ครั้ง และ (5) ถือว่างานเสร็จเฉพาะเมื่อ stop_reason เป็น \"end_turn\" ส่วนเหตุหยุดอื่นหรือการหยุดก่อนงานเสร็จให้คืน object ที่ระบุเหตุผล",
       "context": "ทีมรัน agent ตรวจ dependency ข้ามคืนด้วย harness ที่ callModel(messages) คืน { stop_reason, content } และ tools เป็น object ที่แมปชื่อ tool ไปยังฟังก์ชัน async เวอร์ชันปัจจุบันเคยวนไม่จบเมื่อ tool ล้ม และล้มทั้งระบบเมื่อ tool ใดก็ตาม throw error",
       "starter": "async function runAgent({ task, callModel, tools }) {\n  const messages = [{ role: \"user\", content: task }];\n  while (true) {\n    const res = await callModel(messages);\n    messages.push({ role: \"assistant\", content: res.content });\n    if (res.stop_reason !== \"tool_use\") return { status: \"done\", res };\n    for (const call of res.content.filter((b) => b.type === \"tool_use\")) {\n      const output = await tools[call.name](call.input);\n      messages.push({\n        role: \"user\",\n        content: [{ type: \"tool_result\", content: output }],\n      });\n    }\n  }\n}\n",
-      "solution": "async function runAgent({ task, callModel, tools, maxTurns = 20 }) {\n  const messages = [{ role: \"user\", content: task }];\n  const seen = new Map();\n  for (let turn = 0; turn < maxTurns; turn++) {\n    const res = await callModel(messages);\n    messages.push({ role: \"assistant\", content: res.content });\n    if (res.stop_reason !== \"tool_use\") return { status: \"done\", res };\n    const results = [];\n    for (const call of res.content.filter((b) => b.type === \"tool_use\")) {\n      const key = call.name + JSON.stringify(call.input);\n      const count = (seen.get(key) || 0) + 1;\n      seen.set(key, count);\n      if (count >= 3) {\n        return { status: \"stopped\", reason: \"repeated_call\", call };\n      }\n      try {\n        const output = await tools[call.name](call.input);\n        results.push({ type: \"tool_result\", tool_use_id: call.id, content: String(output) });\n      } catch (err) {\n        results.push({\n          type: \"tool_result\",\n          tool_use_id: call.id,\n          content: \"Tool failed: \" + err.message,\n          is_error: true,\n        });\n      }\n    }\n    messages.push({ role: \"user\", content: results });\n  }\n  return { status: \"stopped\", reason: \"max_turns\" };\n}\n",
+      "solution": "async function runAgent({ task, callModel, tools, maxTurns = 20 }) {\n  const messages = [{ role: \"user\", content: task }];\n  const seen = new Map();\n  // key ที่ไม่ขึ้นกับลำดับ key ของ input\n  const canonical = (v) =>\n    JSON.stringify(v, (k, x) =>\n      x && typeof x === \"object\" && !Array.isArray(x)\n        ? Object.fromEntries(Object.entries(x).sort(([a], [b]) => (a < b ? -1 : 1)))\n        : x);\n  for (let turn = 0; turn < maxTurns; turn++) {\n    const res = await callModel(messages);\n    messages.push({ role: \"assistant\", content: res.content });\n    if (res.stop_reason === \"end_turn\") return { status: \"done\", res };\n    if (res.stop_reason !== \"tool_use\")\n      return { status: \"stopped\", reason: res.stop_reason };\n    const results = [];\n    let repeated = null;\n    for (const call of res.content.filter((b) => b.type === \"tool_use\")) {\n      const key = call.name + canonical(call.input);\n      const count = (seen.get(key) || 0) + 1;\n      seen.set(key, count);\n      if (count >= 3) {\n        repeated = repeated || call;\n        results.push({\n          type: \"tool_result\",\n          tool_use_id: call.id,\n          content: \"Not executed: repeated call\",\n          is_error: true,\n        });\n        continue;\n      }\n      try {\n        const output = await tools[call.name](call.input);\n        results.push({\n          type: \"tool_result\",\n          tool_use_id: call.id,\n          content: typeof output === \"string\" ? output : JSON.stringify(output) ?? \"\",\n        });\n      } catch (err) {\n        results.push({\n          type: \"tool_result\",\n          tool_use_id: call.id,\n          content: \"Tool failed: \" + (err instanceof Error ? err.message : String(err)),\n          is_error: true,\n        });\n      }\n    }\n    messages.push({ role: \"user\", content: results });\n    if (repeated) return { status: \"stopped\", reason: \"repeated_call\", call: repeated };\n  }\n  return { status: \"stopped\", reason: \"max_turns\" };\n}\n",
       "hints": [
-        "เปลี่ยน while (true) เป็น loop ที่นับรอบ และเมื่อครบเพดานให้คืนผลที่บอกเหตุผล ไม่ใช่ปล่อยให้ loop ต่อไป",
-        "สร้างอาร์เรย์ results ก่อนวนแต่ละ tool_use ใส่ tool_result ที่มี tool_use_id: call.id ลงไป แล้ว push เป็น user message ครั้งเดียวหลังวนจบ",
-        "ครอบการเรียก tools[call.name](...) ด้วย try/catch แล้วใส่ is_error: true ในผลที่ล้มเหลว ส่วนการตรวจเรียกซ้ำให้เก็บ key จาก call.name กับ JSON.stringify(call.input) ใน Map แล้วนับ"
+        "เปลี่ยน while (true) เป็น loop ที่นับรอบ และเมื่อครบเพดานให้คืนผลที่บอกเหตุผล ไม่ใช่ปล่อยให้ loop ต่อไป อย่าถือว่าทุก stop_reason ที่ไม่ใช่ \"tool_use\" คืองานเสร็จ ให้แยก \"end_turn\" ออกจากค่าอื่นอย่าง max_tokens",
+        "สร้างอาร์เรย์ results ก่อนวนแต่ละ tool_use ใส่ tool_result ที่มี tool_use_id: call.id ลงไปให้ครบทุก call (แม้ call ที่ไม่ยอมรันก็ต้องตอบด้วย is_error: true) แล้ว push เป็น user message ครั้งเดียวหลังวนจบ ผลลัพธ์ที่เป็น object ให้แปลงด้วย JSON.stringify",
+        "ครอบการเรียก tools[call.name](...) ด้วย try/catch แล้วใส่ is_error: true ในผลที่ล้มเหลว (ค่าที่ throw อาจไม่ใช่ Error) ส่วนการตรวจเรียกซ้ำให้เก็บ key จาก call.name กับ input ใน Map แล้วนับ โดยระวังว่า {a:1,b:2} กับ {b:2,a:1} คือ input เดียวกัน"
       ],
       "checks": [
         {
           "label": "มีเพดานจำนวนรอบที่โค้ดบังคับ (ไม่ใช่ while (true) ลอย ๆ)",
-          "pattern": "(for|while)\\s*\\([^)]*(?<!=)[<>]=?\\s*[\\w.]+|\\bif\\s*\\([^)]*(?<!=)[<>]=?\\s*\\w*(max|limit|budget|turns?)\\w*"
+          "pattern": "(for|while)\\s*\\([^)]*(?<!=)[<>]=?\\s*[\\w.]+|(for|while)\\s*\\([^)]*(max|limit|budget|turns|steps|iterations|rounds)\\w*|\\bif\\s*\\([^)]*(?<!=)[<>]=?\\s*\\w*(max|limit|budget|turns?|iter|steps?|rounds?)\\w*"
         },
         {
           "label": "tool_result ใส่ tool_use_id ที่ได้จาก tool_use",
@@ -640,16 +636,16 @@
           "negate": true
         },
         {
-          "label": "จับ error ของ tool ไม่ให้ loop ล้ม",
-          "pattern": "(try\\s*\\{[\\s\\S]*\\}\\s*catch|\\.catch\\s*\\(|allsettled|\\.then\\s*\\()"
-        },
-        {
-          "label": "ส่ง is_error: true เมื่อ tool ล้มเหลว",
-          "pattern": "is_error\\s*:\\s*true"
+          "label": "จับ error ของ tool ไม่ให้ loop ล้ม และส่ง is_error: true",
+          "pattern": "^(?=[\\s\\S]*(try\\s*\\{[\\s\\S]*\\}\\s*catch|\\.catch\\s*\\(|allsettled))(?=[\\s\\S]*is_error\\s*:\\s*true)"
         },
         {
           "label": "ตรวจการเรียก tool เดิมด้วย input เดิมซ้ำ",
-          "pattern": "json\\.stringify\\s*\\([^)]*input"
+          "pattern": "json\\.stringify\\s*\\([^)]*input|deepequal|isdeepstrictequal|isequal\\b|canonical|stablestringify|sortkeys"
+        },
+        {
+          "label": "ไม่ถือทุก stop_reason ที่ไม่ใช่ tool_use ว่าเสร็จ (แยก end_turn หรือ max_tokens)",
+          "pattern": "end_turn|max_tokens|pause_turn|refusal|context_window"
         },
         {
           "label": "เมื่อหยุดก่อนเสร็จ คืนเหตุผลหรือ throw error",

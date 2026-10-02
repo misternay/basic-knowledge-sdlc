@@ -26,7 +26,7 @@
     {
       "tier": "must",
       "title": "เลือก data structure ให้ตรงกับงาน",
-      "body": "Array เหมาะกับข้อมูลที่มีลำดับและต้องวนทั้งหมด แต่ `includes` หรือ `find` ต้องไล่ทีละตัว (O(n)) ถ้าต้องค้นด้วย key ให้ใช้ `Map` และถ้าแค่ต้องรู้ว่ามีค่านี้หรือยังให้ใช้ `Set` ซึ่งค้นได้เร็วแทบคงที่ (เฉลี่ยราว O(1)) ไม่ว่าข้อมูลจะมากแค่ไหน Stack (เข้าหลังออกก่อน) เหมาะกับ undo หรือการย้อนกลับ ส่วน queue (เข้าก่อนออกก่อน) เหมาะกับงานที่ต้องทำตามลำดับที่เข้ามา",
+      "body": "Array เหมาะกับข้อมูลที่มีลำดับและต้องวนทั้งหมด แต่ `includes` หรือ `find` ต้องไล่ทีละตัว (O(n)) ถ้าต้องค้นด้วย key ให้ใช้ `Map` และถ้าแค่ต้องรู้ว่ามีค่านี้หรือยังให้ใช้ `Set` ซึ่งค้นได้เร็วมากแม้ข้อมูลเยอะ (engine ส่วนใหญ่ใช้ hash table เฉลี่ยราว O(1) แต่สเปกรับประกันเพียงเวลาเฉลี่ยที่ต่ำกว่าเชิงเส้น) Stack (เข้าหลังออกก่อน) เหมาะกับ undo หรือการย้อนกลับ ส่วน queue (เข้าก่อนออกก่อน) เหมาะกับงานที่ต้องทำตามลำดับที่เข้ามา",
       "code": "// จัดกลุ่มครั้งเดียว แล้วค้นด้วย key ได้ทันที\nconst byUser = new Map();\nfor (const o of orders) {\n  if (!byUser.has(o.userId)) byUser.set(o.userId, []);\n  byUser.get(o.userId).push(o);\n}\nbyUser.get(42); // ออเดอร์ทั้งหมดของ user 42"
     },
     {
@@ -54,13 +54,13 @@
     {
       "tier": "should",
       "title": "async/await: Promise.all กับการรอทีละงาน",
-      "body": "`await` หยุดรอทีละงาน ถ้างานไม่พึ่งผลของกัน การ await เรียงกันทำให้เวลารวมเท่ากับผลบวกของทุกงาน `Promise.all` เริ่มทุกงานพร้อมกันแล้วรอจนครบ เวลารวมจึงใกล้กับงานที่ช้าที่สุด แต่ถ้ามีงานใด reject มันจะ reject ทันที ถ้าต้องการผลของทุกงานแม้บางงานพลาดให้ใช้ `Promise.allSettled` ส่วนงานที่ต้องใช้ผลของงานก่อนหน้ายังต้อง await ตามลำดับ",
-      "code": "// ช้า: รอทีละงาน (~300 + 300 ms)\nconst user = await getUser(id);\nconst orders = await getOrders(id);\n\n// เร็วกว่า: งานไม่พึ่งกัน เริ่มพร้อมกัน (~300 ms)\nconst [u, o] = await Promise.all([getUser(id), getOrders(id)]);"
+      "body": "`await` หยุดรอทีละงาน ถ้างานไม่พึ่งผลของกัน การ await เรียงกันทำให้งานถัดไปเริ่มหลังงานก่อนหน้าเสร็จ เวลารวมจึงเท่ากับผลบวกของทุกงาน ถ้าเรียกทุกฟังก์ชันก่อนเพื่อให้งานเริ่มพร้อมกัน แล้วส่ง Promise ที่ได้ให้ `Promise.all` รอจนครบ เวลารวมจะใกล้กับงานที่ช้าที่สุด แต่ถ้ามี Promise ใด reject มันจะ reject ทันที ถ้าต้องการผลของทุกงานแม้บางงานพลาดให้ใช้ `Promise.allSettled` ส่วนงานที่ต้องใช้ผลของงานก่อนหน้ายังต้อง await ตามลำดับ",
+      "code": "// ช้า: รอทีละงาน (~300 + 300 ms)\nconst user = await getUser(id);\nconst orders = await getOrders(id);\n\n// เร็วกว่า: งานไม่พึ่งกัน เรียกก่อนแล้วรอรวมกัน (~300 ms)\nconst [u, o] = await Promise.all([getUser(id), getOrders(id)]);"
     },
     {
       "tier": "should",
       "title": "กับดัก async: ลืม await และ forEach",
-      "body": "เรียกฟังก์ชัน async โดยไม่ await จะได้ Promise กลับมาแทนค่าจริง และ error ข้างในจะหลุดจาก try/catch รอบนอกกลายเป็น unhandled rejection `forEach` ไม่รอ Promise ที่ callback คืนมา โค้ดหลัง `forEach` จึงทำงานก่อนงานเสร็จ ใช้ `for...of` กับ `await` เมื่อต้องทำทีละงาน หรือ `await Promise.all(items.map(...))` เมื่อทำพร้อมกันได้"
+      "body": "เรียกฟังก์ชัน async โดยไม่ await จะได้ Promise กลับมาแทนค่าจริง และ error ข้างในจะหลุดจาก try/catch รอบนอก และถ้าไม่มีใครจัดการต่อ (เช่น `.catch()` หรือส่ง Promise ให้ผู้เรียก await) จะกลายเป็น unhandled rejection `forEach` ไม่รอ Promise ที่ callback คืนมา โค้ดหลัง `forEach` จึงทำงานก่อนงานเสร็จ ใช้ `for...of` กับ `await` เมื่อต้องทำทีละงาน หรือ `await Promise.all(items.map(...))` เมื่อทำพร้อมกันได้"
     },
     {
       "tier": "advanced",
@@ -107,7 +107,7 @@
     {
       "tier": "must",
       "title": "Unit test: arrange-act-assert และ edge case",
-      "body": "Unit test ตรวจพฤติกรรมของหน่วยเล็ก ๆ เช่นฟังก์ชันเดียว โดยให้ input ที่กำหนดแล้วเทียบกับผลที่คาดไว้ ท่าที่ใช้กันคือ arrange (เตรียมข้อมูล) act (เรียกฟังก์ชัน) assert (เทียบผล) แต่ละ test ควรอิสระต่อกันและตั้งชื่อให้บอกพฤติกรรม ส่วนที่คุ้มที่สุดมักเป็น edge case เช่น array ว่าง ค่าขอบอย่าง 0 หรือสมาชิกตัวสุดท้าย และ input ผิดรูป ถ้าเจอบั๊กให้เขียน test ที่ทำให้บั๊กนั้นล้มก่อนแล้วค่อยแก้ ใน Node.js มี test runner ในตัวคือ `node:test` ใช้คู่กับ `node:assert` และสั่งรันด้วย `node --test`",
+      "body": "Unit test ตรวจพฤติกรรมของหน่วยเล็ก ๆ เช่นฟังก์ชันเดียว โดยให้ input ที่กำหนดแล้วเทียบกับผลที่คาดไว้ รูปแบบที่ใช้กันคือ arrange (เตรียมข้อมูล), act (เรียกฟังก์ชัน) และ assert (เทียบผล) แต่ละ test ควรอิสระต่อกันและตั้งชื่อให้บอกพฤติกรรม ส่วนที่คุ้มที่สุดมักเป็น edge case เช่น array ว่าง ค่าขอบอย่าง 0 หรือสมาชิกตัวสุดท้าย และ input ผิดรูป ถ้าเจอบั๊ก ให้เขียน test ที่ล้มเหลวเพราะบั๊กนั้นก่อน แล้วค่อยแก้โค้ด ใน Node.js มี test runner ในตัวคือ `node:test` ใช้คู่กับ `node:assert` และสั่งรันด้วย `node --test`",
       "code": "import { test } from 'node:test';\nimport assert from 'node:assert/strict';\nfunction average(nums) {\n  if (nums.length === 0) throw new RangeError('empty');\n  return nums.reduce((s, n) => s + n, 0) / nums.length;\n}\ntest('average ของ [2, 4] คือ 3', () => {\n  assert.equal(average([2, 4]), 3);\n});\ntest('array ว่างต้อง throw RangeError', () => {\n  assert.throws(() => average([]), RangeError);\n});",
       "exam": true,
       "ref": "https://nodejs.org/api/test.html"
@@ -115,14 +115,14 @@
     {
       "tier": "should",
       "title": "ทศนิยม, เงิน และตัวเลขใหญ่: Number กับ BigInt",
-      "body": "Number ใน JavaScript คือ double-precision 64-bit แบบ IEEE 754 เศษส่วนฐานสองหลายค่าเก็บได้ไม่พอดี `0.1 + 0.2` จึงได้ `0.30000000000000004` อย่าเทียบทศนิยมด้วย `===` ส่วนเงิน แนวปฏิบัติทั่วไปคือเก็บเป็นจำนวนเต็มของหน่วยเล็กสุด (สตางค์) เช่น 1999 แทน 19.99 จำนวนเต็มแม่นยำเฉพาะในช่วง ±(2^53 − 1) ถ้าเกินนั้น เช่น id 64 บิต ให้ใช้ BigInt ซึ่งผสมกับ Number ตรง ๆ ไม่ได้ (จะ TypeError) หรือส่งค่าเป็น string ตั้งแต่ต้นทาง",
+      "body": "Number ใน JavaScript คือ double-precision 64-bit แบบ IEEE 754 ทศนิยมฐานสิบอย่าง 0.1 และ 0.2 ไม่มีรูปฐานสองที่สิ้นสุด จึงเก็บเป็นค่าประมาณ ทำให้ `0.1 + 0.2` ได้ `0.30000000000000004` อย่าเทียบทศนิยมด้วย `===` ส่วนเงิน แนวปฏิบัติทั่วไปคือเก็บเป็นจำนวนเต็มของหน่วยเล็กสุด (สตางค์) เช่น 1999 แทน 19.99 จำนวนเต็มที่ Number แทนได้ครบทุกค่า (safe integer) อยู่ในช่วง ±(2^53 − 1) เท่านั้น เกินจากนั้นบางค่าแทนไม่ได้และถูกปัดเป็นค่าใกล้เคียง ถ้าต้องเก็บค่าเกินช่วงนี้ เช่น id 64 บิต ให้ใช้ BigInt ซึ่งผสมกับ Number ตรง ๆ ไม่ได้ (จะ TypeError) หรือส่งค่าเป็น string ตั้งแต่ต้นทาง",
       "code": "0.1 + 0.2 === 0.3                           // false\nMath.abs(0.1 + 0.2 - 0.3) < Number.EPSILON // true (ใช้กับค่าใกล้ 1)\n4.35 * 100                                 // 434.99999999999994\nMath.round(4.35 * 100)                     // 435\nNumber.MAX_SAFE_INTEGER                    // 9007199254740991\n9007199254740993n + 1n                     // 9007199254740994n\n1n + 1                                     // TypeError",
       "ref": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Number"
     },
     {
       "tier": "should",
       "title": "Event loop: microtask มาก่อน task ถัดไป",
-      "body": "JavaScript ประมวลผลงานทีละ job แบบ run-to-completion คือ job หนึ่งทำจนจบก่อนจะเริ่ม job อื่น callback ของ `setTimeout` หรือผลของ I/O จะเข้าคิวรอจน call stack ว่าง ส่วน microtask เช่น callback ของ Promise มีลำดับสูงกว่า และถูกเคลียร์จนหมดก่อนจะหยิบ task ถัดไป ในรอบเดียวกัน `.then` จึงทำงานก่อน `setTimeout(..., 0)` เสมอ และโค้ด synchronous ที่ใช้เวลานานจะบล็อกทุกอย่างรวมถึง timer ที่ถึงเวลาแล้ว",
+      "body": "JavaScript ประมวลผลงานทีละ job แบบ run-to-completion คือ job หนึ่งทำจนจบก่อนจะเริ่ม job อื่น callback ของ `setTimeout` หรือผลของ I/O จะเข้าคิวรอจน call stack ว่าง ส่วน microtask เช่น callback ของ Promise มีลำดับสูงกว่า และถูกเคลียร์จนหมดก่อนจะหยิบ task ถัดไป ถ้า Promise พร้อมแล้ว `.then` จึงทำงานก่อน `setTimeout(..., 0)` ที่ตั้งไว้ในรอบเดียวกัน และโค้ด synchronous ที่ใช้เวลานานจะบล็อกทุกอย่างรวมถึง timer ที่ถึงเวลาแล้ว",
       "code": "console.log('A');\nsetTimeout(() => console.log('B'), 0);\nPromise.resolve().then(() => console.log('C'));\nconsole.log('D');\n// ลำดับที่พิมพ์: A D C B",
       "ref": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Event_loop"
     },
@@ -136,7 +136,7 @@
     {
       "tier": "should",
       "title": "Binary search: เร็วเพราะข้อมูลต้องเรียงลำดับ",
-      "body": "Binary search ตรวจค่ากลางของช่วงแล้วตัดทิ้งครึ่งหนึ่งในแต่ละรอบ จึงใช้ O(log n) กรณีแย่สุดวนเทียบ ⌊log₂ n + 1⌋ รอบ ข้อมูล 1,000,000 รายการจึงไม่เกิน 20 รอบ แต่ใช้ได้เมื่อ array เรียงลำดับแล้วเท่านั้น ถ้าไม่เรียง การตัดครึ่งจะทิ้งส่วนที่มีค่าที่หาอยู่ไปได้และให้ผลผิด ถ้าค้นแค่ครั้งเดียว การ sort ก่อน (O(n log n)) แพงกว่าไล่ดูทีละตัว (O(n)) และถ้าค้นบ่อยด้วย key ตรง ๆ โครงสร้างอย่าง hash table (ใน JavaScript คือ Map หรือ Set) เร็วกว่าการ sort แล้ว binary search",
+      "body": "Binary search ตรวจค่ากลางของช่วงแล้วตัดทิ้งครึ่งหนึ่งในแต่ละรอบ จึงใช้ O(log n) กรณีแย่สุดวนเทียบ ⌊log₂ n + 1⌋ รอบ ข้อมูล 1,000,000 รายการจึงไม่เกิน 20 รอบ แต่ใช้ได้เมื่อ array เรียงลำดับแล้วเท่านั้น ถ้าไม่เรียง การตัดครึ่งจะทิ้งส่วนที่มีค่าที่หาอยู่ไปได้และให้ผลผิด ถ้าค้นแค่ครั้งเดียว การ sort ก่อน (O(n log n)) แพงกว่าไล่ดูทีละตัว (O(n)) และถ้าค้นบ่อยด้วย key ตรง ๆ โครงสร้างแบบ hash อย่าง Map หรือ Set (engine ส่วนใหญ่ใช้ hash table) มักเร็วกว่าการ sort แล้ว binary search",
       "code": "function binarySearch(sorted, target) {\n  let lo = 0, hi = sorted.length - 1;\n  while (lo <= hi) {\n    const mid = Math.floor((lo + hi) / 2);\n    if (sorted[mid] === target) return mid;\n    if (sorted[mid] < target) lo = mid + 1;\n    else hi = mid - 1;\n  }\n  return -1;\n}\nbinarySearch([1, 3, 5, 7, 9], 7); // 3",
       "exam": true,
       "ref": "https://en.wikipedia.org/wiki/Binary_search"
@@ -267,7 +267,7 @@
         "วนทั้งสามฟังก์ชันด้วย for...of พร้อม await"
       ],
       "answer": 2,
-      "explain": "Promise.all เริ่มทั้งสามงานพร้อมกัน เวลารวมจึงใกล้งานที่ช้าที่สุด (~300 ms) การเอา await ออกจะได้ Promise แทนข้อมูลจริง ส่วน for...of กับ await ยังรอทีละงานเหมือนเดิม"
+      "explain": "การเรียกทั้งสามฟังก์ชันก่อนแล้วส่ง Promise ให้ Promise.all รอรวม ทำให้ทั้งสามงานทำงานคาบเกี่ยวกัน เวลารวมจึงใกล้งานที่ช้าที่สุด (~300 ms) การเอา await ออกจะได้ Promise แทนข้อมูลจริง ส่วน for...of กับ await ยังรอทีละงานเหมือนเดิม"
     },
     {
       "prompt": "log \"บันทึกครบแล้ว\" ขึ้นก่อนข้อมูลถูกบันทึกจริง และบางครั้งมี unhandled rejection สาเหตุคืออะไร?",
@@ -387,7 +387,7 @@
         "เทียบด้วย === ใช้ไม่ได้กับ id ที่เป็นตัวเลข ต้องเทียบด้วย == แทน"
       ],
       "answer": 0,
-      "explain": "Binary search ตัดทิ้งครึ่งหนึ่งโดยสมมติว่าข้อมูลเรียงลำดับ ถ้าไม่เรียงอาจตัดครึ่งที่มีค่าที่หาอยู่ทิ้งไป (ตัวอย่างนี้ตัดทิ้งไปตั้งแต่รอบแรก) ต้อง sort ก่อนหรือเปลี่ยนไปใช้ Set/Map ส่วนการเปลี่ยน floor เป็น ceil ไม่ได้แก้ข้อสมมติเรื่องลำดับ"
+      "explain": "Binary search ตัดทิ้งครึ่งหนึ่งโดยสมมติว่าข้อมูลเรียงลำดับ ถ้าไม่เรียงอาจตัดครึ่งที่มีค่าที่หาอยู่ทิ้งไป (ตัวอย่างนี้รอบแรก mid ชี้ index 2 ค่า 7 มากกว่า 1 จึงตัดไปเหลือ index 0-1 รอบที่สอง mid ชี้ index 0 ค่า 9 มากกว่า 1 จึงตัดจนหมดช่วง ทั้งที่ 1 อยู่ที่ index 1) ต้อง sort ก่อนหรือเปลี่ยนไปใช้ Set/Map ส่วนการเปลี่ยน floor เป็น ceil ไม่ได้แก้ข้อสมมติเรื่องลำดับ"
     },
     {
       "prompt": "ช่องชื่อเล่นจำกัด 3 ตัวอักษรด้วย value.length <= 3 ผู้ใช้พิมพ์ \"ก็อต\" ซึ่งเห็นเป็น 3 ตัวอักษร แต่ถูกปฏิเสธ ควรเข้าใจและแก้อย่างไร?",
@@ -468,7 +468,7 @@
         "ย้าย slice ไปไว้ก่อน sort เพราะ slice คือตัวที่ไปแก้ array ต้นฉบับ",
         "ใส่ comparator ให้ครบทุกกรณี เพราะไม่มี comparator เมื่อไรก็แก้ต้นฉบับ",
         "ประกาศ parameter scores เป็น const เพื่อกันไม่ให้ sort เปลี่ยนค่า",
-        "เรียงบนสำเนา เช่น [...scores].sort(...) เพราะ sort แก้ array เดิมในที่"
+        "เรียงบนสำเนา เช่น [...scores].sort(...) เพราะ sort เปลี่ยน array เดิมโดยตรง"
       ],
       "answer": 3,
       "explain": "`sort` เรียงใน array เดิม (in place) และคืน reference เดียวกัน ส่วน `slice` ต่างหากที่คืนสำเนา การย้าย slice ไปก่อนจะได้ top 3 ผิดความหมาย และ const/parameter ไม่ได้ห้ามการแก้เนื้อใน array"
@@ -502,11 +502,11 @@
       "options": [
         "ใช้ Object.entries แทน Object.keys เพราะคงลำดับตามที่ใส่ไว้",
         "ใส่ key เป็นตัวเลขทั้งหมด แล้วเรียงด้วย Object.keys().sort()",
-        "ใช้ Map ซึ่งวนตามลำดับที่ใส่เสมอ แต่ object เรียง key จำนวนเต็มก่อน",
+        "ใช้ Map เพราะวนตามลำดับที่ใส่เสมอ ส่วน object เอา key เลขดัชนีขึ้นก่อน",
         "ใช้ JSON.stringify แล้ว JSON.parse ใหม่เพื่อให้ลำดับกลับมาเหมือนเดิม"
       ],
       "answer": 2,
-      "explain": "ลำดับของ object คือ key ที่เป็นจำนวนเต็มไม่ติดลบเรียงจากน้อยไปมากก่อน แล้วตามด้วย key อื่นตามลำดับที่สร้าง ซึ่ง Object.entries และการ stringify/parse ก็ยึดลำดับเดียวกัน ส่วน Map วนตามลำดับที่ใส่ทุกกรณี"
+      "explain": "ลำดับของ object คือ key ที่เป็นเลขดัชนี array (จำนวนเต็มไม่ติดลบที่ไม่เกิน 2^32 − 2) เรียงจากน้อยไปมากก่อน แล้วตามด้วย key อื่นตามลำดับที่สร้าง ซึ่ง Object.entries และการ stringify/parse ก็ยึดลำดับเดียวกัน ส่วน Map วนตามลำดับที่ใส่ทุกกรณี"
     },
     {
       "prompt": "API ของพาร์ตเนอร์ส่ง order id เป็นตัวเลข 64 บิต ฝั่ง JavaScript parse แล้วได้ id ไม่ตรงกับต้นทาง จึงดึงออเดอร์ผิดใบ แก้ที่ต้นเหตุอย่างไร?",
@@ -515,10 +515,10 @@
         "ใช้ parseFloat กับ id หลัง parse เพื่อเรียกความแม่นยำที่เสียไปคืนมา",
         "แปลงเป็น BigInt หลัง JSON.parse เพราะ BigInt กู้ค่าเดิมกลับมาได้",
         "เปลี่ยนเป็น Number(id) ก่อนนำไปเทียบ เพื่อบังคับให้เป็นตัวเลขจริง",
-        "ขอให้ API ส่ง id เป็น string เพราะ Number แม่นยำเฉพาะถึง 2^53 − 1"
+        "ขอให้ API ส่ง id เป็น string เพราะ Number แทนจำนวนเต็มได้ครบแค่ถึง 2^53 − 1"
       ],
       "answer": 3,
-      "explain": "JSON.parse แปลงตัวเลขเป็น Number (double) ซึ่งเก็บจำนวนเต็มได้แม่นยำถึง 2^53 − 1 เท่านั้น ค่าที่เกินจึงถูกปัดไปแล้วตั้งแต่ตอน parse การแปลงเป็น BigInt หรือ parseFloat หลังจากนั้นกู้ค่าเดิมกลับมาไม่ได้ จึงต้องให้ต้นทางส่งเป็น string"
+      "explain": "JSON.parse แปลงตัวเลขเป็น Number (double) ซึ่งแทนจำนวนเต็มได้ครบทุกค่าเฉพาะถึง 2^53 − 1 ค่าที่เกินนั้นบางค่าแทนไม่ได้ จึงถูกปัดไปแล้วตั้งแต่ตอน parse การแปลงเป็น BigInt หรือ parseFloat หลังจากนั้นกู้ค่าเดิมกลับมาไม่ได้ จึงต้องให้ต้นทางส่งเป็น string"
     }
   ],
   "exercises": [
@@ -539,11 +539,11 @@
       "checks": [
         {
           "label": "แปลงเป็นตัวพิมพ์เล็ก (toLowerCase)",
-          "pattern": "tolowercase\\(\\)"
+          "pattern": "tolowercase\\s*\\(\\s*\\)|tolocalelowercase\\s*\\("
         },
         {
-          "label": "แยกคำด้วย split",
-          "pattern": "\\.split\\("
+          "label": "แยกคำ (split หรือ match)",
+          "pattern": "\\.split\\s*\\(|\\.match\\s*\\(|\\.matchall\\s*\\(|\\.exec\\s*\\("
         },
         {
           "label": "นับด้วย Map, object หรือ reduce",
@@ -551,15 +551,15 @@
         },
         {
           "label": "เรียงผลด้วย sort",
-          "pattern": "\\.sort\\(|\\.tosorted\\("
+          "pattern": "\\.sort\\s*\\(|\\.tosorted\\s*\\("
         },
         {
           "label": "จำนวนเท่ากันเรียงตามตัวอักษร",
-          "pattern": "localecompare\\(|\\[0\\]\\s*[<>]"
+          "pattern": "localecompare\\s*\\(|\\[0\\]\\s*[<>]|\\b(?!\\w+\\[1\\])\\w+(\\[0\\])?\\s*[<>]=?\\s*(?!\\w+\\[1\\])\\w+(\\[0\\])?\\s*\\?\\s*-?1"
         },
         {
           "label": "ตัดเหลือ n คำ",
-          "pattern": "\\.slice\\(\\s*0\\s*,\\s*n\\s*\\)"
+          "pattern": "\\.slice\\s*\\(\\s*0\\s*,\\s*n\\s*\\)"
         },
         {
           "label": "ไม่ console.log แทนการ return",
@@ -579,7 +579,7 @@
       "solution": "async function retry(fn, attempts, delayMs) {\n  let lastError;\n  for (let i = 0; i < attempts; i++) {\n    try {\n      return await fn(i);\n    } catch (err) {\n      lastError = err;\n      if (i < attempts - 1) {\n        await new Promise((resolve) => setTimeout(resolve, delayMs * 2 ** i));\n      }\n    }\n  }\n  throw lastError;\n}\n",
       "hints": [
         "แบ่งเป็นสามส่วน: loop ตามจำนวนรอบ, try/catch รอบละหนึ่งครั้ง, รอก่อนลองใหม่ รอบสุดท้ายไม่ต้องรอ",
-        "ต้อง await fn(...) ภายใน try (ถ้าเขียนแค่ return fn() error จะหลุด catch) เก็บ error ล่าสุดไว้ในตัวแปรนอก loop และรอด้วย new Promise((resolve) => setTimeout(resolve, ms))",
+        "ต้อง await fn(...) ภายใน try (ถ้าเขียนแค่ return fn() error จะหลุด catch) เก็บ error ล่าสุดไว้ในตัวแปรนอก loop และรอด้วย new Promise((resolve) => setTimeout(resolve, ms)) (หรือใช้ setTimeout จาก node:timers/promises ก็ได้)",
         "เวลารอรอบที่ i คือ delayMs * 2 ** i ทำเฉพาะเมื่อ i < attempts - 1 และหลัง loop จบให้ throw ตัวแปรที่เก็บ error ล่าสุด"
       ],
       "checks": [
@@ -589,15 +589,15 @@
         },
         {
           "label": "await fn ภายใน try เพื่อให้ error ถูก catch",
-          "pattern": "try\\s*\\{[^}]*await\\s+fn\\s*\\("
+          "pattern": "try\\s*\\{[\\s\\S]*?await\\s+fn\\s*\\([\\s\\S]*?\\}\\s*catch"
         },
         {
           "label": "มี catch จับ error ของแต่ละรอบ",
           "pattern": "catch\\s*(\\(|\\{)"
         },
         {
-          "label": "รอก่อนลองใหม่ด้วย setTimeout",
-          "pattern": "settimeout\\s*\\("
+          "label": "รอก่อนลองใหม่ (setTimeout หรือ timers/promises)",
+          "pattern": "settimeout\\s*\\(|timers/promises"
         },
         {
           "label": "เวลารอเพิ่มเป็นเท่าตัว (backoff)",
@@ -647,7 +647,7 @@
         },
         {
           "label": "เทียบจำนวนรายการกับ capacity",
-          "pattern": "\\.size[^;\\n]*capacity|capacity[^;\\n]*\\.size"
+          "pattern": "\\bsize\\b[^;{}]*capacity|capacity[^;{}]*\\bsize\\b"
         },
         {
           "label": "หา key เก่าสุดจากลำดับของ Map",

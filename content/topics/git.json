@@ -44,13 +44,13 @@
     {
       "tier": "should",
       "title": "reflog กู้ commit ที่ “หาย”",
-      "body": "reflog บันทึกทุกตำแหน่งที่ HEAD และ branch เคยชี้ในเครื่องเรา เมื่อ reset --hard ผิด rebase พัง หรือลบ branch ไป commit เหล่านั้นมักยังอยู่ แค่ไม่มี branch ชี้ถึง จึงหา hash จาก reflog แล้วสร้าง branch หรือ reset กลับไปได้ ข้อจำกัดคือ reflog อยู่เฉพาะในเครื่อง (ไม่ไปกับ push หรือ clone) entry หมดอายุตามค่าเริ่มต้น 90 วัน (30 วันสำหรับ commit ที่ไม่มีอะไรชี้ถึง) และกู้งานที่ไม่เคย commit ไม่ได้",
+      "body": "reflog บันทึกทุกตำแหน่งที่ HEAD และ branch เคยชี้ในเครื่องเรา เมื่อ reset --hard ผิด rebase พัง หรือลบ branch ไป commit เหล่านั้นมักยังอยู่ แค่ไม่มี branch ชี้ถึง จึงหา hash จาก reflog แล้วสร้าง branch หรือ reset กลับไปได้ ข้อจำกัดคือ reflog อยู่เฉพาะในเครื่อง (ไม่ไปกับ push หรือ clone) entry หมดอายุตามค่าเริ่มต้น 90 วัน (30 วันสำหรับ entry ที่ commit ไปถึงไม่ได้จากปลาย branch ปัจจุบัน) ส่วนงานที่ไม่เคย commit reflog ช่วยไม่ได้ (ไฟล์ที่เคย git add อาจยังหาได้ด้วย git fsck --lost-found)",
       "code": "git reflog\n# 9f8e7d6 HEAD@{0}: reset: moving to HEAD~3\n# a1b2c3d HEAD@{1}: commit: feat: add export\ngit switch -c rescue a1b2c3d   # หรือ git reset --hard a1b2c3d"
     },
     {
       "tier": "should",
       "title": "rebase กับ merge และห้าม rewrite ประวัติที่แชร์",
-      "body": "merge รวมสองเส้นด้วย merge commit โดยไม่แตะ commit เดิม ส่วน rebase นำ commit ของเราไปต่อบนฐานใหม่ทีละตัว ได้ประวัติเส้นตรงแต่ทุก commit ได้ hash ใหม่ จึงห้าม rebase หรือ reset branch ที่คนอื่น pull ไปแล้ว (เช่น main) เพราะประวัติของทีมจะแยกกันและเกิด commit ซ้ำ ถ้า rebase branch ของตัวเองที่เคย push แล้ว ให้ใช้ --force-with-lease ซึ่งจะไม่ยอมทับถ้า remote เปลี่ยนไปจากที่เราเห็นล่าสุด",
+      "body": "merge รวมสองเส้นโดยไม่แตะ commit เดิม (ถ้า fast-forward ไม่ได้จะสร้าง merge commit) ส่วน rebase นำ commit ของเราไปต่อบนฐานใหม่ทีละตัว ได้ประวัติเส้นตรงแต่ทุก commit ได้ hash ใหม่ จึงห้าม rebase หรือ reset branch ที่คนอื่น pull ไปแล้ว (เช่น main) เพราะประวัติของทีมจะแยกกันและเกิด commit ซ้ำ ถ้า rebase branch ของตัวเองที่เคย push แล้ว ให้ใช้ --force-with-lease ซึ่งจะไม่ยอมทับถ้า remote เปลี่ยนไปจากที่เราเห็นล่าสุด (คือ origin/<branch> ในเครื่อง ถ้าเพิ่ง fetch มาต้องดูก่อนว่ามีงานใหม่ของคนอื่นหรือไม่)",
       "code": "git switch feat/search\ngit fetch origin\ngit rebase origin/main      # branch นี้เราใช้คนเดียว\ngit push --force-with-lease"
     },
     {
@@ -111,7 +111,7 @@
     {
       "tier": "must",
       "title": "reset ทั้งสามโหมด: --soft, --mixed, --hard",
-      "body": "git reset <commit> ย้าย branch ปัจจุบันไปที่ commit นั้น ความต่างอยู่ที่ว่าแตะ staging area และ working tree แค่ไหน --soft ย้ายแค่ pointer การแก้ยังอยู่ใน staging, --mixed (ค่าเริ่มต้น) ย้าย pointer และล้าง staging แต่ไฟล์ยังเป็นการแก้ที่ยังไม่ stage, --hard เขียนทับ working tree ให้เท่ากับ commit ปลายทาง การแก้ที่ยังไม่ commit จึงหายและกู้ไม่ได้ ใช้ --soft รวมหลาย commit ที่ยังไม่ push เป็นหนึ่งเดียวได้ ส่วน git reset -- <path> ที่ระบุ path จะแค่ถอนไฟล์ออกจาก staging",
+      "body": "git reset <commit> ย้าย branch ปัจจุบันไปที่ commit นั้น ความต่างอยู่ที่ว่าแตะ staging area และ working tree แค่ไหน --soft ย้ายแค่ pointer การแก้ยังอยู่ใน staging, --mixed (ค่าเริ่มต้น) ย้าย pointer และล้าง staging แต่ไฟล์ยังเป็นการแก้ที่ยังไม่ stage, --hard เขียนทับ working tree ให้เท่ากับ commit ปลายทาง การแก้ที่ยังไม่ commit จึงหาย และโดยทั่วไปกู้ไม่ได้ (ยกเว้นที่เคย git add ไว้ ซึ่งอาจหา blob ได้ด้วย git fsck --lost-found) ใช้ --soft รวมหลาย commit ที่ยังไม่ push เป็นหนึ่งเดียวได้ ส่วน git reset -- <path> ที่ระบุ path จะแค่ถอนไฟล์ออกจาก staging",
       "code": "git reset --soft HEAD~3    # ยกเลิก 3 commit การแก้ทั้งหมดยังอยู่ใน staging\ngit commit -m \"feat(export): export CSV\"\ngit reset HEAD~1           # --mixed: ยกเลิก commit และ unstage แต่การแก้ยังอยู่ในไฟล์\ngit reset --hard HEAD~1    # ทิ้งทั้ง commit และการแก้ในไฟล์",
       "exam": true,
       "ref": "https://git-scm.com/docs/git-reset"
@@ -119,7 +119,7 @@
     {
       "tier": "should",
       "title": "วิธี merge PR: merge commit, squash, rebase",
-      "body": "GitHub มีสามวิธีรวม PR: merge commit เก็บทุก commit เดิมและเพิ่ม merge commit (ใช้ --no-ff), squash and merge รวมทุก commit ของ PR เป็น commit เดียวบน base branch ด้วย SHA ใหม่ และ rebase and merge เติมทีละ commit แบบเส้นตรงโดยได้ SHA ใหม่เสมอ ผลข้างเคียงของ squash คือ commit เดิมของ branch ไม่อยู่ในประวัติ main ทำให้ git branch -d ในเครื่องฟ้องว่ายัง not fully merged (ใช้ -D ได้เมื่อเช็กแล้วว่า PR ถูก merge) และ branch ที่แตกต่อจาก branch นั้นต้องย้ายฐานใหม่",
+      "body": "GitHub มีสามวิธีรวม PR: merge commit เก็บทุก commit เดิมและเพิ่ม merge commit (ใช้ --no-ff), squash and merge รวมทุก commit ของ PR เป็น commit เดียวบน base branch ด้วย SHA ใหม่ และ rebase and merge เติมทีละ commit แบบเส้นตรงโดยได้ SHA ใหม่เสมอ ผลข้างเคียงของ squash คือ commit เดิมของ branch ไม่อยู่ในประวัติ main ทำให้ git branch -d ฟ้องว่ายัง not fully merged ได้ (-d เทียบกับ upstream ถ้ามี ไม่งั้นเทียบกับ HEAD และใช้ -D ได้เมื่อเช็กแล้วว่า PR ถูก merge) และ branch ที่แตกต่อจาก branch นั้นต้องย้ายฐานใหม่",
       "code": "git branch -d feat/search\n# error: the branch 'feat/search' is not fully merged\ngit branch -D feat/search   # ลบ หลังเช็กแล้วว่า PR ถูก squash merge",
       "ref": "https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/incorporating-changes-from-a-pull-request/about-pull-request-merges"
     },
@@ -141,27 +141,27 @@
       "tier": "should",
       "title": "Git hooks: pre-commit และข้อจำกัด",
       "body": "hook คือ script ที่ Git เรียกเองในจังหวะต่าง ๆ เช่น pre-commit รัน lint หรือ test ก่อนสร้าง commit (ออกด้วยค่าไม่ใช่ 0 คือยกเลิก) และ commit-msg ตรวจข้อความ commit ไฟล์ใน .git/hooks ไม่ถูกคัดลอกตอน clone และไม่อยู่ใน version control ทีมจึงมักเก็บ script ไว้ใน repo เช่น .githooks/ แล้วให้ทุกคนตั้ง core.hooksPath ชี้ไปที่นั่น (ไฟล์ต้องมี executable bit) ทุกคนข้าม pre-commit และ commit-msg ได้ด้วย --no-verify จึงต้องตรวจซ้ำใน CI ด้วย",
-      "code": "#!/bin/sh\n# .githooks/pre-commit  (chmod +x ด้วย)\nnpm run lint || exit 1\n\n# เปิดใช้ ทำครั้งเดียวต่อเครื่อง\ngit config core.hooksPath .githooks",
+      "code": "#!/bin/sh\n# .githooks/pre-commit  (chmod +x ด้วย)\nnpm run lint || exit 1\n\n# เปิดใช้ ทำครั้งเดียวต่อ clone (ตั้งค่าเฉพาะ repo นี้)\ngit config core.hooksPath .githooks",
       "ref": "https://git-scm.com/docs/githooks"
     },
     {
       "tier": "advanced",
       "title": "โมเดลข้อมูลของ Git: blob, tree, commit",
       "body": "Git เก็บข้อมูลเป็น object ที่ตั้งชื่อด้วย hash ของเนื้อหา มีสามชนิดหลัก คือ blob (เนื้อไฟล์ ไม่มีชื่อไฟล์) tree (รายการใน directory ที่ชี้ blob หรือ tree พร้อมชื่อและ mode) และ commit (ชี้ tree ราก พร้อม parent, author และข้อความ) เพราะชื่อมาจากเนื้อหา ไฟล์ที่เนื้อหาเหมือนกันจึงใช้ blob เดียวกันแม้ชื่อต่างกัน และ commit hash รวม parent ไว้ด้วย การ rebase ที่เปลี่ยนฐานจึงได้ hash ใหม่ทั้งชุด ตามหนังสือ hash ที่ใช้คือ SHA-1 และเอกสาร git init ระบุว่า sha1 เป็นค่าเริ่มต้น แต่ git init --object-format=sha256 สร้าง repo แบบ SHA-256 ได้ (ตามเอกสารเดียวกัน ปัจจุบันยังไม่ interoperate กับ repo SHA-1)",
-      "code": "git cat-file -t HEAD          # commit\ngit cat-file -p HEAD          # tree <hash> / parent <hash> / author ...\ngit cat-file -p 'HEAD^{tree}'  # รายการ blob และ tree ใน commit นั้น\ngit hash-object a.txt b.txt   # เนื้อหาเหมือนกัน = hash เดียวกัน",
+      "code": "git cat-file -t HEAD          # commit\ngit cat-file -p HEAD          # tree <hash> / parent <hash> / author ...\ngit cat-file -p 'HEAD^{tree}'  # รายการ blob และ tree ใน commit นั้น\ngit hash-object --no-filters a.txt b.txt   # เนื้อหาเหมือนกัน = hash เดียวกัน",
       "ref": "https://git-scm.com/book/en/v2/Git-Internals-Git-Objects"
     },
     {
       "tier": "advanced",
       "title": "git rebase --onto ย้าย branch ที่แตกซ้อนกัน",
-      "body": "git rebase main ปกติเล่น commit ที่ branch มีแต่ main ไม่มีซ้ำบน main แต่ถ้า feature-b แตกจาก feature-a และ feature-a ถูก squash merge เข้า main commit เดิมของ feature-a จะไม่อยู่ใน main (มีแต่ commit squash ใหม่) rebase ธรรมดาจึงเล่น commit ของ a ซ้ำและมักชนกัน ใช้ --onto <ฐานใหม่> <ฐานเก่า> <branch> เพื่อบอกว่าเอาเฉพาะ commit หลังฐานเก่าไปวางบนฐานใหม่ เพราะ hash เปลี่ยน ถ้า branch เคย push จะ push ธรรมดาไม่ผ่านและต้อง force push จึงควรใช้ --force-with-lease ซึ่งไม่ทับถ้า remote มีงานใหม่ที่เรายังไม่เห็น",
-      "code": "# main: ... S   (S = squash ของ a1+a2)\n# feature-a: a1--a2    feature-b: a1--a2--b1--b2\ngit fetch origin\ngit rebase --onto origin/main feature-a feature-b\ngit push --force-with-lease origin feature-b",
+      "body": "git rebase main ปกติเล่น commit ที่ branch มีแต่ main ไม่มีซ้ำบน main แต่ถ้า feature-b แตกจาก feature-a และ feature-a ถูก squash merge เข้า main commit เดิมของ feature-a จะไม่อยู่ใน main (มีแต่ commit squash ใหม่) rebase ธรรมดาจึงเล่น commit ของ a ซ้ำและมักชนกัน ใช้ --onto <ฐานใหม่> <ฐานเก่า> <branch> เพื่อบอกว่าเอาเฉพาะ commit หลังฐานเก่าไปวางบนฐานใหม่ เพราะ hash เปลี่ยน ถ้า branch เคย push จะ push ธรรมดาไม่ผ่านและต้อง force push จึงควรใช้ --force-with-lease ซึ่งไม่ทับถ้า remote มีงานใหม่ที่เรายังไม่เห็น แต่ถ้า fetch ไปแล้ว lease จะนับงานใหม่นั้นว่าเห็นแล้ว จึงควรผูกกับ hash ที่ตรวจแล้ว",
+      "code": "# main: ... S   (S = squash ของ a1+a2)\n# feature-a: a1--a2    feature-b: a1--a2--b1--b2\ngit fetch origin\ngit rebase --onto origin/main feature-a feature-b\ngit push --force-with-lease=feature-b:<hash เดิมของ origin/feature-b> origin feature-b",
       "ref": "https://git-scm.com/docs/git-rebase"
     },
     {
       "tier": "advanced",
       "title": "เซ็น commit และ tag ด้วย key",
-      "body": "Git ไม่ตรวจ user.name และ user.email ตอน commit ใครก็ตั้งเป็นอะไรก็ได้ (git commit --author ก็ระบุผู้เขียนเองได้) จึงไม่ใช่หลักฐานว่าใครเขียนโค้ดจริง Pro Git บอกว่า Git ปลอดภัยด้วย hash แต่ไม่ใช่ทุกกรณี การเซ็นด้วย key ทำให้ตรวจได้ว่า commit มาจากเจ้าของ key git commit -S เซ็นหนึ่ง commit, ตั้ง commit.gpgsign เป็น true เพื่อเซ็นทุก commit, git tag -s เซ็น tag และ git log --show-signature แสดงผลตรวจ Pro Git สอนด้วย GPG เป็นหลัก แต่ตามเอกสาร git config ชนิด key เลือกได้ด้วย gpg.format (openpgp เป็นค่าเริ่มต้น หรือ x509 และ ssh)",
+      "body": "Git ไม่ตรวจ user.name และ user.email ตอน commit ใครก็ตั้งเป็นอะไรก็ได้ (git commit --author ก็ระบุผู้เขียนเองได้) จึงไม่ใช่หลักฐานว่าใครเขียนโค้ดจริง Pro Git บอกว่า Git ปลอดภัยด้วย hash แต่ไม่ใช่ทุกกรณี การเซ็นด้วย key ทำให้ตรวจได้ว่า commit ถูกเซ็นด้วย key นั้นจริง และเชื่อได้ว่าเป็นเจ้าของ key เมื่อ key ผูกกับตัวตนที่เชื่อถือได้ (เช่น ลงทะเบียนไว้กับ GitHub) git commit -S เซ็นหนึ่ง commit, ตั้ง commit.gpgsign เป็น true เพื่อเซ็นทุก commit, git tag -s เซ็น tag และ git log --show-signature แสดงผลตรวจ Pro Git สอนด้วย GPG เป็นหลัก แต่ตามเอกสาร git config ชนิด key เลือกได้ด้วย gpg.format (openpgp เป็นค่าเริ่มต้น หรือ x509 และ ssh)",
       "code": "git config --local commit.gpgsign true\ngit commit -S -m \"fix(auth): revoke token on logout\"\ngit log --show-signature -1\ngit tag -s v1.4.0 -m \"Release 1.4.0\"",
       "ref": "https://git-scm.com/book/en/v2/Git-Tools-Signing-Your-Work"
     }
@@ -286,11 +286,11 @@
       "options": [
         "git fetch origin แล้วดูด้วย git log HEAD..origin/main",
         "git pull ทันที แล้วค่อย reset ถ้าไม่ชอบสิ่งที่ได้มาจาก remote",
-        "git merge origin/main แล้วดูผลลัพธ์จาก diff ย้อนหลังหลังรวมเสร็จ",
+        "git merge origin/main แล้วค่อยตรวจดูว่ามีอะไรเข้ามาหลังรวมเสร็จ",
         "git checkout origin/main เพื่อดูไฟล์ล่าสุดของเพื่อนในเครื่องเรา"
       ],
       "answer": 0,
-      "explain": "fetch อัปเดตเฉพาะ origin/* โดยไม่แตะ branch และไฟล์ของเรา จึงดูก่อนตัดสินใจรวมได้ ส่วน pull คือ fetch แล้ว merge ทันที (และ merge origin/main โดยไม่ fetch จะใช้ข้อมูลเก่า) ขณะที่ checkout origin/main จะไม่ได้ข้อมูลใหม่และทำให้ HEAD แยกออกจาก branch"
+      "explain": "fetch อัปเดตเฉพาะ origin/* โดยไม่แตะ branch และไฟล์ของเรา จึงดูก่อนตัดสินใจรวมได้ ส่วน pull คือ fetch แล้วรวมเข้า branch ปัจจุบันทันที (ด้วย merge หรือ rebase ตามที่ตั้งไว้) และ merge origin/main โดยไม่ fetch จะใช้ข้อมูลเก่า ขณะที่ checkout origin/main จะไม่ได้ข้อมูลใหม่และทำให้ HEAD แยกออกจาก branch"
     },
     {
       "prompt": "คุณมี commit ที่ยังไม่ push 1 ตัวบน main แต่เพื่อน push ขึ้น main ไปก่อน พอ git pull ได้ข้อความนี้ คุณต้องการประวัติเส้นตรงโดยไม่ทิ้ง commit ของตัวเอง ควรทำอย่างไร?",
@@ -325,7 +325,7 @@
         "squash สร้าง commit ใหม่ commit เดิมจึงไม่ใช่ส่วนหนึ่งของ main"
       ],
       "answer": 3,
-      "explain": "squash and merge รวมทุก commit เป็น commit ใหม่หนึ่งตัว commit เดิมของ branch จึงไม่ใช่ ancestor ของ main และ git branch -d มองว่ายังไม่ merge เมื่อเช็กแล้วว่า PR ถูก merge จริง ใช้ -D ได้ งานของ feature อยู่บน main เรียบร้อยแล้ว ไม่ได้หาย"
+      "explain": "squash and merge รวมทุก commit เป็น commit ใหม่หนึ่งตัว commit เดิมของ branch จึงไม่ใช่ ancestor ของ main และ git branch -d (เทียบกับ upstream ถ้ามี ไม่งั้นเทียบกับ HEAD) มองว่ายังไม่ merge เมื่อเช็กแล้วว่า PR ถูก merge จริง ใช้ -D ได้ งานของ feature อยู่บน main เรียบร้อยแล้ว ไม่ได้หาย"
     },
     {
       "prompt": "คุณแก้ report.js (track อยู่แล้ว) และสร้างไฟล์ใหม่ draft.md ที่ยังไม่เคย git add จากนั้นรัน git stash เพื่อสลับไปแก้บั๊กด่วน ผลลัพธ์ข้อใดถูกต้อง?",
@@ -375,7 +375,7 @@
       "explain": "ข้อความ error บอกเองว่ามี unannotated tag อยู่แล้วในเครื่อง (จึงไม่ใช่เรื่อง fetch) git describe ค่าเริ่มต้นใช้เฉพาะ annotated tag แก้ได้ด้วย --tags หรือสร้าง tag ด้วย -a"
     },
     {
-      "prompt": "คุณ commit ไป 3 ครั้งบน feat/export (ยังไม่ push) ข้อความเป็น wip ทั้งหมด และอยากรวมเป็น commit เดียวที่ข้อความดี ๆ โดยไม่ต้องแก้ไฟล์ซ้ำ ควรใส่ flag ใดแทน ??? ?",
+      "prompt": "คุณ commit ไป 3 ครั้งบน feat/export (ยังไม่ push) ข้อความเป็น wip ทั้งหมด และอยากรวมเป็น commit เดียวที่มีข้อความดี ๆ โดยไม่ต้องแก้ไฟล์ซ้ำ ควรใส่ flag ใดแทนตำแหน่ง ??? ในคำสั่งด้านล่าง?",
       "code": "git reset ??? HEAD~3\ngit commit -m \"feat(export): export CSV\"",
       "options": [
         "--soft เพราะการแก้ทั้งหมดยังอยู่ใน staging พร้อม commit ต่อ",
@@ -469,7 +469,7 @@
     },
     {
       "prompt": "repo มีไฟล์ LICENSE และ docs/LICENSE.txt ที่เนื้อหาเหมือนกันทุกตัวอักษร คุณรัน git hash-object กับทั้งสองไฟล์ ผลลัพธ์และความหมายคืออะไร?",
-      "code": "git hash-object LICENSE docs/LICENSE.txt",
+      "code": "git hash-object --no-filters LICENSE docs/LICENSE.txt",
       "options": [
         "ได้ hash เดียวกัน เพราะ blob ตั้งชื่อจากเนื้อหาอย่างเดียว",
         "ได้ hash ต่างกัน เพราะ hash รวมชื่อไฟล์และเวลาที่แก้ไฟล์ล่าสุดไว้ด้วย",
@@ -477,10 +477,10 @@
         "ได้ hash เดียวกัน แต่เฉพาะเมื่อสองไฟล์อยู่ใน commit เดียวกัน"
       ],
       "answer": 0,
-      "explain": "blob เก็บเฉพาะเนื้อหา ส่วนชื่อไฟล์และ mode เก็บใน tree hash-object จึงให้ค่าเดียวกันสำหรับเนื้อหาเดียวกัน และ Git เก็บเนื้อหานั้นไว้ชุดเดียว ไม่เกี่ยวกับเวลาแก้ไข path หรือ commit"
+      "explain": "blob เก็บเฉพาะเนื้อหา ส่วนชื่อไฟล์และ mode เก็บใน tree hash-object จึงให้ค่าเดียวกันสำหรับเนื้อหาเดียวกัน (--no-filters กันไม่ให้ filter หรือการแปลง eol ตาม path เปลี่ยนไบต์ก่อน hash) และ Git เก็บเนื้อหานั้นไว้ชุดเดียว ไม่เกี่ยวกับเวลาแก้ไข path หรือ commit"
     },
     {
-      "prompt": "feature-b แตกมาจาก feature-a ซึ่งเพิ่งถูก squash merge เข้า main คุณรัน git rebase origin/main บน feature-b แล้วชนกันในไฟล์ที่ feature-a เคยเพิ่ม วิธีที่ถูกคือข้อใด?",
+      "prompt": "feature-b แตกมาจาก feature-a ซึ่งเพิ่งถูก squash merge เข้า main คุณรัน git rebase origin/main บน feature-b แล้วชนกันในไฟล์ที่ feature-a เคยเพิ่ม จึงสั่ง git rebase --abort กลับมาก่อน วิธีที่ถูกคือข้อใด?",
       "code": "A---a1---a2        (feature-a)\n          \\\n           b1---b2  (feature-b)\nmain: ... S             (S = squash ของ a1+a2)",
       "options": [
         "แก้ conflict ของ commit feature-a ซ้ำทุกรอบแล้วค่อย push --force",
@@ -500,7 +500,7 @@
         "ใช้ git commit --reset-author เพื่อพิสูจน์ว่า commit เป็นของจริง"
       ],
       "answer": 2,
-      "explain": "author และ committer ใน commit เป็นข้อความที่ตั้งเองได้ ไม่ได้ถูกตรวจกับตัวตนผู้ push ลายเซ็นด้วย key เท่านั้นที่ตรวจได้ว่าเจ้าของ key เป็นผู้สร้าง commit user.useConfigOnly แค่ไม่ให้ Git เดาชื่อกับ email ของเครื่องเรา และ --reset-author ตั้ง author เป็นค่าปัจจุบันของผู้รันเท่านั้น"
+      "explain": "author และ committer ใน commit เป็นข้อความที่ตั้งเองได้ ไม่ได้ถูกตรวจกับตัวตนผู้ push มีแต่ลายเซ็นด้วย key ที่ตรวจได้ว่า commit ถูกเซ็นด้วย key ของใคร (เชื่อถือได้เมื่อ key ผูกกับตัวตนที่ยืนยันแล้ว) user.useConfigOnly แค่ไม่ให้ Git เดาชื่อกับ email ของเครื่องเรา และ --reset-author ตั้ง author เป็นค่าปัจจุบันของผู้รันเท่านั้น"
     },
     {
       "prompt": "ก่อนเปิด PR คุณอยากเห็นรายการ commit ที่อยู่บน feat/search แต่ main ยังไม่มี คำสั่งใดถูกต้อง?",
@@ -537,23 +537,23 @@
         },
         {
           "label": "stage ไฟล์ก่อน commit",
-          "pattern": "git add (src\\/auth\\.js|\\.|-a)|git commit -a"
+          "pattern": "git add\\b[^\\n]*(src\\/auth\\.js|\\s\\.(\\s|$)|\\s-a\\b|--all|\\s-u\\b|--update)|git commit\\b[^\\n]*(\\s-[a-z]*a[a-z]*(\\s|$)|--all)"
         },
         {
           "label": "commit message แบบ Conventional Commits",
-          "pattern": "git commit (-a\\s+)?-a?m [\"'](feat|fix)(\\([^)]*\\))?!?: "
+          "pattern": "git commit\\b[^\\n]*(-[a-z]*m\\s*|--message[ =]\\s*)[\"'](feat|fix|build|chore|ci|docs|style|refactor|perf|test|revert)(\\([^)]*\\))?!?: "
         },
         {
-          "label": "push ขึ้น origin",
-          "pattern": "git push( -u| --set-upstream)? origin"
+          "label": "push ขึ้น origin พร้อมตั้ง upstream (-u)",
+          "pattern": "git push\\b(?=[^\\n]*\\s(-u|--set-upstream)(\\s|$))[^\\n]*\\sorigin\\b[^\\n]*(feat\\/login-rate-limit|\\shead\\b)"
         },
         {
           "label": "กลับไปที่ main ก่อน revert",
           "pattern": "git (switch|checkout) main\\b[\\s\\S]*git revert"
         },
         {
-          "label": "ย้อนด้วย git revert abc1234",
-          "pattern": "git revert (--no-edit )?abc1234"
+          "label": "ย้อนด้วย git revert abc1234 (ถ้าใช้ -n ต้อง commit ต่อ)",
+          "pattern": "git revert\\b(?![^\\n]*(\\s-[a-z]*n[a-z]*(?=\\s|$)|--no-commit))[^\\n]*\\sabc1234\\b|git revert\\b[^\\n]*(\\s-[a-z]*n[a-z]*(?=\\s|$)|--no-commit)[^\\n]*\\sabc1234\\b[\\s\\S]*git commit\\b"
         },
         {
           "label": "ไม่ใช้ force push หรือ reset --hard",
@@ -586,24 +586,24 @@
           "pattern": "git stash\\b[\\s\\S]*git (switch|checkout) main\\b"
         },
         {
-          "label": "อัปเดต main ล่าสุดก่อนติด tag",
-          "pattern": "git (switch|checkout) main\\b[\\s\\S]*git (pull|merge)\\b[\\s\\S]*git tag\\b"
+          "label": "อัปเดต main จาก remote ก่อนติด tag (git pull หรือ git fetch แล้ว merge)",
+          "pattern": "git (switch|checkout) main\\b[\\s\\S]*git pull\\b[\\s\\S]*git tag\\b|git fetch\\b[\\s\\S]*git (switch|checkout) main\\b[\\s\\S]*git merge\\s[\\s\\S]*git tag\\b|git (switch|checkout) main\\b[\\s\\S]*git fetch\\b[\\s\\S]*git merge\\s[\\s\\S]*git tag\\b"
         },
         {
           "label": "annotated tag v2.4.1 พร้อมข้อความ",
           "pattern": "git tag\\b(?=[^\\n]*\\s(-a|-s|-m|-am|-sm|--annotate|--sign|--message)\\b)(?=[^\\n]*\\sv2\\.4\\.1\\b)"
         },
         {
-          "label": "push tag ขึ้น origin",
-          "pattern": "git push\\b[^\\n]*(\\sv2\\.4\\.1\\b|refs\\/tags\\/v2\\.4\\.1\\b|--tags|--follow-tags)"
+          "label": "push tag v2.4.1 ขึ้น origin",
+          "pattern": "git push\\b(?=[^\\n]*\\sorigin\\b)[^\\n]*(\\sv2\\.4\\.1\\b|refs\\/tags\\/v2\\.4\\.1\\b|--tags|--follow-tags)"
         },
         {
           "label": "กลับ feat/report แล้วคืนงานด้วย stash pop หรือ apply",
           "pattern": "git (switch|checkout) feat\\/report\\b[\\s\\S]*git stash (pop|apply)\\b"
         },
         {
-          "label": "ไม่ใช้คำสั่งทิ้งงาน (reset --hard, clean -f, stash drop, force)",
-          "pattern": "reset --hard|clean -[a-z]*f|checkout (-f|--force)|switch (-f|--force|--discard-changes)|stash (drop|clear)|push\\b[^\\n]*(\\s-f\\b|--force(?![-\\w]))",
+          "label": "ไม่ใช้คำสั่งทิ้งงาน (reset --hard, clean -f, stash clear, force หรือ stash drop ก่อนคืนงาน)",
+          "pattern": "reset --hard|clean -[a-z]*f|checkout (-f|--force)|switch (-f|--force|--discard-changes)|stash clear|(?<!git stash (pop|apply)\\b[\\s\\S]*)git stash drop|push\\b[^\\n]*(\\s-f\\b|--force(?![-\\w]))",
           "negate": true
         }
       ]
@@ -613,14 +613,14 @@
       "level": "ยาก",
       "tags": "rebase --onto · force-with-lease · log range",
       "lang": "shell",
-      "prompt": "feature-b ถูกแตกจาก feature-a และ push ขึ้น origin แล้ว ตอนนี้ PR #1 ของ feature-a ถูก squash and merge เข้า main บน GitHub เรียบร้อย (กลายเป็น commit 936dcd2) เขียนคำสั่ง git ทีละบรรทัดที่ (1) ดึงสถานะล่าสุดจาก remote (2) ย้ายเฉพาะ commit ของ feature-b ไปต่อจาก origin/main โดยไม่เล่น commit ของ feature-a ซ้ำ (3) ตรวจว่า feature-b มีแต่ commit ของตัวเอง และ (4) ส่งขึ้น origin โดยไม่ทับงานที่คนอื่นอาจ push เข้า feature-b มาก่อน",
+      "prompt": "feature-b ถูกแตกจาก feature-a และ push ขึ้น origin แล้ว ตอนนี้ PR #1 ของ feature-a ถูก squash and merge เข้า main บน GitHub เรียบร้อย (กลายเป็น commit 936dcd2) เขียนคำสั่ง git ทีละบรรทัดที่ (1) ดึงสถานะล่าสุดจาก remote (2) ย้ายเฉพาะ commit ของ feature-b ไปต่อจาก origin/main โดยไม่เล่น commit ของ feature-a ซ้ำ (3) ตรวจว่า feature-b ที่ต่างจาก origin/main มีแต่ commit ของตัวเอง และ (4) ส่งขึ้น origin โดยไม่ทับงานที่คนอื่นอาจ push เข้า feature-b มาก่อน (แม้คุณเพิ่ง fetch มาแล้ว)",
       "context": "$ git branch --show-current\nfeature-b\n\n$ git log --oneline --graph --all\n* 9835509 (HEAD -> feature-b, origin/feature-b) b2: add export button\n* d682c6c b1: add export API\n* 47870a1 (feature-a, origin/feature-a) a2: add filter UI\n* 3057afd a1: add filter API\n| * 936dcd2 (origin/main) feat: filter (#1)\n|/\n* 55ad6c4 base",
       "starter": "# เขียนคำสั่ง git ทีละบรรทัด\n",
-      "solution": "git fetch origin\ngit rebase --onto origin/main feature-a feature-b\ngit log --oneline origin/main..feature-b\ngit push --force-with-lease origin feature-b",
+      "solution": "git fetch origin\ngit rebase --onto origin/main feature-a feature-b\ngit log --oneline origin/main..feature-b\ngit push --force-with-lease=feature-b:9835509 origin feature-b",
       "hints": [
         "หลัง squash merge main ไม่มี commit เดิมของ feature-a (มีแต่ commit squash ใหม่) rebase ธรรมดาจึงเล่น a1 a2 ซ้ำ ต้องบอก Git ว่าฐานเก่าของ feature-b คืออะไร",
         "รูปแบบคือ git rebase --onto <ฐานใหม่> <ฐานเก่า> [<branch>] ฐานใหม่คือ origin/main ส่วนฐานเก่าคือปลายของ feature-a",
-        "rebase ทำให้ hash ของ b1 b2 เปลี่ยน push ปกติจะถูกปฏิเสธ ให้ใช้ git push --force-with-lease ไม่ใช่ --force เพื่อไม่ทับงานที่คนอื่น push มา"
+        "rebase ทำให้ hash ของ b1 b2 เปลี่ยน push ปกติจะถูกปฏิเสธ ให้ใช้ git push --force-with-lease ไม่ใช่ --force แต่เพราะ fetch ไปแล้ว lease เปล่า ๆ จะถือว่างานใหม่ที่เพิ่งเห็นเป็นของที่เห็นแล้ว ให้ผูก lease กับ hash ที่ origin/feature-b ชี้อยู่ก่อนดึง: --force-with-lease=feature-b:<hash> (ใน context คือ 9835509) อีกทางคือ lease เปล่า ๆ คู่ --force-if-includes ซึ่งไม่ต้องระบุ hash แต่ถ้าระบุ hash เอง --force-if-includes จะไม่ช่วยอะไร"
       ],
       "checks": [
         {
@@ -628,12 +628,12 @@
           "pattern": "git fetch\\b[\\s\\S]*git rebase\\b"
         },
         {
-          "label": "rebase --onto ฐานใหม่คือ main (origin/main)",
-          "pattern": "git rebase\\b[^\\n]*--onto[ =](origin\\/)?main\\b"
+          "label": "rebase --onto ฐานใหม่คือ origin/main (หรือ hash 936dcd2)",
+          "pattern": "git rebase\\b[^\\n]*--onto[ =](origin\\/main|refs\\/remotes\\/origin\\/main|936dcd2[0-9a-f]*)(\\s|$)"
         },
         {
           "label": "ระบุฐานเก่าเป็นปลาย feature-a (ชื่อ branch หรือ hash 47870a1)",
-          "pattern": "--onto[ =]\\S+\\s+(feature-a|origin\\/feature-a|47870a1)\\b"
+          "pattern": "--onto[ =]\\S+\\s+(feature-a|origin\\/feature-a|47870a1[0-9a-f]*)(\\s|$)"
         },
         {
           "label": "ไม่ใช้ git rebase main แบบธรรมดา",
@@ -641,12 +641,12 @@
           "negate": true
         },
         {
-          "label": "ตรวจผลก่อน push (git log หรือ git diff)",
-          "pattern": "git (log|diff|range-diff|show-branch)\\b[\\s\\S]*git push\\b"
+          "label": "ตรวจช่วง commit เทียบ origin/main หลัง rebase และก่อน push (เช่น git log origin/main..feature-b)",
+          "pattern": "git rebase\\b[\\s\\S]*git (log|diff|range-diff|show-branch)\\b[^\\n]*(origin\\/main|936dcd2)[^\\n]*\\n[\\s\\S]*git push\\b"
         },
         {
-          "label": "push ด้วย --force-with-lease หลัง rebase",
-          "pattern": "git rebase\\b[\\s\\S]*git push\\b[^\\n]*--force-with-lease"
+          "label": "push หลัง rebase ด้วย --force-with-lease ผูก hash 9835509 (หรือ lease เปล่า ๆ คู่ --force-if-includes)",
+          "pattern": "git rebase\\b[\\s\\S]*git push\\b(?=[^\\n]*--force-with-lease)(?:(?=[^\\n]*--force-with-lease=(refs\\/heads\\/)?feature-b:9835509[0-9a-f]*(\\s|$))|(?=[^\\n]*--force-with-lease(=(refs\\/heads\\/)?feature-b)?(\\s|$))(?=[^\\n]*--force-if-includes))"
         },
         {
           "label": "ไม่ใช้ force push แบบ -f / --force / +branch",

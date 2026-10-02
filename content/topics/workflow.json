@@ -13,7 +13,7 @@
     {
       "tier": "must",
       "title": "ให้ agent มีวิธีตรวจงานตัวเอง",
-      "body": "agent จะหยุดเมื่องาน “ดูเหมือนเสร็จ” ถ้าไม่มีสิ่งที่บอกผ่านหรือไม่ผ่านได้ชัด คนก็ต้องเป็นผู้ตรวจทุกรอบ ให้ระบุ check ที่ agent รันเองได้ เช่น test, build, linter, type check หรือ screenshot เทียบกับ design แล้วสั่งให้วนแก้จนผ่าน และขอหลักฐาน (คำสั่งที่รันกับผลลัพธ์) แทนคำว่า “ผ่านแล้ว” นี่คือสิ่งที่ช่วยให้งานถูกต้องมากที่สุดอย่างเดียว",
+      "body": "agent จะหยุดเมื่องาน “ดูเหมือนเสร็จ” ถ้าไม่มีสิ่งที่บอกผ่านหรือไม่ผ่านได้ชัด คนก็ต้องเป็นผู้ตรวจทุกรอบ ให้ระบุ check ที่ agent รันเองได้ เช่น test, build, linter, type check หรือ screenshot เทียบกับ design แล้วสั่งให้วนแก้จนผ่าน และขอหลักฐาน (คำสั่งที่รันกับผลลัพธ์) แทนคำว่า “ผ่านแล้ว” นี่เป็นสิ่งเดียวที่ช่วยให้งานถูกต้องได้มากที่สุด",
       "code": "เขียน validateEmail ใน src/utils/email.ts\nกรณีทดสอบ: user@example.com → true, invalid → false, user@.com → false\nรัน npm test แล้วแก้จนผ่าน\nแก้ที่ต้นเหตุ ห้ามปิด error หรือแก้ test เพื่อให้ผ่าน\nแนบผลการรัน test ครั้งล่าสุดมาด้วย"
     },
     {
@@ -91,7 +91,7 @@
     {
       "tier": "must",
       "title": "Excessive agency: ให้ agent มีสิทธิ์เท่าที่จำเป็น",
-      "body": "OWASP นิยาม excessive agency ว่าเป็นช่องโหว่ที่ทำให้ action สร้างความเสียหายเกิดขึ้นได้เมื่อ output ของโมเดลผิดพลาดหรือถูกชักจูง ไม่ว่าจะเพราะ hallucination หรือ prompt injection และมีรากเหง้า 3 แบบ คือ functionality เกิน, permission เกิน และ autonomy เกิน แนวป้องกันคือให้ tool น้อยที่สุด เลี่ยง tool แบบเปิดกว้างอย่าง “รัน shell อะไรก็ได้” ให้ token ที่สิทธิ์ต่ำสุด และบังคับสิทธิ์ที่ระบบปลายทางแทนการเชื่อว่าโมเดลจะตัดสินถูก เช่น agent ที่แค่ค้นข้อมูลควรใช้ identity ที่มีแค่ SELECT",
+      "body": "OWASP นิยาม excessive agency ว่าเป็นช่องโหว่ที่เปิดทางให้เกิดการกระทำที่สร้างความเสียหายเมื่อ output ของโมเดลผิดพลาดหรือถูกชักจูง ไม่ว่าจะเพราะ hallucination หรือ prompt injection และมีรากเหง้า 3 แบบ คือ functionality เกิน, permission เกิน และ autonomy เกิน แนวป้องกันคือให้ tool น้อยที่สุด เลี่ยง tool แบบเปิดกว้างอย่าง “รัน shell อะไรก็ได้” ให้ token ที่มีสิทธิ์ต่ำสุด และบังคับสิทธิ์ที่ระบบปลายทางแทนการเชื่อว่าโมเดลจะตัดสินถูก เช่น agent ที่แค่ค้นข้อมูลควรใช้ identity ที่มีแค่ SELECT",
       "code": "-- role ของ agent: อ่านได้เฉพาะตารางที่ใช้\nGRANT SELECT ON products TO agent_ro;\n-- ไม่ให้ INSERT / UPDATE / DELETE และไม่ใช้ account ของ admin",
       "exam": true,
       "ref": "https://genai.owasp.org/llmrisk/llm062025-excessive-agency/"
@@ -99,13 +99,13 @@
     {
       "tier": "must",
       "title": "Permission mode คือระดับของ human-in-the-loop",
-      "body": "Claude Code มีหลาย permission mode ตั้งแต่ Manual (ค่า config คือ default) ที่รันเฉพาะการอ่านโดยไม่ถาม, acceptEdits ที่อนุมัติการแก้ไฟล์ให้, plan ที่ห้ามแก้จนกว่าจะอนุมัติแผน, auto ที่มี classifier ตรวจแทนคน, dontAsk ที่ปฏิเสธทุกอย่างที่ไม่ได้ pre-approve (เหมาะกับ CI) ไปจนถึง bypassPermissions ที่ไม่ถามเลยและควรใช้ใน container หรือ VM เท่านั้น mode เป็นแค่ค่าตั้งต้น เพราะ deny rule ยังบล็อกในทุก mode ส่วน allow rule ไม่มีผลใน bypassPermissions เลือกให้เหมาะกับความเสี่ยง เพราะการกดอนุมัติรัว ๆ จนชินไม่ใช่การ review",
+      "body": "Claude Code มีหลาย permission mode ตั้งแต่ Manual (ค่า config คือ default) ที่รันเฉพาะการอ่านโดยไม่ถาม, acceptEdits ที่อนุมัติการแก้ไฟล์ให้, plan ที่ให้สำรวจและเสนอแผนโดยยังไม่แก้ source จนกว่าจะอนุมัติ (ยกเว้น terminal แบบ interactive ที่เปิดให้ใช้ bypass permissions ซึ่งไม่บังคับการบล็อกนี้), auto ที่มี classifier ตรวจแทนคน, dontAsk ที่ปฏิเสธทุกอย่างที่ไม่ได้ pre-approve (เหมาะกับ CI) ไปจนถึง bypassPermissions ที่ข้ามการถามเกือบทั้งหมด (ยังถามเมื่อชน ask rule หรือการลบ critical path) และควรใช้ใน container หรือ VM เท่านั้น mode เป็นแค่ค่าตั้งต้น เพราะ deny rule ยังบล็อกในทุก mode ส่วน allow rule ไม่มีผลใน bypassPermissions เลือกให้เหมาะกับความเสี่ยง เพราะการกดอนุมัติรัว ๆ จนชินไม่ใช่การ review",
       "ref": "https://code.claude.com/docs/en/permission-modes"
     },
     {
       "tier": "must",
-      "title": "Branch protection: ด่านที่ agent ข้ามไม่ได้",
-      "body": "กติกาฝั่ง GitHub ใช้กับ PR ที่ agent เปิดเหมือนของคน ตั้งให้ต้องมี approving review ตามจำนวนที่กำหนด และ required status checks ต้องเป็น successful, skipped หรือ neutral จึงจะ merge ได้ เปิดตัวเลือก dismiss stale approvals เพื่อให้ commit ใหม่ที่เปลี่ยน diff ล้าง approval เดิม กับดักคือสถานะ skipped นับว่าผ่าน (เช่น job ที่ถูกข้ามด้วย if:) จึงควรดูว่า job ที่บังคับไม่ถูกข้ามด้วยเงื่อนไขของ workflow และถ้าเปิด strict check ต้องอัปเดต branch ให้ทันฐานทุกครั้งที่คนอื่น merge",
+      "title": "Branch protection: ด่านบังคับที่ใช้กับ PR ของ agent",
+      "body": "กติกาฝั่ง GitHub ใช้กับ PR ที่ agent เปิดเหมือนของคน ตั้งให้ต้องมี approving review ตามจำนวนที่กำหนด และ required status checks ต้องเป็น successful, skipped หรือ neutral จึงจะ merge ได้ เปิดตัวเลือก dismiss stale approvals เพื่อให้ commit ใหม่ที่เปลี่ยน diff ล้าง approval เดิม กับดักคือสถานะ skipped นับว่าผ่าน (เช่น job ที่ถูกข้ามด้วย if:) จึงควรดูว่า job ที่บังคับไม่ถูกข้ามด้วยเงื่อนไขของ workflow และถ้าเปิด strict check ต้องอัปเดต branch ให้ทันฐานทุกครั้งที่คนอื่น merge นอกจากนี้ค่าเริ่มต้นของกฎไม่บังคับกับ admin จึงควรเปิด “Do not allow bypassing the above settings” และไม่ให้ identity ของ agent มีสิทธิ์ admin",
       "exam": true,
       "ref": "https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-protected-branches/about-protected-branches"
     },
@@ -133,7 +133,7 @@
     {
       "tier": "should",
       "title": "รัน agent แบบ non-interactive: claude -p และ batch",
-      "body": "คำสั่ง claude -p \"prompt\" รัน Claude Code โดยไม่มีหน้าจอโต้ตอบ ใช้ใน CI, pre-commit hook หรือสคริปต์ และเลือก output เป็น text, json (ได้ object เดียวที่มี field result) หรือ stream-json งาน batch ขนาดใหญ่ให้วนเรียกต่อไฟล์ โดยใช้ --allowedTools จำกัดสิทธิ์ให้แคบ ซึ่งสำคัญมากเมื่อไม่มีคนเฝ้า และควรลองกับ 2-3 ไฟล์ก่อนปรับ prompt แล้วจึงรันทั้งชุด",
+      "body": "คำสั่ง claude -p \"prompt\" รัน Claude Code โดยไม่มีหน้าจอโต้ตอบ ใช้ใน CI, pre-commit hook หรือสคริปต์ และเลือก output เป็น text, json (ได้ object เดียวที่มี field result) หรือ stream-json งาน batch ขนาดใหญ่ให้วนเรียกต่อไฟล์ โดยใช้ --allowedTools อนุมัติล่วงหน้าเฉพาะเครื่องมือหรือคำสั่งที่จำเป็น (flag นี้ไม่ได้ตัดเครื่องมืออื่นออก ถ้าต้องการจำกัดชุดเครื่องมือให้ใช้ --tools) ซึ่งสำคัญมากเมื่อไม่มีคนเฝ้า และควรลองกับ 2-3 ไฟล์ก่อนปรับ prompt แล้วจึงรันทั้งชุด",
       "code": "for f in $(cat files.txt); do\n  claude -p \"Migrate $f from Python 2 to Python 3. Return OK or FAIL.\" \\\n    --allowedTools \"Edit,Bash(git commit *)\"\ndone",
       "ref": "https://code.claude.com/docs/en/best-practices#fan-out-across-files"
     },
@@ -343,7 +343,7 @@
       "explain": "dontAsk อนุญาตเฉพาะการอ่านกับเครื่องมือที่ pre-approve และปฏิเสธส่วนที่เหลือ จึงตรงกับ CI ที่ต้องการ allowlist ตรง ๆ acceptEdits ตรงข้ามกับที่ตัวเลือกบอก เพราะมันอนุมัติการแก้ไฟล์และคำสั่งไฟล์ทั่วไป เช่น mkdir, mv, cp ใน working directory ให้เองโดยไม่ถาม จึงกว้างกว่าที่ต้องการ"
     },
     {
-      "prompt": "นักพัฒนาจะให้ agent ทำ migration ข้ามคืนบนแล็ปท็อปที่ล็อกอิน credential ของ production ค้างไว้ จึงเปิด bypassPermissions โดยเชื่อว่า deny rule ที่เขียนไว้กันของอันตรายได้ครบ ควรปรับอย่างไร?",
+      "prompt": "นักพัฒนาจะให้ agent ทำ migration ข้ามคืนบนแล็ปท็อปที่มี credential ของ production ค้างอยู่ จึงเปิด bypassPermissions โดยเชื่อว่า deny rule ที่เขียนไว้กันของอันตรายได้ครบ ควรปรับอย่างไร?",
       "options": [
         "ปล่อยไว้ได้ เพราะ deny rule มีผลทุก mode จึงกันได้ครบทุกคำสั่งที่เป็นอันตรายต่อ production แล้ว",
         "เปลี่ยนเป็น acceptEdits ซึ่งปลอดภัยพอสำหรับการรันข้ามคืนบนเครื่องที่ยังมี credential ค้างอยู่",
@@ -476,7 +476,7 @@
         "รวมทุกไฟล์ไว้ใน prompt เดียว เพื่อให้ agent เห็นภาพรวมแล้วย้ายพร้อมกันในรอบเดียวเลย"
       ],
       "answer": 1,
-      "explain": "ควรทดสอบกับไม่กี่ไฟล์เพื่อแก้ prompt ก่อนเสียค่าใช้จ่ายและเสี่ยงทั้งชุด และ --allowedTools คือสิ่งที่จำกัดความเสียหายเมื่อรันโดยไม่มีคนเฝ้า การตัดออกเพื่อกันค้างเป็นการแลกความปลอดภัยกับความสะดวก"
+      "explain": "ควรทดสอบกับไม่กี่ไฟล์เพื่อแก้ prompt ก่อนเสียค่าใช้จ่ายและเสี่ยงทั้งชุด ส่วน --allowedTools เป็นรายการที่อนุมัติล่วงหน้า (ไม่ได้ตัดเครื่องมืออื่นออก) จึงควรคงให้แคบไว้ การตัดออกเพื่อกันค้างไม่ช่วย เพราะ claude -p ที่ไม่มีคนตอบจะปฏิเสธสิ่งที่ต้องถามอยู่แล้ว"
     },
     {
       "prompt": "ปล่อย agent ทำงานข้ามคืนเพื่อแก้ test ที่ไม่นิ่ง (flaky) เช้ามาพบว่ามันวนแก้หลายร้อยรอบ ค่าใช้จ่ายสูง ทั้งที่ไม่มีอะไรดีขึ้น ครั้งหน้าควรออกแบบอย่างไร?",
@@ -528,7 +528,7 @@
         },
         {
           "label": "ห้ามแก้หรือข้าม test เดิม",
-          "pattern": "(ห้าม|ต้องไม่|do not|don't|must not|never)[^\\n]*(test|เทสต์)|(test|เทสต์)[^\\n]*(ห้าม|ต้องไม่)"
+          "pattern": "(ห้าม|ต้องไม่|อย่า|ไม่ให้|ไม่)\\s*(ไป)?(แก้ไข|แก้|ลบ|ข้าม|skip|ปิด|งด|ปรับ|comment)[^\\n]*(test|เทสต์)|(test|เทสต์)[^\\n]*(ห้าม|ต้องไม่|อย่า|ไม่ให้|ไม่)\\s*(แก้ไข|แก้|ลบ|ข้าม|skip|ปิด|งด|ปรับ)|(do not|don't|must not|never|without)\\s+(modify|edit|change|delete|remove|skip|disable|touch)[^\\n]*test|test[^\\n]*(unchanged|untouched|intact)|(คง|รักษา|เก็บ)[^\\n]{0,20}(test|เทสต์)[^\\n]{0,30}(ไม่เปลี่ยน|ไม่แก้|ไม่ลบ|ไม่ข้าม|ครบ)|(test|เทสต์)\\s*เดิม[^\\n]{0,40}(ไม่(ถูก)?(เปลี่ยน|แก้|ลบ|ข้าม))"
         },
         {
           "label": "ให้เสนอแผนก่อนลงมือ",
@@ -540,7 +540,7 @@
         },
         {
           "label": "ครอบคลุมกรณีไม่มีสิทธิ์และไม่พบ",
-          "pattern": "40[13][\\s\\S]*404|404[\\s\\S]*40[13]"
+          "pattern": "(40[13]|forbidden|unauthori[sz]ed|ไม่มีสิทธิ์)[\\s\\S]*(404|not found|ไม่พบ)|(404|not found|ไม่พบ)[\\s\\S]*(40[13]|forbidden|unauthori[sz]ed|ไม่มีสิทธิ์)"
         }
       ]
     },
@@ -556,20 +556,25 @@
       "hints": [
         "ดูทุกบรรทัด uses: ว่าอ้างอิงด้วยอะไร branch หรือ tag ชี้ไปที่ commit ใหม่ได้ภายหลังโดยเจ้าของ action",
         "pin ด้วย full-length commit SHA 40 ตัวอักษรหลัง @ แทนชื่อ branch หรือ tag และ SHA ต้องมาจาก repo ของ action เอง ไม่ใช่ fork",
-        "ใส่ permissions: ที่ระดับ workflow (ระดับเดียวกับ on: และ jobs:) ให้มี contents: read ส่วนสิทธิ์เขียนค่อยเพิ่มเฉพาะ job ที่ต้องใช้"
+        "ใส่ permissions: ที่ระดับ workflow (ระดับเดียวกับ on: และ jobs:) ให้มี contents: read และไม่ต้องเพิ่มสิทธิ์เขียนใด ๆ เพราะโจทย์ให้ token อ่านได้อย่างเดียว"
       ],
       "checks": [
         {
-          "label": "ตั้ง permissions ให้ contents อ่านอย่างเดียว",
-          "pattern": "^\\s*permissions:\\s*\\n(\\s+[a-z-]+:\\s*(read|none)\\s*(#.*)?\\n)*\\s+contents:\\s*read\\b|^\\s*permissions:\\s*\\{[^}]*contents:\\s*read\\b"
+          "label": "ตั้ง permissions ระดับ workflow ให้ contents อ่านอย่างเดียว",
+          "pattern": "^[\"']?permissions[\"']?:\\s*(read-all\\b|\\{[^}]*[\"']?contents[\"']?\\s*:\\s*[\"']?read\\b|(\\n[ \\t]+[^\\n]*)*?\\n[ \\t]+[\"']?contents[\"']?\\s*:\\s*[\"']?read[\"']?\\s*(#.*)?$)"
         },
         {
-          "label": "pin actions/checkout ด้วย full-length SHA",
-          "pattern": "uses:\\s*[\"']?actions/checkout@[0-9a-f]{40}\\b"
+          "label": "pin actions/checkout ด้วย SHA ที่ให้ไว้",
+          "pattern": "uses:\\s*[\"']?actions/checkout@0123456789abcdef0123456789abcdef01234567(?![0-9a-f])"
         },
         {
-          "label": "pin some-org/setup-tools ด้วย full-length SHA",
-          "pattern": "uses:\\s*[\"']?some-org/setup-tools@[0-9a-f]{40}\\b"
+          "label": "pin some-org/setup-tools ด้วย SHA ที่ให้ไว้",
+          "pattern": "uses:\\s*[\"']?some-org/setup-tools@fedcba9876543210fedcba9876543210fedcba98(?![0-9a-f])"
+        },
+        {
+          "label": "ไม่ตั้งสิทธิ์เขียนใด ๆ (ไม่มี write)",
+          "pattern": ":\\s*[\"']?write",
+          "negate": true
         },
         {
           "label": "ไม่เหลือ action ที่อ้างด้วย main, master หรือ tag เวอร์ชัน",
@@ -587,19 +592,19 @@
       "level": "ยาก",
       "tags": "hooks · PreToolUse · exit code 2",
       "lang": "shell",
-      "prompt": "เขียน hook script สำหรับ PreToolUse (matcher Bash) ที่ Claude Code ส่งข้อมูลของ tool call เป็น JSON ทาง stdin ให้ script อ่านคำสั่งที่ agent กำลังจะรัน แล้วบล็อกเมื่อเป็น rm -rf หรือ git push แบบ force (--force หรือ -f) โดยพิมพ์เหตุผลลง stderr ให้ agent เห็น ส่วนคำสั่งอื่น รวมถึง git push ธรรมดา ต้องผ่านไปได้",
+      "prompt": "เขียน hook script สำหรับ PreToolUse (matcher Bash) ที่ Claude Code ส่งข้อมูลของ tool call เป็น JSON ทาง stdin ให้ script อ่านคำสั่งที่ agent กำลังจะรัน แล้วบล็อกเมื่อเป็น rm -rf หรือ git push แบบ force (--force หรือ -f) โดยพิมพ์เหตุผลลง stderr ให้ agent เห็น ส่วนคำสั่งอื่น รวมถึง git push ธรรมดา ต้องผ่านไปได้ (จับด้วยข้อความแบบหยาบได้ แม้อาจบล็อกคำสั่งที่แค่พิมพ์ข้อความ rm -rf ออกมา เพราะ hook ที่กันความเสี่ยงควรเอนไปทางบล็อก)",
       "context": "JSON ที่ได้ทาง stdin หน้าตาแบบ {\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"git push --force origin main\"}} · มี jq ในเครื่อง · exit 0 = ไม่คัดค้าน, exit 2 = บล็อก tool call และส่ง stderr ให้ agent, exit code อื่น (เช่น 1) ไม่บล็อก",
       "starter": "#!/bin/bash\n# block-risky.sh : PreToolUse hook, matcher \"Bash\"\nINPUT=$(cat)\nCMD=$(echo \"$INPUT\" | jq -r '.tool_input.command // empty')\n\n# TODO: บล็อก rm -rf และ git push แบบ force\necho \"$CMD\" >> /tmp/agent-commands.log\nexit 0\n",
-      "solution": "#!/bin/bash\n# block-risky.sh : PreToolUse hook, matcher \"Bash\"\nINPUT=$(cat)\nCMD=$(echo \"$INPUT\" | jq -r '.tool_input.command // empty')\n\nif echo \"$CMD\" | grep -Eq 'rm[[:space:]]+-[a-z]*(rf|fr)'; then\n  echo \"Blocked: ห้าม agent รัน rm -rf\" >&2\n  exit 2\nfi\n\nif echo \"$CMD\" | grep -Eq 'git[[:space:]]+push.*([[:space:]]--force([[:space:]]|$)|[[:space:]]-f([[:space:]]|$))'; then\n  echo \"Blocked: ห้าม force push ให้เปิด PR แทน\" >&2\n  exit 2\nfi\n\nexit 0\n",
+      "solution": "#!/bin/bash\n# block-risky.sh : PreToolUse hook, matcher \"Bash\"\nINPUT=$(cat)\n# ตัวพิมพ์เล็ก แล้วแตกคำสั่งที่ต่อด้วย ; & | หรือขึ้นบรรทัดใหม่ เป็นทีละท่อน\nCMDS=$(echo \"$INPUT\" | jq -r '.tool_input.command // empty' | tr 'A-Z' 'a-z' | tr ';&|' '\\n\\n\\n')\n\nwhile IFS= read -r SEG; do\n  # rm ที่มีทั้ง flag r (หรือ --recursive) และ f (หรือ --force) รวมถึงแยกเป็น -r -f\n  if echo \"$SEG\" | grep -Eq '(^|[[:space:]])rm[[:space:]]' \\\n     && echo \"$SEG\" | grep -Eq -- '[[:space:]](-[a-z]*r[a-z]*|--recursive)([[:space:]]|$)' \\\n     && echo \"$SEG\" | grep -Eq -- '[[:space:]](-[a-z]*f[a-z]*|--force)([[:space:]]|$)'; then\n    echo \"Blocked: ห้าม agent รัน rm -rf\" >&2\n    exit 2\n  fi\n\n  # force push: --force หรือ -f ที่เป็นคำเต็ม (--force-with-lease ไม่ตรง จึงผ่าน)\n  if echo \"$SEG\" | grep -Eq '(^|[[:space:]])git[[:space:]]+push([[:space:]].*)?[[:space:]](--force|-f)([[:space:]]|$)'; then\n    echo \"Blocked: ห้าม force push ให้เปิด PR แทน\" >&2\n    exit 2\n  fi\ndone <<< \"$CMDS\"\n\nexit 0\n",
       "hints": [
         "hook ได้ข้อมูลทาง stdin เป็น JSON ใช้ jq ดึงเฉพาะ field ของคำสั่งที่ agent จะรัน (อยู่ใต้ tool_input)",
         "การบล็อกต้องออกด้วย exit code ที่ Claude Code ตีความว่าบล็อก ส่วนเหตุผลให้เขียนลง stderr เพื่อให้ agent เห็นแล้วปรับแนวทาง",
-        "ตรวจ 2 เงื่อนไขแยกกันด้วย grep -E: rm ที่มี flag r กับ f และ git push ที่มี --force หรือ -f อย่าให้ git push ธรรมดาโดนบล็อก แล้วปิดท้ายด้วย exit 0"
+        "ตรวจ 2 เงื่อนไขด้วย grep -E: rm ที่มี flag r กับ f (รวมกรณีเขียนแยกเป็น -r -f) และ git push ที่มี --force หรือ -f อย่าให้ git push ธรรมดาหรือ --force-with-lease โดนบล็อก คำสั่งที่ต่อด้วย ; & | ต้องแยกเป็นท่อนก่อนตรวจ เพราะ option อาจอยู่ติดเครื่องหมายเหล่านี้ แล้วปิดท้ายด้วย exit 0"
       ],
       "checks": [
         {
           "label": "อ่านคำสั่งจาก JSON ด้วย jq (.tool_input.command)",
-          "pattern": "jq[^\\n]*\\.tool_input\\.command"
+          "pattern": "jq[^\\n]*\\.tool_input(\\.|\\s*\\|\\s*\\.)command"
         },
         {
           "label": "บล็อกด้วย exit 2",
@@ -611,16 +616,16 @@
           "negate": true
         },
         {
-          "label": "เขียนเหตุผลลง stderr (>&2)",
-          "pattern": ">&\\s*2"
+          "label": "เขียนเหตุผลลง stderr (>&2 หรือ > /dev/stderr)",
+          "pattern": ">&\\s*2|>\\s*/dev/stderr"
         },
         {
-          "label": "ตรวจ rm -rf",
-          "pattern": "\\brm\\b.{0,60}-[a-z]*r"
+          "label": "ตรวจ rm แบบ recursive (-r, -rf หรือ --recursive)",
+          "pattern": "\\brm\\b[\\s\\S]*(-[a-z]*r|--recursive)"
         },
         {
           "label": "ตรวจ git push แบบ force (--force หรือ -f)",
-          "pattern": "push[^\\n]{0,60}(--force|-f\\b)"
+          "pattern": "push[^\\n]{0,120}(--force|-f\\b)"
         },
         {
           "label": "คำสั่งที่ไม่เข้าเงื่อนไขผ่านด้วย exit 0",

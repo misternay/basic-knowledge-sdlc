@@ -14,7 +14,7 @@
     {
       "tier": "must",
       "title": "JOIN และการคูณแถว",
-      "body": "INNER JOIN คืนเฉพาะแถวที่จับคู่ได้ทั้งสองฝั่ง ส่วน LEFT JOIN เก็บทุกแถวของตารางซ้ายและเติม NULL เมื่อไม่มีคู่ JOIN ไม่ได้ “ดึงข้อมูลมาแปะ” แต่สร้างหนึ่งแถวต่อทุกคู่ที่ตรงเงื่อนไข ลูกค้า 1 คนที่มี 3 ออเดอร์จึงกลายเป็น 3 แถว และถ้า join ตาราง one-to-many สองตารางพร้อมกันแถวจะคูณกันจน SUM หรือ COUNT เพี้ยน อีกกับดักคือใส่เงื่อนไขของตารางขวาไว้ใน WHERE ซึ่งตัดแถวที่เป็น NULL ทิ้งจน LEFT JOIN กลายเป็น INNER JOIN ให้ย้ายเงื่อนไขนั้นไปไว้ใน ON",
+      "body": "INNER JOIN คืนเฉพาะแถวที่จับคู่ได้ทั้งสองฝั่ง ส่วน LEFT JOIN เก็บทุกแถวของตารางซ้ายและเติม NULL เมื่อไม่มีคู่ JOIN ไม่ได้ “ดึงข้อมูลมาแปะ” แต่สร้างหนึ่งแถวต่อทุกคู่ที่ตรงเงื่อนไข ลูกค้า 1 คนที่มี 3 ออเดอร์จึงกลายเป็น 3 แถว และถ้า join ตาราง one-to-many สองตารางพร้อมกันแถวจะคูณกันจน SUM หรือ COUNT เพี้ยน อีกกับดักคือใส่เงื่อนไขของตารางขวาที่ไม่ยอมรับ NULL (เช่น o.status = 'paid') ไว้ใน WHERE ซึ่งตัดแถวที่ไม่มีคู่ทิ้งจน LEFT JOIN ทำงานเหมือน INNER JOIN ให้ย้ายเงื่อนไขนั้นไปไว้ใน ON (ยกเว้นเงื่อนไขอย่าง o.id IS NULL ที่ตั้งใจหาแถวไม่มีคู่)",
       "code": "-- ลูกค้าทุกคน + จำนวนออเดอร์ที่จ่ายแล้ว (คนที่ไม่มีได้ 0)\nSELECT c.name, COUNT(o.id) AS paid_orders\nFROM customers c\nLEFT JOIN orders o\n  ON o.customer_id = c.id\n AND o.status = 'paid'   -- อยู่ใน ON ไม่ใช่ WHERE\nGROUP BY c.id, c.name;"
     },
     {
@@ -38,7 +38,7 @@
     {
       "tier": "must",
       "title": "Index และการอ่าน EXPLAIN",
-      "body": "index (ส่วนใหญ่เป็น B-tree) เก็บค่าที่เรียงไว้ให้หาแถวได้โดยไม่ต้องสแกนทั้งตาราง ช่วย WHERE, JOIN และ ORDER BY แต่ทุก INSERT/UPDATE/DELETE ต้องอัปเดต index ด้วยและกินพื้นที่ จึงสร้างตาม query ที่ใช้จริง index หลายคอลัมน์ (a, b) ได้ผลดีที่สุดเมื่อเงื่อนไขเริ่มจากคอลัมน์ซ้ายสุด และการครอบคอลัมน์ด้วยฟังก์ชัน เช่น LOWER(email) ทำให้ index ปกติบน email ใช้ไม่ได้ (ต้องสร้าง expression index) ใช้ EXPLAIN ดูแผนที่ planner เลือก และ EXPLAIN ANALYZE ดูเวลาจริง ซึ่งรัน query จริง ถ้าเป็น UPDATE/DELETE ให้ครอบด้วย transaction แล้ว ROLLBACK",
+      "body": "index (ส่วนใหญ่เป็น B-tree) เก็บค่าที่เรียงไว้ให้หาแถวได้โดยไม่ต้องสแกนทั้งตาราง ช่วย WHERE, JOIN และ ORDER BY แต่ INSERT, DELETE และ UPDATE ส่วนใหญ่ต้องอัปเดต index ด้วย (PostgreSQL มี HOT update ที่ข้ามได้ในบางกรณี) และ index กินพื้นที่ จึงสร้างตาม query ที่ใช้จริง index หลายคอลัมน์ (a, b) ได้ผลดีที่สุดเมื่อเงื่อนไขเริ่มจากคอลัมน์ซ้ายสุด และการครอบคอลัมน์ด้วยฟังก์ชัน เช่น LOWER(email) ทำให้ index ปกติบน email ใช้ไม่ได้ (ต้องสร้าง expression index) ใช้ EXPLAIN ดูแผนที่ planner เลือก และ EXPLAIN ANALYZE ดูเวลาจริง ซึ่งรัน query จริง ถ้าเป็น UPDATE/DELETE ให้ครอบด้วย transaction แล้ว ROLLBACK",
       "code": "CREATE INDEX idx_orders_customer_created\n  ON orders (customer_id, created_at);\n\nEXPLAIN ANALYZE\nSELECT * FROM orders\nWHERE customer_id = 42\nORDER BY created_at DESC\nLIMIT 20;\n-- บนตารางใหญ่ควรเห็น Index Scan ไม่ใช่ Seq Scan"
     },
     {
@@ -79,7 +79,7 @@
     {
       "tier": "must",
       "title": "Subquery, EXISTS และการกรองแบบ semi-join",
-      "body": "subquery คือ SELECT ที่ซ้อนอยู่ในอีก query และถ้ามันอ้างคอลัมน์ของ query ด้านนอกจะเรียกว่า correlated subquery EXISTS (…) ตอบแค่ว่ามีแถวอย่างน้อยหนึ่งแถวหรือไม่ รายการคอลัมน์ใน subquery จึงไม่มีผล และโดยทั่วไปฐานข้อมูลทำงานแค่พอรู้คำตอบ ไม่ต้องรันจนจบ เหมาะกับโจทย์ “ลูกค้าที่มีออเดอร์ paid อย่างน้อยหนึ่งรายการ” เพราะไม่คูณแถวแบบ JOIN ส่วน NOT EXISTS ใช้หาแถวที่ไม่มีคู่ โดย EXISTS ให้ผลเป็นจริงหรือเท็จเท่านั้น NULL ใน subquery จึงไม่ทำให้ผลว่างแบบ NOT IN",
+      "body": "subquery คือ SELECT ที่ซ้อนอยู่ในอีก query และถ้ามันอ้างคอลัมน์ของ query ด้านนอกจะเรียกว่า correlated subquery EXISTS (…) ตอบแค่ว่ามีแถวอย่างน้อยหนึ่งแถวหรือไม่ รายการคอลัมน์ใน subquery จึงไม่มีผลโดยทั่วไป (ยกเว้นบางกรณี เช่น subquery ที่ใช้ INTERSECT) และฐานข้อมูลมักทำงานแค่พอรู้คำตอบ ไม่ต้องรันจนจบ เหมาะกับโจทย์ “ลูกค้าที่มีออเดอร์ paid อย่างน้อยหนึ่งรายการ” เพราะไม่คูณแถวแบบ JOIN ส่วน NOT EXISTS ใช้หาแถวที่ไม่มีคู่ โดย EXISTS ให้ผลเป็นจริงหรือเท็จเท่านั้น NULL ใน subquery จึงไม่ทำให้ผลว่างแบบ NOT IN",
       "code": "-- ลูกค้าที่มีออเดอร์ paid อย่างน้อย 1 รายการ (ไม่มีแถวซ้ำ)\nSELECT c.name\nFROM customers c\nWHERE EXISTS (\n  SELECT 1 FROM orders o\n  WHERE o.customer_id = c.id AND o.status = 'paid'\n);\n\n-- ลูกค้าที่ไม่เคยมีออเดอร์เลย\nSELECT c.name\nFROM customers c\nWHERE NOT EXISTS (\n  SELECT 1 FROM orders o WHERE o.customer_id = c.id\n);",
       "exam": true,
       "ref": "https://www.postgresql.org/docs/current/functions-subquery.html"
@@ -87,7 +87,7 @@
     {
       "tier": "must",
       "title": "UNION, UNION ALL, INTERSECT และ EXCEPT",
-      "body": "set operation รวมผลของสอง query ที่มีจำนวนคอลัมน์เท่ากันและชนิดข้อมูลเข้ากันได้ โดยจับคู่คอลัมน์ตามตำแหน่ง ไม่ใช่ตามชื่อ UNION ตัดแถวที่ซ้ำกันออกเหมือน DISTINCT ส่วน UNION ALL เก็บทุกแถว จึงเหมาะเมื่อต้องการนับหรือรวมทุกแถวและยังเลี่ยงงานตัดแถวซ้ำ INTERSECT คืนแถวที่อยู่ในทั้งสองชุด EXCEPT คืนแถวของชุดแรกที่ไม่อยู่ในชุดที่สอง (ทั้งสามตัดแถวซ้ำ เว้นแต่ใส่ ALL) และถ้าไม่ใส่วงเล็บ INTERSECT จะจับคู่แน่นกว่า UNION กับ EXCEPT ส่วน ORDER BY วางได้ที่ท้ายสุดและมีผลกับผลรวมทั้งก้อน",
+      "body": "set operation รวมผลของสอง query ที่มีจำนวนคอลัมน์เท่ากันและชนิดข้อมูลเข้ากันได้ โดยจับคู่คอลัมน์ตามตำแหน่ง ไม่ใช่ตามชื่อ UNION ตัดแถวที่ซ้ำกันออกเหมือน DISTINCT ส่วน UNION ALL เก็บทุกแถว จึงเหมาะเมื่อต้องการนับหรือรวมทุกแถวและยังเลี่ยงงานตัดแถวซ้ำ INTERSECT คืนแถวที่อยู่ในทั้งสองชุด EXCEPT คืนแถวของชุดแรกที่ไม่อยู่ในชุดที่สอง (ทั้งสามตัดแถวซ้ำ เว้นแต่ใส่ ALL) และถ้าไม่ใส่วงเล็บ INTERSECT จะมีลำดับความสำคัญสูงกว่า UNION และ EXCEPT ส่วน ORDER BY วางได้ที่ท้ายสุดและมีผลกับผลรวมทั้งก้อน",
       "code": "-- อีเมลทั้งหมดไม่ซ้ำกัน\nSELECT email FROM newsletter_subscribers\nUNION\nSELECT email FROM app_users;\n\n-- สมาชิกจดหมายข่าวที่ยังไม่ได้ยกเลิก\nSELECT email FROM newsletter_subscribers\nEXCEPT\nSELECT email FROM unsubscribed\nORDER BY email;",
       "exam": true,
       "ref": "https://www.postgresql.org/docs/current/queries-union.html"
@@ -102,7 +102,7 @@
     {
       "tier": "must",
       "title": "UPSERT: INSERT … ON CONFLICT",
-      "body": "งาน “ถ้ามีแล้วให้อัปเดต ถ้ายังไม่มีให้เพิ่ม” ที่ทำด้วย SELECT ตามด้วย INSERT หรือ UPDATE มีช่องว่างให้ request อื่นแทรกจนเกิดแถวซ้ำหรือ unique violation ได้ PostgreSQL มี INSERT … ON CONFLICT (คอลัมน์ที่ unique) DO UPDATE หรือ DO NOTHING ซึ่งเอกสารรับประกันว่าได้ INSERT หรือ UPDATE อย่างใดอย่างหนึ่งแบบอะตอมแม้มี concurrency สูง ใช้ EXCLUDED อ้างค่าที่พยายามจะ insert และ RETURNING ดึงแถวผลลัพธ์กลับมา สิ่งที่ต้องมีคือ unique constraint หรือ unique index ที่ตรงกับ conflict target",
+      "body": "งาน “ถ้ามีแล้วให้อัปเดต ถ้ายังไม่มีให้เพิ่ม” ที่ทำด้วย SELECT ตามด้วย INSERT หรือ UPDATE มีช่องว่างให้ request อื่นแทรกจนเกิดแถวซ้ำหรือ unique violation ได้ PostgreSQL มี INSERT … ON CONFLICT (คอลัมน์ที่ unique) DO UPDATE หรือ DO NOTHING โดย DO UPDATE เอกสารรับประกันว่าได้ INSERT หรือ UPDATE อย่างใดอย่างหนึ่งแบบอะตอมแม้มี concurrency สูง ส่วน DO NOTHING จะข้ามแถวที่ชนกัน ใช้ EXCLUDED อ้างค่าที่พยายามจะ insert และ RETURNING ดึงแถวผลลัพธ์กลับมา สิ่งที่ต้องมีคือ unique constraint หรือ unique index ที่ตรงกับ conflict target",
       "code": "INSERT INTO page_views (page_id, view_date, views)\nVALUES (42, CURRENT_DATE, 1)\nON CONFLICT (page_id, view_date)\nDO UPDATE SET views = page_views.views + EXCLUDED.views\nRETURNING views;",
       "exam": true,
       "ref": "https://www.postgresql.org/docs/current/sql-insert.html"
@@ -133,7 +133,7 @@
     {
       "tier": "should",
       "title": "timestamp กับ timestamptz และ time zone",
-      "body": "ใน PostgreSQL timestamptz (timestamp with time zone) เก็บภายในเป็น UTC แล้วแปลงเป็นโซนเวลาของ session (ค่า TimeZone) ตอนแสดงผล ส่วน timestamp (without time zone) เก็บวันเวลาตามที่ใส่ และตัดส่วนบอก offset ในค่าที่ป้อนทิ้งโดยไม่เตือน เอกสารอธิบายพฤติกรรมนี้ไว้ ส่วนคำแนะนำที่ใช้กันทั่วไปคือสำหรับเวลาที่เหตุการณ์เกิดขึ้นจริง เช่น created_at หรือ paid_at ให้ใช้ timestamptz เพื่อให้เทียบข้ามโซนได้ถูก ส่วน timestamp เหมาะกับเวลาแบบแขวนผนัง เช่น เวลาเปิดร้าน 09:00 ที่ไม่ผูกกับโซน DB อื่นมีชนิดและกติกาต่างกัน ต้องอ่านเอกสารของตัวที่ใช้",
+      "body": "ใน PostgreSQL timestamptz (timestamp with time zone) เก็บภายในเป็น UTC แล้วแปลงเป็นโซนเวลาของ session (ค่า TimeZone) ตอนแสดงผล ส่วน timestamp (without time zone) เก็บวันเวลาตามที่ใส่ และตัดส่วนบอก offset ในค่าที่ป้อนทิ้งโดยไม่เตือน เอกสารอธิบายพฤติกรรมนี้ไว้ ส่วนคำแนะนำที่ใช้กันทั่วไปคือสำหรับเวลาที่เหตุการณ์เกิดขึ้นจริง เช่น created_at หรือ paid_at ให้ใช้ timestamptz เพื่อให้เทียบข้ามโซนได้ถูก ส่วน timestamp เหมาะกับวันเวลาท้องถิ่นที่ไม่ระบุเขตเวลา เช่น เวลานัดประชุมตามนาฬิกาของสาขา ส่วนเวลาเปิดร้านรายวันที่ไม่มีวันที่ใช้ชนิด time ส่วน DB อื่นมีชนิดและกติกาต่างกัน ต้องอ่านเอกสารของตัวที่ใช้",
       "code": "SET TIME ZONE 'UTC';\nSELECT TIMESTAMPTZ '2025-03-01 00:00:00+07';\n-- 2025-02-28 17:00:00+00\nSET TIME ZONE 'Asia/Bangkok';\nSELECT TIMESTAMPTZ '2025-03-01 00:00:00+07';\n-- 2025-03-01 00:00:00+07 (ค่าเดียวกัน แสดงตามโซน)\nSELECT TIMESTAMP '2025-03-01 00:00:00+07';\n-- 2025-03-01 00:00:00 (+07 ถูกตัดทิ้ง)",
       "ref": "https://www.postgresql.org/docs/current/datatype-datetime.html"
     },
@@ -172,12 +172,12 @@
       "code": "SELECT c.name\nFROM customers c\nWHERE c.id NOT IN (\n  SELECT customer_id FROM orders\n);",
       "options": [
         "subquery ที่อยู่ใน WHERE ต้องตั้ง alias ก่อน ไม่อย่างนั้นจะไม่คืนแถวใดเลย",
-        "เมื่อรายการมี NULL เงื่อนไข NOT IN จะเป็น UNKNOWN ทุกแถว WHERE จึงไม่เก็บแถวใดเลย",
+        "เมื่อรายการมี NULL เงื่อนไข NOT IN จะไม่เป็น TRUE กับลูกค้าคนใดเลย WHERE จึงไม่เก็บแถวใด",
         "NOT IN ใช้ได้เฉพาะกับรายการค่าคงที่ ใช้กับผลของ subquery ไม่ได้",
         "customer_id ใน subquery ซ้ำกัน ต้องเพิ่ม DISTINCT ก่อนจึงจะได้ผลที่ถูกต้อง"
       ],
       "answer": 1,
-      "explain": "x NOT IN (1, 2, NULL) เท่ากับ x <> 1 AND x <> 2 AND x <> NULL ส่วนท้ายเป็น UNKNOWN เสมอ ผลรวมจึงไม่มีทางเป็น TRUE ให้ใช้ NOT EXISTS หรือ LEFT JOIN … WHERE o.id IS NULL แทน ส่วน DISTINCT ไม่ช่วยเพราะ NULL ยังอยู่ในรายการ"
+      "explain": "x NOT IN (1, 2, NULL) เท่ากับ x <> 1 AND x <> 2 AND x <> NULL ส่วนท้ายเป็น UNKNOWN เสมอ ผลรวมจึงเป็น FALSE หรือ UNKNOWN ไม่มีทางเป็น TRUE ให้ใช้ NOT EXISTS หรือ LEFT JOIN … WHERE o.id IS NULL แทน ส่วน DISTINCT ไม่ช่วยเพราะ NULL ยังอยู่ในรายการ"
     },
     {
       "prompt": "ต้องการรายชื่อลูกค้าทุกคนพร้อมจำนวนออเดอร์ที่จ่ายแล้ว (คนที่ไม่มีให้แสดง 0) แต่ลูกค้าที่ไม่มีออเดอร์ paid หายไปจากผลลัพธ์ ควรแก้อย่างไร?",
@@ -192,7 +192,7 @@
       "explain": "WHERE ทำงานหลัง JOIN ลูกค้าที่ไม่มีคู่จะมี o.status เป็น NULL จึงถูกกรองทิ้ง LEFT JOIN เลยกลายเป็น INNER JOIN เมื่อย้ายเงื่อนไขไปที่ ON จะกรองเฉพาะฝั่ง orders แต่ยังเก็บลูกค้าทุกคน ส่วน COUNT(*) ไม่ช่วยและยังนับแถว NULL เป็น 1 แทน 0"
     },
     {
-      "prompt": "รายงานยอดขายหนังสือออกมาสูงกว่ายอดจริงหลายเท่า หลังมีคน JOIN order_items เข้ามาเพื่อกรองเฉพาะออเดอร์ที่มีสินค้าหมวด 'book' สาเหตุที่เป็นไปได้มากที่สุดคืออะไร?",
+      "prompt": "รายงานยอดรวมของออเดอร์ที่มีหนังสือออกมาสูงกว่ายอดจริงหลายเท่า หลังมีคน JOIN order_items เข้ามาเพื่อกรองเฉพาะออเดอร์ที่มีสินค้าหมวด 'book' สาเหตุที่เป็นไปได้มากที่สุดคืออะไร?",
       "code": "SELECT SUM(o.total) AS revenue\nFROM orders o\nJOIN order_items i ON i.order_id = o.id\nJOIN products p ON p.id = i.product_id\nWHERE p.category = 'book';",
       "options": [
         "SUM นับค่า NULL ใน o.total เป็นศูนย์แล้วรวมซ้ำหลายรอบ",
@@ -201,10 +201,10 @@
         "ขาด GROUP BY o.id ทำให้ SUM รวมค่าจากทุกตารางที่ join เข้ามา"
       ],
       "answer": 1,
-      "explain": "JOIN สร้างหนึ่งแถวต่อคู่ที่ตรงกัน ออเดอร์ที่มีหนังสือ 3 เล่มจึงปรากฏ 3 แถวและ total ถูกบวก 3 ครั้ง แก้โดยกรองด้วย WHERE EXISTS (…) แทนการ join หรือรวมยอดระดับ item ส่วน LEFT JOIN ไม่ช่วยเพราะการคูณแถวเกิดกับ JOIN ทุกชนิด"
+      "explain": "JOIN สร้างหนึ่งแถวต่อคู่ที่ตรงกัน ออเดอร์ที่มีรายการหนังสือ 3 รายการ (3 แถวใน order_items) จึงปรากฏ 3 แถวและ total ถูกบวก 3 ครั้ง แก้โดยกรองด้วย WHERE EXISTS (…) แทนการ join (ถ้าต้องการยอดเฉพาะหนังสือ ให้รวมระดับ item แทน) ส่วน LEFT JOIN ไม่ช่วยเพราะการคูณแถวเกิดกับ JOIN ทุกชนิด"
     },
     {
-      "prompt": "ต้องการลูกค้าที่ยอดรวมของออเดอร์สถานะ 'paid' เกิน 10,000 บาท ควรวางเงื่อนไขสองข้อนี้ไว้ที่ใด?",
+      "prompt": "query นี้จัดกลุ่มด้วย customer_id อย่างเดียว ต้องการเฉพาะลูกค้าที่ยอดรวมของออเดอร์สถานะ 'paid' เกิน 10,000 บาท ควรวางเงื่อนไขสองข้อนี้ไว้ที่ใด?",
       "options": [
         "ทั้ง status = 'paid' และ SUM(total) > 10000 ไว้ใน WHERE",
         "status = 'paid' ไว้ใน WHERE และ SUM(total) > 10000 ไว้ใน HAVING",
@@ -212,7 +212,8 @@
         "SUM(total) > 10000 ไว้ใน WHERE และ status = 'paid' ไว้ใน HAVING"
       ],
       "answer": 1,
-      "explain": "WHERE กรองแถวก่อนจัดกลุ่ม จึงเหมาะกับเงื่อนไขรายแถวอย่าง status แต่ยังไม่มีผลรวมให้ใช้ ส่วน HAVING กรองหลังคำนวณ aggregate แล้ว ถ้าย้าย status ไป HAVING จะ error เพราะ status ไม่ได้อยู่ใน GROUP BY หรือ aggregate"
+      "explain": "WHERE กรองแถวก่อนจัดกลุ่ม จึงเหมาะกับเงื่อนไขรายแถวอย่าง status แต่ยังไม่มีผลรวมให้ใช้ ส่วน HAVING กรองหลังคำนวณ aggregate แล้ว ถ้าย้าย status ไป HAVING จะ error เพราะ status ไม่ได้อยู่ใน GROUP BY และไม่ใช่ aggregate (การเพิ่ม status เข้า GROUP BY จะเปลี่ยนการจัดกลุ่มจากที่โจทย์กำหนด)",
+      "code": "SELECT customer_id, SUM(total) AS paid_total\nFROM orders\nGROUP BY customer_id\n-- เงื่อนไขสองข้อวางตรงไหน?"
     },
     {
       "prompt": "API โอนเงินรัน UPDATE หักเงินบัญชี A แล้วตามด้วย UPDATE เพิ่มเงินบัญชี B โดยไม่ได้เปิด transaction (autocommit) ถ้า process ล่มระหว่างสองคำสั่ง จะเกิดอะไรขึ้น?",
@@ -235,7 +236,7 @@
         "index จะถูกใช้เฉพาะเมื่อ query มี ORDER BY email ต่อท้ายด้วย"
       ],
       "answer": 1,
-      "explain": "index เรียงตามค่าของคอลัมน์ ไม่ใช่ผลของฟังก์ชันที่ครอบมัน แก้โดยสร้าง expression index เช่น CREATE INDEX ON users (LOWER(email)) (ไวยากรณ์ PostgreSQL) หรือเก็บ email เป็นตัวพิมพ์เล็กตั้งแต่ตอนบันทึก ส่วน B-tree รองรับ = ได้ดีอยู่แล้ว"
+      "explain": "index เรียงตามค่าของคอลัมน์ ไม่ใช่ผลของฟังก์ชันที่ครอบมัน แก้โดยสร้าง expression index เช่น CREATE INDEX ON users (LOWER(email)) (ไวยากรณ์ PostgreSQL) หรือเก็บ email เป็นตัวพิมพ์เล็กตั้งแต่ตอนบันทึกแล้วเปลี่ยน WHERE ให้เทียบ email ตรง ๆ ส่วน B-tree รองรับ = ได้ดีอยู่แล้ว"
     },
     {
       "prompt": "หน้ารายการบทความโหลดช้า query log แสดง SELECT … FROM posts LIMIT 50 หนึ่งครั้ง ตามด้วย SELECT … FROM users WHERE id = $1 อีก 50 ครั้ง วิธีแก้ที่ตรงจุดที่สุดคืออะไร?",
@@ -353,7 +354,7 @@
       "explain": "COUNT(expr) นับแถวที่ expr ไม่เป็น NULL ซึ่งแถวที่เงื่อนไขไม่ตรงได้ 0 ไม่ใช่ NULL จึงถูกนับด้วย ถ้าตัด ELSE ออก CASE จะให้ NULL แทนและนับถูก หรือใช้ SUM(CASE … THEN 1 ELSE 0 END) (ใน PostgreSQL ใช้ COUNT(*) FILTER (WHERE status = 'paid') ก็ได้)"
     },
     {
-      "prompt": "หน้ารายการสินค้ามี 2 ล้านแถว หน้าแรกโหลดเร็ว แต่เมื่อ OFFSET ถึงหลักล้านใช้เวลาหลายวินาที ทั้งที่มี index บน created_at, id ครบ ควรแก้อย่างไร?",
+      "prompt": "หน้ารายการสินค้ามี 2 ล้านแถว หน้าแรกโหลดเร็ว แต่เมื่อ OFFSET ถึงหลักล้านใช้เวลาหลายวินาที ทั้งที่มี index บน created_at, id ครบ และ created_at เป็น NOT NULL ควรแก้อย่างไร?",
       "code": "SELECT id, name FROM products\nORDER BY created_at DESC, id DESC\nLIMIT 20 OFFSET 1000000;",
       "options": [
         "เพิ่มค่า LIMIT ให้มากขึ้น เพื่อให้ planner ยอมเลือกใช้ index แทนการสแกนทั้งตาราง",
@@ -401,7 +402,7 @@
       "explain": "CONCURRENTLY ต้องมี UNIQUE index ที่ใช้เฉพาะชื่อคอลัมน์และครอบคลุมทุกแถว (ไม่ใช่ expression index และไม่มี WHERE) และใช้ได้เมื่อ view ถูก populate แล้ว ซึ่งตรงข้ามกับข้อแรก ส่วน REFRESH แบบปกติอาจบล็อกคนอ่านระหว่างทำงาน"
     },
     {
-      "prompt": "บน PostgreSQL dev คาดว่าค่าที่เก็บจะถูกแปลงเป็น UTC เป็น 2025-02-28 17:00 แต่เมื่อ SELECT กลับมาได้ 2025-03-01 00:00:00 และการเทียบเวลากับข้อมูลจากต่างประเทศเพี้ยน สาเหตุคืออะไร?",
+      "prompt": "บน PostgreSQL นักพัฒนาคาดว่าค่าที่เก็บจะแปลงเป็นเวลา UTC คือ 2025-02-28 17:00 แต่เมื่อ SELECT กลับมาได้ 2025-03-01 00:00:00 และการเทียบเวลากับข้อมูลจากต่างประเทศเพี้ยน สาเหตุคืออะไร?",
       "code": "CREATE TABLE events (id INT, happened_at TIMESTAMP);\nSET TIME ZONE 'UTC';\nINSERT INTO events VALUES (1, '2025-03-01 00:00:00+07');\nSELECT happened_at FROM events;  -- 2025-03-01 00:00:00",
       "options": [
         "PostgreSQL แปลงเป็น UTC แล้ว แต่ psql แสดงผลตามโซนของเครื่องจึงดูเหมือนไม่เปลี่ยน",
@@ -441,7 +442,7 @@
       "code": "SELECT id FROM jobs\nWHERE status = 'pending'\nORDER BY id LIMIT 1;\n\nUPDATE jobs SET status = 'running' WHERE id = $1;",
       "options": [
         "ใส่ FOR SHARE ในขั้นแรก เพื่อให้ worker อื่นเห็นว่าแถวนั้นถูกหยิบไปแล้ว",
-        "ใน transaction เดียว ใช้ FOR UPDATE SKIP LOCKED LIMIT 1 แล้ว UPDATE แถวนั้นต่อ",
+        "ใน transaction เดียว ใช้ LIMIT 1 FOR UPDATE SKIP LOCKED แล้ว UPDATE แถวนั้นต่อ",
         "ใช้ FOR UPDATE NOWAIT เพื่อให้ worker ที่ชนกันรอคิวต่อโดยอัตโนมัติจนได้แถว",
         "ตั้ง SERIALIZABLE แล้วไม่ต้องเขียนโค้ด retry เพราะ DB จะจัดคิวงานให้เองโดยไม่ชนกัน"
       ],
@@ -543,12 +544,12 @@
           "pattern": "sum\\s*\\(\\s*(\\w+\\.)?total\\s*\\)[^;]*\\btotal_spent\\b"
         },
         {
-          "label": "กรองเฉพาะปี 2025 จาก created_at",
-          "pattern": "created_at[^;]*2025|2025[^;]*created_at"
+          "label": "กรองเฉพาะปี 2025 จาก created_at (มีขอบล่างและขอบบนครบ)",
+          "pattern": "created_at\\s*(>=\\s*(?:(?:date|timestamp(?:tz)?)\\s+)?'2025-01-01[^']*'|>\\s*(?:(?:date|timestamp(?:tz)?)\\s+)?'2024-12-31[^']*')[^;]*created_at\\s*(<\\s*(?:(?:date|timestamp(?:tz)?)\\s+)?'2026-01-01[^']*'|<=\\s*(?:(?:date|timestamp(?:tz)?)\\s+)?'2025-12-31[^']*')|created_at\\s*(<\\s*(?:(?:date|timestamp(?:tz)?)\\s+)?'2026-01-01[^']*'|<=\\s*(?:(?:date|timestamp(?:tz)?)\\s+)?'2025-12-31[^']*')[^;]*created_at\\s*(>=\\s*(?:(?:date|timestamp(?:tz)?)\\s+)?'2025-01-01[^']*'|>\\s*(?:(?:date|timestamp(?:tz)?)\\s+)?'2024-12-31[^']*')|created_at\\s+between\\s+(?:(?:date|timestamp(?:tz)?)\\s+)?'2025-01-01[^']*'\\s+and\\s+(?:(?:date|timestamp(?:tz)?)\\s+)?'2025-12-31[^']*'|(extract\\s*\\(\\s*year\\s+from\\s+(\\w+\\.)?created_at\\s*\\)|date_part\\s*\\(\\s*'year'\\s*,\\s*(\\w+\\.)?created_at\\s*\\)|year\\s*\\(\\s*(\\w+\\.)?created_at\\s*\\))(\\s*::\\s*\\w+)?\\s*=\\s*'?2025\\b|date_trunc\\s*\\(\\s*'year'\\s*,\\s*(\\w+\\.)?created_at\\s*\\)\\s*=\\s*(?:(?:date|timestamp(?:tz)?)\\s+)?'2025-01-01[^']*'|to_char\\s*\\(\\s*(\\w+\\.)?created_at\\s*,\\s*'yyyy'\\s*\\)\\s*=\\s*'2025'"
         },
         {
           "label": "GROUP BY ด้วย id ลูกค้า (ชื่อซ้ำกันได้)",
-          "pattern": "group\\s+by[^;]*(\\b(?!o\\.|orders\\.)\\w+\\.id\\b|customer_id|(^|[\\s,(])id\\b)"
+          "pattern": "(?:from|join)\\s+customers\\s+(?:as\\s+)?(\\w+)\\b[\\s\\S]*?group\\s+by[^;]*\\b\\1\\.id\\b|group\\s+by[^;]*(\\bcustomers\\.id\\b|customer_id|(^|[\\s,(])id\\b)"
         },
         {
           "label": "เรียงจากมากไปน้อย (ORDER BY … DESC)",
@@ -577,31 +578,31 @@
       "checks": [
         {
           "label": "นับเฉพาะออเดอร์ที่ status เป็น paid (อ้าง orders)",
-          "pattern": "orders[\\s\\S]*status\\s*=\\s*'paid'"
+          "pattern": "orders[\\s\\S]*(status\\s*=\\s*'paid'|'paid'\\s*=\\s*(\\w+\\.)?status\\b|status\\s+in\\s*\\(\\s*'paid'\\s*\\))"
         },
         {
           "label": "รวมยอดขายด้วย SUM(quantity * unit_price)",
-          "pattern": "sum\\s*\\(\\s*(\\w+\\.)?quantity\\s*\\*\\s*(\\w+\\.)?unit_price\\s*\\)|sum\\s*\\(\\s*(\\w+\\.)?unit_price\\s*\\*\\s*(\\w+\\.)?quantity\\s*\\)"
+          "pattern": "sum\\s*\\(\\s*\\(?\\s*(\\w+\\.)?(quantity\\s*\\*\\s*(\\w+\\.)?unit_price|unit_price\\s*\\*\\s*(\\w+\\.)?quantity)\\s*\\)?\\s*\\)"
         },
         {
-          "label": "ใช้ ROW_NUMBER/RANK/DENSE_RANK แบบ window",
-          "pattern": "(row_number|rank|dense_rank)\\s*\\(\\s*\\)\\s*over\\s*\\("
+          "label": "จัดอันดับด้วย ROW_NUMBER/RANK/DENSE_RANK แบบ window และ PARTITION BY category",
+          "pattern": "(row_number|rank|dense_rank)\\s*\\(\\s*\\)\\s*over\\s*\\(\\s*partition\\s+by\\s+(\\w+\\.)?category\\b"
         },
         {
-          "label": "PARTITION BY category",
-          "pattern": "partition\\s+by\\s+(\\w+\\.)?category\\b"
-        },
-        {
-          "label": "เรียงยอดขายจากมากไปน้อยภายใน window",
-          "pattern": "over\\s*\\([\\s\\S]*?order\\s+by[\\s\\S]*?\\bdesc\\b"
+          "label": "เรียงยอดขายมากไปน้อยใน window และตัดสินยอดเสมอด้วย id สินค้า",
+          "pattern": "over\\s*\\([\\s\\S]*?order\\s+by[\\s\\S]*?\\bdesc\\b\\s*,\\s*(\\w+\\.)?(id|product_id|pid)\\b"
         },
         {
           "label": "จัดอันดับในขั้นของ CTE หรือ subquery แล้วกรองข้างนอก",
-          "pattern": "\\bwith\\s+\\w+\\s+as\\s*\\(|from\\s*\\(\\s*select"
+          "pattern": "\\bwith\\s+\\w+\\s*(\\([^)]*\\)\\s*)?as\\s*((not\\s+)?materialized\\s*)?\\(|from\\s*\\(\\s*select"
         },
         {
           "label": "เหลือเฉพาะอันดับ 1-2 (rn <= 2)",
-          "pattern": "(<=\\s*2\\b|<\\s*3\\b)"
+          "pattern": "(<=\\s*2\\b|<\\s*3\\b|\\bin\\s*\\(\\s*1\\s*,\\s*2\\s*\\)|\\bin\\s*\\(\\s*2\\s*,\\s*1\\s*\\)|\\bbetween\\s+1\\s+and\\s+2\\b)"
+        },
+        {
+          "label": "เรียงผลสุดท้ายตาม category แล้วตามอันดับ",
+          "pattern": "order\\s+by\\s+((\\w+\\.)?category\\b|1)\\s*(asc\\s*)?,\\s*\\S"
         }
       ]
     },
@@ -610,14 +611,14 @@
       "level": "ยาก",
       "tags": "WITH RECURSIVE · hierarchy · cycle guard",
       "lang": "sql",
-      "prompt": "หน้าเมนูของเว็บต้องแสดงหมวด Electronics (id = 1) และหมวดลูกทุกระดับ เขียน query ที่คืน id, name, depth (หมวดราก = 0) และ path (ชื่อจากรากถึงหมวดนั้น คั่นด้วย ' > ' เช่น Electronics > Phones > Android) เรียงตาม path ข้อมูลเก่าอาจมี parent_id วนเป็นรอบโดยบังเอิญ query ของคุณต้องไม่วนไม่จบ",
+      "prompt": "หน้าเมนูของเว็บต้องแสดงหมวด Electronics (id = 1) และหมวดลูกทุกระดับ ไม่ว่าจะลึกเท่าใด เขียน query ที่คืน id, name, depth (หมวดราก = 0) และ path (ชื่อจากรากถึงหมวดนั้น คั่นด้วย ' > ' เช่น Electronics > Phones > Android) เรียงตาม path ข้อมูลเก่าอาจมี parent_id วนเป็นรอบโดยบังเอิญ query ของคุณต้องไม่วนไม่จบ และต้องไม่ตัดหมวดที่อยู่ลึกทิ้ง",
       "context": "categories(id INT PK,\n           name TEXT NOT NULL,\n           parent_id INT → categories.id  -- NULL = หมวดราก)",
       "starter": "-- เริ่มจากหมวด Electronics (id = 1) แต่ยังไม่ได้ลงไปหาหมวดลูก\nSELECT id, name, 0 AS depth, name AS path\nFROM categories\nWHERE id = 1;",
-      "solution": "WITH RECURSIVE tree AS (\n  SELECT id, name, 0 AS depth, name AS path\n  FROM categories\n  WHERE id = 1\n  UNION ALL\n  SELECT c.id, c.name, t.depth + 1, t.path || ' > ' || c.name\n  FROM categories c\n  JOIN tree t ON c.parent_id = t.id\n  WHERE t.depth < 10\n)\nSELECT id, name, depth, path\nFROM tree\nORDER BY path;",
+      "solution": "WITH RECURSIVE tree AS (\n  SELECT id, name, 0 AS depth, name AS path,\n         ARRAY[id] AS visited\n  FROM categories\n  WHERE id = 1\n  UNION ALL\n  SELECT c.id, c.name, t.depth + 1,\n         t.path || ' > ' || c.name,\n         t.visited || c.id\n  FROM categories c\n  JOIN tree t ON c.parent_id = t.id\n  WHERE c.id <> ALL (t.visited)\n)\nSELECT id, name, depth, path\nFROM tree\nORDER BY path;",
       "hints": [
         "โครงสร้างต้นไม้ที่ไม่รู้ความลึกต้องใช้ WITH RECURSIVE: ส่วนเริ่ม UNION ALL ส่วนที่เอาผลรอบก่อนไปหาลูก",
         "ส่วนเริ่มคือหมวด id = 1 ที่ depth 0 ส่วนวนซ้ำ JOIN categories c กับ tree t ที่ c.parent_id = t.id แล้ว depth = t.depth + 1 และ path = t.path || ' > ' || c.name",
-        "กันวนไม่จบด้วยการจำกัดความลึกในส่วนวนซ้ำ เช่น WHERE t.depth < 10 หรือใช้ CYCLE clause ของ PostgreSQL ก็ได้"
+        "กันวนโดยไม่ตัดระดับลึก: เก็บ id ที่เดินผ่านแล้วไว้ใน array (เช่น คอลัมน์ visited เริ่มด้วย ARRAY[id] แล้วต่อ t.visited || c.id) และข้ามหมวดที่อยู่ใน array นั้นด้วย WHERE c.id <> ALL (t.visited) หรือใช้ CYCLE clause ของ PostgreSQL แล้วกรอง NOT is_cycle ออก"
       ],
       "checks": [
         {
@@ -630,7 +631,7 @@
         },
         {
           "label": "เริ่มจากหมวด Electronics (id = 1)",
-          "pattern": "where\\s+(\\w+\\.)?(id\\s*=\\s*1\\b|name\\s*=\\s*'electronics')"
+          "pattern": "where\\s+\\(?\\s*(\\w+\\.)?(id\\s*=\\s*1\\b|name\\s*=\\s*'electronics')"
         },
         {
           "label": "JOIN ลูกด้วย parent_id = id ของผลรอบก่อน",
@@ -638,15 +639,15 @@
         },
         {
           "label": "นับ depth เพิ่มทีละ 1",
-          "pattern": "\\bdepth\\s*\\+\\s*1\\b"
+          "pattern": "\\bdepth\\s*\\+\\s*1\\b|\\b1\\s*\\+\\s*(\\w+\\.)?depth\\b"
         },
         {
           "label": "สร้าง path ด้วย || หรือ concat",
           "pattern": "\\|\\||concat(_ws)?\\s*\\("
         },
         {
-          "label": "มีตัวกันวนไม่จบ (จำกัด depth หรือ CYCLE)",
-          "pattern": "cycle\\s+\\w+(\\s*,\\s*\\w+)*\\s+set|\\b\\w*(depth|level|lvl)\\w*\\s*<=?\\s*\\d+|(<>|!=)\\s*all\\s*\\(|not\\s*\\(?[^;]*=\\s*any\\s*\\("
+          "label": "กันวนด้วยการจำ id ที่เคยผ่าน (visited array หรือ CYCLE) ไม่ใช่การตัดความลึก",
+          "pattern": "(<>|!=)\\s*all\\s*\\(|\\bnot\\s*\\(?[^;]*?(=\\s*any\\s*\\(|@>|&&)|\\bnot\\s+in\\s*\\(\\s*select\\s+unnest\\s*\\([^)]*\\)\\s*\\)|array_position\\s*\\([^;]*\\)\\s*is\\s+null|cycle\\s+\\w+(\\s*,\\s*\\w+)*\\s+set\\s+(\\w+)\\s+using\\s+\\w+[\\s\\S]*(not\\s+\\3\\b|\\3\\s*=\\s*false|\\3\\s*is\\s+not\\s+true|\\3\\s*<>\\s*true)"
         }
       ]
     }

@@ -36,7 +36,7 @@
     {
       "tier": "must",
       "title": "Status code และรูปแบบ error ที่สม่ำเสมอ",
-      "body": "2xx คือสำเร็จ, 4xx คือ request ของ client มีปัญหา, 5xx คือ server ผิดพลาด คู่ที่สับสนบ่อยคือ 401 (ยังไม่ยืนยันตัวตนหรือ token ใช้ไม่ได้) กับ 403 (รู้ว่าเป็นใครแต่ไม่มีสิทธิ์) และ 409 (ขัดกับสถานะปัจจุบัน เช่น จองซ้ำ) กับ 400/422 (ข้อมูลไม่ถูกต้อง) กับดักใหญ่คือตอบ 200 พร้อม {\"success\": false} เพราะ client, cache และ monitoring จะนับว่าสำเร็จ ควรใช้รูปแบบ error เดียวทั้ง API เช่น Problem Details (RFC 9457, application/problem+json)",
+      "body": "2xx คือสำเร็จ, 4xx คือ request ของ client มีปัญหา, 5xx คือ server ผิดพลาด คู่ที่สับสนบ่อยคือ 401 (ยังไม่ยืนยันตัวตนหรือ token ใช้ไม่ได้) กับ 403 (server เข้าใจ request แล้วแต่ปฏิเสธ เช่น ยืนยันตัวตนแล้วแต่ไม่มีสิทธิ์) และ 409 (ขัดกับสถานะปัจจุบัน เช่น จองซ้ำ) กับ 400/422 (ข้อมูลไม่ถูกต้อง) กับดักใหญ่คือตอบ 200 พร้อม {\"success\": false} เพราะ client, cache และ monitoring จะนับว่าสำเร็จ ควรใช้รูปแบบ error เดียวทั้ง API เช่น Problem Details (RFC 9457, application/problem+json)",
       "code": "HTTP/1.1 409 Conflict\nContent-Type: application/problem+json\n\n{\n  \"type\": \"https://example.com/probs/room-taken\",\n  \"title\": \"ห้องถูกจองแล้ว\",\n  \"status\": 409,\n  \"detail\": \"ห้อง 301 ถูกจองช่วง 12–14 ต.ค. แล้ว\"\n}"
     },
     {
@@ -128,7 +128,7 @@
       "tier": "should",
       "title": "Value Object: เทียบด้วยค่า และไม่เปลี่ยนค่าหลังสร้าง",
       "body": "Value object คือ object ที่ถือว่าเท่ากันเมื่อค่าใน property เท่ากัน ไม่ใช่เมื่อเป็น instance เดียวกัน เช่น Money (จำนวนเงินคู่กับสกุลเงิน), พิกัด หรือช่วงวันที่ Fowler แนะนำให้ value object เป็น immutable เพื่อกัน aliasing bug คือ object ที่ถูกแชร์หลายที่ถูกแก้ที่หนึ่งแล้วอีกที่เปลี่ยนตาม การห่อค่าไว้ใน value object ยังช่วยให้กฎตรวจสอบ (เช่น รูปแบบอีเมล) อยู่ที่เดียว แทนที่จะส่ง string ดิบไปทั่วระบบ",
-      "code": "class Email {\n  constructor(raw) {\n    const v = String(raw).trim().toLowerCase();\n    if (!v.includes('@')) throw new Error('invalid email');\n    this.value = v;\n    Object.freeze(this);\n  }\n  equals(other) { return other instanceof Email && other.value === this.value; }\n}\nnew Email(' A@x.com ').equals(new Email('a@x.com')); // true",
+      "code": "class Email {\n  constructor(raw) {\n    const v = String(raw).trim();\n    if (!/^[^@\\s]+@[^@\\s]+$/.test(v)) throw new Error('invalid email'); // ตรวจแบบย่อ งานจริงควรยืนยันด้วยการส่งอีเมล\n    this.value = v;\n    Object.freeze(this);\n  }\n  equals(other) { return other instanceof Email && other.value === this.value; }\n}\nnew Email(' a@x.com ').equals(new Email('a@x.com')); // true",
       "ref": "https://martinfowler.com/bliki/ValueObject.html"
     },
     {
@@ -141,7 +141,7 @@
     {
       "tier": "advanced",
       "title": "Saga: ธุรกรรมข้าม service ด้วย compensating transaction",
-      "body": "เมื่อแต่ละ service มี database ของตัวเอง จะใช้ ACID transaction ก้อนเดียวคลุมหลาย service ไม่ได้ Saga จึงแบ่งงานเป็นลำดับของ local transaction ที่แต่ละขั้นอัปเดต database ตัวเองแล้วประกาศ event หรือ message เพื่อกระตุ้นขั้นต่อไป ถ้าขั้นใดล้มเหลวจะรัน compensating transaction ที่ย้อนผลของขั้นก่อนหน้า เช่น ปล่อยสต็อกและยกเลิกออเดอร์ ประสานงานได้แบบ choreography (ต่างฝ่ายฟัง event ของกันและกัน) หรือ orchestration (ตัวกลางสั่งแต่ละขั้น) ข้อแลกเปลี่ยนคือไม่มี rollback อัตโนมัติ ต้องออกแบบ compensation เอง และขาด isolation จึงอาจเห็นข้อมูลระหว่างทาง",
+      "body": "เมื่อแต่ละ service มี database ของตัวเอง ACID transaction ปกติครอบคลุมได้แค่ database เดียว ส่วน distributed transaction แบบ 2PC ต้องให้ทุกฝ่ายรองรับและทำให้ service ผูกกันแน่น จึงมักไม่เหมาะกับ microservices Saga จึงแบ่งงานเป็นลำดับของ local transaction ที่แต่ละขั้นอัปเดต database ตัวเองแล้วประกาศ event หรือ message เพื่อกระตุ้นขั้นต่อไป ถ้าขั้นใดล้มเหลวจะรัน compensating transaction ที่ย้อนผลของขั้นก่อนหน้า เช่น ปล่อยสต็อกและยกเลิกออเดอร์ ประสานงานได้แบบ choreography (ต่างฝ่ายฟัง event ของกันและกัน) หรือ orchestration (ตัวกลางสั่งแต่ละขั้น) ข้อแลกเปลี่ยนคือไม่มี rollback อัตโนมัติ ต้องออกแบบ compensation เอง และขาด isolation จึงอาจเห็นข้อมูลระหว่างทาง",
       "ref": "https://microservices.io/patterns/data/saga.html"
     },
     {
@@ -239,7 +239,7 @@
       "explain": "403 คือ server รู้ว่าผู้เรียกเป็นใครแต่ไม่อนุญาตให้ทำ ส่วน 401 ใช้เมื่อยังไม่ยืนยันตัวตนหรือ token ใช้ไม่ได้ ซึ่ง client แก้ได้ด้วยการ login ใหม่ แต่กรณีนี้ login ใหม่ก็ไม่ช่วย"
     },
     {
-      "prompt": "กฎ “ห้ามสั่งเกิน stock และสมาชิก VIP ได้ส่วนลด 5%” เขียนอยู่ใน Express route handler ปนกับ SQL ทีมอยากเขียน unit test กฎนี้โดยไม่ต้องเปิด HTTP server หรือ database ควรทำอย่างไร?",
+      "prompt": "กฎ “ห้ามสั่งเกิน stock และสมาชิก VIP ได้ส่วนลด 5%” เขียนอยู่ใน Express route handler ปนกับ SQL ทีมอยากเขียน unit test ของกฎนี้โดยตรง ไม่ต้องเปิด HTTP server ไม่ต้อง mock req/res หรือ db.query และอยากให้กฎไม่ผูกกับ Express หรือ SQL ควรทำอย่างไร?",
       "options": [
         "เขียน integration test ยิง HTTP เข้า server พร้อม database จริงให้ครบทุกกรณี",
         "ย้ายกฎไปเป็น stored procedure เพื่อให้อยู่ใกล้ข้อมูลและทดสอบใน database",
@@ -247,7 +247,7 @@
         "ย้ายกฎไปเป็น use case ที่พึ่ง interface ของ repository ให้ route กับ SQL เป็น adapter"
       ],
       "answer": 3,
-      "explain": "นี่คือแก่นของ Hexagonal/Clean: กฎธุรกิจอยู่ตรงกลางและพึ่งแค่ port จึงทดสอบด้วย repository ในหน่วยความจำได้ทันที การ mock req, res และ db.query ทำได้ แต่ test จะผูกกับรายละเอียด SQL และพังทุกครั้งที่แก้ query แม้กฎไม่เปลี่ยน"
+      "explain": "นี่คือแก่นของ Hexagonal/Clean: กฎธุรกิจอยู่ตรงกลางและพึ่งแค่ port จึงทดสอบด้วย repository ในหน่วยความจำได้ทันที การ mock req, res และ db.query แม้ไม่ต้องเปิด server แต่กฎยังปนอยู่ใน handler เดิม test จึงผูกกับรายละเอียดของ Express และ SQL และพังทุกครั้งที่แก้ query แม้กฎไม่เปลี่ยน"
     },
     {
       "prompt": "ระบบมี class Customer ตัวเดียว 60 field ใช้ร่วมกันทั้งฝ่ายขาย (ระดับสมาชิก, ส่วนลด), ฝ่ายจัดส่ง (ที่อยู่, ช่วงเวลารับของ) และฝ่ายบัญชี (เลขผู้เสียภาษี, วงเงินเครดิต) แก้ field เดียวกระทบทุกทีม แนวทางแบบ DDD คืออะไร?",
@@ -372,7 +372,7 @@
         "ส่ง HEAD ทุกครั้งแล้วเปรียบเทียบ body ที่ได้กับของเดิมว่าเหมือนกันหรือไม่"
       ],
       "answer": 2,
-      "explain": "304 Not Modified บอกว่าไม่ต้องส่ง representation ซ้ำเพราะ client มีของที่ใช้ได้อยู่แล้ว และ If-None-Match คือ header สำหรับ conditional GET ส่วน If-Match ใช้กันการเขียนทับ ผลที่ได้คือ 412 ซึ่งมีความหมายคนละอย่าง และ HEAD ไม่มี body ให้เปรียบเทียบ"
+      "explain": "304 Not Modified บอกว่าไม่ต้องส่ง representation ซ้ำเพราะ client มีของที่ใช้ได้อยู่แล้ว และ If-None-Match คือ header สำหรับ conditional GET ส่วน If-Match ความหมายกลับกัน: ถ้า ETag ตรง คำขอดำเนินต่อและได้ข้อมูลเต็ม ถ้าไม่ตรงจะได้ 412 ซึ่งแปลว่าข้อมูลเปลี่ยนไปแล้ว ไม่ใช่ไม่เปลี่ยน และ HEAD ไม่มี body ให้เปรียบเทียบ"
     },
     {
       "prompt": "ฟีดข่าวใช้ GET /feed?page=2&size=20 (LIMIT 20 OFFSET 20 เรียงข่าวใหม่สุดก่อน) ผู้ใช้รายงานว่าเลื่อนไปหน้า 2 แล้วเจอข่าวที่เพิ่งเห็นในหน้า 1 ซ้ำ โดยมีข่าวใหม่เข้าตลอด สาเหตุและทางแก้ที่เหมาะคืออะไร?",
@@ -421,7 +421,7 @@
       "explain": "Decorator ชั้นนอกสุดรับคำเรียกก่อน ถ้า cache อยู่นอก คำขอที่ hit จะไม่ถึง logger ที่อยู่ชั้นใน พฤติกรรมจึงขึ้นกับลำดับการห่อ การย้าย log ไปไว้ใน PgUserRepository ไม่ช่วย เพราะคำขอที่ cache hit ไม่เดินทางมาถึง repository ตัวใน log จึงยังขาดเหมือนเดิม"
     },
     {
-      "prompt": "ตะกร้าสินค้ามี bug: หลังคำนวณยอดรวม ราคาสินค้าชิ้นแรกที่แสดงในหน้ารายการเปลี่ยนไปด้วย สาเหตุคืออะไรและควรแก้อย่างไร?",
+      "prompt": "ตะกร้าสินค้ามี bug: หลังคำนวณยอดรวม ราคาสินค้าชิ้นแรกที่แสดงในหน้ารายการเปลี่ยนไปด้วย สาเหตุคืออะไร และควรแก้ที่ class Money อย่างไรเพื่อให้ผู้เรียกทุกคนปลอดภัยโดยไม่ต้องระวังเอง?",
       "code": "class Money {\n  constructor(amount, currency) { this.amount = amount; this.currency = currency; }\n  add(other) { this.amount += other.amount; return this; }\n}\nconst price = new Money(10000, 'THB');\nconst total = price.add(new Money(5000, 'THB'));\nconsole.log(price.amount); // 15000",
       "options": [
         "ต้องเทียบเงินด้วย === แทน == เพราะการเทียบแบบหลวมทำให้ค่าถูกแปลงชนิดระหว่างคำนวณ",
@@ -526,7 +526,7 @@
         },
         {
           "label": "แต่ละโปรโมชันเป็นฟังก์ชัน",
-          "pattern": "=>|function\\s*\\("
+          "pattern": "=>|:\\s*(async\\s+)?function\\b|^\\s*function\\s+(?!discount\\b)\\w+\\s*\\(|(^|[{,])\\s*(?!(if|for|while|switch|catch|function)\\b)(async\\s+)?\\w+\\s*\\([^)]*\\)\\s*\\{"
         },
         {
           "label": "เลือก strategy จาก type ด้วยการ lookup",
@@ -568,7 +568,7 @@
         },
         {
           "label": "add() คืน Money ใหม่",
-          "pattern": "return\\s+new\\s+money\\s*\\("
+          "pattern": "add\\s*(=\\s*(async\\s*)?)?\\([^)]*\\)\\s*(=>\\s*)?\\{[\\s\\S]*return\\s+new\\s+(money|this\\.constructor)\\s*\\("
         },
         {
           "label": "ไม่แก้ amount ของ this ใน method (ไม่มี += หรือ this.amount = this.amount …)",
@@ -585,7 +585,7 @@
         },
         {
           "label": "มี equals() ที่เทียบ amount",
-          "pattern": "^(?=[\\s\\S]*\\bequals\\s*\\()(?=[\\s\\S]*amount\\s*===?\\s*[\\w.#]*amount)"
+          "pattern": "^(?=[\\s\\S]*\\bequals\\s*(=\\s*)?\\()(?=[\\s\\S]*amount\\s*===?\\s*[\\w.#]*amount)"
         }
       ]
     },
@@ -594,23 +594,20 @@
       "level": "ยาก",
       "tags": "Circuit Breaker · Resilience",
       "lang": "javascript",
-      "prompt": "ระบบเรียก API ชำระเงินภายนอกที่บางครั้งล่มนานหลายนาที และคำขอที่ค้างทำให้ทรัพยากรของเราหมดตามไปด้วย ให้เขียน createBreaker(fn, options) ที่ห่อ async function fn เป็น circuit breaker: สถานะ closed เรียก fn ปกติและนับความล้มเหลวติดต่อกัน ครบ failureThreshold จึงเปลี่ยนเป็น open; สถานะ open ให้ throw Error ทันทีโดยไม่เรียก fn จนกว่า now() - openedAt จะถึง resetTimeoutMs; จากนั้นเป็น half-open ซึ่งปล่อยคำขอผ่านไปลองเรียก fn จริง ถ้าสำเร็จให้กลับ closed และล้างตัวนับ ถ้าล้มเหลวให้กลับ open พร้อมเริ่มนับเวลาใหม่; ความสำเร็จใน closed ล้างตัวนับ ให้รับเวลาผ่าน option now (ฟังก์ชันคืนมิลลิวินาที) เพื่อให้ test เลื่อนเวลาได้ และคืน { call, getState } โดย getState() คืน \"closed\", \"open\" หรือ \"half-open\"",
+      "prompt": "ระบบเรียก API ชำระเงินภายนอกที่บางครั้งล่มนานหลายนาที และคำขอที่ค้างทำให้ทรัพยากรของเราหมดตามไปด้วย ให้เขียน createBreaker(fn, options) ที่ห่อ async function fn เป็น circuit breaker: สถานะ closed เรียก fn ปกติและนับความล้มเหลวติดต่อกัน ครบ failureThreshold จึงเปลี่ยนเป็น open; สถานะ open ให้ throw Error ทันทีโดยไม่เรียก fn จนกว่า now() - openedAt จะถึง resetTimeoutMs; จากนั้นเป็น half-open ซึ่งปล่อยคำขอทดลองไปเรียก fn จริงได้ทีละ 1 คำขอเท่านั้น ระหว่างที่คำขอทดลองยังไม่เสร็จ คำขออื่นต้อง throw ทันทีโดยไม่เรียก fn ถ้าคำขอทดลองสำเร็จให้กลับ closed และล้างตัวนับ ถ้าล้มเหลวให้กลับ open พร้อมเริ่มนับเวลาใหม่; ความสำเร็จใน closed ล้างตัวนับ ผลของคำขอที่เริ่มไปก่อนวงจรจะเปิดแล้วเพิ่งเสร็จทีหลังต้องไม่ทำให้สถานะเปลี่ยน (ใน half-open มีแต่คำขอทดลองเท่านั้นที่ปิดหรือเปิดวงจรใหม่ได้); ให้รับเวลาผ่าน option now (ฟังก์ชันคืนมิลลิวินาที) เพื่อให้ test เลื่อนเวลาได้ และคืน { call, getState } โดย getState() คืน \"closed\", \"open\" หรือ \"half-open\"",
       "context": "// ตัวอย่างการใช้งาน (เมื่อ fn ล้มเหลว call() จะ throw error เดิมต่อ ตัวอย่างนี้ละ try/catch ไว้)\nlet t = 0;\nconst breaker = createBreaker(callPaymentApi, {\n  failureThreshold: 2,\n  resetTimeoutMs: 1000,\n  now: () => t,\n});\nawait breaker.call(order);   // ล้มเหลวครั้งที่ 1: ยัง closed\nawait breaker.call(order);   // ล้มเหลวครั้งที่ 2: เปลี่ยนเป็น open\nawait breaker.call(order);   // throw 'circuit open' ทันที ไม่เรียก callPaymentApi\nt = 1000;\nbreaker.getState();          // 'half-open'",
       "starter": "function createBreaker(fn, { failureThreshold = 3, resetTimeoutMs = 10000, now = Date.now } = {}) {\n  // TODO: เก็บสถานะ แล้วคืน { call, getState }\n}\n",
-      "solution": "function createBreaker(fn, { failureThreshold = 3, resetTimeoutMs = 10000, now = Date.now } = {}) {\n  let failures = 0;\n  let openedAt = null; // null = closed\n\n  function getState() {\n    if (openedAt === null) return 'closed';\n    return now() - openedAt >= resetTimeoutMs ? 'half-open' : 'open';\n  }\n\n  async function call(...args) {\n    if (getState() === 'open') throw new Error('circuit open');\n    try {\n      const result = await fn(...args);\n      failures = 0;\n      openedAt = null;\n      return result;\n    } catch (err) {\n      failures += 1;\n      if (getState() === 'half-open' || failures >= failureThreshold) openedAt = now();\n      throw err;\n    }\n  }\n\n  return { call, getState };\n}",
+      "solution": "function createBreaker(fn, { failureThreshold = 3, resetTimeoutMs = 10000, now = Date.now } = {}) {\n  let failures = 0;\n  let openedAt = null; // null = closed\n  let probing = false; // มีคำขอทดลองใน half-open ค้างอยู่หรือไม่\n  let epoch = 0; // เพิ่มทุกครั้งที่วงจรเปลี่ยนระหว่าง closed กับ open\n\n  function getState() {\n    if (openedAt === null) return 'closed';\n    return now() - openedAt >= resetTimeoutMs ? 'half-open' : 'open';\n  }\n\n  async function call(...args) {\n    const state = getState();\n    if (state === 'open') throw new Error('circuit open');\n    const isProbe = state === 'half-open';\n    if (isProbe) {\n      if (probing) throw new Error('circuit open');\n      probing = true;\n    }\n    const startEpoch = epoch;\n    // เฉพาะคำขอทดลอง หรือคำขอที่เริ่มในรอบ closed ปัจจุบันเท่านั้นที่เปลี่ยนสถานะได้\n    const counts = () => isProbe || (startEpoch === epoch && openedAt === null);\n    try {\n      const result = await fn(...args);\n      if (counts()) {\n        failures = 0;\n        if (openedAt !== null) {\n          openedAt = null; // คำขอทดลองสำเร็จ: กลับ closed\n          epoch += 1;\n        }\n      }\n      return result;\n    } catch (err) {\n      if (counts()) {\n        failures += 1;\n        if (isProbe || failures >= failureThreshold) {\n          openedAt = now();\n          epoch += 1;\n        }\n      }\n      throw err;\n    } finally {\n      if (isProbe) probing = false;\n    }\n  }\n\n  return { call, getState };\n}\n",
       "hints": [
         "เก็บสถานะแค่สองอย่างคือจำนวนความล้มเหลวติดต่อกัน กับเวลาที่วงจรถูกเปิด (null แปลว่า closed) แล้วคำนวณชื่อสถานะจากสองค่านี้ใน getState()",
-        "ก่อนเรียก fn ให้เช็กว่าเป็น open หรือไม่ ถ้าใช่ให้ throw ทันที ส่วน half-open ให้ปล่อยผ่านไปลองเรียก fn จริง",
-        "ใน catch ให้เปิดวงจรใหม่ (openedAt = now()) เมื่อล้มในสถานะ half-open หรือเมื่อ failures ถึง failureThreshold และต้อง throw error เดิมต่อให้ผู้เรียก"
+        "ก่อนเรียก fn ให้เช็กว่าเป็น open หรือไม่ ถ้าใช่ให้ throw ทันที ส่วน half-open ให้ปล่อยผ่านได้ทีละ 1 คำขอ ใช้ตัวแปรเช่น probing เป็นธงบอกว่ามีคำขอทดลองค้างอยู่ และเคลียร์ธงนั้นใน finally",
+        "ใน catch ให้เปิดวงจรใหม่ (openedAt = now()) เมื่อล้มในสถานะ half-open หรือเมื่อ failures ถึง failureThreshold และต้อง throw error เดิมต่อให้ผู้เรียก",
+        "คำขอที่เริ่มตอน closed แล้วค้างอยู่ อาจเสร็จหลังวงจรเปิดหรือเข้า half-open ไปแล้ว ลองจดว่าคำขอนั้นเริ่มในสถานะไหน (เช่น ตัวนับรอบที่เพิ่มทุกครั้งที่ปิดหรือเปิดวงจร) แล้วให้ผลของมันเปลี่ยนสถานะได้เฉพาะเมื่อยังเป็นรอบ closed เดิม"
       ],
       "checks": [
         {
-          "label": "รับ now ผ่าน options",
-          "pattern": "\\bnow\\s*=|\\bnow\\s*[,}]|\\b(options|opts|config)\\.now"
-        },
-        {
-          "label": "อ่านเวลาผ่าน now() ที่ inject มา",
-          "pattern": "(?<![\\w.])now\\(\\)"
+          "label": "อ่านเวลาผ่าน now() ที่รับมาทาง options",
+          "pattern": "(?<![\\w.])now\\s*\\(\\s*\\)|\\b(options|opts|config)\\.now\\s*\\(\\s*\\)|\\bnow\\s*:\\s*(?<al>\\w+)[\\s\\S]*\\b\\k<al>\\s*\\(\\s*\\)"
         },
         {
           "label": "มีครบสามสถานะ closed, open, half-open",
@@ -618,11 +615,11 @@
         },
         {
           "label": "ใช้ failureThreshold ตัดสินใจเปิดวงจร",
-          "pattern": "failurethreshold[\\s\\S]*failurethreshold"
+          "pattern": "failurethreshold[\\s\\S]*failurethreshold|failurethreshold\\s*:\\s*(?<al>\\w+)[\\s\\S]*\\b\\k<al>\\b"
         },
         {
           "label": "ใช้ resetTimeoutMs ตัดสินใจเข้า half-open",
-          "pattern": "resettimeoutms[\\s\\S]*resettimeoutms"
+          "pattern": "resettimeoutms[\\s\\S]*resettimeoutms|resettimeoutms\\s*:\\s*(?<al>\\w+)[\\s\\S]*\\b\\k<al>\\b"
         },
         {
           "label": "ความสำเร็จล้างตัวนับความล้มเหลว",
@@ -631,6 +628,10 @@
         {
           "label": "จับ error แล้ว throw ต่อให้ผู้เรียก",
           "pattern": "catch[\\s\\S]*\\bthrow\\b|\\.catch\\("
+        },
+        {
+          "label": "half-open ปล่อยคำขอทดลองทีละ 1 (มีธง/ตัวนับกันคำขอซ้อน)",
+          "pattern": "^(?=[\\s\\S]*(probe|probing|trial|flight|pending|busy|lock|testing)\\w*\\s*(=[^=]|\\+\\+|\\+=))(?=[\\s\\S]*if\\s*\\(\\s*!?\\s*[\\w.#]*(probe|probing|trial|flight|pending|busy|lock|testing))|^(?=[\\s\\S]*[\\w.#]+\\s*=\\s*true\\b)(?=[\\s\\S]*[\\w.#]+\\s*=\\s*false\\b)(?=[\\s\\S]*if\\s*\\(\\s*!?\\s*[\\w.#]+\\s*\\))"
         }
       ]
     }

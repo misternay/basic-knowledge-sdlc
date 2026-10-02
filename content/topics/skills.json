@@ -26,7 +26,7 @@
     {
       "tier": "must",
       "title": "Progressive disclosure 3 ระดับ",
-      "body": "ระดับ 1: name และ description ของทุก skill ถูกโหลดตั้งแต่เริ่ม (ราว 100 token ต่อ skill) ระดับ 2: เนื้อหา SKILL.md ถูกโหลดเมื่อ skill ถูกเลือกใช้ (แนะนำให้ต่ำกว่า 5,000 token) ระดับ 3: ไฟล์ประกอบถูกอ่านหรือรันเฉพาะเมื่องานต้องใช้ ผลคือติดตั้ง skill ไว้หลายสิบตัวได้โดยแทบไม่กิน context และเป็นเหตุผลที่ต้องแยกเนื้อหาให้ถูกระดับ"
+      "body": "ระดับ 1: name และ description ของ skill ที่เปิดให้โมเดลเรียกเองถูกโหลดตั้งแต่เริ่ม (ราว 100 token ต่อ skill ส่วนใน Claude Code ถ้ามี skill มากเกินงบ บาง description จะถูกตัด และ description ของ skill ที่ตั้ง disable-model-invocation: true จะไม่ถูกโหลดเข้า context ตั้งแต่เริ่ม) ระดับ 2: เนื้อหา SKILL.md ถูกโหลดเมื่อ skill ถูกเลือกใช้ (แนะนำให้ต่ำกว่า 5,000 token) ระดับ 3: ไฟล์ประกอบถูกอ่านหรือรันเฉพาะเมื่องานต้องใช้ ผลคือติดตั้ง skill ไว้หลายสิบตัวได้โดยแทบไม่กิน context และเป็นเหตุผลที่ต้องแยกเนื้อหาให้ถูกระดับ"
     },
     {
       "tier": "must",
@@ -74,7 +74,7 @@
     {
       "tier": "must",
       "title": "โครงของ tool definition: name, description, input_schema",
-      "body": "tool คือฟังก์ชันที่คุณประกาศให้โมเดลรู้จักผ่านพารามิเตอร์ tools ของ API ใน Claude แต่ละตัวมี name (ต้องตรงกับ regex ^[a-zA-Z0-9_-]{1,128}$), description และ input_schema ซึ่งเป็น JSON Schema ของ argument โดยมี input_examples เป็นทางเลือก ค่ายอื่นใช้โครงคล้ายกันแต่ชื่อฟิลด์ต่างออกไป เช่น เอกสารของ OpenAI ใช้ parameters และสเปก MCP ใช้ inputSchema (ดูสองหน้านี้ใน refs ด้านล่าง) สิ่งที่ต้องเข้าใจคือโมเดลไม่ได้รันฟังก์ชันเอง มันแค่ขอเรียกด้วย argument ที่ตรง schema แล้วให้โค้ดของคุณเป็นคนรัน",
+      "body": "tool คือฟังก์ชันที่คุณประกาศให้โมเดลรู้จักผ่านพารามิเตอร์ tools ของ API ใน Claude แต่ละตัวมี name (ต้องตรงกับ regex ^[a-zA-Z0-9_-]{1,128}$), description และ input_schema ซึ่งเป็น JSON Schema ของ argument โดยมี input_examples เป็นทางเลือก ค่ายอื่นใช้โครงคล้ายกันแต่ชื่อฟิลด์ต่างออกไป เช่น เอกสารของ OpenAI ใช้ parameters และสเปก MCP ใช้ inputSchema (ดูสองหน้านี้ใน refs ด้านล่าง) สิ่งที่ต้องเข้าใจคือโมเดลไม่ได้รันฟังก์ชันเอง มันแค่ขอเรียกพร้อม argument ที่สร้างตาม schema (ถ้าไม่เปิด strict ก็ยังผิดชนิดหรือขาดฟิลด์ได้) แล้วให้โค้ดของคุณเป็นคนรัน",
       "code": "{\n  \"name\": \"get_order_status\",\n  \"description\": \"ดึงสถานะล่าสุดของคำสั่งซื้อจากเลขออเดอร์ ใช้เมื่อผู้ใช้ถามว่าของถึงไหนแล้ว ไม่คืนข้อมูลการชำระเงิน\",\n  \"input_schema\": {\n    \"type\": \"object\",\n    \"properties\": {\n      \"order_id\": { \"type\": \"string\", \"description\": \"เลขออเดอร์ เช่น ORD-1042\" }\n    },\n    \"required\": [\"order_id\"]\n  }\n}",
       "exam": true,
       "ref": "https://platform.claude.com/docs/en/agents-and-tools/tool-use/define-tools"
@@ -105,7 +105,7 @@
     {
       "tier": "must",
       "title": "skill ถูกโหลดจริงผ่าน filesystem และ bash",
-      "body": "ใน Claude skill คือโฟลเดอร์บน filesystem ของ environment ที่มี bash โดย name และ description ถูกใส่ใน system prompt ตอนเริ่ม เมื่องานตรงกัน Claude ใช้ bash อ่าน SKILL.md เข้า context แล้วอ่านไฟล์อื่นหรือรัน script ตามที่คำสั่งชี้ ผ่าน Claude API ต้องเปิด code execution tool และระบุ skill_id ใน container (มี pre-built skill เช่น pptx, xlsx, docx, pdf และอัปโหลดของตัวเองได้ผ่าน /v1/skills) กับดักคือ skill ที่ใช้ได้ใน Claude Code อาจรันบน API ไม่ได้ เพราะ container ฝั่ง API ไม่มี network และติดตั้ง package เพิ่มตอนรันไม่ได้",
+      "body": "ใน Claude skill คือโฟลเดอร์บน filesystem ของ environment ที่มี bash โดย name และ description ของ skill ที่เปิดใช้อยู่ถูกใส่ใน system prompt ตอนเริ่ม (Claude Code อาจตัด description ที่เกินงบ และไม่ลง description ของ skill ที่ตั้ง disable-model-invocation: true) เมื่องานตรงกัน Claude ใช้ bash อ่าน SKILL.md เข้า context แล้วอ่านไฟล์อื่นหรือรัน script ตามที่คำสั่งชี้ ผ่าน Claude API ต้องเปิด code execution tool และระบุ skill_id ใน container (มี pre-built skill เช่น pptx, xlsx, docx, pdf และอัปโหลดของตัวเองได้ผ่าน /v1/skills) กับดักคือ skill ที่ใช้ได้ใน Claude Code อาจรันบน API ไม่ได้ เพราะ container ฝั่ง API ไม่มี network และติดตั้ง package เพิ่มตอนรันไม่ได้",
       "ref": "https://platform.claude.com/docs/en/agents-and-tools/agent-skills/overview#how-skills-work"
     },
     {
@@ -161,7 +161,7 @@
   ],
   "questions": [
     {
-      "prompt": "ทีมติดตั้ง skill ไว้ 40 ตัว เพื่อนกังวลว่า context จะเต็มตั้งแต่เริ่ม session จริง ๆ แล้วตอนเริ่ม agent โหลดอะไรของ skill เหล่านี้?",
+      "prompt": "ทีมติดตั้ง skill ไว้ 40 ตัว เพื่อนกังวลว่า context จะเต็มตั้งแต่เริ่ม session จริง ๆ แล้วตามค่าเริ่มต้นตอนเริ่ม agent โหลดอะไรของ skill เหล่านี้?",
       "options": [
         "เนื้อหา SKILL.md ของทุก skill เพื่อให้พร้อมใช้ทันที",
         "เฉพาะ name และ description ของแต่ละ skill",
@@ -169,7 +169,7 @@
         "SKILL.md และ script ของ skill ที่ใช้บ่อยที่สุด"
       ],
       "answer": 1,
-      "explain": "นี่คือระดับแรกของ progressive disclosure ซึ่งใช้ราว 100 token ต่อ skill เนื้อหา SKILL.md โหลดเมื่อ skill ถูกเลือก ส่วนที่คิดว่า “ไม่โหลดเลย” ผิด เพราะถ้า agent ไม่เห็น description ก็เลือก skill เองไม่ได้"
+      "explain": "นี่คือระดับแรกของ progressive disclosure ซึ่งใช้ราว 100 token ต่อ skill เนื้อหา SKILL.md โหลดเมื่อ skill ถูกเลือก (ใน Claude Code description อาจถูกตัดเมื่อมี skill มากเกินงบ และ description ของ skill ที่ตั้ง disable-model-invocation จะไม่ถูกโหลดเข้า context ตั้งแต่เริ่ม) ส่วนที่คิดว่า “ไม่โหลดเลย” ผิด เพราะถ้า agent ไม่เห็น description ก็เลือก skill เองไม่ได้"
     },
     {
       "prompt": "skill นี้ไม่ผ่าน validator ของสเปก Agent Skills ควรแก้อย่างไรจึงถูกต้อง?",
@@ -296,7 +296,7 @@
       "explain": "เอกสารกำหนดว่าใน message ของผู้ใช้ block tool_result ต้องมาก่อน text และต้องตามหลัง tool_use ทันที ส่วน tool_use_id จำเป็นเพราะใช้จับคู่ผลกับคำขอ ไม่ใช่จับตามลำดับ"
     },
     {
-      "prompt": "นักพัฒนาทดสอบ tool get_order_status ที่ประกาศเองใน tools แล้วเห็น response มี stop_reason เป็น tool_use พร้อม block tool_use ที่ input เป็น {\"order_id\": \"ORD-1042\"} เขาสงสัยว่าระบบสั่งซื้อถูกค้นแล้วหรือยัง ข้อใดถูกต้อง?",
+      "prompt": "นักพัฒนาทดสอบ tool get_order_status ที่ประกาศเองใน tools แล้วเห็น response มี stop_reason เป็น tool_use พร้อม block tool_use ที่ input เป็น {\"order_id\": \"ORD-1042\"} เขาสงสัยว่ามีการค้นหาข้อมูลคำสั่งซื้อแล้วหรือยัง ข้อใดถูกต้อง?",
       "options": [
         "ค้นแล้ว เพราะ API ของ Anthropic รันฟังก์ชันที่ประกาศไว้ให้ และผลอยู่ใน content ถัดไป",
         "ค้นแล้ว เพราะ stop_reason เป็น tool_use หมายถึง tool ทำงานเสร็จเรียบร้อย",
@@ -304,7 +304,7 @@
         "ยัง โมเดลแค่ขอเรียก โค้ดของเขาต้องรันฟังก์ชันเองแล้วส่ง tool_result กลับ"
       ],
       "answer": 3,
-      "explain": "client tool รันในแอปของคุณ โมเดลทำได้แค่ขอเรียกด้วย input ที่ตรง schema stop_reason tool_use จึงแปลว่ากำลังรอผลจากคุณ ไม่ใช่ว่า tool ทำเสร็จ ต่างจาก server tool ที่รันบนโครงสร้างของ Anthropic"
+      "explain": "client tool รันในแอปของคุณ โมเดลทำได้แค่ขอเรียกด้วย input ที่สร้างตาม schema stop_reason tool_use จึงแปลว่ากำลังรอผลจากคุณ ไม่ใช่ว่า tool ทำเสร็จ ต่างจาก server tool ที่รันบนโครงสร้างของ Anthropic"
     },
     {
       "prompt": "agent มี tool search_orders และ search_customers ที่ description สั้นมาก (“ค้นหาออเดอร์” กับ “ค้นหาลูกค้า”) เมื่อผู้ใช้ถามว่า “ลูกค้าชื่อสมชายสั่งอะไรไว้” โมเดลเรียกผิดตัวบ่อย ควรแก้ที่ใดก่อน?",
@@ -394,7 +394,7 @@
         "เปลี่ยน enum ของ units เป็น pattern แบบ regex เพราะ strict mode ไม่รองรับการใช้ enum ใน schema"
       ],
       "answer": 1,
-      "explain": "strict mode ของ OpenAI ต้องการให้ทุก object ตั้ง additionalProperties: false และทุกฟิลด์อยู่ใน required ส่วนฟิลด์ที่ไม่บังคับทำได้โดยใส่ null ใน type ตัวเลือกที่ว่า strict ไม่รองรับ enum ไม่จริง เพราะเอกสารเองก็ใช้ enum ในตัวอย่างของ strict mode"
+      "explain": "strict mode ของ OpenAI ต้องการให้ทุก object ตั้ง additionalProperties: false และทุกฟิลด์อยู่ใน required ส่วนฟิลด์ที่ไม่บังคับทำได้โดยใส่ null ใน type ตามตัวอย่างในเอกสาร (ถ้าฟิลด์นั้นมี enum และอยากให้ schema ถูกต้องตาม JSON Schema อย่างเคร่งครัด ให้เติม null ใน enum ด้วย) ตัวเลือกที่ว่า strict ไม่รองรับ enum ไม่จริง เพราะเอกสารเองก็ใช้ enum ในตัวอย่างของ strict mode"
     },
     {
       "prompt": "ทีมมี tool 80 ตัวและตั้ง defer_loading: true ให้ทุกตัวเพื่อประหยัด context แต่ไม่ได้เพิ่ม tool อื่นใดใน tools ตามเอกสารของ Anthropic ควรแก้อย่างไร?",
@@ -475,7 +475,7 @@
         "Claude Code sync skill ขึ้น API อัตโนมัติ จึงเกิดความขัดแย้งของเวอร์ชันระหว่างสองที่"
       ],
       "answer": 2,
-      "explain": "เอกสารระบุว่า skill บน Claude API รันใน container ที่ไม่มี network และไม่รองรับการติดตั้ง package ตอนรัน ต้องใช้ package ที่ติดตั้งมาล่วงหน้า ส่วน skill ที่อัปโหลดผ่าน API ใช้ได้ทั้ง workspace และ skill ไม่ sync ข้ามแพลตฟอร์มอัตโนมัติ"
+      "explain": "เอกสารระบุว่า skill บน Claude API รันใน container ที่ไม่มี network และไม่รองรับการติดตั้ง package ตอนรัน ต้องใช้ package ที่ติดตั้งมาล่วงหน้า ส่วน skill ที่อัปโหลดผ่าน API ใช้ได้ทั้ง workspace และ skill ที่อัปโหลดผ่าน API ไม่ถูกส่งไป claude.ai อัตโนมัติ"
     },
     {
       "prompt": "MCP server ของทีมต้องเรียก GitHub API แทนผู้ใช้ นักพัฒนาเสนอให้รับ access token จาก MCP client แล้วส่งต่อให้ GitHub ทันทีโดยไม่ตรวจอะไร เพราะ GitHub ตรวจ token เองอยู่แล้ว ข้อใดถูกต้อง?",
@@ -522,19 +522,19 @@
         },
         {
           "label": "name เป็น pr-review",
-          "pattern": "^name:[ \\t]*[\"']?pr-review[\"']?[ \\t]*\\r?$"
+          "pattern": "^name:[ \\t]*[\"']?pr-review[\"']?(?:[ \\t]+#.*)?[ \\t]*\\r?$"
         },
         {
           "label": "description ยาวพอจะบอกว่า skill ทำอะไร",
-          "pattern": "description:(?:(?!\\n---)[\\s\\S]){40,}\\n---"
+          "pattern": "^description:(?:(?!\\n(?:---|[a-z][\\w-]*:))[\\s\\S]){40,}"
         },
         {
           "label": "description บอกว่า “ใช้เมื่อ…”",
-          "pattern": "description:(?:(?!\\n---)[\\s\\S])*?(ใช้เมื่อ|ใช้ตอน|ใช้ในกรณี|use when|when )"
+          "pattern": "^description:(?:(?!\\n(?:---|[a-z][\\w-]*:))[\\s\\S])*?(ใช้เมื่อ|ใช้ตอน|ใช้ในกรณี|use when|when )"
         },
         {
           "label": "มีขั้นตอนเป็นลำดับเลข",
-          "pattern": "^[ \\t]*1\\.[\\s\\S]*^[ \\t]*2\\."
+          "pattern": "^[ \\t]*1[.)][\\s\\S]*^[ \\t]*2[.)]"
         },
         {
           "label": "อ้างไฟล์แยกใน references/ หรือ scripts/",
@@ -566,19 +566,11 @@
           }
         },
         {
-          "label": "description ยาวพอจะอธิบายการใช้งานได้ (อย่างน้อย 80 ตัวอักษร)",
+          "label": "description ยาวพอ (อย่างน้อย 80 ตัวอักษร) และบอกว่าเมื่อไรไม่ควรใช้ หรือให้ใช้ search_tickets แทน",
           "json": {
             "path": "description",
             "op": "matches",
-            "value": "^[\\s\\S]{80,}$"
-          }
-        },
-        {
-          "label": "description บอกว่าเมื่อไรไม่ควรใช้ หรือให้ใช้ search_tickets แทน",
-          "json": {
-            "path": "description",
-            "op": "matches",
-            "value": "ไม่ควรใช้|ห้ามใช้|ไม่ใช้|ไม่ต้องใช้|search_tickets|do not use|don't use|not for|should not|instead"
+            "value": "^(?=[\\s\\S]{80,}$)[\\s\\S]*(ไม่ควรใช้|ห้ามใช้|ไม่ใช้|ไม่ต้องใช้|อย่าใช้|หลีกเลี่ยง|ไม่เหมาะ|ไม่ใช่|แทนการสร้าง|แทนที่จะสร้าง|ค้นหา ticket|อื่นแทน|search_tickets|do not use|don't use|not for|should not|instead)"
           }
         },
         {
@@ -590,11 +582,23 @@
           }
         },
         {
-          "label": "priority เป็น enum ของ low, medium, high ครบสามค่าและไม่มีค่าอื่น",
+          "label": "priority เป็น enum ที่มี low, medium, high ครบ (ตัวพิมพ์เล็กตรงตัว)",
           "json": {
             "path": "input_schema.properties.priority.enum",
+            "op": "containsAll",
+            "value": [
+              "low",
+              "medium",
+              "high"
+            ]
+          }
+        },
+        {
+          "label": "priority enum ไม่มีค่าอื่นนอกจากสามค่านี้",
+          "json": {
+            "path": "input_schema.properties.priority.enum.3",
             "op": "matches",
-            "value": "^(?=.*\\blow\\b)(?=.*\\bmedium\\b)(?=.*\\bhigh\\b)[a-z]+(,[a-z]+){2}$"
+            "value": "^$"
           }
         },
         {
@@ -606,11 +610,22 @@
           }
         },
         {
-          "label": "required มีเฉพาะ title กับ priority",
+          "label": "required มี title และ priority (ตัวพิมพ์ตรงตัว)",
           "json": {
             "path": "input_schema.required",
+            "op": "containsAll",
+            "value": [
+              "title",
+              "priority"
+            ]
+          }
+        },
+        {
+          "label": "required มีเฉพาะ title กับ priority เท่านั้น",
+          "json": {
+            "path": "input_schema.required.2",
             "op": "matches",
-            "value": "^(title,priority|priority,title)$"
+            "value": "^$"
           }
         },
         {
@@ -631,7 +646,7 @@
       "prompt": "เขียนฟังก์ชัน async buildToolResultMessage(content, tools) ที่รับ content (array ของ block จาก response ที่ stop_reason เป็น tool_use) และ object tools ที่จับคู่ชื่อ tool กับฟังก์ชัน async รับ input แล้วคืน message role user สำหรับส่งกลับให้โมเดล โดย (1) เลือกเฉพาะ block ที่ type เป็น tool_use (2) รันทุก call พร้อมกันด้วย Promise.all (3) ถ้าสำเร็จ ได้ tool_result ที่ content เป็น string (ถ้าฟังก์ชันคืน object ให้แปลงด้วย JSON.stringify) (4) ถ้าฟังก์ชัน throw หรือไม่มี tool ชื่อนั้น ห้าม throw ออกจากฟังก์ชันหลัก ให้คืน tool_result ที่ is_error เป็น true พร้อมข้อความบอกสาเหตุ (5) tool_use_id ต้องตรงกับ id ของ block และลำดับผลลัพธ์ต้องตรงกับลำดับ block",
       "context": "agent ของทีมมี tool get_order_status และ list_refunds ซึ่งเป็นงานอ่านข้อมูลที่ไม่ขึ้นต่อกัน โมเดลมักเรียกทั้งสองตัวใน turn เดียว ถ้าส่งผลกลับไม่ครบทุก tool_use หรือปล่อยให้ exception หลุด request ถัดไปจะผิดรูปแบบและ agent หยุดกลางทาง ตัวอย่างเรียกใช้: const msg = await buildToolResultMessage(response.content, { get_order_status: async ({ order_id }) => ({ order_id, status: \"shipped\" }) });",
       "starter": "async function buildToolResultMessage(content, tools) {\n  // TODO: เลือก block tool_use แล้วรันพร้อมกัน\n  const results = [];\n\n  return { role: \"user\", content: results };\n}",
-      "solution": "async function buildToolResultMessage(content, tools) {\n  const calls = content.filter((block) => block.type === \"tool_use\");\n\n  const results = await Promise.all(\n    calls.map(async (call) => {\n      try {\n        const handler = Object.hasOwn(tools, call.name) ? tools[call.name] : undefined;\n        if (typeof handler !== \"function\") {\n          throw new Error(`Unknown tool: ${call.name}`);\n        }\n        const output = await handler(call.input);\n        return {\n          type: \"tool_result\",\n          tool_use_id: call.id,\n          content: typeof output === \"string\" ? output : JSON.stringify(output),\n        };\n      } catch (err) {\n        return {\n          type: \"tool_result\",\n          tool_use_id: call.id,\n          content: `Error: ${err.message}`,\n          is_error: true,\n        };\n      }\n    })\n  );\n\n  return { role: \"user\", content: results };\n}",
+      "solution": "async function buildToolResultMessage(content, tools) {\n  const calls = content.filter((block) => block.type === \"tool_use\");\n\n  const results = await Promise.all(\n    calls.map(async (call) => {\n      try {\n        const handler = Object.hasOwn(tools, call.name) ? tools[call.name] : undefined;\n        if (typeof handler !== \"function\") {\n          throw new Error(`Unknown tool: ${call.name}`);\n        }\n        const output = await handler(call.input);\n        return {\n          type: \"tool_result\",\n          tool_use_id: call.id,\n          content: typeof output === \"string\" ? output : (JSON.stringify(output) ?? \"\"),\n        };\n      } catch (err) {\n        return {\n          type: \"tool_result\",\n          tool_use_id: call.id,\n          content: `Error: ${err instanceof Error ? err.message : String(err)}`,\n          is_error: true,\n        };\n      }\n    })\n  );\n\n  return { role: \"user\", content: results };\n}",
       "hints": [
         "content มีทั้ง block text และ tool_use ปนกัน ใช้ filter เลือกเฉพาะ block ที่ type เป็น tool_use ก่อน",
         "ใช้ calls.map(async ...) ครอบด้วย Promise.all แล้วใส่ try/catch ไว้ใน map ของแต่ละ call เพื่อไม่ให้ error ของตัวหนึ่งทำให้ทั้งชุดล้ม",
@@ -640,7 +655,7 @@
       "checks": [
         {
           "label": "เลือก block ที่ type เป็น tool_use",
-          "pattern": "type\\s*===?\\s*[\"'`]tool_use[\"'`]"
+          "pattern": "type[\"'`\\]]*\\s*===?\\s*[\"'`]tool_use[\"'`]|[\"'`]tool_use[\"'`]\\s*===?\\s*[\\w$.?\\[\"'`]*type"
         },
         {
           "label": "รันทุก call พร้อมกันด้วย Promise.all",
@@ -648,15 +663,15 @@
         },
         {
           "label": "tool_use_id มาจาก id ของ block",
-          "pattern": "tool_use_id\\s*:\\s*[\\w$.\\[\\]]*\\bid\\b"
+          "pattern": "tool_use_id[\"'`]?\\s*:\\s*[\\w$.?\\[\"'`\\]]*\\bid\\b|\\bid\\s*:\\s*tool_use_id\\b[\\s\\S]*\\btool_use_id\\s*[,}\\n]|\\bid\\s*:\\s*([a-z_$][\\w$]*)\\b[\\s\\S]*\\btool_use_id['\"`]?\\s*:\\s*\\1\\b"
         },
         {
           "label": "คืน block ชนิด tool_result",
-          "pattern": "type\\s*:\\s*[\"'`]tool_result[\"'`]"
+          "pattern": "type[\"'`]?\\s*:\\s*[\"'`]tool_result[\"'`]"
         },
         {
           "label": "จับ error แล้วคืน is_error: true แทนการ throw ออกไป",
-          "pattern": "catch[\\s\\S]*is_error\\s*:\\s*true"
+          "pattern": "catch[\\s\\S]*is_error[\"'`]?\\s*:\\s*true"
         },
         {
           "label": "content ของผลลัพธ์เป็น string (เช่น JSON.stringify)",
@@ -664,7 +679,7 @@
         },
         {
           "label": "คืน message ที่ role เป็น user",
-          "pattern": "role\\s*:\\s*[\"'`]user[\"'`]"
+          "pattern": "role[\"'`]?\\s*:\\s*[\"'`]user[\"'`]"
         }
       ]
     }

@@ -24,7 +24,7 @@
     {
       "tier": "must",
       "title": "Functional vs non-functional ที่วัดผลได้",
-      "body": "functional requirement บอกว่าระบบ “ทำอะไร” เช่น ผู้ใช้เพิ่มสินค้าลงตะกร้าได้ ส่วน non-functional (NFR) บอกว่าต้อง “ดีแค่ไหน” เช่น performance, security, availability, accessibility NFR ต้องมีตัวเลขและเงื่อนไขที่ทดสอบได้ เช่น “API ตอบภายใน 300 ms ที่ p95 เมื่อมี 500 คำขอต่อวินาที” (p95 คือ 95% ของคำขอเร็วกว่าค่านี้) แทนคำว่า “เร็ว” หรือ “รองรับผู้ใช้เยอะ” NFR ที่ไม่มีใครเขียนไว้มักถูกค้นพบตอนระบบล่มใน production ซึ่งเป็นจุดที่แก้แพงที่สุด"
+      "body": "functional requirement บอกว่าระบบ “ทำอะไร” เช่น ผู้ใช้เพิ่มสินค้าลงตะกร้าได้ ส่วน non-functional (NFR) บอกว่าต้อง “ดีแค่ไหน” เช่น performance, security, availability, accessibility NFR ควรเขียนให้ตรวจสอบได้ มักเป็นตัวเลขและเงื่อนไข เช่น “API ตอบภายใน 300 ms ที่ p95 เมื่อมี 500 คำขอต่อวินาที” (p95 คือ 95% ของคำขอเร็วกว่าค่านี้) แทนคำว่า “เร็ว” หรือ “รองรับผู้ใช้เยอะ” (บางข้อตรวจได้โดยไม่ต้องใช้ตัวเลข เช่น “ต้องเข้ารหัสการสื่อสารด้วย TLS”) NFR ที่ไม่มีใครเขียนไว้มักถูกค้นพบตอนระบบล่มใน production ซึ่งเป็นจุดที่แก้แพงที่สุด"
     },
     {
       "tier": "must",
@@ -62,7 +62,7 @@
     {
       "tier": "advanced",
       "title": "พยากรณ์จากข้อมูลจริง: cycle time และ throughput",
-      "body": "แทนการเดา ให้ใช้ข้อมูลการส่งมอบจริงของทีม คือ cycle time (เวลาตั้งแต่เริ่มทำจนเสร็จของแต่ละงาน) และ throughput (จำนวนงานที่เสร็จต่อสัปดาห์) Little's Law บอกว่าเมื่อระบบค่อนข้างคงที่ cycle time เฉลี่ย = WIP เฉลี่ย ÷ throughput เฉลี่ย การลดงานที่ทำค้างพร้อมกันจึงทำให้แต่ละงานเสร็จเร็วขึ้น และจาก throughput ย้อนหลังสามารถทำ Monte Carlo simulation เพื่อตอบเป็นความน่าจะเป็น เช่น “โอกาส 85% ที่ 40 งานจะเสร็จภายใน 6 สัปดาห์” ซึ่งซื่อตรงกว่าตัวเลขเดียว"
+      "body": "แทนการเดา ให้ใช้ข้อมูลการส่งมอบจริงของทีม คือ cycle time (เวลาตั้งแต่เริ่มทำจนเสร็จของแต่ละงาน) และ throughput (จำนวนงานที่เสร็จต่อสัปดาห์) Little's Law บอกว่าเมื่อระบบค่อนข้างคงที่ cycle time เฉลี่ย = WIP เฉลี่ย ÷ throughput เฉลี่ย ถ้า throughput ไม่ลดลง การลด WIP จึงทำให้ cycle time เฉลี่ยสั้นลง (สมการพูดถึงค่าเฉลี่ย ไม่ได้รับประกันเวลาของทุกงาน) และจาก throughput ย้อนหลังสามารถทำ Monte Carlo simulation เพื่อตอบเป็นความน่าจะเป็น เช่น “โอกาส 85% ที่ 40 งานจะเสร็จภายใน 6 สัปดาห์” ซึ่งซื่อตรงกว่าตัวเลขเดียว"
     },
     {
       "tier": "advanced",
@@ -79,7 +79,7 @@
     {
       "tier": "must",
       "title": "Scrum: 3 accountabilities และ commitment ของ artifact",
-      "body": "Scrum Guide 2020 กำหนด accountability สามอย่างใน Scrum Team: Developers (วางแผน Sprint Backlog, รักษาคุณภาพตาม Definition of Done, ปรับแผนทุกวันเพื่อ Sprint Goal), Product Owner (ดูแล value ของผลิตภัณฑ์และจัดการ Product Backlog รวมถึงเรียงลำดับ item) และ Scrum Master (รับผิดชอบการวาง Scrum และประสิทธิผลของทีม) artifact แต่ละอย่างมี commitment ผูกอยู่: Product Backlog กับ Product Goal, Sprint Backlog กับ Sprint Goal, Increment กับ Definition of Done Product Owner เป็นคนเดียว ไม่ใช่คณะกรรมการ ใครอยากเปลี่ยน Product Backlog ต้องโน้มน้าว PO กับดักคือมองว่า Scrum Master เป็นผู้จัดการที่แจกงาน ทั้งที่ Guide ระบุว่าวิธีเปลี่ยน item เป็น Increment เป็นดุลยพินิจของ Developers",
+      "body": "Scrum Guide 2020 กำหนด accountability สามอย่างใน Scrum Team: Developers (วางแผน Sprint Backlog, รักษาคุณภาพตาม Definition of Done, ปรับแผนทุกวันเพื่อ Sprint Goal), Product Owner (ดูแล value ของผลิตภัณฑ์และจัดการ Product Backlog รวมถึงเรียงลำดับ item) และ Scrum Master (รับผิดชอบการนำ Scrum มาใช้ตาม Scrum Guide และประสิทธิผลของทีม) artifact แต่ละอย่างมี commitment ผูกอยู่: Product Backlog กับ Product Goal, Sprint Backlog กับ Sprint Goal, Increment กับ Definition of Done Product Owner เป็นคนเดียว ไม่ใช่คณะกรรมการ ใครอยากเปลี่ยน Product Backlog ต้องโน้มน้าว PO กับดักคือมองว่า Scrum Master เป็นผู้จัดการที่แจกงาน ทั้งที่ Guide ระบุว่าวิธีเปลี่ยน item เป็น Increment เป็นดุลยพินิจของ Developers",
       "exam": true,
       "ref": "https://scrumguides.org/scrum-guide.html"
     },
@@ -94,14 +94,14 @@
     {
       "tier": "must",
       "title": "Refactoring: เปลี่ยนโครงสร้างโดยพฤติกรรมไม่เปลี่ยน",
-      "body": "Martin Fowler นิยาม refactoring ว่าเป็นการเปลี่ยนโครงสร้างภายในของซอฟต์แวร์ให้เข้าใจง่ายขึ้นและแก้ไขถูกลง โดยไม่เปลี่ยน observable behavior หัวใจคือชุดของก้าวเล็ก ๆ ที่รักษาพฤติกรรมเดิม แต่ละก้าวเล็กจึงพลาดยากและระบบยังทำงานครบหลังทุกก้าว ในทางปฏิบัติควรมี automated test คอยยืนยันว่าพฤติกรรมไม่เปลี่ยน (ข้อนี้เป็นแนวปฏิบัติทั่วไป ไม่ได้อยู่ในหน้านิยามของ Fowler) มันเป็นส่วนหนึ่งของงานเขียนโค้ดประจำวัน เช่น จัดโครงสร้างโค้ดเดิมให้เพิ่มฟีเจอร์ใหม่ได้ง่ายก่อนค่อยเพิ่ม ไม่จำเป็นต้องเป็นโครงการแยก กับดักคือเรียกอะไรก็ว่า refactor ทั้งที่แก้บั๊กหรือเพิ่มฟีเจอร์ปนไปด้วย หรือปรับโครงสร้างโดยไม่มี test คอยจับ",
+      "body": "Martin Fowler นิยาม refactoring ว่าเป็นการเปลี่ยนโครงสร้างภายในของซอฟต์แวร์ให้เข้าใจง่ายขึ้นและลดค่าใช้จ่ายในการแก้ไข โดยไม่เปลี่ยน observable behavior หัวใจคือชุดของก้าวเล็ก ๆ ที่รักษาพฤติกรรมเดิม แต่ละก้าวเล็กจึงพลาดยากและระบบยังทำงานครบหลังทุกก้าว ในทางปฏิบัติควรมี automated test คอยยืนยันว่าพฤติกรรมไม่เปลี่ยน (ข้อนี้เป็นแนวปฏิบัติทั่วไป ไม่ได้อยู่ในหน้านิยามของ Fowler) มันเป็นส่วนหนึ่งของงานเขียนโค้ดประจำวัน เช่น จัดโครงสร้างโค้ดเดิมให้เพิ่มฟีเจอร์ใหม่ได้ง่ายก่อนค่อยเพิ่ม ไม่จำเป็นต้องเป็นโครงการแยก กับดักคือเรียกอะไรก็ว่า refactor ทั้งที่แก้บั๊กหรือเพิ่มฟีเจอร์ปนไปด้วย หรือปรับโครงสร้างโดยไม่มี test คอยจับ",
       "exam": true,
       "ref": "https://refactoring.com/"
     },
     {
       "tier": "must",
       "title": "Kanban: Definition of Workflow, WIP และ SLE",
-      "body": "Kanban Guide (2025) นิยาม Kanban ว่าเป็นกลยุทธ์เพิ่มประสิทธิภาพ flow ของคุณค่า (flow of value) ด้วยสามการปฏิบัติ คือ กำหนดและมองเห็น workflow, จัดการ item ใน workflow อย่างแข็งขัน และปรับปรุง workflow Definition of Workflow ต้องระบุอย่างน้อย นิยามของ work item, จุดเริ่มและจุดเสร็จ, state ที่งานผ่าน, วิธีควบคุม WIP, policy ของการไหล และ service level expectation (SLE) ซึ่งเป็นการพยากรณ์ที่มีทั้งช่วงเวลาและความน่าจะเป็น เช่น 85% ของงานเสร็จภายใน 8 วัน โดยอิงจาก cycle time ในอดีต WIP คือจำนวน item ที่เริ่มแล้วแต่ยังไม่เสร็จ และการควบคุม WIP ควรทำให้เกิด pull system คือเริ่มงานใหม่เมื่อมีสัญญาณว่ามีกำลังเหลือ กับดักคือมีบอร์ดหลายคอลัมน์แต่ไม่ควบคุม WIP และไม่ดูข้อมูล flow เลย",
+      "body": "Kanban Guide (2025) นิยาม Kanban ว่าเป็นกลยุทธ์เพิ่มประสิทธิภาพ flow ของคุณค่า (flow of value) ผ่านแนวปฏิบัติสามข้อ คือ กำหนดและมองเห็น workflow, จัดการ item ใน workflow อย่างแข็งขัน และปรับปรุง workflow Definition of Workflow ต้องระบุอย่างน้อย นิยามของ work item, จุดเริ่มและจุดเสร็จ, state ที่งานผ่าน, วิธีควบคุม WIP, policy ของการไหล และ service level expectation (SLE) ซึ่งเป็นการพยากรณ์ที่มีทั้งช่วงเวลาและความน่าจะเป็น เช่น 85% ของงานเสร็จภายใน 8 วัน โดยอิงจาก cycle time ในอดีต WIP คือจำนวน item ที่เริ่มแล้วแต่ยังไม่เสร็จ และการควบคุม WIP ควรทำให้เกิด pull system คือเริ่มงานใหม่เมื่อมีสัญญาณว่ามีกำลังเหลือ กับดักคือมีบอร์ดหลายคอลัมน์แต่ไม่ควบคุม WIP และไม่ดูข้อมูล flow เลย",
       "exam": true,
       "ref": "https://kanbanguides.org/the-kanban-guide/2025.5/"
     },
@@ -120,7 +120,7 @@
     {
       "tier": "should",
       "title": "Design doc: goals, non-goals และ alternatives",
-      "body": "design doc คือเอกสารที่บันทึกกลยุทธ์การ implement ระดับสูงและการตัดสินใจออกแบบสำคัญ โดยเน้น trade-off ที่พิจารณา ตามบทความ Design Docs at Google ของ Malte Ubl ส่วนที่มีค่ามากคือ goals/non-goals (non-goal ไม่ใช่ goal กลับข้าง แต่เป็นสิ่งที่เป็น goal ได้ แล้วเลือกที่จะไม่ทำ) และ alternatives considered ที่อธิบายว่าทำไมวิธีที่เลือกดีที่สุดเมื่อเทียบกับเป้าหมาย เอกสารช่วยจับปัญหาการออกแบบตอนที่ยังแก้ถูก แต่เป็นภาระ จึงไม่จำเป็นเมื่อวิธีแก้ชัดเจนอยู่แล้ว สัญญาณว่าไม่ต้องเขียนคือเอกสารกลายเป็นคู่มือ implementation และงานเล็กเขียนแบบ mini design doc 1-3 หน้าได้",
+      "body": "design doc คือเอกสารที่บันทึกกลยุทธ์การ implement ระดับสูงและการตัดสินใจออกแบบสำคัญ โดยเน้น trade-off ที่พิจารณา ตามบทความ Design Docs at Google ของ Malte Ubl ส่วนที่มีค่ามากคือ goals/non-goals (non-goal ไม่ใช่ goal กลับข้าง แต่เป็นสิ่งที่เป็น goal ได้ แล้วเลือกที่จะไม่ทำ) และ alternatives considered ที่อธิบายว่าทำไมวิธีที่เลือกดีที่สุดเมื่อเทียบกับเป้าหมาย เอกสารช่วยจับปัญหาการออกแบบในช่วงที่ยังแก้ไขได้ด้วยค่าใช้จ่ายต่ำ แต่เป็นภาระ จึงไม่จำเป็นเมื่อวิธีแก้ชัดเจนอยู่แล้ว สัญญาณว่าไม่ต้องเขียนคือเอกสารกลายเป็นคู่มือ implementation และงานเล็กเขียนแบบ mini design doc 1-3 หน้าได้",
       "ref": "https://www.industrialempathy.com/posts/design-docs-at-google/"
     },
     {
@@ -140,7 +140,7 @@
       "tier": "advanced",
       "title": "Parallel change (expand and contract)",
       "body": "การเปลี่ยน interface แบบไม่เข้ากันย้อนหลังที่มีผู้ใช้หลายราย ถ้าแก้ทีเดียวต้องอัปเดตทุกผู้ใช้พร้อมกัน ซึ่งเสี่ยง parallel change (หรือ expand and contract) แบ่งเป็นสามเฟส: expand คือเพิ่มของใหม่ให้รองรับทั้งเก่าและใหม่, migrate คือย้ายผู้ใช้ทีละราย (เฟสนี้ยาวที่สุดถ้าผู้ใช้อยู่นอกทีม), contract คือลบของเก่าเมื่อไม่มีใครใช้แล้ว หน้าเดียวกันของ Fowler ระบุว่า database refactoring ส่วนใหญ่ทำตาม parallel change โดยเฟส migrate คือช่วงเปลี่ยนผ่านระหว่าง schema เดิมกับใหม่จนกว่าโค้ดที่เข้าถึงฐานข้อมูลทุกส่วนจะย้ายครบ (โค้ด SQL ด้านล่างเป็นตัวอย่างประกอบของเรา ไม่ใช่ของ Fowler) กับดักคือจบแค่ expand แล้วลืมเฟส contract ของเก่าจึงค้างอยู่ตลอดไป",
-      "code": "-- expand: เพิ่มคอลัมน์ใหม่ โค้ดเก่ายังใช้ phone ได้\nALTER TABLE users ADD COLUMN mobile text;\n-- migrate: แอปเขียนทั้งสองคอลัมน์ แล้ว backfill ข้อมูลเก่า\nUPDATE users SET mobile = phone WHERE mobile IS NULL;\n-- contract: เมื่อทุกบริการอ่านจาก mobile แล้ว\nALTER TABLE users DROP COLUMN phone;",
+      "code": "-- expand: เพิ่มคอลัมน์ใหม่ โค้ดเก่ายังใช้ phone ได้\nALTER TABLE users ADD COLUMN mobile text;\n-- migrate: แอปเขียนทั้งสองคอลัมน์ แล้ว backfill ข้อมูลเก่า\nUPDATE users SET mobile = phone WHERE mobile IS NULL;\n-- contract: เมื่อทุกบริการอ่านจาก mobile และเลิกเขียน phone แล้ว\nALTER TABLE users DROP COLUMN phone;",
       "ref": "https://martinfowler.com/bliki/ParallelChange.html"
     },
     {
@@ -261,7 +261,7 @@
         "เทียบ velocity กับทีมอื่น เพื่อดูว่าทีมไหนทำงานมีประสิทธิภาพกว่า"
       ],
       "answer": 1,
-      "explain": "จำนวนฟีเจอร์และ velocity เป็น output ที่ไม่ได้บอกว่าผู้ใช้หรือธุรกิจดีขึ้น และตัวเลขชุดนี้บอกว่างานที่ส่งไม่ได้แก้ปัญหา ควรวัดที่ outcome เพื่อเลือกงานถัดไป ส่วน story point เป็นมาตราส่วนเฉพาะทีม จึงเทียบข้ามทีมไม่ได้"
+      "explain": "จำนวนฟีเจอร์และ velocity เป็น output ที่ไม่ได้บอกว่าผู้ใช้หรือธุรกิจดีขึ้น และตัวเลขชุดนี้ชวนสงสัยว่างานที่ส่งอาจไม่ได้แก้ปัญหาที่ตั้งใจ (ยังต้องตรวจปัจจัยอื่นด้วย) จึงควรวัดที่ outcome ของแต่ละฟีเจอร์เพื่อเลือกงานถัดไป ส่วน story point เป็นมาตราส่วนเฉพาะทีม จึงเทียบข้ามทีมไม่ได้"
     },
     {
       "prompt": "ทีมใหม่ประกาศว่า “เราทำ Agile จึงไม่ต้องเขียนเอกสารหรือวางแผนอะไรเลย” สามเดือนต่อมามีคนใหม่เข้าทีมและไม่มีใครอธิบายได้ว่าระบบทำงานอย่างไร ข้อใดตรงกับ Agile Manifesto มากที่สุด?",
@@ -283,7 +283,7 @@
         "ผู้จัดการฝ่าย เพราะองค์กรเป็นผู้ให้อำนาจทีม จึงมีสิทธิ์กำหนดงานรายคนและตามงานเองได้"
       ],
       "answer": 1,
-      "explain": "Scrum Guide ระบุว่าวิธีที่ Developers เปลี่ยน item เป็น Increment อยู่ในดุลยพินิจของ Developers และไม่มีใครมาบอกว่าต้องทำอย่างไร Scrum Master รับผิดชอบการวาง Scrum และประสิทธิผลของทีม ไม่ใช่การมอบหมายงานรายคน"
+      "explain": "Scrum Guide ระบุว่าวิธีที่ Developers เปลี่ยน item เป็น Increment อยู่ในดุลยพินิจของ Developers และไม่มีใครมาบอกว่าต้องทำอย่างไร Scrum Master รับผิดชอบการนำ Scrum มาใช้ตาม Scrum Guide และประสิทธิผลของทีม ไม่ใช่การมอบหมายงานรายคน"
     },
     {
       "prompt": "บริษัทมี Definition of Done กลางที่กำหนดว่าต้องผ่าน code review และ test ก่อนถึงจะถือว่าเสร็จ แต่ทีม A อยากใช้ DoD ของตัวเองที่ตัดเรื่อง code review ออกเพื่อส่งงานเร็วขึ้น ตาม Scrum Guide ทำได้หรือไม่?",
@@ -297,15 +297,15 @@
       "explain": "Guide ระบุว่าถ้า DoD เป็นส่วนหนึ่งของมาตรฐานองค์กร ทุก Scrum Team ต้องทำตามเป็นขั้นต่ำ ทีมจึงเข้มกว่าได้ แต่ลดเกณฑ์ลงไม่ได้ แม้ PO หรือ Scrum Master เห็นด้วยก็ไม่เปลี่ยนข้อนี้"
     },
     {
-      "prompt": "กลาง Sprint ทีมพบว่า story หนึ่งใหญ่กว่าที่ประเมินเกือบเท่าตัว และถ้าทำต่อจะไม่ทัน Sprint Goal ตาม Scrum Guide ทีมควรทำอย่างไร?",
+      "prompt": "Sprint Retrospective สามรอบติดกันจบด้วยรายการปัญหายาวเหยียดที่ทุกคนเห็นตรงกัน แต่ Sprint ถัดไปไม่มีอะไรเปลี่ยน ตาม Scrum Guide ทีมควรปรับการทำ Retrospective อย่างไร?",
       "options": [
-        "ขยาย Sprint ออกไปอีกสองสามวันเพื่อให้ทำงานชิ้นนี้เสร็จครบตามที่ตั้งใจไว้เดิม",
-        "ลดเกณฑ์ใน Definition of Done ของ story นั้นลง เพื่อให้ทันตามกำหนดเดิมโดยไม่ต้องเลื่อนอะไร",
-        "ยกเลิก Sprint ทันที เพราะแผนตั้งต้นใช้ไม่ได้แล้ว แล้วเริ่ม Sprint ใหม่ให้เร็วที่สุด",
-        "คุยกับ Product Owner ปรับ scope โดยรักษา Sprint Goal ไว้ ซึ่ง Guide ให้เจรจาใหม่ได้"
+        "รวบรวมปัญหาทั้งหมดส่งให้ผู้จัดการฝ่ายพิจารณา เพราะทีมไม่มีอำนาจเปลี่ยนวิธีทำงานของตัวเองได้",
+        "จัดให้น้อยลงเหลือปีละสองครั้ง เพื่อสะสมปัญหาให้มากพอแล้วแก้ทีเดียวให้เต็มที่",
+        "ให้ Scrum Master รับปัญหาไปแก้เองระหว่าง Sprint โดยทีมไม่ต้องเกี่ยวข้อง",
+        "เลือกการปรับปรุงที่ส่งผลมากที่สุดไม่กี่ข้อ แล้วใส่เข้า Sprint Backlog ของ Sprint ถัดไป"
       ],
       "answer": 3,
-      "explain": "Guide ระบุว่าระหว่าง Sprint คุณภาพต้องไม่ลดลงและ scope อาจถูกชี้แจงหรือเจรจาใหม่กับ PO เมื่อเรียนรู้เพิ่ม Sprint มีความยาวคงที่ จึงไม่ขยาย และ Sprint ยกเลิกได้เฉพาะเมื่อ Sprint Goal ล้าสมัย โดยมีเพียง Product Owner เท่านั้นที่ตัดสินใจ"
+      "explain": "Scrum Guide ระบุว่า Scrum Team ระบุการเปลี่ยนแปลงที่ช่วยได้มากที่สุด การปรับปรุงที่ส่งผลมากที่สุดควรลงมือโดยเร็ว และอาจใส่ไว้ใน Sprint Backlog ของ Sprint ถัดไป Retrospective อยู่ท้ายทุก Sprint ไม่ใช่งานที่ส่งต่อให้ผู้จัดการหรือ Scrum Master แก้แทนทีม เพราะ Scrum Master มีหน้าที่ช่วยให้ทีมปรับปรุงแนวปฏิบัติของตัวเอง"
     },
     {
       "prompt": "ไลบรารีภายในอยู่ที่เวอร์ชัน 2.3.1 ทีมตัดสินใจติดป้าย deprecated ให้ฟังก์ชัน oldFormat() และแนะนำให้ใช้ format() แทน โดยยังไม่ลบและพฤติกรรมไม่เปลี่ยน ตาม Semantic Versioning เวอร์ชันถัดไปควรเป็นอะไร?",
@@ -447,13 +447,13 @@
       "prompt": "บริการ 5 ตัวอ่านคอลัมน์ users.phone และ deploy คนละรอบ ทีมต้องการเปลี่ยนชื่อเป็น mobile โดยไม่ให้บริการใดพัง ทีมเสนอ migration ด้านล่าง ข้อใดปลอดภัยกว่าและมีเหตุผลตรงกับ parallel change?",
       "code": "ALTER TABLE users RENAME COLUMN phone TO mobile;",
       "options": [
-        "เพิ่ม mobile และเขียนทั้งสองคอลัมน์ ย้ายบริการทีละตัว แล้วค่อยลบ phone เมื่อไม่มีใครอ่าน",
+        "เพิ่ม mobile และเขียนทั้งสองคอลัมน์ ย้ายบริการทีละตัว แล้วค่อยลบ phone เมื่อไม่มีใครใช้",
         "รัน RENAME ตามเดิม แต่แจ้งทุกทีมล่วงหน้าให้ deploy ทันทีหลัง migration เสร็จเรียบร้อย",
         "รัน RENAME ตอนดึกที่ยังไม่มีผู้ใช้ แล้วให้ทั้งห้าบริการ deploy ภายในหน้าต่างเวลาเดียวกัน",
         "เพิ่มคอลัมน์ mobile อย่างเดียว แล้วปล่อยให้ phone ค้างไว้ตลอดเพราะการลบเสี่ยงเกินไป"
       ],
       "answer": 0,
-      "explain": "parallel change แบ่งเป็น expand, migrate, contract ทำให้ทุกก้าว deploy และ rollback ได้โดยบริการเก่ายังทำงาน การ RENAME ทีเดียวบังคับให้ทุกบริการเปลี่ยนพร้อมกัน ส่วนการไม่ลบ phone ข้ามเฟส contract ทำให้ของเก่าค้างตลอดไป"
+      "explain": "parallel change แบ่งเป็น expand, migrate, contract ทำให้ก่อนถึงเฟส contract ทุกก้าว deploy ได้โดยบริการเก่ายังทำงาน และลบ phone เมื่อไม่มีใครใช้แล้วเท่านั้น การ RENAME ทีเดียวบังคับให้ทุกบริการเปลี่ยนพร้อมกัน ส่วนการไม่ลบ phone ข้ามเฟส contract ทำให้ของเก่าค้างตลอดไป"
     },
     {
       "prompt": "นักพัฒนาส่ง PR 2,400 บรรทัดที่รวม refactor โครงสร้าง ฟีเจอร์ใหม่ และแก้บั๊กไว้ด้วยกัน reviewer สองคนได้แต่กด approve โดยไม่ได้อ่านละเอียด ตามแนวทาง Google eng-practices ควรทำอย่างไร?",
@@ -528,7 +528,7 @@
         },
         {
           "label": "มี non-functional ที่มีตัวเลขพร้อมหน่วยวัด",
-          "pattern": "(non-?\\s?functional|nfr)[\\s\\S]*\\d[\\d,.]*\\s*(ms|มิลลิวินาที|วินาที|นาที|ชั่วโมง|วัน|%|ฉบับ|ครั้ง|คำขอ|ข้อความ|รายการ|คน|requests?|rps|seconds?|minutes?|hours?|emails?)"
+          "pattern": "(non-?\\s?functional|nfr|ไม่ใช่ฟังก์ชัน|ด้านคุณภาพ|quality attributes?)[\\s\\S]*\\d[\\d,.]*\\s*(ms|มิลลิวินาที|วินาที|นาที|ชั่วโมง|วัน|%|ฉบับ|ครั้ง|คำขอ|ข้อความ|รายการ|คน|requests?|rps|seconds?|minutes?|hours?|emails?|(?:s|sec|secs|min|mins|h|hr|hrs)(?![a-z]))"
         }
       ]
     },
@@ -540,7 +540,7 @@
       "prompt": "จากบันทึกเหตุการณ์ด้านล่าง เขียน postmortem แบบ blameless 1 ฉบับ ประกอบด้วยหัวข้อ Summary, Impact (มีตัวเลข), Timeline (อย่างน้อย 3 จุดเวลา), Contributing factors (เน้นระบบและขั้นตอน), What went well และ Action items (ทุกข้อมีผู้รับผิดชอบเป็นบทบาท และวันกำหนดเสร็จ) ห้ามใช้ชื่อบุคคลในเอกสาร ให้ใช้บทบาทแทน เช่น “วิศวกรที่ deploy”",
       "context": "บันทึกดิบของเหตุการณ์ (สมมติ) เมื่อวันศุกร์ที่ 25 กันยายน 2026\n\n14:02 สมชาย (backend dev) deploy config ใหม่ของ payment-service ขึ้น production ค่า timeout ไป payment gateway ลดจาก 30 วินาทีเหลือ 3 วินาที (บน staging ใช้ mock gateway ที่ตอบทันที จึงไม่เห็นปัญหา)\n14:09 error rate ของ checkout เพิ่มจาก 0.5% เป็น 38%\n14:21 มาลี (on-call) ทราบจากทีม support ว่าลูกค้าชำระเงินไม่ได้ (alert อัตโนมัติไม่ดัง เพราะตั้ง threshold ไว้ที่ error 50% ต่อเนื่อง 15 นาที)\n14:48 ทีมระบุว่าเกี่ยวกับ config ล่าสุด และเริ่ม rollback\n14:55 error rate กลับสู่ปกติ\n\nผลกระทบ: ออเดอร์ล้มเหลว 1,240 รายการ ลูกค้า 87 ราย ถูกตัดเงินแต่ไม่มีออเดอร์ ต้องคืนเงิน\nข้อมูลเพิ่ม: การแก้ config ไม่ต้องผ่าน code review และไม่มี canary",
       "starter": "# Postmortem: checkout ล่ม\n\n## Summary\n\n## Impact\n\n## Timeline\n\n## Contributing factors\n\n## What went well\n\n## Action items\n",
-      "solution": "# Postmortem: checkout ล่มหลัง deploy config\n\n## Summary\nวันศุกร์ที่ 25 กันยายน 2026 เวลา 14:02 การ deploy config ที่ลด timeout ของ payment gateway จาก 30 วินาทีเหลือ 3 วินาที ทำให้ error rate ของ checkout สูงถึง 38% นาน 46 นาที (14:09 ถึง 14:55) จนกว่าจะ rollback\n\n## Impact\n- ออเดอร์ล้มเหลว 1,240 รายการ\n- ลูกค้า 87 รายถูกตัดเงินแต่ไม่มีออเดอร์ ต้องคืนเงิน\n- ตรวจพบช้า 12 นาทีหลัง error เริ่มเพิ่ม และไม่ได้มาจาก alert อัตโนมัติ\n\n## Timeline\n- 14:02 วิศวกรที่ deploy ปล่อย config ใหม่ของ payment-service\n- 14:09 error rate ของ checkout เพิ่มจาก 0.5% เป็น 38%\n- 14:21 on-call ทราบปัญหาจากทีม support (alert ไม่ดัง)\n- 14:48 ระบุว่าเกี่ยวกับ config ล่าสุด และเริ่ม rollback\n- 14:55 error rate กลับสู่ปกติ\n\n## Contributing factors\n- staging ใช้ mock gateway ที่ตอบทันที จึงไม่พบว่า timeout 3 วินาทีสั้นเกินไปสำหรับ gateway จริง\n- การแก้ config เข้า production ได้โดยไม่ต้องผ่าน code review และไม่มี canary\n- threshold ของ alert ตั้งไว้ที่ error 50% ต่อเนื่อง 15 นาที จึงไม่ดังที่ 38%\n\n## What went well\n- เมื่อทราบปัญหา ทีมระบุสาเหตุและ rollback ได้ภายในประมาณครึ่งชั่วโมง\n- ทีม support แจ้ง on-call ได้ และ rollback ทำให้ error rate กลับสู่ปกติ\n\n## Action items\n| งาน | ผู้รับผิดชอบ | กำหนดเสร็จ |\n| --- | --- | --- |\n| ให้การแก้ config ของ production ต้องผ่าน review | หัวหน้าทีม platform | 2026-10-16 |\n| ปรับ alert เป็น error มากกว่า 5% ต่อเนื่อง 5 นาที | on-call lead | 2026-10-09 |\n| ทดสอบบน staging กับ gateway sandbox จริง หรือเพิ่ม test ค่า timeout | หัวหน้าทีม QA | 2026-10-23 |\n| เพิ่ม canary สำหรับ deploy ของ payment-service | หัวหน้าทีม platform | 2026-10-30 |\n",
+      "solution": "# Postmortem: checkout ล่มหลัง deploy config\n\n## Summary\nวันศุกร์ที่ 25 กันยายน 2026 เวลา 14:02 การ deploy config ที่ลด timeout ของ payment gateway จาก 30 วินาทีเหลือ 3 วินาที ทำให้ error rate ของ checkout สูงถึง 38% นาน 46 นาที (14:09 ถึง 14:55) จนกลับสู่ปกติหลัง rollback\n\n## Impact\n- ออเดอร์ล้มเหลว 1,240 รายการ\n- ลูกค้า 87 รายถูกตัดเงินแต่ไม่มีออเดอร์ ต้องคืนเงิน\n- ตรวจพบช้า 12 นาทีหลัง error เริ่มเพิ่ม และไม่ได้มาจาก alert อัตโนมัติ\n\n## Timeline\n- 14:02 วิศวกรที่ deploy ปล่อย config ใหม่ของ payment-service\n- 14:09 error rate ของ checkout เพิ่มจาก 0.5% เป็น 38%\n- 14:21 on-call ทราบปัญหาจากทีม support (alert ไม่ดัง)\n- 14:48 ระบุว่าเกี่ยวกับ config ล่าสุด และเริ่ม rollback\n- 14:55 error rate กลับสู่ปกติ\n\n## Contributing factors\n- staging ใช้ mock gateway ที่ตอบทันที จึงไม่พบว่า timeout 3 วินาทีสั้นเกินไปสำหรับ gateway จริง\n- การแก้ config เข้า production ได้โดยไม่ต้องผ่าน code review และไม่มี canary\n- threshold ของ alert ตั้งไว้ที่ error 50% ต่อเนื่อง 15 นาที จึงไม่ดังที่ 38%\n\n## What went well\n- เมื่อทราบปัญหา ทีมระบุสาเหตุและ rollback ได้ภายในประมาณครึ่งชั่วโมง\n- ทีม support แจ้ง on-call ได้ และ rollback ทำให้ error rate กลับสู่ปกติ\n\n## Action items\n| งาน | ผู้รับผิดชอบ | กำหนดเสร็จ |\n| --- | --- | --- |\n| ให้การแก้ config ของ production ต้องผ่าน review | หัวหน้าทีม platform | 2026-10-16 |\n| ปรับ alert เป็น error มากกว่า 5% ต่อเนื่อง 5 นาที | on-call lead | 2026-10-09 |\n| ทดสอบบน staging กับ gateway sandbox จริง หรือเพิ่ม test ค่า timeout | หัวหน้าทีม QA | 2026-10-23 |\n| เพิ่ม canary สำหรับ deploy ของ payment-service | หัวหน้าทีม platform | 2026-10-30 |\n",
       "hints": [
         "เริ่มจากโครงหัวข้อก่อน แล้วเติมข้อเท็จจริงจากบันทึกลงแต่ละหัวข้อ ตัวเลขและเวลาต้องตรงกับบันทึก",
         "อย่าเขียนว่า “ใครทำผิด” ให้ถามว่า “ทำไมขั้นตอนหรือระบบจึงเปิดช่องให้พลาดได้” แล้วใช้บทบาทแทนชื่อ เช่น วิศวกรที่ deploy, on-call",
@@ -549,19 +549,19 @@
       "checks": [
         {
           "label": "มีหัวข้อ What went well",
-          "pattern": "^#+\\s*.*(what went well|ทำได้ดี|สิ่งที่ดี)"
+          "pattern": "^#+[ \\t]*.*(?:what went well|ทำได้ดี|สิ่งที่ดี)|^[^\\n]*(?:what went well|ทำได้ดี|สิ่งที่ดี)[^\\n]*\\n[=-]{2,}[ \\t]*$"
         },
         {
           "label": "ส่วน Impact มีตัวเลข",
-          "pattern": "^#+\\s*(impact|ผลกระทบ)[^\\n]*\\n(?:(?!^#)[\\s\\S])*\\d"
+          "pattern": "(?:^(#+)[ \\t]*(?:\\d+[.)]?[ \\t]*)?(?:impact|ผลกระทบ)[^\\n]*|^(?:impact|ผลกระทบ)[^\\n]*\\n[=-]{2,}[ \\t]*)\\n(?:(?!^(?!\\1#)#|^[^\\n]+\\n[=-]{2,}[ \\t]*$)[\\s\\S])*\\d"
         },
         {
           "label": "Timeline มีเวลาอย่างน้อย 3 จุด",
-          "pattern": "\\b\\d{1,2}[:.]\\d{2}\\b[\\s\\S]*\\b\\d{1,2}[:.]\\d{2}\\b[\\s\\S]*\\b\\d{1,2}[:.]\\d{2}\\b"
+          "pattern": "\\b\\d{1,2}(?:[:.]\\d{2}\\b|\\s*(?:นาฬิกา|น\\.)|\\s*[ap]m\\b)[\\s\\S]*\\b\\d{1,2}(?:[:.]\\d{2}\\b|\\s*(?:นาฬิกา|น\\.)|\\s*[ap]m\\b)[\\s\\S]*\\b\\d{1,2}(?:[:.]\\d{2}\\b|\\s*(?:นาฬิกา|น\\.)|\\s*[ap]m\\b)"
         },
         {
           "label": "มีหัวข้อ Contributing factors หรือสาเหตุ",
-          "pattern": "^#+\\s*.*(contributing|root cause|สาเหตุ)"
+          "pattern": "^#+[ \\t]*.*(?:contributing|root cause|สาเหตุ)|^[^\\n]*(?:contributing|root cause|สาเหตุ)[^\\n]*\\n[=-]{2,}[ \\t]*$"
         },
         {
           "label": "ไม่ระบุชื่อบุคคล (สมชาย, มาลี)",
@@ -570,11 +570,11 @@
         },
         {
           "label": "Action items ระบุผู้รับผิดชอบ",
-          "pattern": "^#+\\s*(action|งานติดตาม|แผนแก้ไข)[^\\n]*\\n(?:(?!^#)[\\s\\S])*(owner|ผู้รับผิดชอบ|รับผิดชอบ|บทบาท|ทีม|team|lead|หัวหน้า|on-call)"
+          "pattern": "(?:^(#+)[ \\t]*(?:\\d+[.)]?[ \\t]*)?(?:action|งานติดตาม|แผนแก้ไข)[^\\n]*|^(?:action|งานติดตาม|แผนแก้ไข)[^\\n]*\\n[=-]{2,}[ \\t]*)\\n(?:(?!^(?!\\1#)#|^[^\\n]+\\n[=-]{2,}[ \\t]*$)[\\s\\S])*(owner|ผู้รับผิดชอบ|รับผิดชอบ|บทบาท|ทีม|team|lead|หัวหน้า|on-call)"
         },
         {
           "label": "Action items ระบุวันกำหนดเสร็จ",
-          "pattern": "^#+\\s*(action|งานติดตาม|แผนแก้ไข)[^\\n]*\\n(?:(?!^#)[\\s\\S])*(due|กำหนดเสร็จ|กำหนด|ภายใน|\\d{4}-\\d{2}-\\d{2}|\\d{1,2}/\\d{1,2}/\\d{2,4})"
+          "pattern": "(?:^(#+)[ \\t]*(?:\\d+[.)]?[ \\t]*)?(?:action|งานติดตาม|แผนแก้ไข)[^\\n]*|^(?:action|งานติดตาม|แผนแก้ไข)[^\\n]*\\n[=-]{2,}[ \\t]*)\\n(?:(?!^(?!\\1#)#|^[^\\n]+\\n[=-]{2,}[ \\t]*$)[\\s\\S])*(due|กำหนดเสร็จ|กำหนด|ภายใน|\\d{4}-\\d{2}-\\d{2}|\\d{1,2}/\\d{1,2}/\\d{2,4})"
         }
       ]
     },
@@ -586,7 +586,7 @@
       "prompt": "ทีมตกลงใช้ Conventional Commits และอยากให้ Git ปฏิเสธ commit ที่ข้อความไม่ตรงรูปแบบ เขียนสคริปต์ shell สำหรับ hook commit-msg ให้ทำตามนี้: (1) อ่านบรรทัดแรกของข้อความ commit จากไฟล์ที่ Git ส่งมาเป็นอาร์กิวเมนต์แรก โดยข้ามบรรทัดที่ขึ้นต้นด้วย # (2) บรรทัดนั้นต้องเป็นรูป type(scope)!: description โดย scope และ ! ไม่บังคับ และต้องมีเว้นวรรคหลัง : พร้อม description ไม่ว่าง (3) type ต้องเป็นหนึ่งใน feat, fix, docs, style, refactor, perf, test, build, ci, chore, revert (เป็นข้อตกลงของทีมนี้ ไม่ใช่ข้อบังคับของสเปก) และไม่สนตัวพิมพ์เล็กใหญ่ (4) ปล่อยผ่านข้อความที่ขึ้นต้นด้วย “Merge ” และ “Revert ” ซึ่ง Git สร้างให้ (5) ถ้าไม่ผ่านให้พิมพ์คำอธิบายพร้อมตัวอย่างไปที่ stderr แล้วจบด้วย exit code 1",
       "context": "Git เรียก hook commit-msg ด้วยพารามิเตอร์เดียว คือ path ของไฟล์ที่เก็บข้อความ commit และถ้า hook จบด้วย exit code ที่ไม่ใช่ศูนย์ คำสั่ง commit จะถูกยกเลิก (git merge ก็เรียก hook นี้เช่นกัน) บันทึกเป็น .git/hooks/commit-msg แล้ว chmod +x ใช้ POSIX sh และ grep -E ได้\n\nต้องผ่าน: feat: add coupon field | fix(cart)!: change rounding | Merge branch 'x'\nต้องไม่ผ่าน: added stuff | feat:missing space | feature: wrong type",
       "starter": "#!/bin/sh\n# .git/hooks/commit-msg\nmsg_file=\"$1\"\n\n# TODO: ตรวจบรรทัดแรกของข้อความ commit\n",
-      "solution": "#!/bin/sh\n# commit-msg hook: บังคับรูปแบบ Conventional Commits\nmsg_file=\"$1\"\nsubject=$(grep -v '^#' \"$msg_file\" | head -n 1)\n\n# ปล่อยผ่าน merge commit และ revert commit ที่ Git สร้างให้\ncase \"$subject\" in\n  \"Merge \"*|\"Revert \"*) exit 0 ;;\nesac\n\npattern='^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\\([a-z0-9._/-]+\\))?!?: .+'\nif ! printf '%s\\n' \"$subject\" | grep -Eiq \"$pattern\"; then\n  echo \"commit message ไม่ตรงรูปแบบ: <type>(<scope>)!: <description>\" >&2\n  echo \"ตัวอย่าง: feat(api)!: ลบ endpoint v1\" >&2\n  exit 1\nfi\n",
+      "solution": "#!/bin/sh\n# commit-msg hook: บังคับรูปแบบ Conventional Commits\nmsg_file=\"$1\"\nsubject=$(grep -v '^#' \"$msg_file\" | head -n 1)\n\n# ปล่อยผ่าน merge commit และ revert commit ที่ Git สร้างให้\ncase \"$subject\" in\n  \"Merge \"*|\"Revert \"*) exit 0 ;;\nesac\n\npattern='^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\\([^()]+\\))?!?: .*[^[:space:]]'\nif ! printf '%s\\n' \"$subject\" | grep -Eiq \"$pattern\"; then\n  echo \"commit message ไม่ตรงรูปแบบ: <type>(<scope>)!: <description>\" >&2\n  echo \"ตัวอย่าง: feat(api)!: ลบ endpoint v1\" >&2\n  exit 1\nfi\n",
       "hints": [
         "Git ส่ง path ของไฟล์ข้อความมาที่ $1 อ่านบรรทัดแรกที่ไม่ใช่ comment ได้ด้วย grep -v หรือ sed แล้วเก็บใส่ตัวแปร",
         "เขียนรูปแบบด้วย regex แบบ extended: ^(type1|type2|...)(\\(scope\\))?!?: .+ แล้วทดสอบด้วย grep -Eiq ส่วน Merge และ Revert จัดการก่อนด้วย case",
@@ -607,7 +607,7 @@
         },
         {
           "label": "รองรับ ! สำหรับ breaking change (ไม่บังคับ)",
-          "pattern": "!\\)?\\?:|\\[!\\]\\??:"
+          "pattern": "(!|\\[!\\])\\)?(\\?|\\{0,1\\})\\)?\\[?:\\]?"
         },
         {
           "label": "ปล่อยผ่าน Merge commit",
