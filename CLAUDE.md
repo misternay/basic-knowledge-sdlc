@@ -23,7 +23,6 @@ npm run build          # check:content แล้ว vite build -> dist/
 ## โครงสร้าง
 - `content/topics/<id>.json` เนื้อหาที่เว็บใช้จริง (วาง `.md` ได้ด้วย) ชื่อไฟล์ต้องตรงกับ `id`
 - `content/AUTHORING.md` กติกาการเขียนเนื้อหา อ่านก่อนแก้เนื้อหาทุกครั้ง
-- `content/drafts/` ฉบับร่างเก่า เว็บไม่ได้โหลด เก็บไว้เทียบเท่านั้น
 - `content/tracks.json`, `content/exams.json` เส้นทาง 4 สาย และชนิดบททดสอบ
 - `src/lib/validate.js` ตัวตรวจเนื้อหา ใช้ร่วมกันทั้งหน้า "นำเข้า" และ `scripts/check-content.mjs`
 - `src/lib/markdown.js` แปลง Markdown เป็น topic, `src/lib/checks.js` ตรวจคำตอบแบบฝึกหัด
@@ -37,4 +36,4 @@ npm run build          # check:content แล้ว vite build -> dist/
 - แก้เนื้อหาแล้วต้องรัน `npm run check:content` และ `npm test` ให้ผ่านก่อน commit
 
 ## ในโฟลเดอร์นี้แต่ไม่ใช่ส่วนของโปรเจกต์
-`exam-prep-30-days/` เป็นงานอีกชิ้น ส่วน `_to_delete/` เก็บไฟล์ชั่วคราวที่ใช้ย้ายโปรเจกต์ ทั้งสองถูกกันไว้ใน `.git/info/exclude` ห้ามแก้และห้าม commit
+`exam-prep-30-days/` เป็นงานอีกชิ้น ถูกกันไว้ใน `.git/info/exclude` ห้ามแก้และห้าม commit

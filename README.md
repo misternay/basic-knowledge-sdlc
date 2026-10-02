@@ -32,7 +32,6 @@ content/
   tracks.json          4 เส้นทาง
   exams.json           ชนิดบททดสอบ
   AUTHORING.md         กติกาการเขียนเนื้อหา
-  drafts/              ฉบับร่างเดิม (ไม่ถูกโหลดเข้าเว็บ)
 scripts/check-content.mjs
 src/
   lib/validate.js      ตัวตรวจเนื้อหา ใช้ร่วมกันทั้งหน้านำเข้าและตอน build
