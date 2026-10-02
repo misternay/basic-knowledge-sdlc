@@ -1,0 +1,231 @@
+{
+  "id": "cicd",
+  "code": "O3",
+  "track": "delivery",
+  "title": "CI/CD",
+  "blurb": "ทุกการเปลี่ยนแปลงถูก build, test และ deploy อัตโนมัติ อย่างมั่นใจและย้อนกลับได้",
+  "mustKnow": [
+    {
+      "tier": "must",
+      "title": "CI, Continuous Delivery และ Continuous Deployment",
+      "body": "CI (Continuous Integration) คือทุกคน merge โค้ดเข้า main บ่อย ๆ (อย่างน้อยวันละครั้ง) และทุกการเปลี่ยนแปลงถูก build และ test อัตโนมัติ เพื่อจับปัญหาตอนที่ยังเล็ก Continuous Delivery ต่อยอดให้โค้ดบน main อยู่ในสภาพ deploy ได้เสมอ แต่การปล่อยขึ้น production ยังให้คนกดอนุมัติ ส่วน Continuous Deployment ตัดขั้นคนกดออก ทุกการเปลี่ยนแปลงที่ผ่าน pipeline ขึ้น production เองทันที กับดักที่พบบ่อยคือมี CI server แล้วคิดว่าทำ CI แล้ว ทั้งที่ยังทำงานบน branch อายุยาวหลายสัปดาห์"
+    },
+    {
+      "tier": "must",
+      "title": "ลำดับ stage และ fail fast",
+      "body": "pipeline ทั่วไปเรียงเป็น lint/compile → unit test และ security scan → build artifact → integration/E2E test → deploy staging → deploy production ขั้นที่เร็วและจับปัญหาได้บ่อยควรอยู่ต้น ๆ และหยุดทันทีเมื่อขั้นใดล้ม (fail fast) นักพัฒนาจะรู้ผลในไม่กี่นาที แทนที่จะรอ E2E 20 นาทีเพื่อเจอ typo ขั้นที่ไม่พึ่งกัน เช่น lint กับ unit test รันขนานกันได้ แต่ deploy ต้องรอให้ทุกขั้นก่อนหน้าผ่านเสมอ"
+    },
+    {
+      "tier": "must",
+      "title": "GitHub Actions: on, jobs, steps และ runner",
+      "body": "workflow คือไฟล์ YAML ใน .github/workflows/ โดย on กำหนด event ที่ trigger เช่น push, pull_request, schedule หรือ workflow_dispatch แต่ละ job รันบน runner ของตัวเอง (runs-on) และ jobs รันขนานกันโดย default ถ้าต้องรอกันต้องใส่ needs ภายใน job มี steps ที่รันเรียงกันบนเครื่องเดียว เป็นคำสั่ง shell (run) หรือ action สำเร็จรูป (uses) ก็ได้ และควรระบุเวอร์ชันของ action เสมอ เช่น @v7 หรือ pin เป็น commit SHA เมื่อต้องการความปลอดภัยสูงสุด",
+      "code": "on: pull_request\njobs:\n  test:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v7\n      - run: npm ci && npm test\n  build:\n    needs: test        # รอ test ผ่านก่อน\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v7\n      - run: npm ci && npm run build"
+    },
+    {
+      "tier": "must",
+      "title": "Secrets และ OIDC",
+      "body": "ค่าลับเก็บใน repository หรือ environment secrets ซึ่ง GitHub mask ใน log ให้ แต่ถ้าโค้ดแปลงค่าแล้วพิมพ์ออก (เช่น base64) ก็ยังรั่วได้ จึงห้าม echo secret เด็ดขาด และ secrets จะไม่ถูกส่งให้ workflow ที่ trigger จาก PR ของ fork ตั้ง permissions ของ GITHUB_TOKEN ให้น้อยที่สุดเท่าที่งานต้องใช้ ดีกว่านั้นคือใช้ OIDC ซึ่ง workflow ขอ token อายุสั้นจาก GitHub แล้วแลกเป็น credential ชั่วคราวของ cloud โดยไม่ต้องเก็บ access key อายุยาวไว้เลย",
+      "code": "permissions:\n  id-token: write   # ให้ขอ OIDC token ได้\n  contents: read\nsteps:\n  - uses: aws-actions/configure-aws-credentials@v6\n    with:\n      role-to-assume: arn:aws:iam::123456789012:role/gha-deploy\n      aws-region: ap-southeast-1"
+    },
+    {
+      "tier": "must",
+      "title": "Build once, deploy many",
+      "body": "build artifact (เช่น container image) ครั้งเดียวต่อ commit ติด tag ที่ไม่เปลี่ยน เช่น commit SHA แล้วส่งชิ้นเดียวกันผ่าน dev → staging → production สิ่งที่ต่างกันระหว่าง environment ให้เป็น config หรือ environment variable ไม่ใช่การ build ใหม่ ถ้า build ใหม่ทุก environment อาจได้ dependency หรือ base image คนละเวอร์ชัน ผลทดสอบใน staging ก็ไม่รับประกันอะไร และอย่า deploy ด้วย tag latest เพราะชี้ไปที่ image ต่างกันได้ตามเวลา"
+    },
+    {
+      "tier": "must",
+      "title": "ทุก deploy ต้องย้อนกลับได้",
+      "body": "ก่อน deploy ต้องตอบได้ว่าถ้าพังจะกลับไปเวอร์ชันก่อนหน้าอย่างไรและใช้เวลากี่นาที วิธีที่เร็วที่สุดมักเป็นการ redeploy artifact เดิมที่เก็บไว้ (build once ทำให้ง่าย) ไม่ใช่ revert แล้วรอ build ใหม่ กับดักใหญ่คือ database migration ถ้าเวอร์ชันใหม่ลบหรือเปลี่ยนชื่อคอลัมน์ โค้ดเก่าจะพังทันทีที่ rollback จึงใช้แนว expand/contract คือเพิ่มของใหม่ก่อนให้โค้ดทั้งสองเวอร์ชันทำงานได้ แล้วค่อยลบของเก่าใน release ถัดไป"
+    },
+    {
+      "tier": "should",
+      "title": "Caching และ feedback ที่เร็ว",
+      "body": "pipeline ที่ช้าทำให้คน merge น้อยลงและรวมงานเป็นก้อนใหญ่ ซึ่งขัดกับหลัก CI โดยตรง จึงควรตั้งเป้าให้ pipeline ของ PR จบในราว 10 นาทีหรือน้อยกว่า วิธีหลักคือ cache dependency ด้วย key ที่ผูกกับ lockfile (setup-node ทำให้ด้วย cache: npm) รัน job ที่ไม่พึ่งกันแบบขนาน และแบ่ง test ชุดใหญ่เป็นหลาย shard อย่าแก้ความช้าด้วยการลบ test หรือใช้ cache key ที่ไม่ผูกกับ lockfile เพราะจะได้ dependency ค้างเก่าโดยไม่รู้ตัว"
+    },
+    {
+      "tier": "should",
+      "title": "Deployment strategies: rolling, blue-green, canary",
+      "body": "Rolling ทยอยแทนที่ instance เก่าทีละส่วน ใช้ทรัพยากรเพิ่มน้อย แต่ระหว่างนั้นมีสองเวอร์ชันรันพร้อมกัน Blue-green เตรียม environment ใหม่ (green) ครบชุดคู่กับของเดิม (blue) แล้วสลับ traffic ทีเดียว rollback คือสลับกลับ แลกกับทรัพยากรสองเท่าชั่วคราว Canary ปล่อยเวอร์ชันใหม่ให้ traffic ส่วนน้อย เช่น 5% เทียบ metric กับเวอร์ชันเดิมแล้วค่อยขยายหรือถอย จึงจำกัดผลกระทบได้ดีที่สุด แต่ต้องมี observability ที่ดีพอจะตัดสินใจ"
+    },
+    {
+      "tier": "should",
+      "title": "Feature flags",
+      "body": "feature flag แยกการ deploy โค้ด (เอาขึ้น production) ออกจากการ release ฟีเจอร์ (เปิดให้ผู้ใช้เห็น) ทำให้ merge งานที่ยังไม่เสร็จเข้า main ได้โดยปิด flag ไว้ เปิดให้ผู้ใช้ทีละกลุ่ม และปิดฟีเจอร์ที่มีปัญหาได้ทันทีโดยไม่ต้อง deploy ใหม่ (kill switch) กับดักคือ flag ที่ไม่เคยถูกลบจะกลายเป็นหนี้เทคนิค โค้ดมีหลายเส้นทางที่ไม่มีใครทดสอบ จึงควรกำหนดวันลบตั้งแต่ตอนสร้าง"
+    },
+    {
+      "tier": "should",
+      "title": "Observability หลัง deploy",
+      "body": "deploy ยังไม่จบตอน pipeline เขียว ต้องดูว่าระบบจริงยังปกติไหมผ่าน metric (error rate, latency, saturation), log และ trace โดยเทียบกับก่อน deploy ใส่เวอร์ชันหรือ commit SHA ลงใน log และ metric และทำเครื่องหมายเวลา deploy บน dashboard จะชี้ได้ทันทีว่าปัญหาเริ่มจาก release ไหน ตั้ง alert ตามอาการที่ผู้ใช้เจอ เช่น error rate ของ API และให้การตัดสินใจขยาย canary หรือ rollback อัตโนมัติอ้างอิง metric เหล่านี้"
+    },
+    {
+      "tier": "advanced",
+      "title": "Infrastructure as Code",
+      "body": "นิยาม infrastructure เช่น network, database และ IAM เป็นโค้ดด้วยเครื่องมืออย่าง Terraform, OpenTofu, Pulumi หรือ CloudFormation เก็บใน Git ผ่าน code review และรันผ่าน pipeline เหมือนโค้ดแอป ทำให้สร้าง environment ซ้ำได้เหมือนเดิมและรู้ว่าใครเปลี่ยนอะไรเมื่อไร ขั้นสำคัญคือแสดงผล plan ใน PR ให้ review ก่อน apply กับดักที่พบบ่อยคือแก้ผ่าน console ด้วยมือ ทำให้ของจริงไม่ตรงกับโค้ด (drift) และ apply ครั้งถัดไปอาจเขียนทับการแก้นั้น",
+      "code": "terraform fmt -check\nterraform validate\nterraform plan -out=tfplan   # แสดงผลใน PR ให้ review\nterraform apply tfplan       # หลัง merge เท่านั้น"
+    },
+    {
+      "tier": "advanced",
+      "title": "DORA metrics",
+      "body": "DORA วัดประสิทธิภาพการส่งมอบซอฟต์แวร์ด้วย 5 ตัวชี้วัด กลุ่ม throughput คือ change lead time (จาก commit ถึง production), deployment frequency และ failed deployment recovery time ส่วนกลุ่ม instability คือ change fail rate และ deployment rework rate (rework rate เพิ่มเข้ามาในปี 2024 ส่วน recovery time มาแทน MTTR ในปี 2023) งานวิจัยของ DORA พบว่าความเร็วกับความเสถียรไปด้วยกันได้ ทีมที่ดีมักทำได้ดีทั้งสองกลุ่ม ใช้ดูแนวโน้มของทีมเพื่อหาจุดปรับปรุง ไม่ใช่เอาไปจัดอันดับคนหรือทีม"
+    }
+  ],
+  "questions": [
+    {
+      "prompt": "ทีมหนึ่งตั้ง pipeline ให้ทุกการ merge เข้า main รัน test, build image และ deploy ขึ้น staging อัตโนมัติ จากนั้น release manager กดปุ่ม Approve เพื่อปล่อยขึ้น production วันละครั้ง ทีมนี้ทำแนวปฏิบัติใด",
+      "options": [
+        "Continuous Deployment เพราะทุกขั้นของการ deploy เขียนเป็น script ไว้แล้ว",
+        "แค่ CI เท่านั้น เพราะยังมีคนเข้ามาเกี่ยวข้องก่อนขึ้น production",
+        "Continuous Delivery เพราะพร้อมปล่อยเสมอ แต่ให้คนตัดสินใจขั้นสุดท้าย",
+        "Continuous Deployment เพราะ staging ได้รับการ deploy โดยอัตโนมัติ"
+      ],
+      "answer": 2,
+      "explain": "Continuous Delivery คือทุกการเปลี่ยนแปลงพร้อมขึ้น production ได้เสมอ แต่การกดปล่อยเป็นการตัดสินใจของคน ส่วน Continuous Deployment ต้องปล่อยขึ้น production อัตโนมัติทุกครั้งที่ผ่าน pipeline การ deploy staging อัตโนมัติจึงยังไม่นับเป็น Continuous Deployment"
+    },
+    {
+      "prompt": "pipeline ของทีมเรียงเป็น E2E test (25 นาที) → unit test (3 นาที) → lint (30 วินาที) นักพัฒนาบ่นว่าต้องรอเกือบครึ่งชั่วโมงกว่าจะรู้ว่าลืมเว้นวรรค ควรแก้อย่างไรเป็นอันดับแรก",
+      "options": [
+        "ย้าย lint และ unit test ขึ้นก่อน และให้ pipeline หยุดทันทีเมื่อขั้นใดล้ม",
+        "ย้าย E2E ไปรันตอนกลางคืนอย่างเดียว เพื่อให้ pipeline ของ PR สั้นลง",
+        "เปลี่ยนไปใช้ runner ที่แรงขึ้น เพื่อให้ E2E จบเร็วขึ้นหลายนาที",
+        "รวมทั้งสามขั้นเป็น step เดียว จะได้ไม่เสียเวลาเริ่ม job ใหม่"
+      ],
+      "answer": 0,
+      "explain": "ขั้นที่เร็วและจับปัญหาได้บ่อยควรอยู่ก่อน (fail fast) ข้อผิดพลาดง่าย ๆ จะเจอในไม่กี่นาทีและไม่เปลือง E2E ที่แพง การย้าย E2E ไปตอนกลางคืนทำให้ PR เร็วขึ้นจริง แต่ PR ที่ทำ E2E พังจะเข้า main ได้โดยไม่มีใครรู้จนวันรุ่งขึ้น"
+    },
+    {
+      "prompt": "workflow ด้านล่างทำให้ production ได้รับโค้ดที่ test ไม่ผ่าน ทั้งที่ job test ขึ้นสีแดง สาเหตุคืออะไร",
+      "code": "on:\n  push:\n    branches: [main]\njobs:\n  test:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v7\n      - run: npm ci && npm test\n  deploy:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v7\n      - run: ./deploy.sh",
+      "options": [
+        "ลำดับในไฟล์ถูกแล้ว ปัญหาคือ npm test คืน exit code 0 แม้ test จะล้ม",
+        "สอง job ใช้ runs-on เดียวกัน จึงแย่งเครื่องกันจนผลของ test หายไป",
+        "ต้องใส่ if: success() ในทุก step ของ deploy เพื่อเช็กผลของ test",
+        "jobs รันขนานกันโดย default ต้องใส่ needs: test ให้ deploy รอ test ผ่าน"
+      ],
+      "answer": 3,
+      "explain": "jobs ใน GitHub Actions รันขนานกันบน runner แยกเครื่องโดย default ลำดับในไฟล์ไม่มีผล ต้องใส่ needs: test จึงจะรอและข้าม deploy เมื่อ test ล้ม ส่วน if: success() ระดับ step ดูแค่ step ก่อนหน้าใน job เดียวกัน ไม่ได้ดูผลของ job อื่น"
+    },
+    {
+      "prompt": "ทีมเปลี่ยนจากเก็บ AWS_ACCESS_KEY_ID และ AWS_SECRET_ACCESS_KEY ใน secrets มาใช้แบบด้านล่าง ข้อดีหลักคืออะไร",
+      "code": "permissions:\n  id-token: write\n  contents: read\nsteps:\n  - uses: aws-actions/configure-aws-credentials@v6\n    with:\n      role-to-assume: arn:aws:iam::123456789012:role/gha-deploy\n      aws-region: ap-southeast-1",
+      "options": [
+        "key ยังเก็บอยู่ใน secrets เหมือนเดิม แต่ถูกเข้ารหัสแน่นหนากว่าเดิมมาก",
+        "ไม่มี key อายุยาวให้รั่ว ได้ credential ชั่วคราวต่อรอบ และจำกัด repo ได้",
+        "ไม่ต้องตั้งค่าอะไรฝั่ง AWS อีกเลย เพราะ GitHub จัดการสิทธิ์ให้ทั้งหมด",
+        "PR จาก fork ใช้ deploy ได้ทันที โดยไม่ต้องรอ maintainer อนุมัติก่อน"
+      ],
+      "answer": 1,
+      "explain": "OIDC ให้ workflow ขอ token อายุสั้นจาก GitHub แล้วแลกเป็น credential ชั่วคราวของ role ซึ่งฝั่ง AWS ต้องตั้ง trust policy ไว้ก่อน และกำหนดได้ว่ายอมรับเฉพาะ repo หรือ branch ใด ผลคือไม่มี access key ถาวรที่ต้องหมุนหรือเสี่ยงรั่ว ไม่ใช่แค่เก็บ key แบบเข้ารหัสดีขึ้น"
+    },
+    {
+      "prompt": "pipeline สั่ง docker build แยกกันใน job deploy-staging และ deploy-production โดย Dockerfile ใช้ FROM node:24 บั๊กหนึ่งเกิดเฉพาะบน production ทั้งที่ staging ผ่านการทดสอบครบ สาเหตุที่น่าสงสัยที่สุดและวิธีแก้คืออะไร",
+      "options": [
+        "staging มี traffic น้อยกว่ามาก จึงควรเพิ่ม load test ก่อน deploy production",
+        "ให้ทั้งสอง environment ใช้ tag latest เหมือนกัน image จะได้ตรงกันเสมอ",
+        "build สองครั้งอาจได้ base image ต่างกัน ควร build ครั้งเดียวแล้ว promote",
+        "production ควร build ด้วย --no-cache เสมอ เพื่อให้ได้ของใหม่ที่สุด"
+      ],
+      "answer": 2,
+      "explain": "tag อย่าง node:24 ชี้ไปที่ image ใหม่เมื่อมี patch ออก การ build สองครั้งจึงอาจได้ของต่างกัน ควร build ครั้งเดียว ติด tag ด้วย commit SHA หรืออ้างด้วย digest แล้วส่งชิ้นเดียวกันขึ้นทุก environment การใช้ latest ไม่ช่วย เพราะ latest ก็เป็น tag ที่เปลี่ยนได้ทุกเมื่อ"
+    },
+    {
+      "prompt": "ระหว่าง canary ที่ 5% ของ traffic dashboard แสดงว่า error rate ของเวอร์ชันใหม่อยู่ที่ 4% ขณะที่เวอร์ชันเดิมอยู่ที่ 0.5% ส่วน latency ปกติ ควรทำอย่างไร",
+      "options": [
+        "ขยายเป็น 50% ก่อน เพื่อให้มีข้อมูลมากพอจะสรุปได้อย่างแน่ชัด",
+        "หยุด rollout ส่ง traffic ทั้งหมดกลับเวอร์ชันเดิม แล้วค่อยหาสาเหตุ",
+        "ปล่อยต่อไปตามแผน เพราะกระทบผู้ใช้แค่ 5% และ latency ยังปกติ",
+        "แก้โค้ดแล้ว hotfix ทับ canary ทันที โดยข้ามการ review และ test"
+      ],
+      "answer": 1,
+      "explain": "จุดประสงค์ของ canary คือเทียบ metric กับเวอร์ชันเดิมแล้วถอยเมื่อแย่กว่าชัดเจน error rate สูงขึ้น 8 เท่าเป็นสัญญาณที่พอแล้ว การขยายเป็น 50% เพื่อเก็บข้อมูลเพิ่มคือการเพิ่มผู้ใช้ที่ได้รับผลกระทบอีก 10 เท่า"
+    },
+    {
+      "prompt": "release ใหม่มี migration ที่เปลี่ยนชื่อคอลัมน์ users.name เป็น full_name ทีมใช้ blue-green และวางแผนว่าถ้ามีปัญหาจะสลับ traffic กลับไปที่ blue ภายในหนึ่งนาที แผนนี้มีจุดอ่อนอะไร",
+      "options": [
+        "ไม่มีจุดอ่อน เพราะ blue-green แยก database ให้แต่ละสีโดยอัตโนมัติ",
+        "blue-green ช้าเกินไป ควรเปลี่ยนเป็น rolling เพื่อให้ rollback เร็วกว่า",
+        "ต้อง restore database จาก backup ทุกครั้งที่สลับกลับ ซึ่งถือเป็นเรื่องปกติ",
+        "โค้ดใน blue ยังอ่านคอลัมน์ name ที่ไม่มีแล้ว ควรใช้แนว expand/contract"
+      ],
+      "answer": 3,
+      "explain": "โดยทั่วไป blue และ green ใช้ database ร่วมกัน เมื่อ migration เปลี่ยนชื่อคอลัมน์ไปแล้ว โค้ดเก่าจะพังทันทีที่สลับกลับ วิธีที่ถูกคือเพิ่ม full_name และเขียนทั้งสองคอลัมน์ก่อน ย้ายข้อมูล แล้วค่อยลบ name ใน release ถัดไป ส่วน rolling มีช่วงที่สองเวอร์ชันรันพร้อมกันจึงเจอปัญหาเดียวกัน"
+    },
+    {
+      "prompt": "ฟีเจอร์ชำระเงินแบบใหม่ใช้เวลาพัฒนา 3 สัปดาห์ ตอนนี้ทีมทำบน branch แยกและเจอ merge conflict ทุกครั้งที่ rebase ทางเลือกใดสอดคล้องกับหลัก CI มากที่สุด",
+      "options": [
+        "merge งานทีละชิ้นเข้า main บ่อย ๆ โดยซ่อนไว้หลัง feature flag ที่ปิดไว้",
+        "ทำบน branch ต่อจนเสร็จ แล้ว merge ครั้งเดียวแบบ squash ให้ประวัติสะอาด",
+        "แยก repository ใหม่สำหรับฟีเจอร์นี้ เพื่อไม่ให้กระทบ pipeline หลัก",
+        "หยุด merge งานอื่นเข้า main ชั่วคราว จนกว่าฟีเจอร์นี้จะพัฒนาเสร็จ"
+      ],
+      "answer": 0,
+      "explain": "feature flag ทำให้โค้ดที่ยังไม่เสร็จขึ้น production ได้โดยผู้ใช้ไม่เห็น ทีมได้ integrate กันทุกวันและเปิดฟีเจอร์ทีละกลุ่มเมื่อพร้อม การ squash ตอนท้ายแค่ทำให้ประวัติสวย แต่ความเสี่ยงจาก conflict และการรวมงานก้อนใหญ่ยังอยู่ครบ"
+    },
+    {
+      "prompt": "ตอนเกิด incident วิศวกรคนหนึ่งเพิ่ม rule ใน security group ผ่าน AWS console โดยตรง ทั้งที่ infrastructure ทั้งหมดดูแลด้วย Terraform สัปดาห์ต่อมามีคน merge PR อื่นและ pipeline รัน terraform apply จะเกิดอะไรขึ้นได้ และควรทำอย่างไร",
+      "options": [
+        "ไม่มีผลอะไร เพราะ Terraform จะ import การแก้ใน console เข้าโค้ดให้เอง",
+        "apply จะล้มเหลวทันที จึงต้องลบ security group นั้นแล้วสร้างใหม่ทั้งหมด",
+        "rule ที่เพิ่มด้วยมืออาจถูกลบทิ้ง ควรนำการแก้กลับเข้าโค้ดผ่าน PR และดู plan",
+        "ปลอดภัยแน่นอน เพราะ Terraform แก้เฉพาะ resource ที่ PR นั้นเปลี่ยนเท่านั้น"
+      ],
+      "answer": 2,
+      "explain": "terraform apply พยายามทำให้ของจริงตรงกับโค้ดในทุก resource ที่ดูแลอยู่ ไม่ใช่เฉพาะส่วนที่ PR แก้ การแก้ด้วยมือจึงเป็น drift ที่อาจถูกย้อนทิ้งโดยไม่มีใครตั้งใจ ควรเขียนการแก้นั้นกลับเข้าโค้ด และให้ทุกการ apply ผ่านการ review ผล plan ก่อน"
+    },
+    {
+      "prompt": "ผู้บริหารตั้งเป้าให้ทีม deploy วันละ 20 ครั้ง ทีมทำได้ แต่ราว 1 ใน 3 ของ deploy ต้องตามด้วย hotfix ที่ไม่ได้วางแผนไว้ เมื่อมองด้วย DORA metrics ข้อใดสรุปได้ถูกต้องที่สุด",
+      "options": [
+        "ทีมนี้ดีเยี่ยมแล้ว เพราะ deployment frequency คือ metric ที่สำคัญที่สุด",
+        "throughput ดีแต่ instability สูง เห็นได้จาก change fail rate และ rework rate",
+        "ควรลดการ deploy เหลือสัปดาห์ละครั้ง เพื่อให้แต่ละครั้งเสถียรกว่าเดิม",
+        "DORA วัดแค่ความเร็ว จึงต้องหาตัวชี้วัดอื่นมาดูเรื่องความเสถียรแยกต่างหาก"
+      ],
+      "answer": 1,
+      "explain": "DORA ดู 5 ตัวชี้วัดร่วมกัน deploy บ่อยแต่ต้อง hotfix ตามบ่อยแปลว่า change fail rate และ deployment rework rate สูง ต้องปรับคุณภาพก่อนปล่อย การถอยไป deploy นาน ๆ ครั้งไม่ใช่คำตอบ เพราะงานวิจัยของ DORA พบว่าทีมที่ดีทำได้ทั้งเร็วและเสถียร และการเปลี่ยนแปลงก้อนใหญ่มักเสี่ยงกว่า"
+    }
+  ],
+  "exercise": {
+    "title": "เขียน GitHub Actions สำหรับ CI",
+    "level": "กลาง",
+    "tags": "workflow · permissions · cache · ลำดับขั้น",
+    "lang": "yaml",
+    "prompt": "เขียน .github/workflows/ci.yml ที่รันเมื่อ push เข้า main และเมื่อเปิด pull request เข้า main จำกัดสิทธิ์ของ GITHUB_TOKEN ให้อ่าน repository ได้อย่างเดียว จากนั้น checkout โค้ด ตั้งค่า Node 24 พร้อม cache ของ npm แล้วรัน npm ci, npm run lint และ npm test ตามลำดับ ใช้ action เวอร์ชันหลักปัจจุบัน (actions/checkout@v7 และ actions/setup-node@v7)",
+    "context": "repository เป็นโปรเจกต์ Node.js ที่มี package-lock.json และมี script lint กับ test ใน package.json อยู่แล้ว ทีมต้องการให้ PR ทุกอันรู้ผลภายในไม่กี่นาที และไม่ให้ workflow มีสิทธิ์เขียน repository โดยไม่จำเป็น",
+    "starter": "name: CI\n\n# เขียน workflow ต่อที่นี่\n",
+    "solution": "name: CI\n\non:\n  push:\n    branches: [main]\n  pull_request:\n    branches: [main]\n\npermissions:\n  contents: read\n\njobs:\n  test:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v7\n      - uses: actions/setup-node@v7\n        with:\n          node-version: 24\n          cache: npm\n      - run: npm ci\n      - run: npm run lint\n      - run: npm test\n",
+    "hints": [
+      "workflow มีสามส่วนหลักระดับบนสุด: on (รันเมื่อไร), permissions (สิทธิ์ของ token) และ jobs (รันอะไร)",
+      "job หนึ่งต้องมี runs-on: ubuntu-latest และ steps: โดย step แรกคือ uses: actions/checkout@v7 และตั้ง permissions: contents: read",
+      "actions/setup-node@v7 รับ with: node-version: 24 และ cache: npm จากนั้นแยก run: เป็นสาม step คือ npm ci, npm run lint และ npm test"
+    ],
+    "checks": [
+      {
+        "label": "trigger เมื่อ push และ pull_request",
+        "pattern": "^['\"]?on['\"]?:[\\s\\S]*\\bpush\\b[\\s\\S]*pull_request|^['\"]?on['\"]?:[\\s\\S]*pull_request[\\s\\S]*\\bpush\\b"
+      },
+      {
+        "label": "จำกัดสิทธิ์ GITHUB_TOKEN เป็น contents: read",
+        "pattern": "permissions:\\s*read-all|permissions:[\\s\\S]*?contents:\\s*['\"]?read"
+      },
+      {
+        "label": "มี jobs และ runs-on",
+        "pattern": "jobs:[\\s\\S]*runs-on:"
+      },
+      {
+        "label": "checkout โค้ด",
+        "pattern": "uses:\\s*['\"]?actions\\/checkout@"
+      },
+      {
+        "label": "ใช้ setup-node กับ Node 24",
+        "pattern": "uses:\\s*['\"]?actions\\/setup-node@[\\s\\S]*node-version:\\s*['\"]?24"
+      },
+      {
+        "label": "cache ของ npm",
+        "pattern": "cache:\\s*['\"]?npm"
+      },
+      {
+        "label": "ลำดับ npm ci → lint → test",
+        "pattern": "npm ci[\\s\\S]*npm run lint[\\s\\S]*npm (run )?test"
+      }
+    ]
+  }
+}

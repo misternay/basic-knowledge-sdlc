@@ -1,0 +1,235 @@
+{
+  "id": "sec",
+  "code": "D2",
+  "track": "data",
+  "title": "Security & Secured Dev",
+  "blurb": "เขียนโค้ดที่ปลอดภัยตั้งแต่บรรทัดแรก ไม่ใช่มาแก้หลังโดนเจาะ",
+  "mustKnow": [
+    {
+      "tier": "must",
+      "title": "OWASP Top 10:2025 และวิธีใช้ให้เป็นประโยชน์",
+      "body": "OWASP Top 10 คือรายการ 10 หมวดความเสี่ยงของเว็บแอปที่จัดจากข้อมูลช่องโหว่จริง ฉบับ 2025 อันดับ 1 ยังเป็น Broken Access Control (รวม SSRF เข้ามาด้วย) ตามด้วย Security Misconfiguration, Software Supply Chain Failures, Cryptographic Failures และ Injection ส่วนหมวดใหม่ A10 Mishandling of Exceptional Conditions พูดถึงการจัดการ error ที่ทำให้ระบบ “fail open” ใช้เป็น checklist ตอนออกแบบและ review โค้ด แต่ผ่านครบ 10 ข้อไม่ได้แปลว่าระบบปลอดภัย"
+    },
+    {
+      "tier": "must",
+      "title": "Broken access control และ IDOR",
+      "body": "IDOR คือ server รับ id ของ object จาก client แล้วดึงข้อมูลให้โดยไม่ตรวจว่าผู้ใช้คนนี้มีสิทธิ์ใน object นั้น เจอบ่อยเพราะโค้ดดูทำงานปกติทุกอย่าง ต้องตรวจสิทธิ์ฝั่ง server ทุก request และ deny เป็นค่าเริ่มต้น การซ่อนปุ่มใน UI หรือเปลี่ยน id เป็น UUID ทำให้เดายากขึ้นเท่านั้น ไม่ใช่การตรวจสิทธิ์",
+      "code": "// เสี่ยง: ใครล็อกอินก็ขอใบไหนก็ได้\npool.query('SELECT * FROM invoices WHERE id = $1', [req.params.id]);\n\n// ปลอดภัย: ผูกเจ้าของไว้ในเงื่อนไขเดียวกัน ไม่พบก็ตอบ 404\npool.query(\n  'SELECT * FROM invoices WHERE id = $1 AND owner_id = $2',\n  [req.params.id, req.user.id]\n);"
+    },
+    {
+      "tier": "must",
+      "title": "Injection และ XSS: แยกข้อมูลออกจากคำสั่ง",
+      "body": "ทั้งสองเกิดจากต้นเหตุเดียวกัน คือเอาข้อมูลจากผู้ใช้ไปต่อเป็นส่วนหนึ่งของคำสั่ง (SQL, shell หรือ HTML) ป้องกัน SQL injection ด้วย parameterized query และป้องกัน XSS ด้วยการ encode output ตามบริบท (HTML, attribute, URL, JavaScript) หรือใช้ API ที่ใส่เป็นข้อความอย่าง textContent กับดักที่พบบ่อยคือ placeholder ใช้แทนชื่อคอลัมน์หรือ ASC/DESC ไม่ได้ ต้องใช้ allowlist และ framework ที่ escape ให้อัตโนมัติก็ยังรั่วได้ถ้าใช้ innerHTML หรือ dangerouslySetInnerHTML",
+      "code": "// SQL: ส่งค่าแยกจากคำสั่ง driver จะไม่ตีความค่าเป็น SQL\nawait pool.query('SELECT id FROM users WHERE email = $1', [email]);\n\n// HTML: ใส่เป็นข้อความ ไม่ใช่ markup\nel.textContent = comment;   // ไม่ใช่ el.innerHTML = comment"
+    },
+    {
+      "tier": "must",
+      "title": "Authentication ต่างจาก Authorization",
+      "body": "authN ตอบว่า “คุณคือใคร” (login, MFA, session) ส่วน authZ ตอบว่า “คุณทำสิ่งนี้กับ resource นี้ได้ไหม” login สำเร็จจึงไม่ได้แปลว่าเข้าถึงได้ทุกอย่าง ต้องตรวจทั้งสองอย่างฝั่ง server ทุก request และห้ามเชื่อ role หรือ flag ที่ client ส่งมาเอง ใน HTTP ให้ตอบ 401 เมื่อยังไม่ได้ยืนยันตัวตน และ 403 เมื่อรู้ว่าเป็นใครแต่ไม่มีสิทธิ์"
+    },
+    {
+      "tier": "must",
+      "title": "Password hashing: argon2id, bcrypt, scrypt",
+      "body": "รหัสผ่านต้องเก็บเป็น hash ที่ตั้งใจให้ช้าและมี salt ต่อผู้ใช้ เพื่อให้การเดาแบบ offline หลังฐานข้อมูลรั่วมีต้นทุนสูงมาก OWASP แนะนำ argon2id เป็นตัวแรก (ขั้นต่ำ memory 19 MiB, iterations 2, parallelism 1) รองลงมาคือ scrypt และใช้ bcrypt กับระบบเดิม (cost 10 ขึ้นไป และระวังว่ารับ input ได้แค่ 72 byte) ห้ามใช้ MD5 หรือ SHA-256 ตรง ๆ แม้จะมี salt และห้ามเข้ารหัสแบบถอดกลับได้",
+      "code": "const argon2 = require('argon2');\n\nconst hash = await argon2.hash(password, {\n  type: argon2.argon2id,\n  memoryCost: 19456, // หน่วย KiB = 19 MiB\n  timeCost: 2,\n  parallelism: 1,\n});\nconst ok = await argon2.verify(hash, password);"
+    },
+    {
+      "tier": "must",
+      "title": "Secrets management และ rotation",
+      "body": "API key, รหัสผ่าน database และ private key ต้องไม่อยู่ในโค้ดหรือ Git ให้อ่านจาก secret manager (เช่น AWS Secrets Manager หรือ HashiCorp Vault) หรือ environment variable ที่ระบบ deploy ฉีดให้ เมื่อ secret หลุดให้ revoke และ rotate ก่อนเสมอ แล้วค่อยล้าง Git history เพราะสำเนาอาจถูก clone หรือสแกนไปแล้ว ควรออกแบบให้ rotate ได้โดยไม่ต้องแก้โค้ด และเปิด secret scanning ใน repo ไว้ตั้งแต่ต้น"
+    },
+    {
+      "tier": "should",
+      "title": "Software supply chain: lockfile, SCA, typosquatting",
+      "body": "โค้ดส่วนใหญ่ในแอปมาจาก dependency ซึ่ง OWASP 2025 ยกเป็นความเสี่ยงอันดับ 3 ให้ commit lockfile แล้วใช้ npm ci ใน CI เพื่อให้ได้เวอร์ชันและ integrity hash เดิมทุกครั้ง รวมถึง dependency ทางอ้อม สแกนช่องโหว่ที่รู้แล้วด้วย SCA (เช่น npm audit หรือ Dependabot) และก่อนเพิ่ม package ใหม่ให้ตรวจชื่อให้ตรง เพราะมี typosquatting อย่าง crossenv ที่ปลอมเป็น cross-env รวมถึงชื่อ package ที่ AI แนะนำแต่ไม่มีอยู่จริงซึ่งผู้โจมตีอาจไปจดไว้ก่อน",
+      "code": "npm ci                         # ติดตั้งตาม lockfile เท่านั้น ไม่ตรงกับ package.json ก็ fail\nnpm audit --audit-level=high   # fail เมื่อพบช่องโหว่ระดับ high ขึ้นไป"
+    },
+    {
+      "tier": "should",
+      "title": "OAuth 2.0, OIDC และการตรวจ JWT",
+      "body": "OAuth 2.0 ใช้มอบสิทธิ์ให้แอปเรียก API แทนผู้ใช้ผ่าน access token ส่วน OIDC เพิ่มการยืนยันตัวตนด้วย ID token ซึ่งมีไว้ให้ client รู้ว่าใคร login ไม่ใช่ให้ API รับแทน access token แอปใหม่ควรใช้ Authorization Code + PKCE และเลิกใช้ implicit flow ตาม RFC 9700 เมื่อ API รับ JWT ต้องตรวจ signature ด้วย algorithm ที่กำหนดเอง (ไม่เชื่อ alg ใน header และไม่ยอมรับ none) แล้วตรวจ exp, iss และ aud ทุกครั้ง",
+      "code": "const claims = jwt.verify(token, publicKey, {\n  algorithms: ['RS256'],\n  issuer: 'https://auth.example.com',\n  audience: 'orders-api',\n}); // ตรวจ signature และ exp ให้ด้วย ไม่ผ่านจะ throw\n// ห้ามใช้ jwt.decode() เพื่อยืนยันตัวตน เพราะไม่ตรวจ signature"
+    },
+    {
+      "tier": "should",
+      "title": "CSRF, CORS และ security headers",
+      "body": "CSRF คือเว็บอื่นหลอกให้เบราว์เซอร์ส่ง request พร้อม cookie ของผู้ใช้ ป้องกันด้วย SameSite cookie, CSRF token และไม่เปลี่ยนข้อมูลด้วย GET (SameSite=Lax ยังส่ง cookie เมื่อผู้ใช้คลิกลิงก์) ส่วน CORS ไม่ใช่เครื่องมือกัน CSRF แต่เป็นการผ่อน same-origin policy ให้ origin อื่นอ่าน response ได้ จึงควรใช้ allowlist และห้ามสะท้อน Origin ทุกค่าคู่กับ credentials เสริมด้วย header อย่าง CSP, HSTS และ X-Content-Type-Options",
+      "code": "Set-Cookie: sid=...; Secure; HttpOnly; SameSite=Lax\nStrict-Transport-Security: max-age=31536000; includeSubDomains\nContent-Security-Policy: default-src 'self'; frame-ancestors 'none'\nX-Content-Type-Options: nosniff"
+    },
+    {
+      "tier": "should",
+      "title": "Least privilege และ threat modeling",
+      "body": "ให้ผู้ใช้ service account, DB role และ token มีสิทธิ์เท่าที่งานต้องใช้ เมื่อจุดใดถูกเจาะ ความเสียหายจะจำกัดอยู่แค่สิทธิ์นั้น threat modeling คือการไล่คิดตั้งแต่ตอนออกแบบว่าข้อมูลไหลผ่านจุดใด ผู้โจมตีจะทำอะไรได้ และเราจะป้องกันอย่างไร ตัวช่วยที่นิยมคือ STRIDE (Spoofing, Tampering, Repudiation, Information disclosure, Denial of service, Elevation of privilege) ซึ่งช่วยลดปัญหาหมวด Insecure Design ที่แก้ด้วยการ patch โค้ดทีหลังได้ยาก"
+    },
+    {
+      "tier": "advanced",
+      "title": "Prompt injection ในแอป LLM",
+      "body": "Prompt injection เป็นอันดับ 1 ใน OWASP Top 10 for LLM Applications 2025 คือข้อความจากผู้ใช้ (direct) หรือจากเว็บ อีเมล ไฟล์ และผลลัพธ์ของ tool (indirect) มีคำสั่งแฝงที่โมเดลทำตาม ปัจจุบันยังไม่มีวิธีกันได้ 100% จึงต้องออกแบบให้พลาดแล้วเสียหายน้อย คือให้ agent มี tool และสิทธิ์น้อยที่สุด (กัน Excessive Agency) ให้คนยืนยันก่อน action สำคัญ และถือ output ของโมเดลเป็นข้อมูลไม่น่าไว้ใจก่อนนำไป render, รันคำสั่ง หรือเรียก API"
+    },
+    {
+      "tier": "advanced",
+      "title": "SAST, DAST และ secret scanning ใน CI",
+      "body": "SAST อ่านซอร์สโค้ดหา pattern อันตราย (เช่น CodeQL หรือ Semgrep) DAST ยิงทดสอบแอปที่รันอยู่จริง (เช่น ZAP) และ secret scanning (เช่น gitleaks) จับ key ที่หลุดเข้า commit ควรให้ทำงานทุก pull request และ block เฉพาะระดับร้ายแรง เพื่อไม่ให้ทีมชินจนเมิน alert เครื่องมือเหล่านี้จับ IDOR หรือ business logic ผิดได้ไม่ดี จึงใช้แทน code review และ test เรื่องสิทธิ์ไม่ได้"
+    }
+  ],
+  "questions": [
+    {
+      "prompt": "ผู้ใช้ที่ล็อกอินแล้วเปลี่ยนเลขใน URL จาก /invoices/1001 เป็น /invoices/1002 แล้วเห็นใบแจ้งหนี้ของบริษัทอื่น วิธีแก้ที่ถูกต้องคือข้อใด?",
+      "code": "app.get('/invoices/:id', requireLogin, async (req, res) => {\n  const { rows } = await pool.query(\n    'SELECT * FROM invoices WHERE id = $1', [req.params.id]);\n  res.json(rows[0]);\n});",
+      "options": [
+        "เปลี่ยน id เป็น UUID แบบสุ่มเพื่อให้ผู้ใช้เดาเลขไม่ได้",
+        "เพิ่มเงื่อนไข owner_id ของผู้ใช้ใน query และตอบ 404 เมื่อไม่พบ",
+        "ซ่อนลิงก์ใบแจ้งหนี้ที่ไม่ใช่ของผู้ใช้ออกจากหน้าเว็บ",
+        "ใส่ rate limit ที่ endpoint นี้เพื่อกันการไล่เลข id"
+      ],
+      "answer": 1,
+      "explain": "ต้นเหตุคือ server ไม่ตรวจสิทธิ์ต่อ resource (IDOR) การผูกเงื่อนไขเจ้าของไว้ใน query จึงแก้ตรงจุด ส่วน UUID หรือ rate limit แค่ทำให้เดายากขึ้น แต่ id ยังรั่วได้จาก log ลิงก์ที่แชร์ หรือ API อื่น"
+    },
+    {
+      "prompt": "หน้า report ให้ผู้ใช้เลือกคอลัมน์ที่ใช้เรียงลำดับ และโค้ดนี้ถูกรายงานว่าเสี่ยง SQL injection วิธีแก้ที่เหมาะสมที่สุดคือข้อใด?",
+      "code": "const sql = `SELECT id, name, total FROM orders\n  ORDER BY ${req.query.sort}`;\nconst { rows } = await pool.query(sql);",
+      "options": [
+        "เปลี่ยนเป็น ORDER BY $1 แล้วส่ง [req.query.sort] เป็น parameter",
+        "escape เครื่องหมาย ' และ ; ใน req.query.sort ก่อนต่อ string",
+        "รับค่าเป็น key แล้ว map กับ allowlist ของชื่อคอลัมน์ที่อนุญาต",
+        "ตั้ง WAF ให้บล็อก request ที่มีคำว่า SELECT หรือ DROP"
+      ],
+      "answer": 2,
+      "explain": "placeholder ใช้แทนได้เฉพาะค่า (value) ไม่ใช่ชื่อคอลัมน์หรือ keyword อย่าง ASC/DESC จึงไม่ได้เรียงตามคอลัมน์ที่ต้องการ ต้องใช้ allowlist แทน ส่วนการ escape เองหรือ WAF ถูกเลี่ยงได้ เพราะ payload ใน ORDER BY ไม่จำเป็นต้องมี quote หรือคำที่ถูกบล็อก"
+    },
+    {
+      "prompt": "ระบบความคิดเห็นแสดงข้อความของผู้ใช้ด้วยโค้ดนี้ แล้วมีคนโพสต์ <img src=x onerror=\"...\"> จนโค้ดรันในเบราว์เซอร์ของผู้อ่านทุกคน ควรแก้อย่างไร?",
+      "code": "const div = document.createElement('div');\ndiv.innerHTML = comment.text;\nlist.appendChild(div);",
+      "options": [
+        "ใช้ div.textContent = comment.text เพื่อแสดงเป็นข้อความล้วน",
+        "กรองคำว่า <script> ออกจาก comment.text ก่อนบันทึกลงฐานข้อมูล",
+        "ตั้ง session cookie เป็น HttpOnly เพื่อให้สคริปต์อ่าน cookie ไม่ได้",
+        "บังคับใช้ HTTPS ทั้งเว็บเพื่อกันการแทรกโค้ดระหว่างทาง"
+      ],
+      "answer": 0,
+      "explain": "textContent ทำให้เบราว์เซอร์ถือข้อมูลเป็นข้อความ ไม่ parse เป็น HTML จึงแก้ที่ต้นเหตุ การกรอง <script> ไม่พอเพราะ payload นี้ไม่มี script tag เลย ส่วน HttpOnly แค่ลดผลกระทบ สคริปต์ยังทำงานแทนผู้ใช้ได้"
+    },
+    {
+      "prompt": "ระบบเก่าเก็บรหัสผ่านเป็น SHA-256 ไม่มี salt ทีมเสนอให้เปลี่ยนเป็น SHA-256 ที่มี salt สุ่มต่อผู้ใช้ ข้อใดประเมินข้อเสนอนี้ได้ถูกต้อง?",
+      "options": [
+        "เพียงพอแล้ว เพราะ salt ทำให้ rainbow table ใช้ไม่ได้",
+        "ยังไม่พอ SHA-256 เร็วเกินไป ควรใช้ argon2id หรือ bcrypt ที่ตั้ง cost ได้",
+        "ควรเปลี่ยนเป็น AES-256 แทน เพื่อให้กู้รหัสผ่านคืนให้ผู้ใช้ได้",
+        "แค่ hash SHA-256 ซ้ำสองรอบก็เทียบเท่า password hashing แล้ว"
+      ],
+      "answer": 1,
+      "explain": "salt กัน rainbow table และทำให้รหัสเดียวกันได้ hash ต่างกัน แต่ GPU ยังเดา SHA-256 ได้ในอัตรามหาศาลต่อวินาที password hashing อย่าง argon2id จึงตั้งใจให้ช้าและกินหน่วยความจำ ส่วน AES ถอดกลับได้ ถ้า key รั่วรหัสผ่านก็รั่วทั้งหมด"
+    },
+    {
+      "prompt": "นักพัฒนา push ไฟล์ .env ที่มี AWS access key ขึ้น public repo บน GitHub แล้วรู้ตัวภายใน 10 นาที ควรทำอะไรเป็นอย่างแรก?",
+      "options": [
+        "git push --force เพื่อเขียนทับ commit นั้นให้หายไปจาก history",
+        "เปลี่ยน repo เป็น private ก่อน แล้วค่อยวางแผนแก้ต่อ",
+        "ลบไฟล์ .env ใน commit ใหม่ แล้วเพิ่มชื่อไฟล์ลง .gitignore",
+        "revoke key นั้นและออก key ใหม่ แล้วตรวจ log ว่ามีการใช้ key หรือไม่"
+      ],
+      "answer": 3,
+      "explain": "ต้องถือว่า key รั่วไปแล้ว เพราะมีบอตสแกน public repo ตลอดเวลา และอาจถูก clone หรือ fork ไปแล้ว การลบหรือเขียนทับ history จึงไม่ทำให้ key ปลอดภัย ต้อง revoke ก่อน แล้วค่อยล้าง history และกันไม่ให้เกิดซ้ำ"
+    },
+    {
+      "prompt": "โปรเจกต์ไม่ได้ commit package-lock.json และ CI รัน npm install ทุกครั้ง วันหนึ่ง dependency ทางอ้อม (transitive) ออกเวอร์ชันใหม่ที่ถูกแทรกโค้ดขโมย token แล้วหลุดเข้า build ทันที ข้อใดป้องกันได้ตรงที่สุด?",
+      "options": [
+        "ระบุเวอร์ชันตายตัว (ไม่มี ^) ให้ dependency ตรงใน package.json",
+        "เปลี่ยนไปใช้ npm install --force ใน CI เพื่อให้ติดตั้งครบทุกครั้ง",
+        "commit lockfile ใช้ npm ci ใน CI และสแกนด้วย SCA ก่อน merge",
+        "ย้ายไปโหลด library ทุกตัวจาก CDN สาธารณะแทน"
+      ],
+      "answer": 2,
+      "explain": "lockfile ล็อกเวอร์ชันและ integrity hash ของทุก package รวมถึง dependency ทางอ้อม และ npm ci ติดตั้งตามนั้นเป๊ะ การ pin เฉพาะ dependency ตรงยังปล่อยให้ dependency ทางอ้อมลอยตาม version range ที่ package เหล่านั้นประกาศไว้"
+    },
+    {
+      "prompt": "middleware นี้ใช้ตรวจ access token ที่ API ได้รับ ปัญหาร้ายแรงที่สุดคือข้อใด?",
+      "code": "const jwt = require('jsonwebtoken');\n\nfunction auth(req, res, next) {\n  const token = req.headers.authorization?.slice(7);\n  const claims = jwt.decode(token);\n  if (!claims || claims.exp < Date.now() / 1000) return res.sendStatus(401);\n  req.user = claims;\n  next();\n}",
+      "options": [
+        "jwt.decode ไม่ตรวจ signature ใครก็สร้าง token ที่มี role อะไรก็ได้",
+        "เทียบ exp ผิดหน่วย เพราะ exp ใน JWT เก็บเป็นมิลลิวินาที",
+        "ควรย้าย token ไปไว้ใน cookie แทน Authorization header",
+        "payload ยังเป็น plain text ต้องเข้ารหัสก่อนจึงจะปลอดภัย"
+      ],
+      "answer": 0,
+      "explain": "payload ของ JWT แค่ base64url encode ใครก็สร้างใหม่ได้ ต้องใช้ jwt.verify พร้อมกำหนด algorithms, issuer และ audience ส่วน exp ใน JWT เป็นวินาทีอยู่แล้ว การหาร Date.now() ด้วย 1000 จึงถูกต้อง"
+    },
+    {
+      "prompt": "แอปใช้ session cookie ที่ตั้ง SameSite=Lax และมี endpoint GET /account/delete สำหรับลบบัญชี ผู้ใช้ที่ล็อกอินอยู่คลิกลิงก์จากเว็บบอร์ดอื่นแล้วบัญชีถูกลบทันที สาเหตุหลักคืออะไร?",
+      "options": [
+        "CORS ตั้งไว้กว้างเกินไป ต้องจำกัด origin ให้แคบลง",
+        "cookie ไม่ได้ตั้ง HttpOnly สคริปต์จากเว็บอื่นจึงอ่าน cookie ได้",
+        "SameSite=Lax ไม่มีผลในเบราว์เซอร์รุ่นใหม่ ต้องตั้งเป็น None",
+        "Lax ยังส่ง cookie เมื่อคลิกลิงก์ และ endpoint นี้ลบข้อมูลด้วย GET"
+      ],
+      "answer": 3,
+      "explain": "SameSite=Lax กันการส่ง cookie ใน POST หรือ request ย่อยจากเว็บอื่น แต่ยอมให้ส่งเมื่อผู้ใช้คลิกลิงก์เปิดหน้า (top-level GET) การเปลี่ยนข้อมูลจึงต้องใช้ POST หรือ DELETE คู่กับ CSRF token ส่วน CORS ไม่เกี่ยว เพราะการคลิกลิงก์ไม่ใช่ request ที่ CORS ควบคุม"
+    },
+    {
+      "prompt": "ผู้ช่วย AI ในบริษัทสรุปหน้าเว็บให้ผู้ใช้ และมี tool ส่งอีเมลแทนผู้ใช้ได้ ทีมกังวลว่าหน้าเว็บอาจซ่อนคำสั่งให้ส่งข้อมูลลับออกไปข้างนอก มาตรการใดลดความเสี่ยงได้ดีที่สุด?",
+      "options": [
+        "เขียนใน system prompt ว่าห้ามทำตามคำสั่งที่อยู่ในหน้าเว็บเด็ดขาด",
+        "จำกัด tool ให้ส่งได้เฉพาะผู้รับในองค์กร และให้ผู้ใช้กดยืนยันก่อนส่ง",
+        "กรองประโยค ignore previous instructions ออกก่อนส่งให้โมเดล",
+        "เปลี่ยนไปใช้โมเดลที่ใหญ่กว่าเพื่อให้แยกคำสั่งปลอมได้ดีขึ้น"
+      ],
+      "answer": 1,
+      "explain": "ยังไม่มีวิธีที่ทำให้โมเดลแยกข้อมูลกับคำสั่งได้ 100% การเขียน system prompt หรือกรองคำช่วยได้บ้างแต่ถูกเลี่ยงได้ง่าย จึงต้องจำกัดสิ่งที่ agent ทำได้ (least privilege) และให้คนยืนยันก่อนทำ action ที่มีผลกระทบ"
+    },
+    {
+      "prompt": "service ออกรายงานต่อ PostgreSQL ด้วย user ที่เป็น owner ของทุกตาราง ต่อมาพบ SQL injection ใน endpoint ของรายงาน ถ้าทำสิ่งใดไว้ก่อนจะจำกัดความเสียหายได้มากที่สุด?",
+      "options": [
+        "ตั้งรหัสผ่าน database ให้ยาวและซับซ้อนกว่าเดิม",
+        "เปิด TLS ระหว่าง service กับ database",
+        "ให้ service ใช้ role ที่มีแค่สิทธิ์ SELECT บนตารางที่รายงานใช้",
+        "ย้าย database ไปอยู่ใน private subnet ที่เข้าจากภายนอกไม่ได้"
+      ],
+      "answer": 2,
+      "explain": "เมื่อผู้โจมตีสั่ง SQL ผ่านแอปได้ เขาจะได้สิทธิ์เท่ากับ user ที่แอปใช้ ถ้า role มีแค่ SELECT บนตารางที่จำเป็นก็ลบ แก้ หรืออ่านตารางอื่นไม่ได้ ส่วน private subnet และ TLS กันการเข้าถึงจากภายนอก แต่ injection มาผ่านตัวแอปเอง"
+    }
+  ],
+  "exercise": {
+    "title": "แก้ API ที่เสี่ยง SQL injection, secret รั่ว และส่งข้อมูลเกิน",
+    "level": "กลาง",
+    "tags": "parameterized query · secrets · data exposure",
+    "lang": "javascript",
+    "prompt": "endpoint นี้มีปัญหา 3 จุด คือต่อ string จาก input ลงใน SQL, hard-code รหัสผ่าน database และใช้ SELECT * ทำให้ password_hash หลุดออกไปใน response แก้ให้ปลอดภัยโดยใช้ placeholder $1 ของไลบรารี pg อ่านรหัสผ่านจาก process.env.DB_PASSWORD และส่งกลับเฉพาะ id, email, name",
+    "context": "ใช้ Node.js + Express + pg (node-postgres)\nตาราง users: id, email, name, password_hash, created_at\nระบบ deploy ฉีดรหัสผ่าน database ให้ผ่าน environment variable ชื่อ DB_PASSWORD",
+    "starter": "const pool = new Pool({\n  password: 'Sup3rS3cret!',\n});\n\napp.get('/users', async (req, res) => {\n  const sql = \"SELECT * FROM users WHERE email = '\"\n    + req.query.email + \"'\";\n  const { rows } = await pool.query(sql);\n  res.json(rows);\n});\n",
+    "solution": "const pool = new Pool({\n  password: process.env.DB_PASSWORD,\n});\n\napp.get('/users', async (req, res) => {\n  const { rows } = await pool.query(\n    'SELECT id, email, name FROM users WHERE email = $1',\n    [req.query.email]\n  );\n  res.json(rows);\n});",
+    "hints": [
+      "แยกปัญหาเป็น 3 เรื่อง: ค่าจากผู้ใช้ใน SQL, secret ในโค้ด และข้อมูลที่ส่งกลับมากเกินจำเป็น",
+      "pool.query รับ (text, values) ให้เขียน WHERE email = $1 แล้วส่งค่าเป็น array ใน argument ที่สอง",
+      "ใช้ password: process.env.DB_PASSWORD และเปลี่ยน SELECT * เป็น SELECT id, email, name"
+    ],
+    "checks": [
+      {
+        "label": "อ่านรหัสผ่านจาก process.env",
+        "pattern": "process\\.env"
+      },
+      {
+        "label": "ไม่มีรหัสผ่าน hard-code",
+        "pattern": "sup3rs3cret",
+        "negate": true
+      },
+      {
+        "label": "ใช้ placeholder $1 ใน SQL",
+        "pattern": "\\$1\\b"
+      },
+      {
+        "label": "ส่งค่า email เป็น array parameter",
+        "pattern": "\\[[^\\]]*email[^\\]]*\\]"
+      },
+      {
+        "label": "ไม่ต่อ string หรือ template ด้วยค่าจากผู้ใช้",
+        "pattern": "\\+\\s*req\\.query|[\"'`]\\s*\\+\\s*email\\b|\\$\\{\\s*(req\\.query\\.)?email",
+        "negate": true
+      },
+      {
+        "label": "ไม่ใช้ SELECT * (ไม่ส่ง password_hash กลับ)",
+        "pattern": "select\\s+\\*",
+        "negate": true
+      }
+    ]
+  }
+}

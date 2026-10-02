@@ -1,0 +1,6 @@
+[
+  { "id": "foundations", "num": "01", "name": "Foundations", "th": "พื้นฐานการเขียนซอฟต์แวร์" },
+  { "id": "data", "num": "02", "name": "Data & Security", "th": "ข้อมูลและความปลอดภัย" },
+  { "id": "delivery", "num": "03", "name": "Delivery & Ops", "th": "ส่งมอบและดูแลระบบ" },
+  { "id": "ai", "num": "04", "name": "AI Fundamentals", "th": "พื้นฐาน AI สำหรับนักพัฒนา" }
+]

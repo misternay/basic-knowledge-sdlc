@@ -1,0 +1,190 @@
+{
+  "id": "skills",
+  "code": "A4",
+  "track": "ai",
+  "title": "AI Fundamental: Skills",
+  "blurb": "แพ็กความรู้และขั้นตอนการทำงานให้ AI โหลดใช้ได้เมื่อจำเป็น",
+  "mustKnow": [
+    {
+      "tier": "must",
+      "title": "Skill คืออะไร",
+      "body": "โฟลเดอร์ที่มี SKILL.md (คำสั่ง) กับไฟล์ประกอบ เช่น script, template และเอกสารอ้างอิง ให้ agent โหลดใช้เมื่องานตรงกัน และเป็นรูปแบบเปิดที่หลายเครื่องมือรองรับ"
+    },
+    {
+      "tier": "must",
+      "title": "SKILL.md และ frontmatter",
+      "body": "ต้องมี name (ตัวพิมพ์เล็ก ตัวเลข และขีดกลาง ไม่เกิน 64 ตัวอักษร) และ description (ไม่เกิน 1024 ตัวอักษร) ใน YAML frontmatter ตามด้วยคำสั่งแบบ Markdown",
+      "code": "---\nname: invoice-pdf\ndescription: สร้างใบแจ้งหนี้ PDF จากข้อมูลคำสั่งซื้อ\n  ใช้เมื่อผู้ใช้ขอใบแจ้งหนี้หรือใบเสร็จ\n---\n\n# Invoice PDF\n1. อ่าน templates/invoice.html\n2. รัน scripts/render.py ..."
+    },
+    {
+      "tier": "must",
+      "title": "Progressive disclosure 3 ระดับ",
+      "body": "(1) name และ description โหลดตลอดเพื่อให้รู้ว่ามี skill อะไร (2) เนื้อหา SKILL.md โหลดเมื่อ skill ถูกเลือก (3) ไฟล์ประกอบถูกอ่านหรือรันเมื่อจำเป็น"
+    },
+    {
+      "tier": "must",
+      "title": "Description ตัดสินว่า skill จะถูกใช้ไหม",
+      "body": "เขียนว่า skill ทำอะไรและ “ใช้เมื่อไร” ด้วยคำที่ผู้ใช้น่าจะพูด กว้างไปจะถูกเรียกผิดงาน แคบไปจะไม่ถูกเรียก"
+    },
+    {
+      "tier": "must",
+      "title": "Script ถูกรัน ไม่ได้ถูกอ่านทั้งไฟล์",
+      "body": "งานที่ต้องแม่นยำซ้ำ ๆ เช่น แปลงไฟล์หรือตรวจข้อมูล ให้เป็น script เพราะผลลัพธ์เท่านั้นที่เข้า context ประหยัดและเชื่อถือได้กว่าให้โมเดลทำเอง"
+    },
+    {
+      "tier": "should",
+      "title": "โครงสร้างที่ดี",
+      "body": "ให้ SKILL.md กระชับ (แนะนำไม่เกินราว 500 บรรทัด) แยกรายละเอียดไปไฟล์อ้างอิง และบอกว่าเมื่อไรควรอ่านไฟล์ไหน"
+    },
+    {
+      "tier": "should",
+      "title": "Skill, MCP, CLAUDE.md หรือ sub-agent",
+      "body": "skill คือความรู้และขั้นตอนที่โหลดเมื่อจำเป็น MCP คือการเชื่อมระบบภายนอก CLAUDE.md คือข้อตกลงที่ใช้ทุกครั้ง sub-agent คือการแยก context ไปทำงานย่อย"
+    },
+    {
+      "tier": "should",
+      "title": "ทดสอบ skill",
+      "body": "ลองกับคำขอจริงหลายแบบ ทั้งที่ควรและไม่ควรเรียก skill แล้วปรับ description และคำสั่ง"
+    },
+    {
+      "tier": "advanced",
+      "title": "ความปลอดภัย",
+      "body": "skill สั่งรันโค้ดได้ ติดตั้งเฉพาะจากแหล่งที่เชื่อถือได้ และอ่าน script ก่อนใช้"
+    },
+    {
+      "tier": "advanced",
+      "title": "แจกจ่าย skill ในทีม",
+      "body": "เก็บไว้ใน repo หรือ plugin ให้ทั้งทีมใช้ชุดเดียวกันและมีเวอร์ชัน"
+    }
+  ],
+  "questions": [
+    {
+      "prompt": "ส่วนใดของ skill ที่ agent เห็นตลอดเวลา แม้ยังไม่ได้ใช้ skill นั้น?",
+      "options": [
+        "ทุกไฟล์ในโฟลเดอร์",
+        "name และ description ใน frontmatter",
+        "script ทั้งหมด",
+        "เนื้อหาเต็มของ SKILL.md"
+      ],
+      "answer": 1,
+      "explain": "นี่คือระดับแรกของ progressive disclosure เนื้อหาเต็มโหลดเมื่อถูกเลือก ส่วนไฟล์อื่นโหลดเมื่อจำเป็น"
+    },
+    {
+      "prompt": "description ใดดีที่สุดสำหรับ skill สร้างรายงานยอดขาย?",
+      "options": [
+        "รายงาน",
+        "skill ที่มีประโยชน์มาก",
+        "สร้างรายงานยอดขายรายเดือนเป็น Excel พร้อมกราฟจาก CSV ของระบบขาย ใช้เมื่อผู้ใช้ขอสรุปยอดขาย รายงานประจำเดือน หรือส่งไฟล์ CSV ยอดขายมา",
+        "ใช้ Python"
+      ],
+      "answer": 2,
+      "explain": "description ที่ดีบอกทั้งสิ่งที่ skill ทำและสถานการณ์ที่ควรใช้ เพราะเป็นข้อมูลหลักที่ agent ใช้ตัดสินใจเลือก skill"
+    },
+    {
+      "prompt": "name ใดถูกต้องตามรูปแบบของ SKILL.md?",
+      "options": [
+        "Sales Report!",
+        "sales-report",
+        "SalesReport_v2",
+        "รายงาน ยอดขาย"
+      ],
+      "answer": 1,
+      "explain": "name ใช้ได้เฉพาะตัวพิมพ์เล็ก ตัวเลข และขีดกลาง"
+    },
+    {
+      "prompt": "งานแปลง PDF เป็นข้อความที่ต้องได้ผลเหมือนเดิมทุกครั้ง ควรอยู่ในรูปแบบใดใน skill?",
+      "options": [
+        "ให้โมเดลเขียนโค้ดใหม่ทุกครั้ง",
+        "script ที่แนบไว้ใน skill แล้วให้ agent รัน",
+        "อธิบายเป็นข้อความยาว ๆ",
+        "ไม่ควรใส่ใน skill"
+      ],
+      "answer": 1,
+      "explain": "script ทำงานได้แน่นอนกว่า และ agent เห็นแค่ผลลัพธ์ ไม่ต้องโหลดโค้ดทั้งหมดเข้า context"
+    },
+    {
+      "prompt": "ข้อตกลงที่ใช้ทุกครั้งในโปรเจกต์ เช่น “รัน npm test ก่อน commit” ควรอยู่ที่ไหน?",
+      "options": [
+        "ใน skill",
+        "ใน CLAUDE.md หรือ AGENTS.md ของโปรเจกต์",
+        "ใน MCP server",
+        "ไม่ต้องบอก"
+      ],
+      "answer": 1,
+      "explain": "สิ่งที่ใช้ทุกครั้งควรอยู่ใน project memory ส่วน skill เหมาะกับความรู้เฉพาะงานที่โหลดเมื่อจำเป็น"
+    },
+    {
+      "prompt": "SKILL.md ยาว 2,000 บรรทัด ควรปรับอย่างไร?",
+      "options": [
+        "ไม่ต้องปรับ",
+        "ทำ SKILL.md ให้กระชับ แล้วแยกรายละเอียดไปไฟล์อ้างอิงพร้อมบอกว่าเมื่อไรควรอ่าน",
+        "ลบรายละเอียดทิ้งทั้งหมด",
+        "ย้ายทั้งหมดไปไว้ใน description"
+      ],
+      "answer": 1,
+      "explain": "เนื้อหา SKILL.md ทั้งหมดเข้า context เมื่อ skill ถูกใช้ การแยกไฟล์ทำให้โหลดเฉพาะส่วนที่ต้องใช้"
+    },
+    {
+      "prompt": "ต้องการให้ agent ดึงข้อมูลจาก Jira ของบริษัท ควรใช้อะไรเป็นหลัก?",
+      "options": [
+        "skill อย่างเดียว",
+        "MCP server หรือ connector ที่เชื่อม Jira (อาจคู่กับ skill ที่สอนขั้นตอนการทำงาน)",
+        "CLAUDE.md",
+        "ปรับ temperature"
+      ],
+      "answer": 1,
+      "explain": "MCP ให้ “ความสามารถ” ในการเชื่อมระบบภายนอก ส่วน skill ให้ “ความรู้ว่าจะทำงานอย่างไร” ใช้ร่วมกันได้"
+    },
+    {
+      "prompt": "ก่อนติดตั้ง skill ที่ได้มาจากอินเทอร์เน็ต ควรทำอะไร?",
+      "options": [
+        "ติดตั้งได้เลย",
+        "ตรวจแหล่งที่มา และอ่าน SKILL.md กับ script ก่อน เพราะ skill สั่งรันโค้ดได้",
+        "เปลี่ยนชื่อ skill",
+        "ลบ description"
+      ],
+      "answer": 1,
+      "explain": "skill ที่ไม่น่าไว้ใจอาจมีคำสั่งหรือ script ที่เป็นอันตราย"
+    }
+  ],
+  "exercise": {
+    "title": "เขียน SKILL.md สำหรับรีวิว PR",
+    "level": "กลาง",
+    "tags": "frontmatter · description · progressive disclosure",
+    "lang": "markdown",
+    "prompt": "เขียน SKILL.md ของ skill ชื่อ pr-review ที่ช่วยรีวิว pull request ตาม checklist ของทีม ต้องมี frontmatter (name และ description ที่บอกทั้งสิ่งที่ทำและเมื่อไรควรใช้) ขั้นตอนการทำงานเป็นลำดับ และอ้างถึงไฟล์ checklist แยก (เช่น references/checklist.md) แทนการเขียนทุกอย่างในไฟล์เดียว",
+    "starter": "---\nname:\ndescription:\n---\n",
+    "solution": "---\nname: pr-review\ndescription: รีวิว pull request ตาม checklist ของทีม (ความถูกต้อง ความปลอดภัย test และความอ่านง่าย) แล้วสรุปเป็นความคิดเห็นเรียงตามความรุนแรง ใช้เมื่อผู้ใช้ขอให้รีวิว PR ตรวจ diff หรือถามว่าโค้ดพร้อม merge หรือยัง\n---\n\n# PR Review\n\n## ขั้นตอน\n1. อ่าน diff ทั้งหมดและคำอธิบาย PR\n2. อ่าน references/checklist.md แล้วตรวจทีละหมวด\n3. รัน scripts/run_checks.sh เพื่อดูผล lint และ test\n4. สรุปผลเรียงจาก ร้ายแรง → ควรแก้ → ข้อเสนอแนะ พร้อมไฟล์และบรรทัด\n\n## ข้อห้าม\n- อย่าแก้โค้ดเอง ให้เสนอเป็นความคิดเห็น",
+    "hints": [
+      "name ต้องเป็นตัวพิมพ์เล็กกับขีดกลาง เช่น pr-review",
+      "description = ทำอะไร + “ใช้เมื่อ…” พร้อมคำที่ผู้ใช้น่าจะพูด เช่น รีวิว PR หรือตรวจ diff",
+      "ให้ SKILL.md บอกว่าเมื่อไรต้องอ่าน references/checklist.md แทนการคัดลอก checklist ทั้งหมดมาใส่"
+    ],
+    "checks": [
+      {
+        "label": "มี YAML frontmatter เปิดและปิดครบ",
+        "pattern": "^\\s*---\\n[\\s\\S]*?\\n---"
+      },
+      {
+        "label": "name ถูกรูปแบบ (pr-review)",
+        "pattern": "name:\\s*pr-review\\s*\\n"
+      },
+      {
+        "label": "description บอกว่าทำอะไร (ยาวพอ)",
+        "pattern": "description:[ \\t]*[>|]?[-+]?\\s*\\S(?:(?!\\n---)[\\s\\S]){40,}"
+      },
+      {
+        "label": "description บอกว่า “ใช้เมื่อ…”",
+        "pattern": "description:(?:(?!\\n---)[\\s\\S])*?(ใช้เมื่อ|when)"
+      },
+      {
+        "label": "มีขั้นตอนเป็นลำดับ",
+        "pattern": "\\n\\s*1\\.[\\s\\S]*\\n\\s*2\\."
+      },
+      {
+        "label": "อ้างไฟล์แยก (references/ หรือ scripts/)",
+        "pattern": "references\\/|scripts\\/"
+      }
+    ]
+  }
+}

@@ -1,0 +1,236 @@
+{
+  "id": "qa",
+  "code": "O1",
+  "track": "delivery",
+  "title": "Quality Engineering",
+  "blurb": "สร้างความมั่นใจด้วยการทดสอบที่จับบั๊กได้จริง ไม่ใช่แค่ทำตัวเลข coverage ให้สวย",
+  "mustKnow": [
+    {
+      "tier": "must",
+      "title": "Test pyramid และเมื่อไรรูปทรงควรเปลี่ยน",
+      "body": "แนวคิดของ Mike Cohn คือมี unit test จำนวนมากที่ฐานเพราะเร็วและชี้จุดพังได้แม่น มี integration test ตรงกลาง และมี E2E ไม่กี่ตัวบนยอดสำหรับ flow สำคัญ เพราะช้าและเปราะ แต่สัดส่วนนี้ไม่ใช่กฎตายตัว ถ้าโค้ดส่วนใหญ่เป็นงานเชื่อมกับ database หรือ service อื่น บั๊กมักอยู่ที่รอยต่อ จึงควรเพิ่มน้ำหนักให้ integration test (Kent C. Dodds เรียกรูปทรงนี้ว่า testing trophy) หลักที่ใช้ได้เสมอคือทดสอบแต่ละความเสี่ยงที่ชั้นต่ำสุดที่จับมันได้จริง และระวังรูปกรวยไอศกรีมที่มี E2E หรือ manual test มากกว่า unit test"
+    },
+    {
+      "tier": "must",
+      "title": "Unit test ที่ดี: AAA และหนึ่งพฤติกรรมต่อ test",
+      "body": "แบ่ง test เป็น Arrange (เตรียมข้อมูล) Act (เรียกสิ่งที่ทดสอบ) และ Assert (ตรวจผล) ให้แต่ละ test ตรวจพฤติกรรมเดียวและตั้งชื่อบอกเงื่อนไขกับผลที่คาด เมื่อ fail จะรู้ทันทีว่าพฤติกรรมไหนเสียโดยไม่ต้องไล่อ่านโค้ด หนึ่งพฤติกรรมไม่ได้แปลว่าห้ามมี expect หลายบรรทัด ถ้าทุกบรรทัดตรวจผลลัพธ์เดียวกัน เช่น field ต่าง ๆ ของ object ที่คืนมา และ test ที่ดีต้องรันอิสระจากกัน ไม่พึ่งลำดับหรือ state ที่ test อื่นทิ้งไว้",
+      "code": "test('ส่งฟรีเมื่อยอดถึง 500 พอดี', () => {\n  const total = 500;              // Arrange\n  const fee = shippingFee(total); // Act\n  expect(fee).toBe(0);            // Assert\n});"
+    },
+    {
+      "tier": "must",
+      "title": "ทดสอบพฤติกรรม ไม่ใช่ implementation",
+      "body": "test ควรถามว่าใส่อะไรเข้าไปแล้วได้อะไรออกมาผ่าน public interface ไม่ใช่ตรวจว่า method ภายในถูกเรียกกี่ครั้งหรือตามลำดับไหน test ที่ผูกกับรายละเอียดภายในจะพังทุกครั้งที่ refactor ทั้งที่พฤติกรรมไม่เปลี่ยน ทีมจะเริ่มไม่กล้า refactor หรือแก้ test ตามโค้ดไปเรื่อย ๆ จนมันไม่จับบั๊กอีก สัญญาณเตือนที่พบบ่อยคือต้อง export ฟังก์ชันภายในออกมาเพียงเพื่อให้ทดสอบได้",
+      "code": "// เปราะ: ผูกกับวิธีคำนวณภายใน\nexpect(pricing.applyDiscount).toHaveBeenCalledWith(1000, 0.1);\n\n// ทนทาน: ตรวจผลที่ผู้ใช้เห็น\nexpect(checkout(cart).total).toBe(900);"
+    },
+    {
+      "tier": "must",
+      "title": "Test double: mock, stub และ fake",
+      "body": "ทั้งหมดคือของแทนสิ่งที่ช้าหรือควบคุมไม่ได้ เช่น network เวลา หรือ payment gateway โดย stub คืนค่าที่กำหนดไว้ล่วงหน้า fake คือของที่ทำงานได้จริงแบบย่อ เช่น repository ที่เก็บข้อมูลใน memory ส่วน mock ใช้ตรวจว่าถูกเรียกด้วยข้อมูลที่ถูกต้อง เหมาะกับผลข้างเคียงที่มองจากผลลัพธ์ไม่เห็น เช่น การส่งอีเมล ใน Jest ทุกแบบมักสร้างด้วย jest.fn() และถูกเรียกรวมว่า mock แต่การแยกบทบาทช่วยให้ตัดสินใจถูกว่าควรตรวจผลลัพธ์หรือตรวจการเรียก",
+      "code": "class InMemoryUserRepo {          // fake\n  users = new Map();\n  async save(u) { this.users.set(u.id, u); }\n  async findById(id) { return this.users.get(id) ?? null; }\n}\n\nconst sendEmail = jest.fn();      // mock\nawait registerUser({ repo: new InMemoryUserRepo(), sendEmail }, input);\nexpect(sendEmail).toHaveBeenCalledWith(\n  expect.objectContaining({ to: 'a@example.com' })\n);"
+    },
+    {
+      "tier": "must",
+      "title": "Boundary value: บั๊กชอบอยู่ที่ขอบ",
+      "body": "ความผิดพลาดอย่างใช้ > แทน >= หรือ off-by-one ในลูปจะโผล่เฉพาะค่าที่อยู่ตรงขอบของเงื่อนไข ให้แบ่ง input เป็นกลุ่มที่ระบบทำแบบเดียวกัน (equivalence partition) แล้วทดสอบค่าติดขอบทั้งสองฝั่ง เช่น กฎส่งฟรีตั้งแต่ 500 ควรทดสอบ 499 กับ 500 ไม่ใช่ 100 กับ 1000 และอย่าลืมขอบที่มักถูกมองข้าม เช่น 0 ค่าติดลบ list ว่าง string ว่าง และ null"
+    },
+    {
+      "tier": "must",
+      "title": "Linter, formatter และ static analysis",
+      "body": "เครื่องมือที่ตรวจโค้ดโดยไม่ต้องรัน เช่น ESLint, type checker ของ TypeScript และ formatter อย่าง Prettier จับปัญหาได้ทั้งคลาส เช่น ตัวแปรที่ไม่ได้ใช้ type ไม่ตรง หรือ promise ที่ลืม await (ผ่านกฎของ typescript-eslint) ได้เร็วและถูกกว่าการเขียน test ทีละกรณี ควรรันให้ผลเหมือนกันทั้งใน editor, pre-commit และ CI เพื่อให้คนรีวิวโฟกัสที่ logic และการออกแบบแทนการถกเรื่องสไตล์ แต่เครื่องมือเหล่านี้ไม่รู้ว่า business rule ถูกหรือไม่ จึงใช้แทน test ไม่ได้"
+    },
+    {
+      "tier": "should",
+      "title": "Code coverage บอกอะไร และไม่บอกอะไร",
+      "body": "coverage บอกว่าบรรทัดหรือ branch ไหนถูกรันระหว่าง test จึงมีประโยชน์ในการหาโค้ดที่ยังไม่มีใครทดสอบเลย แต่ไม่ได้บอกว่าผลลัพธ์ถูกตรวจ test ที่เรียกฟังก์ชันโดยไม่มี expect ก็ทำให้ coverage ขึ้นได้ การตั้งตัวเลขเป็นเป้าบังคับจึงมักได้ test ที่ไร้ความหมาย ใช้ coverage (โดยเฉพาะ branch coverage) เพื่อหาจุดบอด ไม่ใช่เพื่อพิสูจน์ว่า test ดี",
+      "code": "test('คำนวณภาษี', () => {\n  calculateTax(1000);\n  // บรรทัดถูกรันครบ coverage ขึ้น แต่ไม่ได้ตรวจอะไรเลย\n});"
+    },
+    {
+      "tier": "should",
+      "title": "Flaky test: ผ่านบ้างไม่ผ่านบ้าง",
+      "body": "test ที่ผลไม่แน่นอนทั้งที่โค้ดไม่เปลี่ยน มักเกิดจากการพึ่งเวลาจริง การรอด้วย sleep ลำดับการรัน state ที่แชร์ระหว่าง test หรือ network ภายนอก อันตรายที่สุดคือทีมชินกับการกด rerun จนมองข้ามสีแดงที่เป็นบั๊กจริง ให้แก้ที่ต้นเหตุ เช่น ใช้ fake timers หรือส่ง clock เข้าไป และแยก state ของแต่ละ test ถ้าแก้ทันทีไม่ได้ให้กัก (quarantine) ไว้พร้อมงานติดตาม ไม่ใช่ใส่ retry ทิ้งไว้ถาวร",
+      "code": "beforeEach(() => {\n  jest.useFakeTimers();\n  jest.setSystemTime(new Date('2026-01-31T23:00:00Z'));\n});\nafterEach(() => jest.useRealTimers());\n\ntest('คูปองยังใช้ได้ก่อนหมดเดือน', () => {\n  expect(isCouponValid(januaryCoupon)).toBe(true);\n});"
+    },
+    {
+      "tier": "should",
+      "title": "TDD: Red, Green, Refactor",
+      "body": "เขียน test ที่ fail สำหรับพฤติกรรมถัดไปก่อน (Red) เขียนโค้ดน้อยที่สุดให้ผ่าน (Green) แล้วจัดโค้ดให้สะอาดโดยมี test คุ้มกัน (Refactor) การเห็น test fail ก่อนพิสูจน์ว่า test ตรวจสิ่งที่ตั้งใจได้จริง ถ้ามันผ่านตั้งแต่แรกแปลว่า test อาจผิดหรือพฤติกรรมนั้นมีอยู่แล้ว TDD เหมาะกับ logic ที่กฎชัดเจนและได้ feedback เร็ว ส่วนงานสำรวจหรือ UI ที่ยังเปลี่ยนบ่อยอาจเขียน test ตามหลังก็ได้"
+    },
+    {
+      "tier": "should",
+      "title": "Over-mocking: test เขียวแต่ระบบพัง",
+      "body": "เมื่อ mock ทุก dependency รวมถึงคลาสของเราเอง test จะตรวจแค่ว่าโค้ดเรียกสิ่งที่เราคิดว่าถูก ถ้า mock คืนค่าที่ของจริงไม่มีวันคืน เช่น SQL ผิดหรือ field เปลี่ยนชื่อ test ก็ยังเขียว สัญญาณคือ setup ของ mock ยาวกว่าตัว test หรือ test พังทุกครั้งที่ refactor ให้ mock เฉพาะขอบระบบที่เราไม่ได้เป็นเจ้าของ ใช้ fake เมื่อทำได้ และมี integration test กับของจริง เช่น ใช้ Testcontainers รัน database จริงใน container"
+    },
+    {
+      "tier": "advanced",
+      "title": "Performance และ load testing",
+      "body": "วัดว่าระบบตอบสนองอย่างไรภายใต้โหลด เช่น load test ที่โหลดตามที่คาดไว้ stress test ที่ดันจนพังเพื่อหาขีดจำกัด และ soak test ที่รันนานเพื่อหา memory leak ให้ดู latency ที่ percentile สูง (p95, p99) ควบคู่กับ error rate แทนค่าเฉลี่ย เพราะค่าเฉลี่ยกลบกลุ่มผู้ใช้ที่ช้ามาก ผลจะมีความหมายเมื่อสภาพแวดล้อม ปริมาณข้อมูล และรูปแบบการใช้งานใกล้ของจริง เครื่องมือที่ใช้กันแพร่หลายเช่น k6, JMeter, Gatling และ Locust"
+    },
+    {
+      "tier": "advanced",
+      "title": "Contract testing และ mutation testing",
+      "body": "Contract testing ตรวจว่า consumer กับ provider ยังคุยกันรู้เรื่อง ในแบบ consumer-driven (เช่น Pact) consumer บันทึกสิ่งที่คาดหวังจาก API เป็น contract แล้ว CI ของ provider นำไปตรวจทุกครั้ง จึงจับการเปลี่ยน field ได้โดยไม่ต้องมี E2E ข้ามทุก service ส่วน mutation testing (เช่น StrykerJS สำหรับ JavaScript หรือ PIT สำหรับ Java) แก้โค้ดทีละจุด เช่น เปลี่ยน >= เป็น > แล้วรัน test ถ้า test ยังผ่าน (mutant survived) แปลว่าไม่มี test ตรวจพฤติกรรมนั้นจริง เป็นมาตรวัดคุณภาพ test ที่ตรงกว่า coverage แต่รันช้า จึงมักรันเฉพาะโค้ดที่เปลี่ยนหรือรันเป็นรอบ"
+    }
+  ],
+  "questions": [
+    {
+      "prompt": "service หนึ่งแทบทั้งหมดเป็นการรับ request แล้วอ่านเขียน PostgreSQL มี unit test จำนวนมากที่ mock repository ไว้ทั้งหมด แต่บั๊กใน production เกือบทั้งหมดมาจาก SQL ผิดและ migration ไม่ตรงกับโค้ด ควรปรับกลยุทธ์การทดสอบอย่างไร?",
+      "options": [
+        "เพิ่ม unit test ที่ mock repository ให้ครอบคลุม query ทุกแบบ",
+        "เพิ่ม integration test ที่รันกับ PostgreSQL จริง เช่นใน container",
+        "เขียน E2E ผ่าน UI ให้ครบทุกกรณีของทุก endpoint",
+        "ตั้ง coverage ขั้นต่ำ 90% ใน CI ให้ทุก PR ต้องผ่าน"
+      ],
+      "answer": 1,
+      "explain": "บั๊กอยู่ที่รอยต่อกับ database ซึ่ง mock มองไม่เห็น จึงควรเพิ่มน้ำหนักที่ integration test ซึ่งเป็นชั้นต่ำสุดที่จับบั๊กนี้ได้ การเพิ่ม unit test ที่ mock repository จะทำให้ test เขียวต่อไปทั้งที่ SQL ผิด ส่วน E2E ทุกกรณีช้าและเปราะเกินจำเป็น"
+    },
+    {
+      "prompt": "test นี้ fail ใน CI และรายงานแค่ว่า “order” พัง ปัญหาหลักของ test นี้คืออะไร?",
+      "code": "test('order', () => {\n  const order = createOrder([{ sku: 'A', qty: 2, price: 100 }]);\n  expect(order.total).toBe(200);\n  order.applyCoupon('SAVE10');\n  expect(order.total).toBe(180);\n  order.cancel();\n  expect(order.status).toBe('cancelled');\n  expect(() => order.applyCoupon('SAVE10')).toThrow();\n});",
+      "options": [
+        "มี expect หลายบรรทัด ซึ่ง unit test ที่ดีต้องมี expect เดียวเสมอ",
+        "สร้าง Order ตัวจริงแทนการ mock จึงไม่นับเป็น unit test",
+        "รวมหลายพฤติกรรมไว้ใน test เดียว พอพังจึงไม่รู้ว่าพฤติกรรมไหนเสีย",
+        "ไม่ได้ใช้ beforeEach เตรียมข้อมูล ทำให้ test อ่านยากและช้า"
+      ],
+      "answer": 2,
+      "explain": "test นี้ตรวจการคิดยอด คูปอง และการยกเลิกในชื่อเดียว เมื่อพังจึงต้องไล่อ่านโค้ด และ expect หลังจุดที่พังจะไม่ถูกรันเลย ควรแยกเป็น test ละพฤติกรรมพร้อมชื่อที่บอกผลที่คาด ส่วนการมี expect หลายบรรทัดไม่ผิดถ้าทุกบรรทัดตรวจพฤติกรรมเดียวกัน"
+    },
+    {
+      "prompt": "test นี้ผ่านบนเครื่อง developer เสมอ แต่ fail ใน CI เป็นบางครั้งเมื่อเครื่องทำงานหนัก ควรแก้อย่างไร?",
+      "code": "test('สร้างรายงานเสร็จ', async () => {\n  startReportJob();\n  await sleep(200);\n  expect(getReportStatus()).toBe('done');\n});",
+      "options": [
+        "เพิ่ม sleep เป็น 2000 ms ให้มีเวลาเหลือพอบนเครื่อง CI ที่ช้า",
+        "ตั้ง CI ให้ retry test ที่ fail อัตโนมัติ 3 รอบก่อนรายงานผล",
+        "ให้ startReportJob คืน promise แล้ว await แทนการเดาเวลาด้วย sleep",
+        "ย้าย test นี้ไปรันเป็นตัวสุดท้ายเพื่อไม่ให้ test อื่นแย่ง CPU"
+      ],
+      "answer": 2,
+      "explain": "test พึ่งสมมติฐานว่างานจะเสร็จใน 200 ms ซึ่งไม่จริงบนเครื่องที่ช้า การรอเหตุการณ์ที่ต้องการโดยตรง (หรือคุมเวลาด้วย fake timers) จึงแก้ที่ต้นเหตุ การเพิ่ม sleep แค่ลดโอกาส fail แต่ทำให้ชุด test ช้าลงทุกครั้ง ส่วน retry เป็นการซ่อนปัญหา"
+    },
+    {
+      "prompt": "คุณทำ TDD เพื่อเพิ่มกฎ “สมาชิก VIP ได้ส่วนลด 10%” เขียน test ใหม่แล้วรัน ปรากฏว่าผ่านทันทีทั้งที่ยังไม่ได้แก้โค้ดเลย ควรทำอย่างไรต่อ?",
+      "options": [
+        "ดีแล้ว ข้ามไปขั้น refactor ได้เลยเพราะ test เขียวแล้ว",
+        "ลบ test นี้ทิ้ง เพราะ test ที่ไม่เคย fail ไม่มีประโยชน์",
+        "เขียนโค้ดส่วนลดต่อตามแผน แล้วค่อยกลับมาดู test ทีหลัง",
+        "ตรวจ test ก่อน เพราะอาจไม่ได้ตรวจพฤติกรรมใหม่ หรือกฎนี้มีอยู่แล้ว"
+      ],
+      "answer": 3,
+      "explain": "ขั้น Red มีไว้พิสูจน์ว่า test จับการขาดพฤติกรรมนี้ได้ ถ้าผ่านตั้งแต่แรก test อาจ assert ผิด เช่น ไม่ได้ตั้งลูกค้าเป็น VIP หรือโค้ดมีกฎนี้อยู่แล้ว การข้ามไป refactor เสี่ยงได้ test ที่ไม่มีวันแดงไว้คุ้มกัน"
+    },
+    {
+      "prompt": "ทีม refactor ให้ปัดเศษสตางค์ครั้งเดียวตอนท้าย ยอดเงินที่ลูกค้าเห็นยังเหมือนเดิมทุกกรณี แต่ test นี้ fail ควรทำอย่างไร?",
+      "code": "test('คิดยอดรวมพร้อมส่วนลด', () => {\n  const spy = jest.spyOn(pricing, 'roundToSatang');\n  checkout(cart);\n  expect(spy).toHaveBeenCalledTimes(3);\n});",
+      "options": [
+        "แก้ตัวเลขใน toHaveBeenCalledTimes เป็น 1 ให้ตรงกับโค้ดใหม่",
+        "เปลี่ยนเป็น assert ยอดรวมที่ checkout คืนมาแทนการนับการเรียก",
+        "ย้อน refactor กลับ เพราะ test ที่ fail แปลว่าพฤติกรรมเปลี่ยน",
+        "mock roundToSatang ให้คืนค่าคงที่ test จะได้ไม่ขึ้นกับการปัดเศษ"
+      ],
+      "answer": 1,
+      "explain": "test นี้ผูกกับวิธีคำนวณภายใน จึงพังทั้งที่ผลลัพธ์ไม่เปลี่ยน การแก้เลขเป็น 1 ทำให้ผ่านก็จริงแต่ยังเปราะเหมือนเดิมและจะพังอีกในการ refactor ครั้งหน้า ควรตรวจผลที่ผู้ใช้เห็น เช่น expect(checkout(cart).total).toBe(...)"
+    },
+    {
+      "prompt": "ระบบขายตั๋วให้ราคานักเรียนกับผู้ที่อายุ 13–19 ปี (รวม 13 และ 19) ชุดค่าอายุใดทดสอบกฎนี้ได้คุ้มที่สุด?",
+      "options": [
+        "15 ค่าเดียว เพราะอยู่กลางช่วงพอดีและเป็นตัวแทนได้",
+        "1, 15, 50 และ 99 เพื่อกระจายให้ทั่วทุกช่วงอายุ",
+        "12, 13, 19 และ 20 คือค่าติดขอบทั้งสองฝั่งของช่วง",
+        "13 และ 19 เพราะเป็นค่าที่เขียนไว้ใน requirement"
+      ],
+      "answer": 2,
+      "explain": "บั๊กแบบ < กับ <= หรือ off-by-one จะโผล่ตรงขอบ จึงต้องทดสอบทั้งค่าในช่วงและนอกช่วงที่ติดขอบทั้งสองด้าน ชุด 13 กับ 19 ตรวจแค่ฝั่งใน ถ้าโค้ดเขียนผิดเป็น age <= 20 ก็ยังผ่าน"
+    },
+    {
+      "prompt": "comment ส่วนใหญ่ใน PR ของทีมเป็นเรื่องการเว้นวรรค ลำดับ import และตัวแปรที่ประกาศแต่ไม่ได้ใช้ จนเรื่อง logic ถูกพูดถึงน้อย ควรแก้อย่างไร?",
+      "options": [
+        "เขียน style guide ให้ละเอียดแล้วให้คนรีวิวช่วยกันบังคับใช้",
+        "ตั้ง formatter และ linter ให้รันอัตโนมัติใน editor, pre-commit และ CI",
+        "เพิ่ม unit test ที่ตรวจรูปแบบการเขียนโค้ดของแต่ละไฟล์",
+        "ให้ reviewer อาวุโสคนเดียวเป็นผู้ตัดสินเรื่องสไตล์ทั้งหมด"
+      ],
+      "answer": 1,
+      "explain": "งานที่ตรวจด้วยกฎได้ควรให้เครื่องทำ เพราะสม่ำเสมอ ไม่ลืม และแก้ให้อัตโนมัติได้ คนรีวิวจึงมีสมาธิกับ logic และการออกแบบ ส่วน style guide ที่ให้คนบังคับยังกินเวลารีวิวเท่าเดิมและแต่ละคนตีความต่างกันได้"
+    },
+    {
+      "prompt": "coverage ของฟังก์ชันนี้เป็น 100% แต่ mutation testing รายงานว่า mutant ที่เปลี่ยน >= เป็น > รอด (survived) หมายความว่าอะไร?",
+      "code": "function shippingFee(total) {\n  return total >= 500 ? 0 : 50;\n}\n\n// test ที่มีอยู่\nexpect(shippingFee(100)).toBe(50);\nexpect(shippingFee(1000)).toBe(0);",
+      "options": [
+        "ไม่มี test ใดแยก >= กับ > ออกจากกันได้ ควรเพิ่มกรณียอด 500",
+        "เครื่องมือตั้งค่าผิด เพราะ coverage 100% แปลว่าทดสอบครบแล้ว",
+        "ควรเปลี่ยนโค้ดเป็น > ตาม mutant เพราะ test ก็ยังผ่านอยู่ดี",
+        "ต้องเพิ่ม test อีกหลายค่าในช่วง 100 ถึง 1000 ให้หนาแน่นขึ้น"
+      ],
+      "answer": 0,
+      "explain": "mutant รอดแปลว่าโค้ดถูกแก้แล้ว test ยังผ่าน จึงไม่มี test ตรวจพฤติกรรมตรงขอบ 500 การเพิ่มค่ากลางช่วงไม่ช่วย เพราะ >= กับ > ให้ผลต่างกันเฉพาะที่ 500 นี่คือสิ่งที่ coverage บอกไม่ได้"
+    },
+    {
+      "prompt": "service Orders เรียก API ของ service Users ที่อีกทีมดูแล ทีม Users เปลี่ยนชื่อ field จาก fullName เป็น name แล้ว deploy โดย test ของทั้งสองทีมผ่านหมด แต่ Orders พังใน production วิธีใดป้องกันปัญหานี้ได้ตรงจุดที่สุด?",
+      "options": [
+        "ให้ Orders mock response ของ Users ให้ละเอียดขึ้นใน unit test",
+        "เพิ่ม unit test ฝั่ง Users จน coverage ถึง 100% ก่อน deploy",
+        "ทำ consumer-driven contract test ที่ CI ของ Users ตรวจกับ contract ของ Orders",
+        "ให้ทุกทีมรัน E2E ข้ามทุก service ใน staging ก่อน deploy ทุกครั้ง"
+      ],
+      "answer": 2,
+      "explain": "mock ฝั่ง Orders เขียนจากความเข้าใจของ Orders เอง จึงเขียวต่อไปแม้ Users เปลี่ยน contract test ทำให้ความคาดหวังของ consumer ถูกตรวจใน CI ของ provider และจับได้ก่อน deploy ส่วน E2E ข้ามทุก service อาจจับได้ แต่ช้า เปราะ และต้องพึ่ง staging ที่ทุกทีมใช้ร่วมกัน"
+    },
+    {
+      "prompt": "load test ของ API ค้นหาสินค้าได้ latency เฉลี่ย 120 ms ซึ่งผ่านเป้า แต่ผู้ใช้จำนวนหนึ่งบ่นว่าบางครั้งค้นหาช้ามาก ควรดูอะไรต่อ?",
+      "options": [
+        "latency ที่ p95 และ p99 รวมถึง error rate ภายใต้โหลดเดียวกัน",
+        "รัน load test ซ้ำโดยลดจำนวนผู้ใช้จำลองลงเพื่อให้ผลนิ่งขึ้น",
+        "ค่า median เพราะทนต่อค่าผิดปกติได้ดีกว่าค่าเฉลี่ย",
+        "ถือว่าผ่าน เพราะค่าเฉลี่ยอยู่ในเป้า ผู้ใช้ที่บ่นน่าจะเน็ตช้าเอง"
+      ],
+      "answer": 0,
+      "explain": "ทั้งค่าเฉลี่ยและ median กลบกลุ่ม request ที่ช้ามาก ถ้า p99 อยู่ที่หลายวินาที 1 ใน 100 request จะรอนานแม้ค่าเฉลี่ยดูดี จึงต้องดู percentile สูงและ error rate ควบคู่กัน ส่วนการลดโหลดทำให้ผลดูดีขึ้นแต่ไม่ตรงกับสภาพจริง"
+    }
+  ],
+  "exercise": {
+    "title": "เขียน unit test ให้ฟังก์ชันค่าส่งที่ครอบคลุมค่าขอบ",
+    "level": "ง่าย",
+    "tags": "Jest · AAA · boundary value",
+    "lang": "javascript",
+    "prompt": "ฟังก์ชัน shippingFee(total) คิดค่าส่ง 50 บาท ส่งฟรีเมื่อยอดตั้งแต่ 500 บาท และ throw error เมื่อยอดติดลบ ให้เขียน unit test ด้วย Jest อย่างน้อย 4 test โดยแต่ละ test ตรวจพฤติกรรมเดียวและเรียก shippingFee ตรง ๆ ให้ครอบคลุมค่าขอบทั้งสองฝั่งของ 500 ยอด 0 และยอดติดลบ",
+    "context": "function shippingFee(total) {\n  if (total < 0) throw new Error('invalid total');\n  return total >= 500 ? 0 : 50;\n}",
+    "starter": "describe('shippingFee', () => {\n  // เขียน test ที่นี่\n});\n",
+    "solution": "describe('shippingFee', () => {\n  test('คิดค่าส่ง 50 เมื่อยอด 499 ซึ่งต่ำกว่าขอบ', () => {\n    expect(shippingFee(499)).toBe(50);\n  });\n\n  test('ส่งฟรีเมื่อยอดเท่ากับ 500 พอดี', () => {\n    expect(shippingFee(500)).toBe(0);\n  });\n\n  test('ยอด 0 ยังคิดค่าส่ง 50 และไม่ throw', () => {\n    expect(shippingFee(0)).toBe(50);\n  });\n\n  test('throw error เมื่อยอดติดลบ', () => {\n    expect(() => shippingFee(-1)).toThrow('invalid total');\n  });\n});\n",
+    "hints": [
+      "แยกพฤติกรรมก่อน: ยอดต่ำกว่า 500, ยอดตั้งแต่ 500 และยอดติดลบ แล้วหาค่าที่อยู่ตรงขอบของแต่ละกลุ่ม",
+      "ขอบของกฎส่งฟรีคือ 499 กับ 500 ส่วนขอบของกฎยอดติดลบคือ -1 กับ 0",
+      "กรณี error ต้องห่อด้วยฟังก์ชัน: expect(() => shippingFee(-1)).toThrow() ถ้าเขียน expect(shippingFee(-1)) error จะเกิดก่อนที่ expect จะได้ทำงาน"
+    ],
+    "checks": [
+      {
+        "label": "มี test อย่างน้อย 4 กรณี",
+        "pattern": "(\\b(test|it)\\([\\s\\S]*){4}"
+      },
+      {
+        "label": "ทดสอบค่าขอบ 500 พอดี",
+        "pattern": "shippingfee\\(\\s*500\\s*\\)"
+      },
+      {
+        "label": "ทดสอบค่าใต้ขอบ 499",
+        "pattern": "shippingfee\\(\\s*499(\\.\\d+)?\\s*\\)"
+      },
+      {
+        "label": "ทดสอบยอด 0",
+        "pattern": "shippingfee\\(\\s*0(\\.0+)?\\s*\\)"
+      },
+      {
+        "label": "ทดสอบกรณี error ด้วย toThrow",
+        "pattern": "\\.tothrow"
+      },
+      {
+        "label": "ไม่เรียกฟังก์ชันที่ throw ตรง ๆ ใน expect",
+        "pattern": "expect\\(\\s*shippingfee\\(\\s*-",
+        "negate": true
+      },
+      {
+        "label": "ตรวจค่าที่คืนด้วย toBe หรือ toEqual",
+        "pattern": "\\.(tobe|toequal|tostrictequal)\\("
+      }
+    ]
+  }
+}

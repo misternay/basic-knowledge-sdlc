@@ -1,0 +1,78 @@
+# Dev Trail
+
+เว็บทบทวนความรู้สำหรับนักพัฒนา 14 หัวข้อ อ่านให้เข้าใจ ลองตอบคำถาม ทำแบบฝึกหัด และทำบททดสอบแบบจับเวลา
+ไม่มี login ไม่มีฐานข้อมูล ไม่เก็บคะแนน เนื้อหาทั้งหมดเป็นไฟล์ JSON ใน repo นี้
+
+## เริ่มใช้งานบนเครื่อง
+
+```bash
+npm install
+npm run dev            # เปิด http://localhost:5173
+npm run check:content  # ตรวจไฟล์เนื้อหาทั้งหมด
+npm test               # ตรวจเนื้อหา + แบบฝึกหัด + ตัวแปลง Markdown
+npm run build          # ตรวจเนื้อหาแล้ว build ลง dist/
+```
+
+ต้องใช้ Node 20 ขึ้นไป (แนะนำ 24)
+
+## ขึ้น GitHub Pages
+
+1. สร้าง repo บน GitHub แล้ว push โค้ดนี้ขึ้น branch `main`
+2. ที่ repo ไปที่ **Settings → Pages → Build and deployment → Source** เลือก **GitHub Actions**
+3. ทุกครั้งที่ push ขึ้น `main` workflow `.github/workflows/deploy.yml` จะตรวจเนื้อหา รันเทสต์ build แล้ว deploy
+   เว็บจะอยู่ที่ `https://<username>.github.io/<repo>/`
+
+Pull request จะถูกตรวจเหมือนกันแต่ไม่ deploy ไฟล์เนื้อหาที่ผิดรูปแบบจึงไม่มีทางขึ้นเว็บ
+
+## โครงสร้าง
+
+```
+content/
+  topics/<id>.json     เนื้อหาแต่ละหัวข้อ (หรือ .md ก็ได้)
+  tracks.json          4 เส้นทาง
+  exams.json           ชนิดบททดสอบ
+  AUTHORING.md         กติกาการเขียนเนื้อหา
+  drafts/              ฉบับร่างเดิม (ไม่ถูกโหลดเข้าเว็บ)
+scripts/check-content.mjs
+src/
+  lib/validate.js      ตัวตรวจเนื้อหา ใช้ร่วมกันทั้งหน้านำเข้าและตอน build
+  lib/markdown.js      แปลง Markdown เป็น topic
+  lib/checks.js        ตรวจคำตอบแบบฝึกหัด
+  components/          หน้าต่าง ๆ ของแอป
+tests/
+```
+
+## เพิ่มหรือแก้เนื้อหา
+
+- **แก้ไฟล์ตรง ๆ:** แก้ `content/topics/<id>.json` แล้วรัน `npm run check:content`
+- **จากโน้ต Markdown:** เปิดหน้า “นำเข้า” ในเว็บ วางโน้ต กด “ลองเรียนเลย” เพื่อลองก่อน (ชั่วคราว หายเมื่อรีเฟรช)
+  แล้วกด “ดาวน์โหลด .json” นำไปวางใน `content/topics/` จากนั้น commit และ push
+- วางไฟล์ `.md` ใน `content/topics/` ได้โดยตรงเช่นกัน รูปแบบดูได้ในหน้า “นำเข้า”
+
+ไฟล์ใน `content/topics/` ต้องผ่านเกณฑ์เต็ม (strict) ดูรายละเอียดใน `content/AUTHORING.md`
+เช่น คำถามอย่างน้อย 8 ข้อและมีคำอธิบายทุกข้อ แบบฝึกหัดต้องมีเฉลยที่ผ่านทุกเกณฑ์ตรวจ
+
+### รูปแบบ JSON ย่อ
+
+```json
+{
+  "id": "sql", "code": "D1", "track": "data",
+  "title": "Database / SQL", "blurb": "…",
+  "mustKnow": [{ "tier": "must", "title": "…", "body": "…", "code": "…" }],
+  "questions": [{ "prompt": "…", "options": ["…", "…", "…", "…"], "answer": 0, "explain": "…" }],
+  "exercise": {
+    "title": "…", "level": "กลาง", "tags": "…", "lang": "sql",
+    "prompt": "…", "context": "…", "starter": "…", "solution": "…",
+    "hints": ["…", "…"],
+    "checks": [{ "label": "…", "pattern": "regex", "negate": false }]
+  }
+}
+```
+
+`tier` คือ `must` / `should` / `advanced` · `track` คือ `foundations` / `data` / `delivery` / `ai`
+เกณฑ์ตรวจแบบฝึกหัดเป็น regex ที่เทียบกับคำตอบตัวพิมพ์เล็กที่ตัดคอมเมนต์ออกแล้ว
+ถ้า `lang` เป็น `json` ใช้ `{ "label", "path", "op", "value" }` แทน (op: exists, equals, contains, containsAll, matches)
+
+## สิ่งที่ตั้งใจไม่ทำ
+
+ไม่มีบัญชีผู้ใช้ ไม่เก็บคะแนนหรือประวัติ (รีเฟรชแล้วเริ่มใหม่) ไม่รันโค้ดของผู้ใช้จริง แบบฝึกหัดตรวจจากรูปแบบคำตอบแล้วให้เทียบกับเฉลย

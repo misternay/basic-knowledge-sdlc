@@ -1,0 +1,187 @@
+{
+  "id": "qa",
+  "code": "O1",
+  "track": "delivery",
+  "title": "Quality Engineering",
+  "blurb": "สร้างความมั่นใจด้วยการทดสอบที่มีความหมาย ไม่ใช่แค่ตัวเลข coverage",
+  "mustKnow": [
+    {
+      "tier": "must",
+      "title": "Test pyramid",
+      "body": "unit test จำนวนมาก (เร็ว ถูก) integration test พอประมาณ และ E2E น้อยแต่ครอบคลุม flow สำคัญ"
+    },
+    {
+      "tier": "must",
+      "title": "Unit test ที่ดี",
+      "body": "ใช้โครง Arrange–Act–Assert ทดสอบทีละพฤติกรรม ชื่อ test บอกสิ่งที่คาดหวัง และรันได้อิสระจากกัน",
+      "code": "test('ส่งฟรีเมื่อยอดถึง 500', () => {\n  const total = 500;              // Arrange\n  const fee = shippingFee(total); // Act\n  expect(fee).toBe(0);            // Assert\n});"
+    },
+    {
+      "tier": "must",
+      "title": "ทดสอบพฤติกรรม ไม่ใช่ implementation",
+      "body": "test ที่ผูกกับรายละเอียดภายในจะพังทุกครั้งที่ refactor ให้ทดสอบผ่าน public interface"
+    },
+    {
+      "tier": "must",
+      "title": "Mock, stub และ fake",
+      "body": "ใช้แทนสิ่งภายนอก (network, เวลา, database) ให้ test เร็วและแน่นอน แต่อย่า mock ทุกอย่างจนไม่ได้ทดสอบอะไรจริง"
+    },
+    {
+      "tier": "must",
+      "title": "Linter และ static analysis",
+      "body": "ให้เครื่องมือจับปัญหาที่ตรวจอัตโนมัติได้ เช่น type, สไตล์ และบั๊กที่พบบ่อย ก่อนถึงคนรีวิว"
+    },
+    {
+      "tier": "should",
+      "title": "Code coverage",
+      "body": "บอกว่าบรรทัดไหนไม่ถูกรัน แต่ coverage สูงไม่ได้แปลว่า test ดี ต้องดูว่ามี assertion ที่มีความหมาย"
+    },
+    {
+      "tier": "should",
+      "title": "Flaky test",
+      "body": "test ที่ผ่านบ้างไม่ผ่านบ้าง มักเกิดจากเวลา ลำดับการรัน หรือ state ที่แชร์ ต้องแก้หรือกักไว้ อย่าให้ทีมชินกับสีแดง"
+    },
+    {
+      "tier": "should",
+      "title": "TDD",
+      "body": "เขียน test ที่ fail ก่อน → เขียนโค้ดให้ผ่าน → refactor (Red, Green, Refactor)"
+    },
+    {
+      "tier": "advanced",
+      "title": "Performance และ load testing",
+      "body": "วัด latency ที่ p95 และ p99 ภายใต้โหลดที่ใกล้เคียงของจริง"
+    },
+    {
+      "tier": "advanced",
+      "title": "Contract testing และ mutation testing",
+      "body": "ตรวจว่า API ตรงข้อตกลงระหว่าง service และวัดคุณภาพของ test ด้วยการกลายพันธุ์โค้ด"
+    }
+  ],
+  "questions": [
+    {
+      "prompt": "ตาม test pyramid ควรมี test ประเภทใดมากที่สุด?",
+      "options": [
+        "E2E",
+        "Manual",
+        "Unit",
+        "Load"
+      ],
+      "answer": 2,
+      "explain": "unit test เร็วและชี้จุดผิดได้แม่นยำ ส่วน E2E ช้าและเปราะกว่า จึงควรมีน้อยกว่า"
+    },
+    {
+      "prompt": "coverage 95% แต่บั๊กยังหลุดบ่อย สาเหตุที่เป็นไปได้มากที่สุดคืออะไร?",
+      "options": [
+        "coverage ยังไม่ถึง 100%",
+        "test รันโค้ดแต่ไม่มี assertion ที่ตรวจผลลัพธ์อย่างมีความหมาย",
+        "ใช้ภาษาผิด",
+        "CI ช้าเกินไป"
+      ],
+      "answer": 1,
+      "explain": "coverage วัดแค่ว่าโค้ดถูกรัน ไม่ได้วัดว่าผลลัพธ์ถูกตรวจ"
+    },
+    {
+      "prompt": "ฟังก์ชันส่งอีเมลยืนยันผ่าน SMTP ควรทดสอบใน unit test อย่างไร?",
+      "options": [
+        "ส่งอีเมลจริงทุกครั้ง",
+        "ใช้ fake หรือ mock ของตัวส่งอีเมล แล้วตรวจว่าถูกเรียกด้วยข้อมูลที่ถูกต้อง",
+        "ข้ามการทดสอบส่วนนี้",
+        "ใส่ sleep รอ 5 วินาที"
+      ],
+      "answer": 1,
+      "explain": "unit test ไม่ควรพึ่ง network ส่วนการส่งจริงตรวจใน integration test แยกต่างหาก"
+    },
+    {
+      "prompt": "test ผ่านบนเครื่องตัวเองแต่ fail ใน CI เป็นบางครั้ง มักเกิดจากอะไร?",
+      "options": [
+        "ภาษาโปรแกรม",
+        "การพึ่งเวลา ลำดับการรัน หรือ state ที่แชร์กันระหว่าง test",
+        "จำนวนบรรทัดของ test",
+        "ชื่อไฟล์"
+      ],
+      "answer": 1,
+      "explain": "flaky test มักมาจากความไม่แน่นอน แก้โดยควบคุมเวลา (fake clock) แยก state และไม่พึ่งลำดับการรัน"
+    },
+    {
+      "prompt": "ขั้นแรกของ TDD คืออะไร?",
+      "options": [
+        "เขียนโค้ดให้เสร็จก่อน",
+        "เขียน test ที่ fail สำหรับพฤติกรรมที่ต้องการ",
+        "refactor",
+        "deploy"
+      ],
+      "answer": 1,
+      "explain": "Red → Green → Refactor การเห็น test fail ก่อนพิสูจน์ว่า test ตรวจได้จริง"
+    },
+    {
+      "prompt": "test แบบใดเปราะที่สุดเมื่อ refactor?",
+      "options": [
+        "test ที่ตรวจผลลัพธ์ของ public function",
+        "test ที่ตรวจว่า private method ถูกเรียกกี่ครั้งและตามลำดับไหน",
+        "test ที่ตรวจ HTTP response",
+        "test ที่ตรวจ output ของ CLI"
+      ],
+      "answer": 1,
+      "explain": "test ที่ผูกกับรายละเอียดภายในจะพังแม้พฤติกรรมไม่เปลี่ยน"
+    },
+    {
+      "prompt": "Arrange–Act–Assert คืออะไร?",
+      "options": [
+        "ขั้นตอน deploy",
+        "โครงสร้าง test: เตรียมข้อมูล → เรียกสิ่งที่ทดสอบ → ตรวจผล",
+        "ชื่อ framework",
+        "ประเภทของ mock"
+      ],
+      "answer": 1,
+      "explain": "โครงนี้ทำให้ test อ่านง่ายและเห็นชัดว่ากำลังทดสอบอะไร"
+    },
+    {
+      "prompt": "ทำไมควรให้ linter และ formatter ตรวจสไตล์โค้ด?",
+      "options": [
+        "เพื่อให้ CI ช้าลง",
+        "ตรวจได้สม่ำเสมอโดยอัตโนมัติ คนรีวิวจะได้โฟกัสที่ logic และการออกแบบ",
+        "ใช้แทน unit test",
+        "เพิ่ม coverage"
+      ],
+      "answer": 1,
+      "explain": "เครื่องมืออัตโนมัติไม่เหนื่อยและไม่ลืม ช่วยลดการถกเถียงเรื่องสไตล์ใน PR"
+    }
+  ],
+  "exercise": {
+    "title": "เขียน unit test ให้ฟังก์ชันค่าส่ง",
+    "level": "ง่าย",
+    "tags": "Jest · AAA · boundary",
+    "lang": "javascript",
+    "prompt": "เขียน unit test ด้วย Jest อย่างน้อย 3 กรณีให้ฟังก์ชัน shippingFee(total) ที่คิดค่าส่ง 50 บาท ส่งฟรีเมื่อยอดตั้งแต่ 500 บาท และ throw error เมื่อยอดติดลบ ให้ครอบคลุมค่าขอบ (boundary)",
+    "context": "function shippingFee(total) {\n  if (total < 0) throw new Error('invalid total');\n  return total >= 500 ? 0 : 50;\n}",
+    "starter": "describe('shippingFee', () => {\n  // เขียน test ที่นี่\n});\n",
+    "solution": "describe('shippingFee', () => {\n  test('คิดค่าส่ง 50 เมื่อยอดต่ำกว่า 500', () => {\n    expect(shippingFee(499)).toBe(50);\n  });\n\n  test('ส่งฟรีเมื่อยอดเท่ากับ 500 พอดี', () => {\n    expect(shippingFee(500)).toBe(0);\n  });\n\n  test('throw error เมื่อยอดติดลบ', () => {\n    expect(() => shippingFee(-1)).toThrow('invalid total');\n  });\n});",
+    "hints": [
+      "แต่ละ test ทดสอบพฤติกรรมเดียว: ยอดน้อยกว่า 500, ยอด 500 พอดี, ยอดติดลบ",
+      "ค่าขอบที่ดีคือ 499 กับ 500",
+      "กรณี error ต้องห่อด้วยฟังก์ชัน: expect(() => shippingFee(-1)).toThrow()"
+    ],
+    "checks": [
+      {
+        "label": "มี test อย่างน้อย 3 กรณี",
+        "pattern": "\\b(test|it)\\(([\\s\\S]*)\\b(test|it)\\(([\\s\\S]*)\\b(test|it)\\("
+      },
+      {
+        "label": "ทดสอบค่าขอบ 500 พอดี",
+        "pattern": "shippingfee\\(\\s*500\\s*\\)"
+      },
+      {
+        "label": "ทดสอบค่าที่ต่ำกว่าขอบ",
+        "pattern": "shippingfee\\(\\s*([0-4]?\\d{1,2}(\\.\\d+)?)\\s*\\)"
+      },
+      {
+        "label": "ทดสอบกรณี error ด้วย toThrow",
+        "pattern": "tothrow\\("
+      },
+      {
+        "label": "มี assertion ด้วย expect",
+        "pattern": "expect\\("
+      }
+    ]
+  }
+}

@@ -1,0 +1,242 @@
+{
+  "id": "git",
+  "code": "F2",
+  "track": "foundations",
+  "title": "Version Control",
+  "blurb": "ใช้ Git อย่างมั่นใจ ทำงานร่วมกันโดยไม่ชนกัน และย้อนงานได้เมื่อพลาด",
+  "mustKnow": [
+    {
+      "tier": "must",
+      "title": "commit คือ snapshot และ staging area",
+      "body": "commit คือ snapshot ของทั้งโปรเจกต์ ณ ตอนนั้น พร้อม author ข้อความ และลิงก์ไปยัง commit แม่ จึงต่อกันเป็นประวัติที่ย้อนดูได้ ก่อน commit การเปลี่ยนแปลงต้องผ่าน staging area (git add) ซึ่งทำให้เราเลือกได้ว่าอะไรจะอยู่ใน commit นี้ เช่น แยกการแก้บั๊กกับการจัด format เป็นคนละ commit กับดักที่พบบ่อยคือ add แล้วแก้ไฟล์ต่อ ส่วนที่แก้ทีหลังจะยังไม่เข้า commit จนกว่าจะ add อีกครั้ง",
+      "code": "git status            # ดูว่าอะไร modified / staged\ngit add src/cart.js   # stage ทั้งไฟล์\ngit add -p            # เลือก stage ทีละส่วน\ngit diff --staged     # ดูสิ่งที่จะเข้า commit\ngit commit -m \"fix(cart): ...\""
+    },
+    {
+      "tier": "must",
+      "title": "branch คือ pointer และ HEAD คือตำแหน่งปัจจุบัน",
+      "body": "branch เป็นแค่ป้ายชื่อที่ชี้ไปยัง commit หนึ่ง เมื่อ commit ใหม่ ป้ายของ branch ที่เราอยู่จะเลื่อนไปชี้ commit ใหม่เอง การสร้าง branch จึงเร็วและแทบไม่กินพื้นที่ HEAD บอกว่าตอนนี้เราอยู่ตรงไหน ปกติชี้ไปที่ branch แต่ถ้า checkout hash ตรง ๆ จะเป็น detached HEAD และ commit ที่สร้างตอนนั้นไม่มี branch ไหนชี้ถึง ให้ git switch -c สร้าง branch เก็บไว้ก่อนย้ายออก",
+      "code": "git switch -c feat/search   # สร้าง branch แล้วย้ายไป\ngit log --oneline --graph --all\n# * a1b2c3d (HEAD -> feat/search) feat: add search box\n# * 9f8e7d6 (origin/main, main) fix: typo"
+    },
+    {
+      "tier": "must",
+      "title": "Pull Request workflow",
+      "body": "แตก branch จาก main ล่าสุด แก้ทีละเรื่อง commit แล้ว push จากนั้นเปิด PR ให้ CI รัน test และให้เพื่อนร่วมทีม review ก่อน merge PR ที่เล็กและมีเรื่องเดียว review ได้เร็วและละเอียดกว่า PR ใหญ่ เมื่อถูกขอให้แก้ ให้ commit เพิ่มบน branch เดิมแล้ว push อีกครั้ง PR จะอัปเดตเองโดยไม่ต้องเปิดใหม่",
+      "code": "git switch main && git pull\ngit switch -c fix/cart-total\n# ...แก้โค้ด...\ngit add -p && git commit -m \"fix(cart): ...\"\ngit push -u origin fix/cart-total\n# เปิด PR แล้วรอ CI + review"
+    },
+    {
+      "tier": "must",
+      "title": "แก้ merge conflict",
+      "body": "conflict เกิดเมื่อสองฝั่งแก้บรรทัดเดียวกันหรือบรรทัดติดกัน Git จึงตัดสินแทนไม่ได้ ช่วง <<<<<<< ถึง ======= คือฝั่ง HEAD (branch ที่เราอยู่ตอน merge) ช่วง ======= ถึง >>>>>>> คือฝั่งที่กำลัง merge เข้ามา ต้องเข้าใจเจตนาของทั้งสองฝั่งแล้วรวมให้ถูก ไม่ใช่เลือกฝั่งใดฝั่งหนึ่งทั้งก้อน จากนั้นลบ marker ให้หมด รัน test แล้ว git add และ commit (ถ้ายังไม่พร้อม git merge --abort ย้อนกลับได้)",
+      "code": "<<<<<<< HEAD\nconst TIMEOUT_MS = 3000;\nconst RETRIES = 3;\n=======\nconst TIMEOUT_MS = 5000;\n>>>>>>> main"
+    },
+    {
+      "tier": "must",
+      "title": "revert, reset และ restore ต่างกันอย่างไร",
+      "body": "git restore ทิ้งการแก้ไขในไฟล์ที่ยังไม่ commit (ใส่ --staged เพื่อแค่ถอนออกจาก staging) git reset ย้าย branch ปัจจุบันกลับไป commit เก่า ใช้กับ commit ที่ยังไม่ push และถ้าใส่ --hard จะทิ้งงานที่ยังไม่ commit ไปด้วย git revert สร้าง commit ใหม่ที่หักล้าง commit เดิมโดยไม่แก้ประวัติ จึงเป็นวิธีที่ถูกเมื่อ commit นั้นถูก push และคนอื่น pull ไปแล้ว",
+      "code": "git restore src/app.js          # ทิ้งการแก้ที่ยังไม่ add\ngit restore --staged src/app.js # ถอนจาก staging แต่การแก้ยังอยู่\ngit reset --soft HEAD~1         # ยกเลิก commit ล่าสุด เก็บการแก้ไว้ใน staging\ngit revert a1b2c3d              # ย้อน commit ที่ push แล้วด้วย commit ใหม่"
+    },
+    {
+      "tier": "must",
+      "title": ".gitignore และ secret ที่หลุด: rotate ก่อน",
+      "body": ".gitignore บอก Git ว่าไม่ต้องติดตามไฟล์ใด เช่น node_modules/, ไฟล์ build และ .env แต่มีผลเฉพาะไฟล์ที่ยังไม่ถูก track ถ้าเคย commit ไปแล้วต้อง git rm --cached ด้วย ถ้า secret ถูก push ขึ้น remote แล้วให้ถือว่ารั่ว ต้อง revoke หรือ rotate key เป็นอย่างแรก เพราะประวัติ fork และ clone ของคนอื่นยังมีค่าเดิมอยู่ การลบไฟล์ใน commit ใหม่จึงไม่พอ ส่วนการล้างประวัติ (เช่นด้วย git filter-repo) ทำทีหลัง",
+      "code": "# .gitignore\nnode_modules/\ndist/\n.env\n.env.*\n!.env.example\n\n# เลิก track แต่ไฟล์ยังอยู่ในเครื่อง\ngit rm --cached .env"
+    },
+    {
+      "tier": "should",
+      "title": "reflog กู้ commit ที่ “หาย”",
+      "body": "reflog บันทึกทุกตำแหน่งที่ HEAD และ branch เคยชี้ในเครื่องเรา เมื่อ reset --hard ผิด rebase พัง หรือลบ branch ไป commit เหล่านั้นมักยังอยู่ แค่ไม่มี branch ชี้ถึง จึงหา hash จาก reflog แล้วสร้าง branch หรือ reset กลับไปได้ ข้อจำกัดคือ reflog อยู่เฉพาะในเครื่อง (ไม่ไปกับ push หรือ clone) entry หมดอายุตามค่าเริ่มต้น 90 วัน (30 วันสำหรับ commit ที่ไม่มีอะไรชี้ถึง) และกู้งานที่ไม่เคย commit ไม่ได้",
+      "code": "git reflog\n# 9f8e7d6 HEAD@{0}: reset: moving to HEAD~3\n# a1b2c3d HEAD@{1}: commit: feat: add export\ngit switch -c rescue a1b2c3d   # หรือ git reset --hard a1b2c3d"
+    },
+    {
+      "tier": "should",
+      "title": "rebase กับ merge และห้าม rewrite ประวัติที่แชร์",
+      "body": "merge รวมสองเส้นด้วย merge commit โดยไม่แตะ commit เดิม ส่วน rebase นำ commit ของเราไปต่อบนฐานใหม่ทีละตัว ได้ประวัติเส้นตรงแต่ทุก commit ได้ hash ใหม่ จึงห้าม rebase หรือ reset branch ที่คนอื่น pull ไปแล้ว (เช่น main) เพราะประวัติของทีมจะแยกกันและเกิด commit ซ้ำ ถ้า rebase branch ของตัวเองที่เคย push แล้ว ให้ใช้ --force-with-lease ซึ่งจะไม่ยอมทับถ้า remote เปลี่ยนไปจากที่เราเห็นล่าสุด",
+      "code": "git switch feat/search\ngit fetch origin\ngit rebase origin/main      # branch นี้เราใช้คนเดียว\ngit push --force-with-lease"
+    },
+    {
+      "tier": "should",
+      "title": "Commit message ที่ดีบอก “ทำไม”",
+      "body": "บรรทัดแรกสั้น (ราว 50 ตัวอักษร) บอกว่าเปลี่ยนอะไร ส่วน body อธิบายว่าทำไม เพราะ diff บอกได้แค่ว่าอะไรเปลี่ยน แต่คนที่เปิด git blame ในอีกหกเดือนต้องการเหตุผล หลายทีมใช้ Conventional Commits (feat:, fix:, docs:, refactor:) ให้อ่านง่ายและสร้าง changelog อัตโนมัติได้ หลีกเลี่ยงข้อความอย่าง “update” หรือ “fix bug” และการรวมหลายเรื่องไว้ใน commit เดียว",
+      "code": "fix(cart): ปัดเศษส่วนลดก่อนรวมยอด\n\nยอดรวมคลาดไป 0.01 บาทเมื่อมีส่วนลดหลายรายการ\nเพราะปัดเศษหลังรวม ทำให้ไม่ตรงกับใบเสร็จจาก POS\n\nCloses #482"
+    },
+    {
+      "tier": "should",
+      "title": "Trunk-based กับ GitFlow",
+      "body": "trunk-based ให้ทุกคนทำงานบน branch อายุสั้น (ไม่กี่ชั่วโมงถึงวันสองวัน) แล้ว merge เข้า main บ่อย ๆ ผ่าน CI โดยซ่อนงานที่ยังไม่เสร็จด้วย feature flag ทำให้ conflict เล็กและ deploy ได้ตลอด GitFlow ใช้ branch อายุยาวหลายเส้น (develop, release/*, hotfix/*) เหมาะกับซอฟต์แวร์ที่ออกเป็นเวอร์ชันและต้องดูแลหลายเวอร์ชันพร้อมกัน ผู้คิด GitFlow เองเขียนไว้ในปี 2020 ว่าทีมที่ทำ continuous delivery ควรใช้ workflow ที่ง่ายกว่า เช่น GitHub flow"
+    },
+    {
+      "tier": "advanced",
+      "title": "Interactive rebase จัด commit ก่อนเปิด PR",
+      "body": "git rebase -i ให้เราแก้ชุด commit ที่ยังไม่ได้แชร์ ใช้ squash หรือ fixup รวม commit ย่อยอย่าง “wip” หรือ “fix typo” ใช้ reword แก้ข้อความ เรียงลำดับใหม่ หรือ drop ทิ้ง ผลคือ PR ที่ reviewer อ่านทีละ commit แล้วเข้าใจ ใช้กฎเดียวกับ rebase ทั่วไปคือทำเฉพาะ commit ที่ยังไม่มีใครใช้ และถ้าพลาดกู้ได้ด้วย reflog",
+      "code": "git rebase -i origin/main\n# pick   a1b2c3d feat: add search API\n# fixup  b2c3d4e fix typo\n# reword c3d4e5f wip"
+    },
+    {
+      "tier": "advanced",
+      "title": "git bisect หา commit ที่ทำให้พัง",
+      "body": "เมื่อรู้ว่าเวอร์ชันหนึ่งยังดีและเวอร์ชันล่าสุดพัง bisect จะ checkout commit ตรงกลางให้ทดสอบแล้วตัดครึ่งไปเรื่อย ๆ แม้มี 1,000 commit ก็ใช้ราว 10 รอบ ถ้ามี script ที่ exit 0 เมื่อผ่านและ exit 1 เมื่อพัง ใช้ git bisect run ให้หาอัตโนมัติได้ เสร็จแล้วอย่าลืม git bisect reset เพื่อกลับไป branch เดิม",
+      "code": "git bisect start\ngit bisect bad              # commit ปัจจุบันพัง\ngit bisect good v2.3.0      # tag ที่รู้ว่ายังดี\ngit bisect run npm test     # ให้ Git ทดสอบแต่ละ commit เอง\ngit bisect reset"
+    }
+  ],
+  "questions": [
+    {
+      "prompt": "คุณแก้ทั้ง a.js และ b.js (ทั้งสองไฟล์ถูก track อยู่แล้ว) จากนั้นรันคำสั่งตามนี้ commit ที่ได้จะมีอะไร?",
+      "code": "git add a.js\n# แก้ a.js เพิ่มอีกหนึ่งบรรทัด\ngit commit -m \"feat: add filter\"",
+      "options": [
+        "a.js ทุกส่วนที่แก้ รวมบรรทัดที่เพิ่มหลัง add และ b.js ด้วย",
+        "a.js ทุกส่วนที่แก้ รวมบรรทัดที่เพิ่มหลัง add แต่ไม่มี b.js",
+        "a.js เฉพาะส่วนที่ stage ไว้ตอน add และไม่มี b.js",
+        "ไม่มีอะไรเลย เพราะการแก้หลัง add ทำให้ staging ถูกล้าง"
+      ],
+      "answer": 2,
+      "explain": "git add เก็บเนื้อหาของไฟล์ ณ ตอนที่ add ลง staging area การแก้ทีหลังยังเป็น unstaged จนกว่าจะ add อีกครั้ง ส่วน b.js ไม่เคยถูก add จึงไม่อยู่ใน commit (ต่างจาก git commit -a ที่ stage ไฟล์ที่ track อยู่ทั้งหมดให้)"
+    },
+    {
+      "prompt": "คุณเปิด PR จาก branch feat/search แล้ว reviewer ขอให้แก้สองจุด วิธีใดเหมาะที่สุด?",
+      "options": [
+        "ปิด PR เดิม แก้โค้ด แล้วเปิด PR ใหม่จาก branch ใหม่",
+        "แก้บน feat/search แล้ว commit และ push ขึ้น branch เดิม",
+        "แก้บน main โดยตรงเพราะเป็นจุดเล็ก ๆ แล้วค่อย merge PR",
+        "merge PR ไปก่อนเพื่อไม่ให้ค้าง แล้วค่อยแก้ใน PR ถัดไป"
+      ],
+      "answer": 1,
+      "explain": "PR ผูกกับ branch เมื่อ push commit ใหม่ขึ้น branch เดิม PR จะแสดงการเปลี่ยนแปลงล่าสุด รัน CI ใหม่ และเก็บบทสนทนาของ review ไว้ครบ การเปิด PR ใหม่ทำให้บริบทหาย ส่วนการ merge ก่อนแก้ทำให้โค้ดที่ยังไม่ผ่าน review เข้า main"
+    },
+    {
+      "prompt": "commit a1b2c3d ทำให้หน้า checkout พัง และถูก push ขึ้น main ที่ทั้งทีม pull ไปแล้ว ควรย้อนอย่างไร?",
+      "options": [
+        "git reset --hard a1b2c3d~1 แล้ว git push --force",
+        "git rebase -i แล้ว drop commit นั้น ตามด้วย push --force-with-lease",
+        "git revert a1b2c3d แล้ว push หรือเปิด PR ตามปกติ",
+        "git restore --staged . เพื่อถอน commit นั้นออกจาก main"
+      ],
+      "answer": 2,
+      "explain": "revert สร้าง commit ใหม่ที่หักล้าง a1b2c3d โดยไม่แก้ประวัติ ทุกคน pull ต่อได้ตามปกติ ส่วน reset หรือ drop แล้ว force push (แม้ใช้ --force-with-lease) คือการ rewrite ประวัติที่คนอื่นมีอยู่แล้ว เครื่องของเพื่อนจะไม่ตรงกับ remote และอาจ push commit ที่ลบไปกลับขึ้นมาอีก"
+    },
+    {
+      "prompt": "คุณเพิ่งรู้ว่า commit ไฟล์ .env ที่มี API key ของ payment gateway และ push ขึ้น GitHub ไปเมื่อชั่วโมงก่อน ควรทำอะไรเป็นอย่างแรก?",
+      "options": [
+        "ลบ .env ใน commit ใหม่แล้ว push ทันที",
+        "revoke หรือ rotate key นั้นที่ฝั่ง payment gateway",
+        "ล้างประวัติด้วย git filter-repo แล้ว force push",
+        "เพิ่ม .env ลงใน .gitignore แล้ว push"
+      ],
+      "answer": 1,
+      "explain": "เมื่อ secret ขึ้น remote แล้วต้องถือว่ารั่ว อาจถูกบอตสแกนหรือถูก clone ไปแล้ว การลบไฟล์หรือล้างประวัติไม่ทำให้ key ที่หลุดใช้งานไม่ได้ จึงต้อง rotate ก่อน แล้วค่อยลบไฟล์ เพิ่ม .gitignore และล้างประวัติตามมา"
+    },
+    {
+      "prompt": "คุณ merge main เข้า branch ของตัวเองแล้วเจอ conflict นี้ ฝั่ง main เปลี่ยน timeout เป็น 5000 เพื่อแก้ปัญหา API ช้า ส่วน branch ของคุณเพิ่ม RETRIES ควรทำอย่างไร?",
+      "code": "<<<<<<< HEAD\nconst TIMEOUT_MS = 3000;\nconst RETRIES = 3;\n=======\nconst TIMEOUT_MS = 5000;\n>>>>>>> main",
+      "options": [
+        "เลือกฝั่ง HEAD ทั้งหมด เพราะเป็นโค้ดของ branch ที่เรากำลังทำ",
+        "เลือกฝั่ง main ทั้งหมด เพราะโค้ดบน main ผ่าน review มาแล้ว",
+        "เก็บ TIMEOUT_MS = 5000 กับ RETRIES = 3 ลบ marker แล้วรัน test",
+        "ลบเฉพาะบรรทัด ======= แล้ว commit ให้ Git จัดการส่วนที่เหลือ"
+      ],
+      "answer": 2,
+      "explain": "ต้องรวมเจตนาของทั้งสองฝั่ง คือค่า timeout ใหม่จาก main และ retry จาก branch เรา การเลือกฝั่งเดียวทั้งก้อนทำให้งานอีกฝั่งหายไปเงียบ ๆ และ marker ที่เหลืออยู่ Git ไม่ลบให้ โค้ดจะ syntax error"
+    },
+    {
+      "prompt": "คุณมี 3 commit ที่ยังไม่เคย push แล้วเผลอรันคำสั่งนี้ จะกู้งานคืนอย่างไร?",
+      "code": "git reset --hard HEAD~3",
+      "options": [
+        "กู้ไม่ได้แล้ว เพราะ --hard ลบ commit ทิ้งถาวร",
+        "git pull เพื่อดึง 3 commit นั้นกลับมาจาก origin",
+        "git revert HEAD~3 เพื่อย้อนผลของการ reset",
+        "git reflog หา hash ก่อน reset แล้ว reset --hard กลับไป"
+      ],
+      "answer": 3,
+      "explain": "reset แค่ย้าย branch pointer ตัว commit ยังอยู่ใน repo และ reflog จำได้ว่า HEAD เคยชี้ที่ไหน git pull ช่วยไม่ได้เพราะ commit ไม่เคยขึ้น remote และ revert ใช้ย้อนผลของ commit ไม่ใช่ย้อนการย้าย pointer"
+    },
+    {
+      "prompt": "คุณแก้ config.js และ api.js อยู่ (ยังไม่ได้ git add) แล้วอยากทิ้งเฉพาะการแก้ใน config.js ให้กลับไปเหมือน commit ล่าสุด ควรใช้คำสั่งใด?",
+      "options": [
+        "git restore config.js",
+        "git reset --hard",
+        "git revert HEAD",
+        "git restore --staged config.js"
+      ],
+      "answer": 0,
+      "explain": "git restore <file> คืนไฟล์ใน working tree ให้ตรงกับ staging ซึ่งตอนนี้เท่ากับ commit ล่าสุด และแตะแค่ไฟล์นั้น reset --hard จะทิ้งการแก้ใน api.js ไปด้วย ส่วน --staged แค่ถอนไฟล์ออกจาก staging โดยไม่แตะเนื้อหาที่แก้"
+    },
+    {
+      "prompt": "คุณกับเพื่อนช่วยกันทำ branch feature/cart ที่ push ขึ้น remote แล้ว คุณ rebase บน main แล้ว push ไม่ผ่าน ควรทำอย่างไร?",
+      "code": "$ git rebase origin/main\n$ git push\n ! [rejected]  feature/cart -> feature/cart (non-fast-forward)",
+      "options": [
+        "git push --force ทันที เพราะ rebase เสร็จเรียบร้อยแล้ว",
+        "git pull แล้ว push ใหม่ ให้ Git รวมสองประวัติให้เอง",
+        "คุยกับเพื่อนก่อน หรือย้อน rebase แล้ว merge main เข้ามาแทน",
+        "ลบ feature/cart บน remote แล้ว push branch ขึ้นไปใหม่"
+      ],
+      "answer": 2,
+      "explain": "rebase สร้าง commit ใหม่ทั้งชุด ประวัติบน remote ที่เพื่อนใช้อยู่จึงไม่ต่อกับของคุณ force push หรือลบ branch จะทับงานที่เพื่อนอาจ push เพิ่มไว้ ส่วน pull แบบ merge จะรวมชุดเก่ากับชุดใหม่จนได้ commit ซ้ำ ทางที่ปลอดภัยคือตกลงกันก่อน (ถ้าต้อง force ให้ใช้ --force-with-lease) หรือ merge main ซึ่งไม่ rewrite อะไร"
+    },
+    {
+      "prompt": "อีก 6 เดือนมีคนเปิด git blame เจอบรรทัด if (retries > 3) และสงสัยว่าทำไมต้องเป็น 3 commit message แบบใดช่วยเขาได้มากที่สุด?",
+      "options": [
+        "fix: แก้เงื่อนไข retries > 3 ในไฟล์ payment/retry.js",
+        "refactor(payment): ปรับปรุงโค้ดส่วน retry ให้ดีขึ้นกว่าเดิม",
+        "fix(payment): จำกัด retry ที่ 3 ครั้ง เพราะ gateway ล็อกบัญชีถ้าเกิน",
+        "update: เปลี่ยนค่า retry ตามที่คุยกันในที่ประชุมเมื่อวาน"
+      ],
+      "answer": 2,
+      "explain": "diff บอกอยู่แล้วว่าเปลี่ยนอะไร สิ่งที่ขาดคือเหตุผล ข้อที่ถูกบอกทั้งประเภท ขอบเขต และ “ทำไม” ส่วนข้อที่อ้างชื่อไฟล์กับเงื่อนไขเป็นแค่การเล่า diff ซ้ำ และ “ตามที่คุยกัน” ไม่มีความหมายสำหรับคนที่ไม่ได้อยู่ในห้อง"
+    },
+    {
+      "prompt": "ทีมของคุณ deploy เว็บวันละหลายครั้งด้วย CI/CD แต่ feature branch มักเปิดค้าง 2–3 สัปดาห์ และ merge ทีไรเจอ conflict ใหญ่ ควรเปลี่ยนอย่างไร?",
+      "options": [
+        "เปลี่ยนไปใช้ GitFlow แยก develop และ release branch",
+        "ใช้ branch อายุสั้น merge เข้า main ทุกวัน ซ่อนงานค้างด้วย feature flag",
+        "รอ merge ทุก branch พร้อมกันตอนปลาย sprint ทีเดียว",
+        "ให้ทุกคน push ตรงเข้า main โดยไม่ต้องผ่าน CI หรือ review"
+      ],
+      "answer": 1,
+      "explain": "conflict โตตามอายุของ branch การ merge เล็ก ๆ บ่อย ๆ แบบ trunk-based ทำให้ conflict เล็กและ CI ตรวจงานได้เร็ว ส่วน GitFlow เพิ่ม branch อายุยาวซึ่งเหมาะกับซอฟต์แวร์ที่ออกเป็นเวอร์ชันมากกว่า และ trunk-based ไม่ได้แปลว่าข้าม CI หรือ review"
+    }
+  ],
+  "exercise": {
+    "title": "แตก branch, commit และย้อนงานอย่างปลอดภัย",
+    "level": "ง่าย",
+    "tags": "branch · commit · push · revert",
+    "lang": "shell",
+    "prompt": "คุณอยู่บน main และแก้ src/auth.js ไว้แล้ว ต้องการ (1) สร้าง branch ชื่อ feat/login-rate-limit (2) commit ไฟล์ src/auth.js ด้วยข้อความแบบ Conventional Commits (3) push ขึ้น origin พร้อมตั้ง upstream และ (4) กลับไปที่ main แล้วย้อน commit abc1234 ที่อยู่บน main แล้ว ด้วยวิธีที่ไม่ rewrite ประวัติที่ทีมใช้ร่วมกัน เขียนคำสั่ง git ทีละบรรทัด",
+    "context": "$ git status\nOn branch main\nChanges not staged for commit:\n  modified:   src/auth.js\n\n$ git log --oneline -3 main\n7d9e2f1 (HEAD -> main, origin/main) docs: update README\nabc1234 feat: cache session in localStorage\n5c4b3a2 fix: trim email before login",
+    "starter": "# เขียนคำสั่ง git ทีละบรรทัด\n",
+    "solution": "git switch -c feat/login-rate-limit\ngit add src/auth.js\ngit commit -m \"feat(auth): จำกัดจำนวนครั้ง login ต่อนาที\"\ngit push -u origin feat/login-rate-limit\n\n# ย้อน commit บน main โดยไม่ rewrite ประวัติ\ngit switch main\ngit pull\ngit revert abc1234",
+    "hints": [
+      "งานนี้มีสองส่วน: ส่ง feature ใหม่ผ่าน branch ของตัวเอง และย้อน commit ที่ทีมมีอยู่แล้วบน main",
+      "ใช้ git switch -c สร้าง branch, git add ก่อน commit, ข้อความขึ้นต้นด้วย feat: และ git push -u origin <branch>",
+      "commit ที่อยู่บน main แล้วให้ git switch main ก่อน แล้วใช้ git revert abc1234 ไม่ใช่ reset --hard หรือ force push"
+    ],
+    "checks": [
+      {
+        "label": "สร้าง branch feat/login-rate-limit",
+        "pattern": "git (switch -c|checkout -b) feat\\/login-rate-limit"
+      },
+      {
+        "label": "stage ไฟล์ก่อน commit",
+        "pattern": "git add (src\\/auth\\.js|\\.|-a)|git commit -a"
+      },
+      {
+        "label": "commit message แบบ Conventional Commits",
+        "pattern": "git commit (-a\\s+)?-a?m [\"'](feat|fix)(\\([^)]*\\))?!?: "
+      },
+      {
+        "label": "push ขึ้น origin",
+        "pattern": "git push( -u| --set-upstream)? origin"
+      },
+      {
+        "label": "กลับไปที่ main ก่อน revert",
+        "pattern": "git (switch|checkout) main\\b[\\s\\S]*git revert"
+      },
+      {
+        "label": "ย้อนด้วย git revert abc1234",
+        "pattern": "git revert (--no-edit )?abc1234"
+      },
+      {
+        "label": "ไม่ใช้ force push หรือ reset --hard",
+        "pattern": "push\\b.*(\\s-f\\b|--force)|reset --hard",
+        "negate": true
+      }
+    ]
+  }
+}

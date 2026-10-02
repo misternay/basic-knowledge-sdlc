@@ -1,0 +1,190 @@
+{
+  "id": "docker",
+  "code": "O2",
+  "track": "delivery",
+  "title": "Docker & Containerize",
+  "blurb": "แพ็กแอปให้รันเหมือนกันทุกเครื่อง เล็ก ปลอดภัย และ build ได้เร็ว",
+  "mustKnow": [
+    {
+      "tier": "must",
+      "title": "Image, container และ registry",
+      "body": "image คือแม่แบบที่อ่านอย่างเดียว container คือ image ที่กำลังรัน registry เก็บและแจกจ่าย image"
+    },
+    {
+      "tier": "must",
+      "title": "Dockerfile และ layer caching",
+      "body": "คำสั่งแต่ละบรรทัดสร้าง layer วางสิ่งที่เปลี่ยนน้อย (ติดตั้ง dependency) ไว้ก่อนสิ่งที่เปลี่ยนบ่อย (COPY source)"
+    },
+    {
+      "tier": "must",
+      "title": "Multi-stage build",
+      "body": "build ใน stage หนึ่ง แล้ว copy เฉพาะผลลัพธ์ไปยัง image สุดท้ายที่เล็กและไม่มีเครื่องมือ build"
+    },
+    {
+      "tier": "must",
+      "title": "Non-root และ .dockerignore",
+      "body": "ตั้ง USER ที่ไม่ใช่ root และกัน .git, node_modules, .env ไม่ให้ถูกส่งเข้า build context"
+    },
+    {
+      "tier": "must",
+      "title": "Volume, network และ port",
+      "body": "ลบ container แล้วข้อมูลในนั้นหาย ใช้ volume เก็บข้อมูลถาวร ส่วน -p 8080:3000 map port ของเครื่องเข้ากับ container"
+    },
+    {
+      "tier": "should",
+      "title": "Docker Compose",
+      "body": "นิยามหลาย service (app, db, cache) ในไฟล์เดียว เหมาะกับ dev environment"
+    },
+    {
+      "tier": "should",
+      "title": "Tag และ digest",
+      "body": "tag เช่น :latest เลื่อนได้ digest (sha256) ตายตัว ใน production ใช้ version ที่ชัดเจนหรือ digest"
+    },
+    {
+      "tier": "should",
+      "title": "Image security",
+      "body": "ใช้ base image เล็ก (slim หรือ distroless) สแกนช่องโหว่ และไม่ใส่ secret ไว้ใน image"
+    },
+    {
+      "tier": "advanced",
+      "title": "Kubernetes เบื้องต้น",
+      "body": "pod, deployment, service, configmap/secret และ health probe"
+    },
+    {
+      "tier": "advanced",
+      "title": "Healthcheck และ graceful shutdown",
+      "body": "รับสัญญาณ SIGTERM แล้วปิดงานที่ค้างให้เรียบร้อยก่อนออก"
+    }
+  ],
+  "questions": [
+    {
+      "prompt": "ข้อใดอธิบาย image กับ container ถูกต้อง?",
+      "options": [
+        "เหมือนกันทุกอย่าง",
+        "image คือแม่แบบ container คือ instance ที่กำลังรันจาก image",
+        "container ใหญ่กว่า image เสมอ",
+        "image รันได้ ส่วน container เก็บไฟล์อย่างเดียว"
+      ],
+      "answer": 1,
+      "explain": "เปรียบได้ว่า image คือ class และ container คือ object ที่สร้างจาก class"
+    },
+    {
+      "prompt": "ทำไมควร COPY package*.json แล้ว RUN npm ci ก่อน COPY . .?",
+      "options": [
+        "ไม่มีผลอะไร",
+        "ใช้ layer cache ได้ แก้ source แล้วไม่ต้องติดตั้ง dependency ใหม่ทุกครั้ง",
+        "ทำให้ image ปลอดภัยขึ้น",
+        "เป็นกฎว่า npm ci ต้องรันก่อนเสมอ"
+      ],
+      "answer": 1,
+      "explain": "ถ้า layer ก่อนหน้าไม่เปลี่ยน Docker ใช้ cache ได้ การแยก dependency ไว้ก่อนจึงทำให้ build เร็วขึ้นมาก"
+    },
+    {
+      "prompt": "Multi-stage build ช่วยอะไรเป็นหลัก?",
+      "options": [
+        "รันหลาย container พร้อมกัน",
+        "ทำให้ image สุดท้ายเล็กลง เพราะไม่มี compiler และไฟล์ build",
+        "ทำให้ไม่ต้องใช้ registry",
+        "ใช้แทน Docker Compose"
+      ],
+      "answer": 1,
+      "explain": "stage แรกมีเครื่องมือครบไว้ build stage สุดท้ายมีแค่สิ่งที่ต้องใช้ตอนรัน ลดทั้งขนาดและพื้นผิวการโจมตี"
+    },
+    {
+      "prompt": "ลบ container ของ PostgreSQL แล้วข้อมูลหายหมด ควรแก้อย่างไร?",
+      "options": [
+        "ห้ามลบ container",
+        "ใช้ volume เก็บ /var/lib/postgresql/data",
+        "เพิ่ม RAM",
+        "ใช้ tag :latest"
+      ],
+      "answer": 1,
+      "explain": "filesystem ของ container หายไปพร้อม container ส่วน volume อยู่แยกและคงอยู่"
+    },
+    {
+      "prompt": "ทำไมไม่ควรรัน container ด้วย root?",
+      "options": [
+        "ทำให้ช้า",
+        "ถ้าแอปถูกเจาะ ผู้โจมตีจะได้สิทธิ์สูง และขยายผลไปยัง host ได้ง่ายขึ้น",
+        "Docker ไม่อนุญาต",
+        "ทำให้ image ใหญ่"
+      ],
+      "answer": 1,
+      "explain": "least privilege ใช้กับ container ด้วย ให้ตั้ง USER ใน Dockerfile"
+    },
+    {
+      "prompt": "ใช้ image:latest ใน production มีปัญหาอะไร?",
+      "options": [
+        "ไม่มีปัญหา",
+        "tag เลื่อนได้ deploy ซ้ำอาจได้คนละเวอร์ชัน ทำให้ rollback และ debug ยาก",
+        "latest ใหญ่กว่าเสมอ",
+        "latest ไม่มี security update"
+      ],
+      "answer": 1,
+      "explain": "ใช้ version tag ที่ชัดเจนหรือ digest เพื่อให้รู้แน่ว่ากำลังรันอะไร"
+    },
+    {
+      "prompt": "-p 8080:3000 หมายถึงอะไร?",
+      "options": [
+        "port 8080 ใน container ส่งไปยัง port 3000 ของเครื่อง",
+        "port 8080 ของเครื่อง host ส่งต่อไปยัง port 3000 ใน container",
+        "เปิด 2 port ใน container",
+        "จำกัด memory"
+      ],
+      "answer": 1,
+      "explain": "รูปแบบคือ HOST:CONTAINER"
+    },
+    {
+      "prompt": ".dockerignore มีไว้ทำอะไร?",
+      "options": [
+        "ระบุ container ที่ไม่ต้องรัน",
+        "กันไฟล์ไม่ให้ถูกส่งเข้า build context เช่น .git, node_modules, .env",
+        "ซ่อน log",
+        "ปิด network"
+      ],
+      "answer": 1,
+      "explain": "build context ที่เล็กลงทำให้ build เร็วขึ้น และไม่เผลอ COPY secret เข้า image"
+    }
+  ],
+  "exercise": {
+    "title": "เขียน Dockerfile แบบ multi-stage",
+    "level": "กลาง",
+    "tags": "multi-stage · cache · non-root",
+    "lang": "dockerfile",
+    "prompt": "แอป Node.js build ด้วย npm run build ได้โฟลเดอร์ dist/ และรันด้วย node dist/server.js ที่ port 3000 เขียน Dockerfile ที่ (1) แยก build stage กับ runtime stage (2) ใช้ layer cache ของ dependency (3) ติดตั้งเฉพาะ production dependency ใน runtime และ (4) รันด้วย user ที่ไม่ใช่ root",
+    "context": "project/\n├─ package.json\n├─ package-lock.json\n├─ src/\n└─ (npm run build → dist/)",
+    "starter": "# เขียน Dockerfile ที่นี่\nFROM node:22-slim\n",
+    "solution": "FROM node:22-slim AS build\nWORKDIR /app\nCOPY package*.json ./\nRUN npm ci\nCOPY . .\nRUN npm run build\n\nFROM node:22-slim\nWORKDIR /app\nENV NODE_ENV=production\nCOPY package*.json ./\nRUN npm ci --omit=dev\nCOPY --from=build /app/dist ./dist\nUSER node\nEXPOSE 3000\nCMD [\"node\", \"dist/server.js\"]",
+    "hints": [
+      "เริ่ม stage แรกด้วย FROM node:22-slim AS build",
+      "ใน stage สุดท้ายใช้ COPY --from=build /app/dist ./dist",
+      "image node มี user ชื่อ node อยู่แล้ว ใส่ USER node ก่อน CMD"
+    ],
+    "checks": [
+      {
+        "label": "มีอย่างน้อย 2 stage (FROM … AS …)",
+        "pattern": "from\\s+\\S+\\s+as\\s+\\w+[\\s\\S]*\\nfrom\\s+"
+      },
+      {
+        "label": "COPY package*.json และติดตั้งก่อน COPY ทั้งโปรเจกต์",
+        "pattern": "copy\\s+package[\\s\\S]*npm (ci|install)[\\s\\S]*copy\\s+\\.\\s"
+      },
+      {
+        "label": "copy ผลลัพธ์จาก build stage (--from)",
+        "pattern": "copy\\s+--from=\\w+"
+      },
+      {
+        "label": "runtime ติดตั้งเฉพาะ production dependency",
+        "pattern": "--omit=dev|--only=production|--production|node_env=production"
+      },
+      {
+        "label": "รันด้วย user ที่ไม่ใช่ root",
+        "pattern": "^\\s*user\\s+(?!(root|0)(\\s|:|$))\\S+"
+      },
+      {
+        "label": "มี CMD สั่งรันแอป",
+        "pattern": "cmd\\s+\\[?\\s*[\"']?node"
+      }
+    ]
+  }
+}

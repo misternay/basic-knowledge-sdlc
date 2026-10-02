@@ -1,0 +1,16 @@
+[
+  {
+    "id": "placement", "label": "วัดระดับ", "title": "ทดสอบวัดระดับ",
+    "desc": "1 ข้อต่อหัวข้อ เพื่อดูว่าควรเริ่มอ่านตรงไหน",
+    "pick": { "perTopic": 1 }, "minutesPerQuestion": 1, "placement": true
+  },
+  {
+    "id": "track", "label": "ท้ายเส้นทาง", "title": "สอบท้ายเส้นทาง",
+    "perTrack": true, "pick": { "total": 12 }, "minutesPerQuestion": 1.25, "passPct": 70
+  },
+  {
+    "id": "final", "label": "รวมทุกหัวข้อ", "title": "ข้อสอบรวม",
+    "desc": "2 ข้อต่อหัวข้อ สลับหัวข้อกันทั้งชุด",
+    "pick": { "perTopic": 2 }, "minutesPerQuestion": 1.25, "passPct": 70
+  }
+]

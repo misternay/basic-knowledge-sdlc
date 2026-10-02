@@ -1,0 +1,198 @@
+{
+  "id": "sql",
+  "code": "D1",
+  "track": "data",
+  "title": "Database / SQL",
+  "blurb": "ออกแบบตาราง เขียน query ที่ถูกต้อง และเข้าใจว่าทำไม query ถึงช้า",
+  "mustKnow": [
+    {
+      "tier": "must",
+      "title": "SELECT, WHERE, ORDER BY, LIMIT",
+      "body": "กรอง เรียง และจำกัดจำนวนแถว เปรียบเทียบค่า NULL ด้วย IS NULL หรือ COALESCE เพราะ = NULL ไม่เคยเป็นจริง",
+      "code": "SELECT name, city\nFROM customers\nWHERE city = 'Bangkok'\n  AND email IS NOT NULL\nORDER BY name\nLIMIT 10;"
+    },
+    {
+      "tier": "must",
+      "title": "JOIN",
+      "body": "INNER JOIN คืนเฉพาะแถวที่จับคู่ได้ทั้งสองฝั่ง LEFT JOIN เก็บทุกแถวของตารางซ้าย ระวังแถวซ้ำเมื่อ join แบบ one-to-many"
+    },
+    {
+      "tier": "must",
+      "title": "GROUP BY และ HAVING",
+      "body": "WHERE กรองก่อนจัดกลุ่ม HAVING กรองหลังจัดกลุ่ม ลำดับการประมวลผลคือ FROM/JOIN → WHERE → GROUP BY → HAVING → SELECT → ORDER BY → LIMIT จึงใช้ alias จาก SELECT ใน WHERE ไม่ได้"
+    },
+    {
+      "tier": "must",
+      "title": "Keys และ Normalization",
+      "body": "primary key ระบุแถว foreign key เชื่อมตาราง และ normalization (1NF–3NF) ลดข้อมูลซ้ำและความไม่สอดคล้อง"
+    },
+    {
+      "tier": "must",
+      "title": "Transaction และ ACID",
+      "body": "BEGIN / COMMIT / ROLLBACK ทำให้ชุดคำสั่งสำเร็จทั้งหมดหรือไม่เกิดเลย: Atomicity, Consistency, Isolation, Durability"
+    },
+    {
+      "tier": "must",
+      "title": "Index และ EXPLAIN",
+      "body": "index เร่ง WHERE, JOIN และ ORDER BY แต่ทำให้การเขียนช้าลงและใช้พื้นที่ ใช้ EXPLAIN ดูว่า query ใช้ index จริงหรือไม่"
+    },
+    {
+      "tier": "should",
+      "title": "CTE และ window functions",
+      "body": "WITH … AS แตก query ให้อ่านง่าย ส่วน ROW_NUMBER, RANK, SUM() OVER (PARTITION BY …) คำนวณข้ามแถวโดยไม่ต้องยุบแถวด้วย GROUP BY"
+    },
+    {
+      "tier": "should",
+      "title": "ปัญหา N+1 query",
+      "body": "ORM โหลดรายการแล้ว query ทีละแถว ทำให้ยิง query หลายร้อยครั้ง แก้ด้วย JOIN หรือ eager loading"
+    },
+    {
+      "tier": "should",
+      "title": "Migrations",
+      "body": "เปลี่ยน schema ผ่านไฟล์ migration ที่อยู่ใน Git และทำแบบ backward-compatible: expand → migrate → contract"
+    },
+    {
+      "tier": "advanced",
+      "title": "Isolation level และ locking",
+      "body": "Read Committed, Repeatable Read, Serializable ป้องกัน dirty read, non-repeatable read และ phantom read ได้ต่างกัน"
+    },
+    {
+      "tier": "advanced",
+      "title": "SQL, NoSQL, replication และ sharding",
+      "body": "เลือกตามรูปแบบข้อมูลและการอ่านเขียน ไม่ใช่ตามกระแส และรู้ trade-off ของการขยายระบบ"
+    }
+  ],
+  "questions": [
+    {
+      "prompt": "ต้องการรายชื่อลูกค้า “ทุกคน” พร้อมจำนวนออเดอร์ รวมคนที่ยังไม่เคยสั่ง ควรใช้ JOIN แบบใด?",
+      "options": [
+        "INNER JOIN",
+        "customers LEFT JOIN orders",
+        "CROSS JOIN",
+        "customers RIGHT JOIN orders"
+      ],
+      "answer": 1,
+      "explain": "LEFT JOIN เก็บทุกแถวของตารางซ้าย (customers) แม้ไม่มีแถวที่ตรงกันใน orders ส่วน INNER JOIN จะตัดลูกค้าที่ไม่มีออเดอร์ทิ้ง"
+    },
+    {
+      "prompt": "query นี้ผิดเพราะอะไร?",
+      "code": "SELECT customer_id, SUM(total) AS spent\nFROM orders\nWHERE SUM(total) > 1000\nGROUP BY customer_id;",
+      "options": [
+        "ต้องใช้ COUNT แทน SUM",
+        "ใช้ aggregate ใน WHERE ไม่ได้ ต้องย้ายไป HAVING",
+        "ลืมใส่ ORDER BY",
+        "ตั้ง alias ด้วย AS ไม่ได้"
+      ],
+      "answer": 1,
+      "explain": "WHERE ทำงานก่อน GROUP BY จึงยังไม่มีผลรวมให้กรอง ต้องใช้ HAVING SUM(total) > 1000 ซึ่งทำงานหลังจัดกลุ่ม"
+    },
+    {
+      "prompt": "วิธีใดป้องกัน SQL injection ได้ดีที่สุด?",
+      "options": [
+        "ลบเครื่องหมาย ' ออกจาก input",
+        "ซ่อนข้อความ error จากผู้ใช้",
+        "ใช้ parameterized query หรือ prepared statement",
+        "จำกัดความยาว input"
+      ],
+      "answer": 2,
+      "explain": "parameterized query แยก “คำสั่ง” ออกจาก “ข้อมูล” ฐานข้อมูลจึงไม่ตีความ input เป็น SQL วิธีอื่นเป็นแค่การบรรเทาและหลบเลี่ยงได้"
+    },
+    {
+      "prompt": "ตัว “I” ใน ACID หมายถึงอะไร?",
+      "options": [
+        "Index: ทุกตารางต้องมี index",
+        "Isolation: transaction ที่ทำพร้อมกันไม่เห็นสถานะกลางทางของกันและกัน",
+        "Integrity: ข้อมูลต้องไม่ซ้ำ",
+        "Immutability: แก้ไขข้อมูลไม่ได้"
+      ],
+      "answer": 1,
+      "explain": "Isolation ทำให้ transaction ที่รันพร้อมกันไม่รบกวนกัน ระดับความเข้มงวดปรับได้ผ่าน isolation level"
+    },
+    {
+      "prompt": "เพิ่ม index ให้คอลัมน์ email ที่ค้นหาบ่อย ผลข้างเคียงที่ต้องยอมรับคืออะไร?",
+      "options": [
+        "SELECT ช้าลง",
+        "INSERT และ UPDATE ช้าลงเล็กน้อย และใช้พื้นที่เพิ่ม",
+        "แถวในตารางถูกเรียงใหม่ตาม email เสมอ",
+        "ไม่มีผลข้างเคียงเลย"
+      ],
+      "answer": 1,
+      "explain": "ทุกครั้งที่เขียนข้อมูล ฐานข้อมูลต้องอัปเดต index ด้วย จึงแลกความเร็วในการอ่านกับต้นทุนการเขียนและพื้นที่"
+    },
+    {
+      "prompt": "customers มี 3 คน มีเพียง 2 คนที่มีออเดอร์ (คนละ 2 ออเดอร์) query นี้คืนกี่แถว?",
+      "code": "SELECT c.name, o.id\nFROM customers c\nLEFT JOIN orders o ON o.customer_id = c.id;",
+      "options": [
+        "3",
+        "4",
+        "5",
+        "6"
+      ],
+      "answer": 2,
+      "explain": "2 คน × 2 ออเดอร์ = 4 แถว บวกลูกค้าที่ไม่มีออเดอร์อีก 1 แถว (o.id เป็น NULL) รวม 5 แถว"
+    },
+    {
+      "prompt": "โหลดบทความ 50 รายการ แล้ววน loop query ชื่อผู้เขียนทีละรายการ เกิดปัญหาอะไร?",
+      "options": [
+        "Deadlock",
+        "N+1 query: ยิง 51 query แทนที่จะเป็น 1–2",
+        "SQL injection",
+        "Phantom read"
+      ],
+      "answer": 1,
+      "explain": "แก้ด้วย JOIN หรือ eager loading ของ ORM เพื่อดึงผู้เขียนทั้งหมดในครั้งเดียว"
+    },
+    {
+      "prompt": "ต้องเปลี่ยนชื่อคอลัมน์ใน production โดยไม่มี downtime ควรทำอย่างไร?",
+      "options": [
+        "RENAME COLUMN แล้ว deploy โค้ดใหม่ทันที",
+        "เพิ่มคอลัมน์ใหม่ → เขียนทั้งสองคอลัมน์และย้ายข้อมูล → ย้ายโค้ดไปอ่านคอลัมน์ใหม่ → ลบคอลัมน์เก่า",
+        "ลบตารางแล้วสร้างใหม่",
+        "แก้ใน production ด้วยมือ"
+      ],
+      "answer": 1,
+      "explain": "แบบ expand → migrate → contract ทำให้โค้ดเวอร์ชันเก่าและใหม่ทำงานได้ทั้งคู่ระหว่าง deploy"
+    }
+  ],
+  "exercise": {
+    "title": "ลูกค้ายอดซื้อสูงสุด 5 อันดับของปี 2025",
+    "level": "ง่าย",
+    "tags": "JOIN · GROUP BY · ORDER BY · LIMIT",
+    "lang": "sql",
+    "prompt": "ทีมการตลาดอยากส่งของขวัญให้ลูกค้าที่ซื้อมากที่สุด เขียน query แสดง name, city และ total_spent (ยอดรวมของออเดอร์ในปี 2025) ของลูกค้า 5 อันดับแรก เรียงจากมากไปน้อย ลูกค้าบางคนชื่อซ้ำกันได้",
+    "context": "customers(id INT PK, name TEXT, city TEXT)\norders(id INT PK,\n       customer_id INT → customers.id,\n       total NUMERIC,\n       created_at DATE)",
+    "starter": "-- เขียน query ของคุณที่นี่\nSELECT c.name, c.city\nFROM customers c\n",
+    "solution": "SELECT c.name, c.city, SUM(o.total) AS total_spent\nFROM customers c\nJOIN orders o ON o.customer_id = c.id\nWHERE o.created_at >= '2025-01-01'\n  AND o.created_at <  '2026-01-01'\nGROUP BY c.id, c.name, c.city\nORDER BY total_spent DESC\nLIMIT 5;",
+    "hints": [
+      "JOIN orders เข้ากับ customers ผ่าน orders.customer_id = customers.id",
+      "ใช้ SUM(o.total) AS total_spent แล้ว GROUP BY c.id เพราะชื่ออาจซ้ำ",
+      "กรองช่วงวันที่ปี 2025 ใน WHERE ก่อนจัดกลุ่ม แล้วปิดท้ายด้วย ORDER BY total_spent DESC LIMIT 5"
+    ],
+    "checks": [
+      {
+        "label": "JOIN orders กับ customers ผ่าน customer_id",
+        "pattern": "join\\s+\\w+(\\s+(as\\s+)?\\w+)?\\s+on[^;]*customer_id"
+      },
+      {
+        "label": "รวมยอดด้วย SUM(total) ตั้งชื่อ total_spent",
+        "pattern": "sum\\s*\\(\\s*(\\w+\\.)?total\\s*\\)\\s*(as\\s+)?total_spent"
+      },
+      {
+        "label": "กรองเฉพาะปี 2025 จาก created_at",
+        "pattern": "created_at[^;]*2025|extract\\s*\\(\\s*year[^;]*2025|strftime[^;]*2025"
+      },
+      {
+        "label": "GROUP BY ด้วย id ลูกค้า (ชื่อซ้ำกันได้)",
+        "pattern": "group\\s+by[^;]*(\\bc?\\.?id\\b|customer_id)"
+      },
+      {
+        "label": "เรียงจากมากไปน้อย (ORDER BY … DESC)",
+        "pattern": "order\\s+by\\s+\\S+\\s+desc"
+      },
+      {
+        "label": "จำกัด 5 แถว",
+        "pattern": "limit\\s+5\\b|fetch\\s+first\\s+5"
+      }
+    ]
+  }
+}

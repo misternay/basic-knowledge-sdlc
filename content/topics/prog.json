@@ -1,0 +1,242 @@
+{
+  "id": "prog",
+  "code": "F1",
+  "track": "foundations",
+  "title": "Programming",
+  "blurb": "คิดเป็นขั้นตอน เขียนโค้ดที่อ่านง่าย ทดสอบได้ และ debug เป็น",
+  "mustKnow": [
+    {
+      "tier": "must",
+      "title": "ชนิดข้อมูล, truthy/falsy และการเทียบค่า",
+      "body": "ค่าแต่ละชนิดมีพฤติกรรมต่างกัน ใน JavaScript `'5' + 1` ได้ `'51'` แต่ `'5' - 1` ได้ `4` เพราะภาษาแปลงชนิดให้อัตโนมัติ จึงควรใช้ `===` เป็นค่าเริ่มต้นเพื่อไม่ให้มีการแปลงชนิดแอบแฝง เงื่อนไขอย่าง `if (x)` หรือ `x || ค่าสำรอง` มองค่า falsy (false, 0, '', null, undefined, NaN) ว่าเป็นเท็จทั้งหมด กับดักที่พบบ่อยคือจำนวน 0 หรือข้อความว่างถูกตีความเหมือน \"ไม่มีค่า\" ถ้าตั้งใจเช็กแค่ null/undefined ให้เช็กตรง ๆ หรือใช้ `??`",
+      "code": "'5' + 1    // '51'\n'5' - 1    // 4\n0 || 10    // 10  (0 เป็น falsy)\n0 ?? 10    // 0   (?? สนใจแค่ null/undefined)"
+    },
+    {
+      "tier": "must",
+      "title": "Function, scope และ closure",
+      "body": "ฟังก์ชันที่ดีทำงานเดียว ชื่อบอกว่าทำอะไร และใช้ early return จัดการกรณีพิเศษก่อนเพื่อลด if ซ้อนลึก `let`/`const` มี scope ระดับ block ส่วน `var` มี scope ระดับฟังก์ชัน โค้ดใหม่จึงไม่ควรใช้ `var` ฟังก์ชันที่สร้างภายในอีกฟังก์ชันจะ \"จำ\" ตัวแปรรอบตัวไว้ (closure) ซึ่งมีประโยชน์มาก แต่ถ้าใช้ร่วมกับ `var` ใน loop ทุก callback จะเห็นตัวแปรตัวเดียวกัน",
+      "code": "for (var i = 0; i < 3; i++) {\n  setTimeout(() => console.log(i)); // 3 3 3\n}\nfor (let j = 0; j < 3; j++) {\n  setTimeout(() => console.log(j)); // 0 1 2\n}"
+    },
+    {
+      "tier": "must",
+      "title": "Pure function และ side effect",
+      "body": "Pure function ให้ผลเหมือนเดิมทุกครั้งเมื่อ input เหมือนเดิม และไม่แตะอะไรภายนอก ส่วน side effect คือการอ่านเวลา, สุ่มค่า, เรียก network, เขียนไฟล์ หรือแก้ตัวแปรนอกฟังก์ชัน โปรแกรมจริงต้องมี side effect แต่ควรดันไว้ที่ขอบระบบ แล้วให้ logic หลักเป็น pure เพื่อทดสอบได้โดยไม่ต้อง mock อะไร เทคนิคที่ง่ายที่สุดคือรับสิ่งที่เปลี่ยนไปมา เช่น เวลาปัจจุบัน เข้ามาเป็น parameter",
+      "code": "// ทดสอบยาก: ผลขึ้นกับเวลาที่รัน\nconst isExpired = (token) => token.exp < Date.now();\n\n// ทดสอบง่าย: ส่งเวลาเข้ามาเอง\nconst isExpiredAt = (token, now) => token.exp < now;"
+    },
+    {
+      "tier": "must",
+      "title": "เลือก data structure ให้ตรงกับงาน",
+      "body": "Array เหมาะกับข้อมูลที่มีลำดับและต้องวนทั้งหมด แต่ `includes` หรือ `find` ต้องไล่ทีละตัว (O(n)) ถ้าต้องค้นด้วย key ให้ใช้ `Map` และถ้าแค่ต้องรู้ว่ามีค่านี้หรือยังให้ใช้ `Set` ซึ่งค้นได้เร็วแทบคงที่ (เฉลี่ยราว O(1)) ไม่ว่าข้อมูลจะมากแค่ไหน Stack (เข้าหลังออกก่อน) เหมาะกับ undo หรือการย้อนกลับ ส่วน queue (เข้าก่อนออกก่อน) เหมาะกับงานที่ต้องทำตามลำดับที่เข้ามา",
+      "code": "// จัดกลุ่มครั้งเดียว แล้วค้นด้วย key ได้ทันที\nconst byUser = new Map();\nfor (const o of orders) {\n  if (!byUser.has(o.userId)) byUser.set(o.userId, []);\n  byUser.get(o.userId).push(o);\n}\nbyUser.get(42); // ออเดอร์ทั้งหมดของ user 42"
+    },
+    {
+      "tier": "must",
+      "title": "Error handling และการอ่าน stack trace",
+      "body": "จัดการ error ในระดับที่ตัดสินใจได้จริงว่าจะทำอะไรต่อ ถ้ายังทำอะไรไม่ได้ให้โยนต่อพร้อมบริบท อย่า catch แล้วปล่อยว่าง เพราะระบบจะทำงานต่อในสถานะผิดโดยไม่มีใครรู้ ให้ throw เป็น `Error` object ไม่ใช่ string เพื่อให้มี stack trace ติดไปด้วย เวลาอ่าน stack trace ให้เริ่มจากข้อความ error แล้วหา frame บนสุดที่เป็นโค้ดของเรา เพราะ frame ใน `node_modules` มักเป็นแค่ทางผ่าน",
+      "code": "try {\n  await chargeCard(order);\n} catch (err) {\n  // เพิ่มบริบทแต่ยังเก็บ error ต้นทางไว้ใน cause\n  throw new Error(`charge failed: order ${order.id}`, { cause: err });\n}"
+    },
+    {
+      "tier": "must",
+      "title": "Debugging อย่างเป็นระบบด้วย debugger",
+      "body": "เริ่มจากทำให้บั๊กเกิดซ้ำได้ด้วยขั้นตอนหรือข้อมูลที่ชัดเจน ถ้า reproduce ไม่ได้ก็พิสูจน์ไม่ได้ว่าแก้แล้วจริง จากนั้นตั้งสมมติฐานว่าค่าเริ่มผิดตรงไหน วาง breakpoint แล้วใช้ step over/into, watch และ call stack ใน debugger (เช่น VS Code หรือ Chrome DevTools ผ่าน `node --inspect`) พิสูจน์ทีละจุด ถ้าบั๊กเกิดเฉพาะบางรอบของ loop ให้ใช้ conditional breakpoint หยุดเฉพาะเมื่อเงื่อนไขเป็นจริง แทนการกด continue ซ้ำเป็นร้อยครั้ง"
+    },
+    {
+      "tier": "should",
+      "title": "Big-O: โค้ดช้าลงแค่ไหนเมื่อข้อมูลโต",
+      "body": "Big-O บอกแนวโน้มว่างานเพิ่มขึ้นอย่างไรเมื่อข้อมูล n โตขึ้น ไม่ใช่เวลาจริง O(1) คงที่, O(log n) เช่น binary search, O(n) วนครั้งเดียว, O(n log n) เช่นการ sort ทั่วไป ส่วน O(n²) มักมาจาก loop ซ้อนบนข้อมูลชุดใหญ่ ที่ n = 100,000 งาน O(n²) คือราว 10,000 ล้านรอบ ขณะที่ O(n log n) อยู่ราว 1.7 ล้านรอบ กับดักที่พบบ่อยคือ loop ซ้อนที่มองไม่เห็น เช่นเรียก `includes`, `find` หรือ `filter` ภายใน loop"
+    },
+    {
+      "tier": "should",
+      "title": "Value, reference และ immutability",
+      "body": "Primitive (number, string, boolean) ถูกคัดลอกตามค่า แต่ object และ array ถูกส่งต่อเป็น reference ถ้าที่หนึ่งแก้ ทุกที่ที่ถือ reference เดียวกันจะเห็นการเปลี่ยนแปลงด้วย Immutability คือสร้างค่าใหม่แทนการแก้ของเดิม ทำให้ติดตามได้ว่า state เปลี่ยนที่ไหนและเมื่อไร กับดักคือ `const` ห้ามแค่การ assign ใหม่ ไม่ได้ห้ามแก้ข้างใน และ spread `{ ...obj }` คัดลอกแค่ชั้นเดียว",
+      "code": "// ไม่แตะ state เดิม: คัดลอก array ชั้นในด้วย\nconst next = { ...state, tags: [...state.tags, 'new'] };\n\n// sort() แก้ array เดิม ส่วน toSorted() (ES2023) คืน array ใหม่\nconst cheapest = items.toSorted((a, b) => a.price - b.price);"
+    },
+    {
+      "tier": "should",
+      "title": "async/await: Promise.all กับการรอทีละงาน",
+      "body": "`await` หยุดรอทีละงาน ถ้างานไม่พึ่งผลของกัน การ await เรียงกันทำให้เวลารวมเท่ากับผลบวกของทุกงาน `Promise.all` เริ่มทุกงานพร้อมกันแล้วรอจนครบ เวลารวมจึงใกล้กับงานที่ช้าที่สุด แต่ถ้ามีงานใด reject มันจะ reject ทันที ถ้าต้องการผลของทุกงานแม้บางงานพลาดให้ใช้ `Promise.allSettled` ส่วนงานที่ต้องใช้ผลของงานก่อนหน้ายังต้อง await ตามลำดับ",
+      "code": "// ช้า: รอทีละงาน (~300 + 300 ms)\nconst user = await getUser(id);\nconst orders = await getOrders(id);\n\n// เร็วกว่า: งานไม่พึ่งกัน เริ่มพร้อมกัน (~300 ms)\nconst [u, o] = await Promise.all([getUser(id), getOrders(id)]);"
+    },
+    {
+      "tier": "should",
+      "title": "กับดัก async: ลืม await และ forEach",
+      "body": "เรียกฟังก์ชัน async โดยไม่ await จะได้ Promise กลับมาแทนค่าจริง และ error ข้างในจะหลุดจาก try/catch รอบนอกกลายเป็น unhandled rejection `forEach` ไม่รอ Promise ที่ callback คืนมา โค้ดหลัง `forEach` จึงทำงานก่อนงานเสร็จ ใช้ `for...of` กับ `await` เมื่อต้องทำทีละงาน หรือ `await Promise.all(items.map(...))` เมื่อทำพร้อมกันได้"
+    },
+    {
+      "tier": "advanced",
+      "title": "Race condition แม้ JavaScript จะ single-threaded",
+      "body": "JavaScript รันโค้ดทีละส่วน แต่ทุกจุดที่ `await` งานอื่นแทรกเข้ามาได้ ลำดับ อ่าน → await → เขียน จึงเสี่ยงต่อ lost update เมื่อสอง request ทำพร้อมกัน เช่นทั้งคู่อ่านสต็อกได้ 1 แล้วต่างคนต่างขายได้ ทางแก้คือให้ฐานข้อมูลเช็กและเขียนในคำสั่งเดียว (atomic update) หรือใช้ transaction/lock",
+      "code": "// เสี่ยง: สอง request อ่านได้ 1 พร้อมกัน แล้วขายเกิน\nconst stock = await getStock(id);\nif (stock > 0) await setStock(id, stock - 1);\n\n// ปลอดภัยกว่า: เช็กและลดในคำสั่งเดียว\n// UPDATE products SET stock = stock - 1\n// WHERE id = $1 AND stock > 0"
+    },
+    {
+      "tier": "advanced",
+      "title": "Profiling ก่อน optimize",
+      "body": "อย่าปรับประสิทธิภาพจากการเดา เพราะจุดที่ช้าจริงมักไม่ใช่จุดที่คิด ให้วัดด้วย profiler เช่นแท็บ Performance ใน Chrome DevTools หรือ `node --cpu-prof` แล้วดูว่าเวลาหมดไปกับฟังก์ชันไหน ปรับเฉพาะจุดที่กินเวลามากที่สุดแล้ววัดซ้ำเพื่อยืนยันว่าดีขึ้นจริง บ่อยครั้งการแก้ที่ได้ผลที่สุดคือเปลี่ยน algorithm หรือ data structure ไม่ใช่ micro-optimization"
+    }
+  ],
+  "questions": [
+    {
+      "prompt": "หน้าสินค้าแสดง \"ไม่ทราบจำนวน\" กับสินค้าที่สต็อกหมด (qty = 0) ทั้งที่ระบบรู้จำนวนอยู่แล้ว สาเหตุคืออะไร?",
+      "code": "function formatStock(qty) {\n  if (!qty) return 'ไม่ทราบจำนวน';\n  return `เหลือ ${qty} ชิ้น`;\n}\nformatStock(0);",
+      "options": [
+        "qty ถูกส่งมาเป็น string \"0\" จึงเทียบไม่ตรง",
+        "0 เป็นค่า falsy จึงเข้าเงื่อนไข !qty เหมือน undefined",
+        "template literal แปลง 0 เป็นค่าว่างก่อนแสดงผล",
+        "ต้องใช้ else หลัง return เงื่อนไขจึงจะทำงานถูก"
+      ],
+      "answer": 1,
+      "explain": "`!0` เป็น true เพราะ 0 เป็น falsy ฟังก์ชันจึงมองสต็อกศูนย์เหมือนไม่มีข้อมูล ควรเช็ก `qty == null` หรือ `qty === undefined` ให้ตรงความตั้งใจ ส่วนกรณี string \"0\" นั้น `!\"0\"` เป็น false จึงไม่ใช่ต้นเหตุ"
+    },
+    {
+      "prompt": "test ของ calculateShipping(order) ผ่านเมื่อรันเดี่ยว แต่พังเมื่อรันพร้อม test ไฟล์อื่น พบว่าฟังก์ชันอ่านค่า config.rate ซึ่งเป็น object ที่ใช้ร่วมกันทั้งแอปและ test อื่นแก้ค่าไว้ ควรแก้อย่างไรให้ตรงจุดที่สุด?",
+      "options": [
+        "เพิ่ม timeout ให้ test เผื่อ config โหลดช้า",
+        "ให้ test runner รันทีละไฟล์แทนการรันขนาน",
+        "รับ rate เป็น parameter ให้ฟังก์ชันขึ้นกับ input อย่างเดียว",
+        "ครอบการอ่าน config.rate ด้วย try/catch"
+      ],
+      "answer": 2,
+      "explain": "ต้นเหตุคือฟังก์ชันไม่ pure เพราะพึ่ง state ภายนอกที่ถูกแก้ได้ การรับ rate เข้ามาทำให้ผลขึ้นกับ input อย่างเดียวและทดสอบได้แน่นอน การรันทีละไฟล์แค่ซ่อนอาการ เพราะ state ที่ใช้ร่วมกันยังอยู่"
+    },
+    {
+      "prompt": "สคริปต์ลบ order ซ้ำจากข้อมูล 200,000 รายการใช้ result.includes(o.id) ใน loop และรันนานหลายนาที ควรปรับอย่างไร?",
+      "options": [
+        "เปลี่ยน includes เป็น indexOf ซึ่งเร็วกว่า",
+        "sort array ก่อน แล้วค่อยใช้ includes เหมือนเดิม",
+        "เก็บ id ที่เห็นแล้วใน Set แล้วเช็กด้วย has()",
+        "เปลี่ยน for...of เป็น forEach"
+      ],
+      "answer": 2,
+      "explain": "includes ต้องไล่ทั้ง array ทุกรอบ รวมเป็น O(n²) ส่วน Set.has เร็วแทบคงที่ จึงเหลือราว O(n) การ sort ก่อนไม่ช่วยเพราะ includes ยังไล่ทีละตัวเหมือนเดิม และ indexOf ก็ค้นแบบเดียวกัน"
+    },
+    {
+      "prompt": "มี users 20,000 คนและ orders 500,000 รายการ โค้ดนี้ช้ามาก วิธีใดลดงานได้มากที่สุด?",
+      "code": "const report = users.map((u) => ({\n  name: u.name,\n  orders: orders.filter((o) => o.userId === u.id),\n}));",
+      "options": [
+        "จัดกลุ่ม orders ลง Map ตาม userId ก่อน แล้วค่อย map users",
+        "เปลี่ยน filter เป็น find เพื่อให้หยุดเร็วขึ้น",
+        "ห่อ filter ด้วย Promise.all ให้ทำงานพร้อมกัน",
+        "เปลี่ยน map ด้านนอกเป็น for loop ธรรมดา"
+      ],
+      "answer": 0,
+      "explain": "filter ภายใน map คือ loop ซ้อน ทำงานราว 20,000 × 500,000 ครั้ง การจัดกลุ่มลง Map รอบเดียวทำให้เหลือราว users + orders ครั้ง ส่วน find ได้แค่ order แรกจึงให้ผลผิด และการเปลี่ยนชนิด loop ไม่เปลี่ยน Big-O"
+    },
+    {
+      "prompt": "API ตอบ 500 และ log มี stack trace นี้ ควรเริ่มสืบจากตรงไหน?",
+      "code": "TypeError: Cannot read properties of undefined (reading 'email')\n    at sendWelcome (/app/src/mailer.js:12:24)\n    at createUser (/app/src/users.js:40:5)\n    at Layer.handle (/app/node_modules/express/lib/router/layer.js:95:5)",
+      "options": [
+        "layer.js:95 เพราะเป็นจุดที่อยู่ลึกที่สุดของ trace",
+        "ตรวจว่า user ในฐานข้อมูลมี field email ครบทุกแถว",
+        "mailer.js:12 แล้วย้อนดูค่าที่ users.js:40 ส่งเข้ามา",
+        "อัปเกรด express เพราะ error เกิดใน node_modules"
+      ],
+      "answer": 2,
+      "explain": "ข้อความบอกว่า object ที่ถูกอ่าน .email เป็น undefined ไม่ใช่ว่า email หายไป frame บนสุดที่เป็นโค้ดเราคือ mailer.js:12 และผู้ส่งค่าคือ users.js:40 ส่วน frame ของ express เป็นแค่ทางผ่านของ request"
+    },
+    {
+      "prompt": "ถ้า chargeCard ล้มเหลวเพราะบัตรถูกปฏิเสธ โค้ดนี้จะเกิดอะไรขึ้น?",
+      "code": "try {\n  await chargeCard(order);\n} catch (e) {}\nawait markAsPaid(order);",
+      "options": [
+        "Node.js จะหยุดโปรแกรมเพราะมี error ที่ไม่ได้จัดการ",
+        "order ถูกบันทึกว่าจ่ายแล้วทั้งที่ตัดเงินไม่ได้ และไม่มี log",
+        "markAsPaid จะถูกข้ามอัตโนมัติเพราะเกิด error ก่อนหน้า",
+        "error จะถูกพิมพ์ลง console โดยอัตโนมัติแล้วทำงานต่อ"
+      ],
+      "answer": 1,
+      "explain": "catch ว่างกลืน error ไปเงียบ ๆ โปรแกรมจึงเดินต่อไปเรียก markAsPaid เหมือนไม่มีอะไรเกิดขึ้น ไม่มีอะไรถูกข้ามหรือ log ให้อัตโนมัติ ควร log แล้ว return หรือโยน error ต่อเพื่อไม่ให้ไปถึง markAsPaid"
+    },
+    {
+      "prompt": "ฟังก์ชันคำนวณราคาวนสินค้า 10,000 ชิ้น และคุณรู้ว่าผลผิดเฉพาะเมื่อถึงสินค้า id \"A-913\" วิธีใช้ debugger ที่มีประสิทธิภาพที่สุดคืออะไร?",
+      "options": [
+        "วาง breakpoint ใน loop แล้วกด continue ไปเรื่อย ๆ จนถึง A-913",
+        "ใช้ conditional breakpoint ที่ item.id === \"A-913\" แล้วดูค่าตัวแปร",
+        "เริ่ม step over ทีละบรรทัดตั้งแต่ต้นฟังก์ชัน",
+        "ใส่ console.log ทุกบรรทัดแล้วค้นใน output"
+      ],
+      "answer": 1,
+      "explain": "Conditional breakpoint หยุดเฉพาะรอบที่สนใจ แล้วดูค่าและ step ต่อได้ทันที การกด continue หรือ step ตั้งแต่ต้นได้ผลเหมือนกันแต่เสียเวลาหลายพันครั้ง ส่วน log ทุกบรรทัดสร้าง output มหาศาลและต้องแก้โค้ดก่อน"
+    },
+    {
+      "prompt": "บรรทัดสุดท้ายพิมพ์อะไร?",
+      "code": "const defaults = { theme: 'light', tags: [] };\n\nfunction withTag(settings, tag) {\n  const copy = { ...settings };\n  copy.tags.push(tag);\n  return copy;\n}\n\nwithTag(defaults, 'new');\nconsole.log(defaults.tags);",
+      "options": [
+        "[]",
+        "['new']",
+        "TypeError เพราะ defaults เป็น const",
+        "undefined"
+      ],
+      "answer": 1,
+      "explain": "spread คัดลอกแค่ชั้นเดียว copy.tags จึงเป็น array ตัวเดียวกับ defaults.tags การ push จึงแก้ค่า default ไปด้วย ส่วน const ห้ามแค่ assign ใหม่ ไม่ห้ามแก้ข้างใน ควรเขียน `{ ...settings, tags: [...settings.tags, tag] }`"
+    },
+    {
+      "prompt": "หน้า dashboard โหลดข้อมูลสามอย่างที่ไม่พึ่งกัน แต่ละอย่างใช้ ~300 ms รวมแล้วหน้าโหลดช้า ~900 ms ควรแก้อย่างไร?",
+      "code": "const user = await getUser(id);\nconst orders = await getOrders(id);\nconst points = await getPoints(id);",
+      "options": [
+        "เอา await ออกทั้งหมดเพื่อไม่ให้ต้องรอ",
+        "ย้ายทั้งสามบรรทัดไปไว้ในฟังก์ชัน async แยก",
+        "ใช้ Promise.all เรียกทั้งสามพร้อมกันแล้วรอผลครั้งเดียว",
+        "วนทั้งสามฟังก์ชันด้วย for...of พร้อม await"
+      ],
+      "answer": 2,
+      "explain": "Promise.all เริ่มทั้งสามงานพร้อมกัน เวลารวมจึงใกล้งานที่ช้าที่สุด (~300 ms) การเอา await ออกจะได้ Promise แทนข้อมูลจริง ส่วน for...of กับ await ยังรอทีละงานเหมือนเดิม"
+    },
+    {
+      "prompt": "log \"บันทึกครบแล้ว\" ขึ้นก่อนข้อมูลถูกบันทึกจริง และบางครั้งมี unhandled rejection สาเหตุคืออะไร?",
+      "code": "async function saveAll(items) {\n  items.forEach(async (item) => {\n    await db.save(item);\n  });\n  console.log('บันทึกครบแล้ว');\n}",
+      "options": [
+        "forEach ไม่รอ Promise ที่ callback คืนมา saveAll จึงไปต่อทันที",
+        "db.save ทำงานทีละรายการ ทำให้ช้าจน log ขึ้นก่อน",
+        "ใช้ await ใน arrow function ไม่ได้ จึงถูกข้ามไป",
+        "console.log เป็น async จึงทำงานลำดับไม่แน่นอน"
+      ],
+      "answer": 0,
+      "explain": "forEach เรียก callback แล้วทิ้ง Promise ที่ได้ ไม่รอและไม่ส่ง error ต่อ จึงเกิดทั้ง log ก่อนเวลาและ unhandled rejection ใช้ await ใน async arrow function ได้ปกติ ควรเปลี่ยนเป็น for...of กับ await หรือ `await Promise.all(items.map(...))`"
+    }
+  ],
+  "exercise": {
+    "title": "นับคำที่พบบ่อยที่สุด",
+    "level": "ง่าย",
+    "tags": "function · Map · sort",
+    "lang": "javascript",
+    "prompt": "เขียนฟังก์ชัน topWords(text, n) ที่คืน array ของคำที่พบบ่อยที่สุด n คำพร้อมจำนวน เรียงจากมากไปน้อย ไม่สนตัวพิมพ์เล็กหรือใหญ่ ถ้าจำนวนเท่ากันให้เรียงตามตัวอักษรเพื่อให้ผลแน่นอนทุกครั้ง ไม่นับคำว่างที่เกิดจากช่องว่างซ้ำ และต้องเป็น pure function (ไม่ใช้หรือแก้ตัวแปรนอกฟังก์ชัน ไม่ console.log)",
+    "context": "topWords('a b A c b a', 2)\n// → [['a', 3], ['b', 2]]\n\ntopWords('  b a  c a b ', 3)\n// → [['a', 2], ['b', 2], ['c', 1]]",
+    "starter": "function topWords(text, n) {\n  // เขียนโค้ดที่นี่\n}\n",
+    "solution": "function topWords(text, n) {\n  const counts = new Map();\n  for (const w of text.toLowerCase().split(/\\s+/)) {\n    if (!w) continue;\n    counts.set(w, (counts.get(w) || 0) + 1);\n  }\n  return [...counts.entries()]\n    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))\n    .slice(0, n);\n}",
+    "hints": [
+      "แบ่งงานเป็นสามขั้น: แยกคำ → นับ → เรียงแล้วตัด",
+      "แปลงเป็นตัวพิมพ์เล็กแล้ว split ด้วย /\\s+/ ข้ามคำว่าง และใช้ Map เก็บคู่ คำ → จำนวน",
+      "ใช้ [...map.entries()] แล้ว sort ด้วย b[1] - a[1] || a[0].localeCompare(b[0]) และ slice(0, n)"
+    ],
+    "checks": [
+      {
+        "label": "แปลงเป็นตัวพิมพ์เล็ก (toLowerCase)",
+        "pattern": "tolowercase\\(\\)"
+      },
+      {
+        "label": "แยกคำด้วย split",
+        "pattern": "\\.split\\("
+      },
+      {
+        "label": "นับด้วย Map, object หรือ reduce",
+        "pattern": "new map|=\\s*\\{\\s*\\}|object\\.create\\(null\\)|reduce\\("
+      },
+      {
+        "label": "เรียงผลด้วย sort",
+        "pattern": "\\.sort\\(|\\.tosorted\\("
+      },
+      {
+        "label": "จำนวนเท่ากันเรียงตามตัวอักษร",
+        "pattern": "localecompare\\(|\\[0\\]\\s*[<>]"
+      },
+      {
+        "label": "ตัดเหลือ n คำ",
+        "pattern": "\\.slice\\(\\s*0\\s*,\\s*n\\s*\\)"
+      },
+      {
+        "label": "ไม่ console.log แทนการ return",
+        "pattern": "console\\.log",
+        "negate": true
+      }
+    ]
+  }
+}

@@ -1,0 +1,237 @@
+{
+  "id": "sql",
+  "code": "D1",
+  "track": "data",
+  "title": "Database / SQL",
+  "blurb": "ออกแบบตาราง เขียน query ที่ถูกต้อง และเข้าใจว่าทำไม query ถึงช้า",
+  "mustKnow": [
+    {
+      "tier": "must",
+      "title": "SELECT พื้นฐานและพฤติกรรมของ NULL",
+      "body": "SELECT … FROM … WHERE … ORDER BY … LIMIT คือโครงหลักของการอ่านข้อมูล จุดที่พลาดบ่อยคือ NULL ซึ่งแปลว่า “ไม่รู้ค่า” การเปรียบเทียบใด ๆ กับ NULL (แม้แต่ NULL = NULL) ได้ผลเป็น UNKNOWN และ WHERE เก็บเฉพาะแถวที่เป็น TRUE จึงต้องใช้ IS NULL, IS NOT NULL หรือ COALESCE แทน ผลที่ตามมาคือ status <> 'paid' จะไม่คืนแถวที่ status เป็น NULL, COUNT(col) ไม่นับ NULL ต่างจาก COUNT(*) และ NOT IN กับรายการที่มี NULL จะไม่คืนแถวใดเลย",
+      "code": "-- แถวที่ status เป็น NULL จะหลุดไป\nSELECT * FROM orders WHERE status <> 'paid';\n\n-- ถ้าต้องการรวมแถว NULL ด้วย\nSELECT * FROM orders\nWHERE status <> 'paid' OR status IS NULL;\n\n-- COUNT(*) นับทุกแถว ส่วน COUNT(email) ข้าม NULL\nSELECT COUNT(*), COUNT(email) FROM customers;"
+    },
+    {
+      "tier": "must",
+      "title": "JOIN และการคูณแถว",
+      "body": "INNER JOIN คืนเฉพาะแถวที่จับคู่ได้ทั้งสองฝั่ง ส่วน LEFT JOIN เก็บทุกแถวของตารางซ้ายและเติม NULL เมื่อไม่มีคู่ JOIN ไม่ได้ “ดึงข้อมูลมาแปะ” แต่สร้างหนึ่งแถวต่อทุกคู่ที่ตรงเงื่อนไข ลูกค้า 1 คนที่มี 3 ออเดอร์จึงกลายเป็น 3 แถว และถ้า join ตาราง one-to-many สองตารางพร้อมกันแถวจะคูณกันจน SUM หรือ COUNT เพี้ยน อีกกับดักคือใส่เงื่อนไขของตารางขวาไว้ใน WHERE ซึ่งตัดแถวที่เป็น NULL ทิ้งจน LEFT JOIN กลายเป็น INNER JOIN ให้ย้ายเงื่อนไขนั้นไปไว้ใน ON",
+      "code": "-- ลูกค้าทุกคน + จำนวนออเดอร์ที่จ่ายแล้ว (คนที่ไม่มีได้ 0)\nSELECT c.name, COUNT(o.id) AS paid_orders\nFROM customers c\nLEFT JOIN orders o\n  ON o.customer_id = c.id\n AND o.status = 'paid'   -- อยู่ใน ON ไม่ใช่ WHERE\nGROUP BY c.id, c.name;"
+    },
+    {
+      "tier": "must",
+      "title": "GROUP BY, HAVING และลำดับการทำงานของ query",
+      "body": "ฐานข้อมูลตีความ query ตามลำดับเชิงตรรกะ FROM/JOIN → WHERE → GROUP BY → HAVING → SELECT → ORDER BY → LIMIT ไม่ใช่ตามลำดับที่เขียน WHERE จึงกรองแถวก่อนจัดกลุ่มและใช้ aggregate อย่าง SUM() ไม่ได้ ส่วน HAVING กรองกลุ่มหลังคำนวณแล้ว alias ที่ตั้งใน SELECT ใช้ใน WHERE ไม่ได้แต่ใช้ใน ORDER BY ได้ (บาง DB ยอมให้ใช้ใน GROUP BY หรือ HAVING เป็นส่วนขยาย แต่ไม่ควรพึ่ง) และคอลัมน์ใน SELECT ที่ไม่ได้อยู่ใน aggregate ต้องอยู่ใน GROUP BY หรือขึ้นกับ primary key ที่ group อยู่",
+      "code": "SELECT customer_id, SUM(total) AS spent\nFROM orders\nWHERE status = 'paid'       -- กรองแถว ก่อนจัดกลุ่ม\nGROUP BY customer_id\nHAVING SUM(total) > 10000   -- กรองกลุ่ม หลังรวมยอด\nORDER BY spent DESC;        -- ORDER BY ใช้ alias ได้"
+    },
+    {
+      "tier": "must",
+      "title": "Keys, constraints และ normalization",
+      "body": "primary key ระบุแต่ละแถวแบบไม่ซ้ำ foreign key บังคับว่าค่าที่อ้างถึงต้องมีอยู่จริง และ UNIQUE, NOT NULL, CHECK ให้ฐานข้อมูลช่วยกันข้อมูลเสียแทนการพึ่งโค้ดอย่างเดียว normalization (ราว 1NF–3NF) คือการเก็บข้อเท็จจริงแต่ละอย่างไว้ที่เดียว เช่น เก็บชื่อลูกค้าใน customers แล้วให้ orders อ้างด้วย customer_id แทนการคัดลอกชื่อลงทุกออเดอร์ ซึ่งพอลูกค้าเปลี่ยนชื่อจะแก้ไม่ครบ (update anomaly) การ denormalize เพื่ออ่านเร็วทำได้แต่ควรเป็นการตัดสินใจที่รู้ตัว และใน PostgreSQL การประกาศ foreign key ไม่สร้าง index ให้คอลัมน์ฝั่งที่อ้างอิงอัตโนมัติ ต้องสร้างเองถ้า join หรือลบบ่อย",
+      "code": "CREATE TABLE orders (\n  id          BIGINT PRIMARY KEY,\n  customer_id BIGINT NOT NULL REFERENCES customers(id),\n  total       NUMERIC(12,2) NOT NULL CHECK (total >= 0),\n  created_at  TIMESTAMPTZ NOT NULL DEFAULT now()\n);\nCREATE INDEX ON orders (customer_id);"
+    },
+    {
+      "tier": "must",
+      "title": "Transaction และ ACID",
+      "body": "transaction รวมหลายคำสั่งเป็นหน่วยเดียว: COMMIT แล้วผลอยู่ครบ ถ้า ROLLBACK หรือระบบล่มกลางทางก็เหมือนไม่เคยเกิด ACID คือ Atomicity (ทั้งหมดหรือไม่มีเลย), Consistency (ไม่ละเมิด constraint), Isolation (transaction ที่รันพร้อมกันไม่เห็นสถานะครึ่งทางของกัน) และ Durability (COMMIT แล้วไม่หายแม้ไฟดับ) ถ้าไม่เปิด transaction เอง ส่วนใหญ่จะเป็น autocommit คือแต่ละคำสั่ง commit ทันที การโอนเงินด้วย UPDATE สองครั้งจึงอาจหักเงินแล้วไม่เติมให้ปลายทาง ควรทำ transaction ให้สั้นและไม่รอ network call หรือผู้ใช้ระหว่างนั้น เพราะ lock จะค้างนาน",
+      "code": "BEGIN;\nUPDATE accounts SET balance = balance - 500 WHERE id = 1;\nUPDATE accounts SET balance = balance + 500 WHERE id = 2;\nCOMMIT;  -- ถ้ามี error ระหว่างทางให้ ROLLBACK ทั้งชุด"
+    },
+    {
+      "tier": "must",
+      "title": "Index และการอ่าน EXPLAIN",
+      "body": "index (ส่วนใหญ่เป็น B-tree) เก็บค่าที่เรียงไว้ให้หาแถวได้โดยไม่ต้องสแกนทั้งตาราง ช่วย WHERE, JOIN และ ORDER BY แต่ทุก INSERT/UPDATE/DELETE ต้องอัปเดต index ด้วยและกินพื้นที่ จึงสร้างตาม query ที่ใช้จริง index หลายคอลัมน์ (a, b) ได้ผลดีที่สุดเมื่อเงื่อนไขเริ่มจากคอลัมน์ซ้ายสุด และการครอบคอลัมน์ด้วยฟังก์ชัน เช่น LOWER(email) ทำให้ index ปกติบน email ใช้ไม่ได้ (ต้องสร้าง expression index) ใช้ EXPLAIN ดูแผนที่ planner เลือก และ EXPLAIN ANALYZE ดูเวลาจริง ซึ่งรัน query จริง ถ้าเป็น UPDATE/DELETE ให้ครอบด้วย transaction แล้ว ROLLBACK",
+      "code": "CREATE INDEX idx_orders_customer_created\n  ON orders (customer_id, created_at);\n\nEXPLAIN ANALYZE\nSELECT * FROM orders\nWHERE customer_id = 42\nORDER BY created_at DESC\nLIMIT 20;\n-- บนตารางใหญ่ควรเห็น Index Scan ไม่ใช่ Seq Scan"
+    },
+    {
+      "tier": "should",
+      "title": "CTE และ window functions",
+      "body": "CTE (WITH name AS (…)) ตั้งชื่อให้ผลลัพธ์ย่อย เพื่อแตก query ยาวเป็นขั้น ๆ ที่อ่านและตรวจทีละส่วนได้ window function เช่น ROW_NUMBER(), RANK(), LAG() หรือ SUM() OVER (PARTITION BY … ORDER BY …) คำนวณข้ามแถวโดยไม่ยุบแถวแบบ GROUP BY เหมาะกับอันดับในแต่ละกลุ่ม ยอดสะสม หรือเทียบกับแถวก่อนหน้า window function คำนวณในขั้น SELECT ซึ่งมาหลัง WHERE จึงต้องห่อด้วย CTE หรือ subquery ก่อนกรองผลของมัน",
+      "code": "-- ออเดอร์ล่าสุดของลูกค้าแต่ละคน\nWITH ranked AS (\n  SELECT o.*,\n         ROW_NUMBER() OVER (\n           PARTITION BY customer_id\n           ORDER BY created_at DESC\n         ) AS rn\n  FROM orders o\n)\nSELECT * FROM ranked WHERE rn = 1;"
+    },
+    {
+      "tier": "should",
+      "title": "ปัญหา N+1 query",
+      "body": "N+1 เกิดเมื่อโค้ดดึงรายการมา 1 ครั้งแล้ววน loop ยิง query เพิ่มทีละแถว เช่น บทความ 50 รายการ + query ผู้เขียนอีก 50 ครั้ง มักซ่อนอยู่ใน lazy loading ของ ORM จึงดูเร็วตอน dev ที่ข้อมูลน้อย แต่ช้าบน production เพราะทุก query มี round-trip ของตัวเอง แก้โดยดึงข้อมูลที่เกี่ยวข้องในครั้งเดียวด้วย JOIN หรือ WHERE id IN (…) หรือใช้ eager loading ของ ORM (เช่น select_related/prefetch_related ของ Django หรือ includes ของ Rails) และสังเกตได้จาก query log ที่มีคำสั่งหน้าตาเดียวกันซ้ำ ๆ",
+      "code": "-- N+1: 1 ครั้ง + อีก 1 ครั้งต่อบทความ\nSELECT id, title, author_id FROM posts LIMIT 50;\nSELECT name FROM users WHERE id = $1;  -- x50\n\n-- แก้: ดึงผู้เขียนมาพร้อมกันในครั้งเดียว\nSELECT p.id, p.title, u.name\nFROM posts p\nJOIN users u ON u.id = p.author_id\nLIMIT 50;"
+    },
+    {
+      "tier": "should",
+      "title": "Migration แบบปลอดภัย (expand/contract)",
+      "body": "เปลี่ยน schema ผ่านไฟล์ migration ที่อยู่ใน Git และรันผ่าน pipeline ไม่แก้ production ด้วยมือ ระหว่าง deploy จะมีโค้ดเวอร์ชันเก่าและใหม่รันพร้อมกัน การเปลี่ยนที่ทำลายของเดิม (rename หรือ drop คอลัมน์) จึงต้องแยกเป็นขั้น: expand (เพิ่มของใหม่ที่โค้ดเก่าไม่สนใจ) → migrate (เขียนสองที่ backfill แล้วย้ายการอ่าน) → contract (ลบของเก่าเมื่อไม่มีโค้ดใช้แล้ว) ระวังคำสั่งที่ lock ตารางใหญ่นาน เช่น ใน PostgreSQL ให้สร้าง index ด้วย CREATE INDEX CONCURRENTLY ซึ่งไม่บล็อกการเขียน (แต่รันใน transaction block ไม่ได้) และ backfill เป็นชุดเล็ก ๆ",
+      "code": "-- 1) expand\nALTER TABLE users ADD COLUMN full_name TEXT;\n-- 2) migrate: โค้ดเขียนทั้งสองคอลัมน์ + backfill ทีละชุด\nUPDATE users SET full_name = name\nWHERE full_name IS NULL AND id BETWEEN 1 AND 10000;\n-- 3) deploy โค้ดที่อ่าน full_name\n-- 4) contract (release ถัดไป)\nALTER TABLE users DROP COLUMN name;"
+    },
+    {
+      "tier": "should",
+      "title": "Parameterized query กัน SQL injection",
+      "body": "การต่อ string จาก input เข้าไปใน SQL ทำให้ผู้ใช้แทรกคำสั่งเองได้ เช่น ใส่ ' OR '1'='1 จนเงื่อนไขเป็นจริงทุกแถว วิธีที่ถูกคือ parameterized query หรือ prepared statement ซึ่งส่งตัวคำสั่งกับค่าแยกกัน ฐานข้อมูลจึงไม่ตีความค่าเป็น SQL ส่วนการ escape เองหรือกรองอักขระเป็นแค่การบรรเทา ชื่อตารางหรือคอลัมน์ (เช่น คอลัมน์ที่ใช้ sort) ส่งเป็น parameter ไม่ได้ ให้ตรวจกับ allowlist แทน",
+      "code": "// อันตราย: ค่าจากผู้ใช้กลายเป็นส่วนหนึ่งของ SQL\ndb.query(\"SELECT * FROM users WHERE email = '\" + email + \"'\");\n\n// ปลอดภัย: node-postgres ใช้ $1, $2, ...\ndb.query('SELECT * FROM users WHERE email = $1', [email]);"
+    },
+    {
+      "tier": "advanced",
+      "title": "Isolation level และ lost update",
+      "body": "isolation level กำหนดว่า transaction ที่รันพร้อมกันเห็นการเปลี่ยนแปลงของกันแค่ไหน: Read Committed กัน dirty read, Repeatable Read กัน non-repeatable read เพิ่ม และ Serializable ให้ผลเหมือนรันทีละตัว ค่าเริ่มต้นต่างกัน (PostgreSQL ใช้ Read Committed, MySQL InnoDB ใช้ Repeatable Read) และพฤติกรรมจริงของแต่ละ DB ไม่ตรงตารางมาตรฐานทุกช่อง กับดักที่พบบ่อยคือ lost update: สอง request อ่าน stock = 10 พร้อมกันแล้วต่างเขียน 9 ทับกัน แก้ด้วย UPDATE แบบอะตอม, SELECT … FOR UPDATE หรือใช้ Serializable คู่กับโค้ด retry เมื่อเจอ serialization failure",
+      "code": "-- อ่านแล้วค่อยเขียน: เสี่ยง lost update\nSELECT stock FROM products WHERE id = 7;   -- ได้ 10\nUPDATE products SET stock = 9 WHERE id = 7;\n\n-- อะตอมในคำสั่งเดียว และกันสต็อกติดลบ\nUPDATE products SET stock = stock - 1\nWHERE id = 7 AND stock > 0;"
+    },
+    {
+      "tier": "advanced",
+      "title": "SQL vs NoSQL และการขยายระบบ",
+      "body": "relational database เด่นเรื่องข้อมูลที่มีความสัมพันธ์ query แบบ ad-hoc ด้วย JOIN และ constraint กับ transaction ที่เข้มงวด ส่วน NoSQL (document, key-value, wide-column) มักออกแบบตามรูปแบบการอ่านเขียนที่รู้ล่วงหน้าและกระจายข้อมูลข้ามเครื่องได้ง่ายกว่า แต่ query ที่ไม่ได้วางแผนไว้ทำได้ยาก เส้นแบ่งไม่ชัดเหมือนเดิม เพราะ PostgreSQL มี JSONB และ NoSQL หลายตัว (เช่น MongoDB) รองรับ transaction หลายเอกสาร จึงควรเลือกจาก access pattern และความต้องการด้าน consistency ไม่ใช่ตามกระแส ก่อนคิดถึง sharding ให้ลอง index, read replica (ระวัง replication lag ที่ทำให้อ่านค่าที่เพิ่งเขียนไม่เจอ) และ cache ก่อน เพราะ sharding เพิ่มความซับซ้อนมาก"
+    }
+  ],
+  "questions": [
+    {
+      "prompt": "ต้องการหาลูกค้าที่ไม่เคยสั่งซื้อ แต่ query นี้คืนผลว่าง ทั้งที่มีลูกค้าแบบนั้นอยู่จริง (orders.customer_id บางแถวเป็น NULL จากการสั่งแบบ guest) สาเหตุคืออะไร?",
+      "code": "SELECT c.name\nFROM customers c\nWHERE c.id NOT IN (\n  SELECT customer_id FROM orders\n);",
+      "options": [
+        "subquery ที่อยู่ใน WHERE ต้องตั้ง alias ก่อน ไม่อย่างนั้นจะไม่คืนแถวใดเลย",
+        "เมื่อรายการมี NULL เงื่อนไข NOT IN จะเป็น UNKNOWN ทุกแถว WHERE จึงไม่เก็บแถวใดเลย",
+        "NOT IN ใช้ได้เฉพาะกับรายการค่าคงที่ ใช้กับผลของ subquery ไม่ได้",
+        "customer_id ใน subquery ซ้ำกัน ต้องเพิ่ม DISTINCT ก่อนจึงจะได้ผลที่ถูกต้อง"
+      ],
+      "answer": 1,
+      "explain": "x NOT IN (1, 2, NULL) เท่ากับ x <> 1 AND x <> 2 AND x <> NULL ส่วนท้ายเป็น UNKNOWN เสมอ ผลรวมจึงไม่มีทางเป็น TRUE ให้ใช้ NOT EXISTS หรือ LEFT JOIN … WHERE o.id IS NULL แทน ส่วน DISTINCT ไม่ช่วยเพราะ NULL ยังอยู่ในรายการ"
+    },
+    {
+      "prompt": "ต้องการรายชื่อลูกค้าทุกคนพร้อมจำนวนออเดอร์ที่จ่ายแล้ว (คนที่ไม่มีให้แสดง 0) แต่ลูกค้าที่ไม่มีออเดอร์ paid หายไปจากผลลัพธ์ ควรแก้อย่างไร?",
+      "code": "SELECT c.name, COUNT(o.id) AS paid_orders\nFROM customers c\nLEFT JOIN orders o ON o.customer_id = c.id\nWHERE o.status = 'paid'\nGROUP BY c.id, c.name;",
+      "options": [
+        "ย้าย o.status = 'paid' ไปไว้ในเงื่อนไข ON ของ LEFT JOIN",
+        "เปลี่ยน COUNT(o.id) เป็น COUNT(*) เพื่อให้นับแถวที่เป็น NULL ด้วย",
+        "เปลี่ยนเป็น RIGHT JOIN เพื่อให้เก็บแถวที่ไม่มีคู่ไว้",
+        "เพิ่ม o.status ลงใน GROUP BY เพื่อแยกกลุ่มตามสถานะ"
+      ],
+      "answer": 0,
+      "explain": "WHERE ทำงานหลัง JOIN ลูกค้าที่ไม่มีคู่จะมี o.status เป็น NULL จึงถูกกรองทิ้ง LEFT JOIN เลยกลายเป็น INNER JOIN เมื่อย้ายเงื่อนไขไปที่ ON จะกรองเฉพาะฝั่ง orders แต่ยังเก็บลูกค้าทุกคน ส่วน COUNT(*) ไม่ช่วยและยังนับแถว NULL เป็น 1 แทน 0"
+    },
+    {
+      "prompt": "รายงานยอดขายหนังสือออกมาสูงกว่ายอดจริงหลายเท่า หลังมีคน JOIN order_items เข้ามาเพื่อกรองเฉพาะออเดอร์ที่มีสินค้าหมวด 'book' สาเหตุที่เป็นไปได้มากที่สุดคืออะไร?",
+      "code": "SELECT SUM(o.total) AS revenue\nFROM orders o\nJOIN order_items i ON i.order_id = o.id\nJOIN products p ON p.id = i.product_id\nWHERE p.category = 'book';",
+      "options": [
+        "SUM นับค่า NULL ใน o.total เป็นศูนย์แล้วรวมซ้ำหลายรอบ",
+        "ออเดอร์ที่มีหนังสือหลายรายการถูกทำซ้ำหนึ่งแถวต่อ item จึงบวก total ซ้ำ",
+        "INNER JOIN สร้างแถวซ้ำ ต้องเปลี่ยนเป็น LEFT JOIN จึงจะได้ยอดที่ถูก",
+        "ขาด GROUP BY o.id ทำให้ SUM รวมค่าจากทุกตารางที่ join เข้ามา"
+      ],
+      "answer": 1,
+      "explain": "JOIN สร้างหนึ่งแถวต่อคู่ที่ตรงกัน ออเดอร์ที่มีหนังสือ 3 เล่มจึงปรากฏ 3 แถวและ total ถูกบวก 3 ครั้ง แก้โดยกรองด้วย WHERE EXISTS (…) แทนการ join หรือรวมยอดระดับ item ส่วน LEFT JOIN ไม่ช่วยเพราะการคูณแถวเกิดกับ JOIN ทุกชนิด"
+    },
+    {
+      "prompt": "ต้องการลูกค้าที่ยอดรวมของออเดอร์สถานะ 'paid' เกิน 10,000 บาท ควรวางเงื่อนไขสองข้อนี้ไว้ที่ใด?",
+      "options": [
+        "ทั้ง status = 'paid' และ SUM(total) > 10000 ไว้ใน WHERE",
+        "status = 'paid' ไว้ใน WHERE และ SUM(total) > 10000 ไว้ใน HAVING",
+        "ทั้ง status = 'paid' และ SUM(total) > 10000 ไว้ใน HAVING",
+        "SUM(total) > 10000 ไว้ใน WHERE และ status = 'paid' ไว้ใน HAVING"
+      ],
+      "answer": 1,
+      "explain": "WHERE กรองแถวก่อนจัดกลุ่ม จึงเหมาะกับเงื่อนไขรายแถวอย่าง status แต่ยังไม่มีผลรวมให้ใช้ ส่วน HAVING กรองหลังคำนวณ aggregate แล้ว ถ้าย้าย status ไป HAVING จะ error เพราะ status ไม่ได้อยู่ใน GROUP BY หรือ aggregate"
+    },
+    {
+      "prompt": "API โอนเงินรัน UPDATE หักเงินบัญชี A แล้วตามด้วย UPDATE เพิ่มเงินบัญชี B โดยไม่ได้เปิด transaction (autocommit) ถ้า process ล่มระหว่างสองคำสั่ง จะเกิดอะไรขึ้น?",
+      "options": [
+        "ฐานข้อมูลจะ rollback คำสั่งแรกให้เอง เพราะมาจาก connection เดียวกัน",
+        "บัญชี A ถูกหักเงินแล้วแต่ B ไม่ได้รับ ต้องครอบสองคำสั่งด้วย BEGIN … COMMIT",
+        "ไม่มีปัญหา ถ้าตั้ง isolation level เป็น Serializable ไว้ตั้งแต่ต้น",
+        "คำสั่งแรกจะค้างเป็นข้อมูลที่ยังไม่ commit จนกว่าจะมีคนสั่ง COMMIT"
+      ],
+      "answer": 1,
+      "explain": "ใน autocommit แต่ละคำสั่งเป็น transaction ของตัวเองและ commit ทันที คำสั่งแรกจึงถาวรแล้ว การครอบด้วย transaction ให้ Atomicity คือสำเร็จทั้งคู่หรือไม่เกิดเลย ส่วน isolation level ควบคุมการมองเห็นกันระหว่าง transaction ที่รันพร้อมกัน ไม่ได้รวมคำสั่งที่ commit แยกกันให้เป็นหน่วยเดียว"
+    },
+    {
+      "prompt": "ตาราง users มี 5 ล้านแถวและมี index บน email อยู่แล้ว แต่ EXPLAIN ของ query นี้ยังแสดง Seq Scan สาเหตุที่น่าเป็นไปได้ที่สุดคืออะไร?",
+      "code": "SELECT id, name\nFROM users\nWHERE LOWER(email) = 'somchai@example.com';",
+      "options": [
+        "index แบบ B-tree ใช้กับการเปรียบเทียบด้วย = ไม่ได้ ใช้ได้แค่ช่วงค่า",
+        "index เก็บค่า email ดิบ แต่ query ค้นด้วยผลของ LOWER(email) จึงใช้ไม่ได้",
+        "ต้องเลือกด้วย SELECT * ทุกคอลัมน์ planner จึงจะยอมใช้ index",
+        "index จะถูกใช้เฉพาะเมื่อ query มี ORDER BY email ต่อท้ายด้วย"
+      ],
+      "answer": 1,
+      "explain": "index เรียงตามค่าของคอลัมน์ ไม่ใช่ผลของฟังก์ชันที่ครอบมัน แก้โดยสร้าง expression index เช่น CREATE INDEX ON users (LOWER(email)) หรือเก็บ email เป็นตัวพิมพ์เล็กตั้งแต่ตอนบันทึก ส่วน B-tree รองรับ = ได้ดีอยู่แล้ว"
+    },
+    {
+      "prompt": "หน้ารายการบทความโหลดช้า query log แสดง SELECT … FROM posts LIMIT 50 หนึ่งครั้ง ตามด้วย SELECT … FROM users WHERE id = $1 อีก 50 ครั้ง วิธีแก้ที่ตรงจุดที่สุดคืออะไร?",
+      "options": [
+        "เพิ่ม index ให้ users.id เพื่อให้แต่ละ query หาผู้เขียนได้เร็วขึ้น",
+        "เพิ่มขนาด connection pool ให้ 50 query วิ่งขนานกันได้",
+        "ดึงผู้เขียนทั้งหมดในครั้งเดียวด้วย JOIN, WHERE id IN (…) หรือ eager loading",
+        "cache ผลของ query ผู้เขียนแต่ละ id ไว้ใน Redis"
+      ],
+      "answer": 2,
+      "explain": "นี่คือ N+1 query ต้นทุนหลักคือ round-trip 50 ครั้ง ไม่ใช่ความเร็วของแต่ละ query การดึงในครั้งเดียวลดเหลือ 1–2 query ส่วน users.id เป็น primary key ที่มี index อยู่แล้ว และ cache ทีละ id ก็ยังยิงหลายรอบเหมือนเดิมแค่เปลี่ยนปลายทาง"
+    },
+    {
+      "prompt": "ต้องเปลี่ยนชื่อคอลัมน์ users.name เป็น full_name ใน production ที่ deploy แบบ rolling (โค้ดเก่าและใหม่รันพร้อมกันช่วงหนึ่ง) โดยไม่มี downtime ควรทำอย่างไร?",
+      "options": [
+        "รัน RENAME COLUMN ใน migration แล้ว deploy โค้ดที่อ่าน full_name ในรอบเดียวกัน",
+        "deploy โค้ดที่อ่าน full_name ให้ครบทุกเครื่องก่อน แล้วค่อยรัน RENAME COLUMN",
+        "เพิ่ม full_name, เขียนทั้งสองคอลัมน์และ backfill, ย้ายการอ่าน แล้วค่อยลบ name",
+        "สร้างตาราง users_new ที่ใช้ชื่อคอลัมน์ใหม่ คัดลอกข้อมูล แล้วสลับชื่อตาราง"
+      ],
+      "answer": 2,
+      "explain": "ระหว่าง rolling deploy มีโค้ดสองเวอร์ชันพร้อมกัน ถ้า rename ทันทีโค้ดเก่าที่ยังอ้าง name จะพัง และถ้า deploy โค้ดใหม่ก่อน โค้ดใหม่จะพังเพราะยังไม่มี full_name แบบ expand → migrate → contract ทำให้ทุกช่วงเวลามีคอลัมน์ที่ทั้งสองเวอร์ชันใช้ได้ ส่วนการคัดลอกตารางแล้วสลับเสี่ยงทำข้อมูลที่เขียนระหว่างคัดลอกหาย"
+    },
+    {
+      "prompt": "ระบบตัดสต็อกทำงานใน transaction (PostgreSQL, Read Committed) แบบนี้: SELECT stock → คำนวณ stock - 1 ในโค้ด → UPDATE SET stock = ค่าใหม่ เมื่อสอง request ซื้อสินค้าที่มี stock = 10 พร้อมกัน ผลสุดท้ายเหลือ 9 แทน 8 เพราะอะไร?",
+      "options": [
+        "Read Committed ยอมให้อ่านค่าที่ยังไม่ commit (dirty read) จึงได้ค่าผิด",
+        "เกิด lost update เพราะทั้งคู่อ่านได้ 10 แล้วต่างเขียน 9 ทับกัน",
+        "transaction แรกยังไม่ได้ COMMIT ฐานข้อมูลจึงทิ้งการเปลี่ยนแปลงของมัน",
+        "ไม่มี index บนคอลัมน์ stock ทำให้ UPDATE ไปแก้แถวผิด"
+      ],
+      "answer": 1,
+      "explain": "Read Committed กัน dirty read ได้แล้ว แต่ไม่กันรูปแบบ “อ่านแล้วค่อยเขียน” ที่สอง transaction อ่านค่าเดียวกันก่อนเขียนทับกัน แก้ด้วย UPDATE แบบอะตอม (SET stock = stock - 1 WHERE stock > 0), lock แถวด้วย SELECT … FOR UPDATE หรือใช้ isolation ที่สูงขึ้นคู่กับการ retry"
+    },
+    {
+      "prompt": "ต้องการออเดอร์ล่าสุด 1 รายการของลูกค้าแต่ละคน พร้อมทุกคอลัมน์ของออเดอร์นั้น วิธีใดถูกต้อง?",
+      "options": [
+        "เรียง orders ด้วย created_at DESC แล้วต่อท้ายด้วย LIMIT 1",
+        "GROUP BY customer_id แล้วเลือก id คู่กับ MAX(created_at)",
+        "คำนวณ ROW_NUMBER() OVER (PARTITION BY customer_id ORDER BY created_at DESC) ใน CTE แล้วกรอง rn = 1 ข้างนอก",
+        "ใส่ ROW_NUMBER() OVER (PARTITION BY customer_id ORDER BY created_at DESC) = 1 ไว้ใน WHERE"
+      ],
+      "answer": 2,
+      "explain": "window function คำนวณในขั้น SELECT ซึ่งมาหลัง WHERE จึงใส่ใน WHERE ไม่ได้ ต้องห่อด้วย CTE หรือ subquery ก่อนกรอง ส่วน GROUP BY แล้วเลือก id ที่ไม่ได้ aggregate จะ error ใน DB ส่วนใหญ่ และไม่รับประกันว่า id มาจากแถวเดียวกับ MAX ขณะที่ LIMIT 1 ได้แค่ออเดอร์เดียวของทั้งตาราง"
+    }
+  ],
+  "exercise": {
+    "title": "ลูกค้ายอดซื้อสูงสุด 5 อันดับของปี 2025",
+    "level": "ง่าย",
+    "tags": "JOIN · GROUP BY · ORDER BY · LIMIT",
+    "lang": "sql",
+    "prompt": "ทีมการตลาดอยากส่งของขวัญให้ลูกค้าที่ซื้อมากที่สุด เขียน query แสดง name, city และ total_spent (ยอดรวมของออเดอร์ในปี 2025) ของลูกค้า 5 อันดับแรก เรียงจากมากไปน้อย ลูกค้าบางคนชื่อซ้ำกันได้ และไม่ต้องแสดงลูกค้าที่ไม่มีออเดอร์ในปี 2025",
+    "context": "customers(id INT PK, name TEXT, city TEXT)\norders(id INT PK,\n       customer_id INT → customers.id,\n       total NUMERIC,\n       created_at DATE)",
+    "starter": "-- เขียน query ของคุณที่นี่\nSELECT c.name, c.city\nFROM customers c\n",
+    "solution": "SELECT c.name, c.city, SUM(o.total) AS total_spent\nFROM customers c\nJOIN orders o ON o.customer_id = c.id\nWHERE o.created_at >= '2025-01-01'\n  AND o.created_at <  '2026-01-01'\nGROUP BY c.id, c.name, c.city\nORDER BY total_spent DESC\nLIMIT 5;",
+    "hints": [
+      "ข้อมูลยอดซื้ออยู่ใน orders ส่วนชื่อและเมืองอยู่ใน customers ต้องเชื่อมสองตารางก่อน แล้วรวมยอดต่อคน",
+      "JOIN orders o ON o.customer_id = c.id แล้วใช้ SUM(o.total) AS total_spent และ GROUP BY c.id (ไม่ใช่ชื่อ เพราะชื่อซ้ำได้)",
+      "กรองปี 2025 ใน WHERE ก่อนจัดกลุ่ม เช่น o.created_at >= '2025-01-01' AND o.created_at < '2026-01-01' แล้วปิดท้ายด้วย ORDER BY total_spent DESC LIMIT 5"
+    ],
+    "checks": [
+      {
+        "label": "เชื่อม orders กับ customers ด้วย customer_id = id",
+        "pattern": "customer_id\\s*=\\s*\\w+\\.id\\b|\\b\\w+\\.id\\s*=\\s*(\\w+\\.)?customer_id"
+      },
+      {
+        "label": "รวมยอดด้วย SUM(total) ตั้งชื่อ total_spent",
+        "pattern": "sum\\s*\\(\\s*(\\w+\\.)?total\\s*\\)[^;]*\\btotal_spent\\b"
+      },
+      {
+        "label": "กรองเฉพาะปี 2025 จาก created_at",
+        "pattern": "created_at[^;]*2025|2025[^;]*created_at"
+      },
+      {
+        "label": "GROUP BY ด้วย id ลูกค้า (ชื่อซ้ำกันได้)",
+        "pattern": "group\\s+by[^;]*(\\b(?!o\\.|orders\\.)\\w+\\.id\\b|customer_id|(^|[\\s,(])id\\b)"
+      },
+      {
+        "label": "เรียงจากมากไปน้อย (ORDER BY … DESC)",
+        "pattern": "order\\s+by\\s+[^;]*?\\bdesc\\b"
+      },
+      {
+        "label": "จำกัด 5 แถว",
+        "pattern": "limit\\s+5\\b|fetch\\s+(first|next)\\s+5\\b|\\btop\\s*\\(?\\s*5\\b|(row_number|rank|dense_rank)\\s*\\(\\s*\\)[^;]*(<=\\s*5\\b|<\\s*6\\b)"
+      }
+    ]
+  }
+}
