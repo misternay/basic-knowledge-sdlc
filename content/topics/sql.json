@@ -146,7 +146,7 @@
         "index จะถูกใช้เฉพาะเมื่อ query มี ORDER BY email ต่อท้ายด้วย"
       ],
       "answer": 1,
-      "explain": "index เรียงตามค่าของคอลัมน์ ไม่ใช่ผลของฟังก์ชันที่ครอบมัน แก้โดยสร้าง expression index เช่น CREATE INDEX ON users (LOWER(email)) หรือเก็บ email เป็นตัวพิมพ์เล็กตั้งแต่ตอนบันทึก ส่วน B-tree รองรับ = ได้ดีอยู่แล้ว"
+      "explain": "index เรียงตามค่าของคอลัมน์ ไม่ใช่ผลของฟังก์ชันที่ครอบมัน แก้โดยสร้าง expression index เช่น CREATE INDEX ON users (LOWER(email)) (ไวยากรณ์ PostgreSQL) หรือเก็บ email เป็นตัวพิมพ์เล็กตั้งแต่ตอนบันทึก ส่วน B-tree รองรับ = ได้ดีอยู่แล้ว"
     },
     {
       "prompt": "หน้ารายการบทความโหลดช้า query log แสดง SELECT … FROM posts LIMIT 50 หนึ่งครั้ง ตามด้วย SELECT … FROM users WHERE id = $1 อีก 50 ครั้ง วิธีแก้ที่ตรงจุดที่สุดคืออะไร?",

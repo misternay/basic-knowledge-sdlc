@@ -26,7 +26,7 @@
       "tier": "must",
       "title": "Multi-stage build",
       "body": "Dockerfile มีหลาย FROM ได้ แต่ละ FROM เริ่ม stage ใหม่ และ image สุดท้ายมีเฉพาะสิ่งที่อยู่ใน stage สุดท้ายเท่านั้น ให้ stage แรกมี compiler, devDependencies และ source ไว้ build แล้วใช้ COPY --from ดึงเฉพาะผลลัพธ์ไป stage runtime ผลคือ image เล็กลง pull เร็วขึ้น และมีเครื่องมือให้ผู้โจมตีใช้น้อยลง กับดักคือไฟล์ที่ไม่ได้ COPY ข้าม stage จะไม่ตามไป เช่นไฟล์ config หรือ migration ที่ต้องใช้ตอนรัน",
-      "code": "FROM golang:1.25 AS build\nWORKDIR /src\nCOPY go.mod go.sum ./\nRUN go mod download\nCOPY . .\nRUN CGO_ENABLED=0 go build -o /out/api ./cmd/api\n\nFROM gcr.io/distroless/static-debian12\nCOPY --from=build /out/api /api\nUSER nonroot\nENTRYPOINT [\"/api\"]"
+      "code": "FROM golang:1.27 AS build\nWORKDIR /src\nCOPY go.mod go.sum ./\nRUN go mod download\nCOPY . .\nRUN CGO_ENABLED=0 go build -o /out/api ./cmd/api\n\nFROM gcr.io/distroless/static-debian13\nCOPY --from=build /out/api /api\nUSER nonroot\nENTRYPOINT [\"/api\"]"
     },
     {
       "tier": "must",
