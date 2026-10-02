@@ -23,11 +23,27 @@ for (const f of files) {
     assert.deepEqual(validateTopic(t, { strict: true }).errors, []);
   });
 
-  test(`${f} exercise: solution passes, starter does not`, () => {
+  test(`${f} meets the content quotas`, () => {
     const [t] = parseContent(readFileSync(join(dir, f), 'utf8')).topics;
-    const sol = runChecks(t.exercise, t.exercise.solution);
-    assert.ok(sol.every((r) => r.ok), 'failing: ' + sol.filter((r) => !r.ok).map((r) => r.label).join(', '));
-    assert.ok(!runChecks(t.exercise, t.exercise.starter || '').every((r) => r.ok));
+    assert.ok(t.mustKnow.length >= 24, 'mustKnow ' + t.mustKnow.length);
+    assert.ok(t.questions.length >= 30, 'questions ' + t.questions.length);
+    assert.ok((t.exercises || []).length >= 3, 'exercises');
+    assert.deepEqual([...new Set(t.exercises.map((e) => e.level))].sort(), ['กลาง', 'ง่าย', 'ยาก']);
+    assert.ok((t.refs || []).length >= 4, 'refs');
+    assert.ok(t.mustKnow.filter((m) => m.ref).length >= 12, 'mustKnow with ref');
+    assert.ok(t.mustKnow.filter((m) => m.exam === true).length >= 5, 'exam flags');
+    for (const q of t.questions) assert.equal(q.options.length, 4, 'question needs 4 options: ' + q.prompt.slice(0, 40));
+  });
+
+  test(`${f} exercises: each solution passes, each starter does not`, () => {
+    const [t] = parseContent(readFileSync(join(dir, f), 'utf8')).topics;
+    const list = t.exercises || [t.exercise];
+    assert.ok(list.length >= 1 && list.every(Boolean), 'no exercises');
+    for (const ex of list) {
+      const sol = runChecks(ex, ex.solution);
+      assert.ok(sol.every((r) => r.ok), ex.title + ' failing: ' + sol.filter((r) => !r.ok).map((r) => r.label).join(', '));
+      assert.ok(!runChecks(ex, ex.starter || '').every((r) => r.ok), ex.title + ' starter passes everything');
+    }
   });
 }
 

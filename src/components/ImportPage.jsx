@@ -208,7 +208,7 @@ function Preview({ t, isUpdate }) {
         <span className="muted small">{tr >= 0 ? TRACKS[tr].name : 'track ไม่ถูกต้อง'}</span>
       </div>
       <h3 className="card-title">{t.title || '(ไม่มีชื่อ)'}</h3>
-      <div>ต้องรู้ {count(0)} · ควรรู้ {count(1)} · ขั้นสูง {count(2)} · คำถาม {qs.length} · แบบฝึกหัด {t.exercise ? '1' : 'ไม่มี'}</div>
+      <div>ต้องรู้ {count(0)} · ควรรู้ {count(1)} · ขั้นสูง {count(2)} · คำถาม {qs.length} · แบบฝึกหัด {(Array.isArray(t.exercises) ? t.exercises.length : t.exercise ? 1 : 0) || 'ไม่มี'}</div>
       <ul className="tierlist">
         {mk.slice(0, 6).map((m, i) => <li key={i}><span>{['ต้องรู้', 'ควรรู้', 'ขั้นสูง'][tierIndex(m?.tier)]}</span>{m?.title || '—'}</li>)}
       </ul>

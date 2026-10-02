@@ -72,6 +72,95 @@
       "tier": "advanced",
       "title": "Profiling ก่อน optimize",
       "body": "อย่าปรับประสิทธิภาพจากการเดา เพราะจุดที่ช้าจริงมักไม่ใช่จุดที่คิด ให้วัดด้วย profiler เช่นแท็บ Performance ใน Chrome DevTools หรือ `node --cpu-prof` แล้วดูว่าเวลาหมดไปกับฟังก์ชันไหน ปรับเฉพาะจุดที่กินเวลามากที่สุดแล้ววัดซ้ำเพื่อยืนยันว่าดีขึ้นจริง บ่อยครั้งการแก้ที่ได้ผลที่สุดคือเปลี่ยน algorithm หรือ data structure ไม่ใช่ micro-optimization"
+    },
+    {
+      "tier": "must",
+      "title": "Recursion: base case และ stack overflow",
+      "body": "Recursion คือฟังก์ชันที่เรียกตัวเองเพื่อแก้ปัญหาที่แตกเป็นปัญหาย่อยแบบเดียวกัน เช่นไล่โฟลเดอร์ซ้อนกันหรือเดินโครงสร้างต้นไม้ ทุกฟังก์ชันแบบนี้ต้องมี base case ที่หยุดโดยไม่เรียกตัวเองอีก และการเรียกซ้ำทุกครั้งต้องขยับเข้าใกล้ base case ถ้าไม่เป็นอย่างนั้นการเรียกจะซ้อนกันจน call stack เต็มและเกิด `RangeError: Maximum call stack size exceeded` (Firefox ใช้ข้อความ too much recursion) กับดักที่พบบ่อยคือเช็กด้วย `n === 0` แต่ค่า n ลดทีละ 2 จนข้ามศูนย์ไปโดยไม่เคยเข้าเงื่อนไข ควรเช็กด้วย `n <= 0` และถ้าข้อมูลลึกมากให้เปลี่ยนเป็น loop กับ stack ที่สร้างเอง",
+      "code": "function sumTo(n) {\n  if (n <= 0) return 0;      // base case\n  return n + sumTo(n - 1);   // ขยับเข้าใกล้ base case\n}\nsumTo(4); // 10\n// ถ้าไม่เคยไปถึง base case จะเกิด\n// RangeError: Maximum call stack size exceeded",
+      "exam": true,
+      "ref": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Errors/Too_much_recursion"
+    },
+    {
+      "tier": "must",
+      "title": "map, filter, reduce และ higher-order function",
+      "body": "Higher-order function คือฟังก์ชันที่รับฟังก์ชันอื่นเป็น argument หรือคืนฟังก์ชันออกมา ใน array ที่ใช้บ่อยคือ `map` (แปลงทีละตัว ได้ array ใหม่ขนาดเท่าเดิม) `filter` (เก็บเฉพาะตัวที่ callback คืนค่า truthy) และ `reduce` (ยุบทั้ง array เป็นค่าเดียว) ตัวเมธอดไม่แก้ array เดิม จึงต่อเป็น chain ได้และทดสอบง่าย กับดักคือ `reduce` บน array ว่างโดยไม่ใส่ค่าเริ่มต้นจะ throw TypeError และ callback ของ `map` ถูกเรียกพร้อม (value, index, array) เสมอ จึงเกิดเหตุอย่าง `['1', '2', '3'].map(parseInt)` ที่ได้ `[1, NaN, NaN]`",
+      "code": "const orders = [{ price: 120 }, { price: 80 }, { price: 300 }];\nconst total = orders\n  .filter((o) => o.price >= 100)\n  .map((o) => o.price)\n  .reduce((sum, p) => sum + p, 0);  // 0 = ค่าเริ่มต้น\n// total = 420\n[].reduce((a, b) => a + b);         // TypeError\n['1', '2', '3'].map(parseInt);      // [1, NaN, NaN]",
+      "ref": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/reduce"
+    },
+    {
+      "tier": "must",
+      "title": "Array.sort: เรียงเป็น string และแก้ array เดิม",
+      "body": "`sort()` ที่ไม่ส่ง comparator จะแปลงสมาชิกเป็น string แล้วเทียบตามค่า UTF-16 code unit ดังนั้น `[10, 9, 1].sort()` ได้ `[1, 10, 9]` การเรียงตัวเลขต้องส่ง comparator เช่น `(a, b) => a - b` (ค่าติดลบหมายถึง a มาก่อน b) อีกเรื่องคือ `sort` เรียงใน array เดิมแล้วคืน reference ตัวเดิม จึงเสี่ยงไปแก้ข้อมูลที่ส่วนอื่นของโปรแกรมใช้ร่วมอยู่ ถ้าต้องการ array ใหม่ให้ใช้ `toSorted()` หรือคัดลอกก่อนด้วย `[...arr].sort()`",
+      "code": "[10, 9, 1].sort();                 // [1, 10, 9]  (เทียบเป็น string)\n[10, 9, 1].sort((a, b) => a - b);  // [1, 9, 10]\n\nconst scores = [5, 3, 8];\nconst top = scores.sort((a, b) => b - a);\nconsole.log(scores === top);       // true (sort แก้ scores เอง)\nconst copy = scores.toSorted((a, b) => a - b); // array ใหม่",
+      "exam": true,
+      "ref": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/sort"
+    },
+    {
+      "tier": "must",
+      "title": "this: ค่าขึ้นกับวิธีเรียก และ arrow function",
+      "body": "ค่า `this` ใน function ธรรมดาไม่ได้ผูกกับที่ที่ประกาศ แต่ขึ้นกับวิธีเรียก `obj.method()` ทำให้ `this` ชี้ที่ obj แต่ถ้าดึง method ออกมาเรียกเดี่ยว ๆ หรือส่งเป็น callback `this` ขึ้นกับผู้เรียก callback ซึ่งโดยทั่วไปเป็น `undefined` (หรือ global object ใน non-strict mode) โค้ดที่อ่าน `this.field` จึง throw TypeError ได้ โดยเฉพาะใน class ซึ่งทำงานใน strict mode เสมอ Arrow function ไม่มี `this` ของตัวเอง แต่ใช้ `this` ของบริบทที่ล้อมอยู่ จึงเหมาะกับ callback ภายใน method แต่ไม่เหมาะเป็น method ของ object เพราะ `this` จะไม่ชี้ไปที่ object นั้น ถ้าต้องล็อก `this` ให้ใช้ `bind` หรือ arrow function เป็น class field",
+      "code": "class Greeter {\n  name = 'Dev';\n  greet() { return this.name; }\n}\nconst g = new Greeter();\ng.greet();                // 'Dev'\nconst fn = g.greet;\nfn();                     // TypeError (this เป็น undefined)\nsetTimeout(g.greet, 0);   // this ไม่ใช่ g (ใน Node เป็น Timeout object) ได้ undefined ไม่ใช่ 'Dev'\nsetTimeout(() => g.greet(), 0);  // ใช้ได้",
+      "exam": true,
+      "ref": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/this"
+    },
+    {
+      "tier": "must",
+      "title": "Unit test: arrange-act-assert และ edge case",
+      "body": "Unit test ตรวจพฤติกรรมของหน่วยเล็ก ๆ เช่นฟังก์ชันเดียว โดยให้ input ที่กำหนดแล้วเทียบกับผลที่คาดไว้ ท่าที่ใช้กันคือ arrange (เตรียมข้อมูล) act (เรียกฟังก์ชัน) assert (เทียบผล) แต่ละ test ควรอิสระต่อกันและตั้งชื่อให้บอกพฤติกรรม ส่วนที่คุ้มที่สุดมักเป็น edge case เช่น array ว่าง ค่าขอบอย่าง 0 หรือสมาชิกตัวสุดท้าย และ input ผิดรูป ถ้าเจอบั๊กให้เขียน test ที่ทำให้บั๊กนั้นล้มก่อนแล้วค่อยแก้ ใน Node.js มี test runner ในตัวคือ `node:test` ใช้คู่กับ `node:assert` และสั่งรันด้วย `node --test`",
+      "code": "import { test } from 'node:test';\nimport assert from 'node:assert/strict';\nfunction average(nums) {\n  if (nums.length === 0) throw new RangeError('empty');\n  return nums.reduce((s, n) => s + n, 0) / nums.length;\n}\ntest('average ของ [2, 4] คือ 3', () => {\n  assert.equal(average([2, 4]), 3);\n});\ntest('array ว่างต้อง throw RangeError', () => {\n  assert.throws(() => average([]), RangeError);\n});",
+      "exam": true,
+      "ref": "https://nodejs.org/api/test.html"
+    },
+    {
+      "tier": "should",
+      "title": "ทศนิยม, เงิน และตัวเลขใหญ่: Number กับ BigInt",
+      "body": "Number ใน JavaScript คือ double-precision 64-bit แบบ IEEE 754 เศษส่วนฐานสองหลายค่าเก็บได้ไม่พอดี `0.1 + 0.2` จึงได้ `0.30000000000000004` อย่าเทียบทศนิยมด้วย `===` ส่วนเงิน แนวปฏิบัติทั่วไปคือเก็บเป็นจำนวนเต็มของหน่วยเล็กสุด (สตางค์) เช่น 1999 แทน 19.99 จำนวนเต็มแม่นยำเฉพาะในช่วง ±(2^53 − 1) ถ้าเกินนั้น เช่น id 64 บิต ให้ใช้ BigInt ซึ่งผสมกับ Number ตรง ๆ ไม่ได้ (จะ TypeError) หรือส่งค่าเป็น string ตั้งแต่ต้นทาง",
+      "code": "0.1 + 0.2 === 0.3                           // false\nMath.abs(0.1 + 0.2 - 0.3) < Number.EPSILON // true (ใช้กับค่าใกล้ 1)\n4.35 * 100                                 // 434.99999999999994\nMath.round(4.35 * 100)                     // 435\nNumber.MAX_SAFE_INTEGER                    // 9007199254740991\n9007199254740993n + 1n                     // 9007199254740994n\n1n + 1                                     // TypeError",
+      "ref": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Number"
+    },
+    {
+      "tier": "should",
+      "title": "Event loop: microtask มาก่อน task ถัดไป",
+      "body": "JavaScript ประมวลผลงานทีละ job แบบ run-to-completion คือ job หนึ่งทำจนจบก่อนจะเริ่ม job อื่น callback ของ `setTimeout` หรือผลของ I/O จะเข้าคิวรอจน call stack ว่าง ส่วน microtask เช่น callback ของ Promise มีลำดับสูงกว่า และถูกเคลียร์จนหมดก่อนจะหยิบ task ถัดไป ในรอบเดียวกัน `.then` จึงทำงานก่อน `setTimeout(..., 0)` เสมอ และโค้ด synchronous ที่ใช้เวลานานจะบล็อกทุกอย่างรวมถึง timer ที่ถึงเวลาแล้ว",
+      "code": "console.log('A');\nsetTimeout(() => console.log('B'), 0);\nPromise.resolve().then(() => console.log('C'));\nconsole.log('D');\n// ลำดับที่พิมพ์: A D C B",
+      "ref": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Event_loop"
+    },
+    {
+      "tier": "should",
+      "title": "Date: เดือนนับจาก 0 และกับดักเขตเวลา",
+      "body": "ใน `new Date(y, m, d)` เดือนนับจาก 0 (มกราคม = 0) และค่าที่เกินช่วงจะทบขึ้นไปยังปีถัดไป `new Date(2025, 12, 1)` จึงเป็น 1 มกราคม 2026 สตริงวันที่ล้วนอย่าง `'2025-03-01'` ถูกตีความเป็นเวลา UTC แต่ `'2025-03-01T00:00:00'` (มีเวลาแต่ไม่มี offset) ถูกตีความเป็นเวลาท้องถิ่น ทำให้ `getDate()` ในโซนที่ UTC ติดลบได้วันก่อนหน้า ควรเก็บและส่งเวลาเป็น ISO 8601 ที่ระบุ `Z` หรือ offset แล้วค่อยแปลงเป็นเวลาท้องถิ่นตอนแสดงผล",
+      "code": "new Date(2025, 12, 1);        // 1 ม.ค. 2026 (ธันวาคมคือ 11)\nnew Date(2025, 11, 1);        // 1 ธ.ค. 2025\n\nconst d = new Date('2025-03-01');  // 00:00 UTC\nd.getDate();     // นิวยอร์ก (UTC-5): 28, กรุงเทพ (UTC+7): 1\nd.getUTCDate();  // 1 ทุกโซน",
+      "ref": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Date"
+    },
+    {
+      "tier": "should",
+      "title": "Binary search: เร็วเพราะข้อมูลต้องเรียงลำดับ",
+      "body": "Binary search ตรวจค่ากลางของช่วงแล้วตัดทิ้งครึ่งหนึ่งในแต่ละรอบ จึงใช้ O(log n) กรณีแย่สุดวนเทียบ ⌊log₂ n + 1⌋ รอบ ข้อมูล 1,000,000 รายการจึงไม่เกิน 20 รอบ แต่ใช้ได้เมื่อ array เรียงลำดับแล้วเท่านั้น ถ้าไม่เรียง การตัดครึ่งจะทิ้งส่วนที่มีค่าที่หาอยู่ไปได้และให้ผลผิด ถ้าค้นแค่ครั้งเดียว การ sort ก่อน (O(n log n)) แพงกว่าไล่ดูทีละตัว (O(n)) และถ้าค้นบ่อยด้วย key ตรง ๆ โครงสร้างอย่าง hash table (ใน JavaScript คือ Map หรือ Set) เร็วกว่าการ sort แล้ว binary search",
+      "code": "function binarySearch(sorted, target) {\n  let lo = 0, hi = sorted.length - 1;\n  while (lo <= hi) {\n    const mid = Math.floor((lo + hi) / 2);\n    if (sorted[mid] === target) return mid;\n    if (sorted[mid] < target) lo = mid + 1;\n    else hi = mid - 1;\n  }\n  return -1;\n}\nbinarySearch([1, 3, 5, 7, 9], 7); // 3",
+      "exam": true,
+      "ref": "https://en.wikipedia.org/wiki/Binary_search"
+    },
+    {
+      "tier": "advanced",
+      "title": "ข้อความและ Unicode: length ไม่เท่ากับตัวอักษรที่เห็น",
+      "body": "`str.length` นับเป็น UTF-16 code unit ไม่ใช่ตัวอักษรที่ผู้ใช้เห็น อักขระนอก BMP เช่น `'𠮷'` หรือ emoji ส่วนใหญ่มี `.length` เป็น 2 และข้อความไทยที่มีเครื่องหมายประกอบพยัญชนะอย่าง `'ก็'` (ก + ไม้ไต่คู้) ก็ได้ 2 เพราะเป็นอักขระแยกกัน `[...str]` นับตาม code point ซึ่งยังได้ 2 สำหรับ `'ก็'` ถ้าต้องการนับตามที่ผู้ใช้เห็น (grapheme cluster) ให้ใช้ `Intl.Segmenter` ด้วย `granularity: 'grapheme'` นี่คือเหตุผลที่การจำกัดความยาวหรือตัดข้อความด้วย `slice` อาจตัดกลางตัวอักษรหรือปฏิเสธข้อความที่ดูสั้นพอ",
+      "code": "'𠮷'.length;                    // 2\n'ก็'.length;                    // 2  (ก + ็)\n[...'ก็'].length;               // 2  (นับ code point)\nconst seg = new Intl.Segmenter('th', { granularity: 'grapheme' });\n[...seg.segment('ก็')].length;  // 1",
+      "ref": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/String/length"
+    },
+    {
+      "tier": "advanced",
+      "title": "ReDoS: regex ที่ backtrack จนเซิร์ฟเวอร์ค้าง",
+      "body": "regex engine ส่วนใหญ่ใช้ backtracking คือเมื่อ match ไม่ผ่านจะถอยไปลองเส้นทางอื่น ถ้า pattern มี quantifier ซ้อนกันอย่าง `(a+)+$` หรือ alternation ที่ทับกัน input ที่เกือบ match เช่น `aaaa…a!` จะทำให้จำนวนเส้นทางที่ต้องลองเพิ่มแบบเอ็กซ์โพเนนเชียล จน CPU ค้าง (ReDoS) และเพราะ JavaScript รันโค้ดบนเธรดเดียว การค้างนี้บล็อกทุก request ด้วย เอกสาร Node.js แนะนำให้เลี่ยง nested quantifier และ OR ที่มี clause ทับกัน ระวังการใช้ regex ซับซ้อนตรวจ input จากผู้ใช้ ใช้เครื่องมืออย่าง safe-regex ช่วยตรวจ (จับได้ไม่ครบทุกแบบ) หรือใช้ engine อื่นอย่าง RE2 ผ่านโมดูล node-re2 ซึ่งเข้ากันไม่ได้ 100% กับ regex ทั้งหมด",
+      "code": "const evil = /^(a+)+$/;\nevil.test('a'.repeat(30) + '!');  // ค้างหลายวินาที (ขึ้นกับเครื่อง)\n\nconst safe = /^a+$/;\nsafe.test('a'.repeat(30) + '!');  // false ทันที",
+      "ref": "https://nodejs.org/en/learn/asynchronous-work/dont-block-the-event-loop"
+    },
+    {
+      "tier": "advanced",
+      "title": "งาน CPU หนักบล็อกเธรดเดียว: ใช้ Worker thread",
+      "body": "โค้ดของเราใน Node.js รันบนเธรดเดียว งานคำนวณหนักแบบ synchronous เช่น loop นับหลายพันล้านรอบหรือการ parse JSON ก้อนใหญ่ จึงทำให้ request อื่นทั้งหมดต้องรอ การใส่ `async` หน้าฟังก์ชันไม่ช่วย เพราะโค้ดข้างในยังรันบนเธรดเดิม ทางออกคือย้ายงาน CPU ไปให้ Worker thread (`node:worker_threads`) หรือ process แยก เอกสาร Node.js ระบุว่า Worker เหมาะกับงาน CPU-intensive แต่ไม่ช่วยมากกับงาน I/O เพราะ I/O แบบ async ในตัวมีประสิทธิภาพกว่าอยู่แล้ว",
+      "code": "const { Worker, isMainThread, parentPort, workerData } =\n  require('node:worker_threads');\nif (isMainThread) {\n  const w = new Worker(__filename, { workerData: 35 });\n  w.on('message', (r) => console.log('fib =', r));\n} else {\n  const fib = (n) => (n < 2 ? n : fib(n - 1) + fib(n - 2));\n  parentPort.postMessage(fib(workerData)); // รันในเธรดแยก\n}",
+      "ref": "https://nodejs.org/api/worker_threads.html"
     }
   ],
   "questions": [
@@ -191,52 +280,422 @@
       ],
       "answer": 0,
       "explain": "forEach เรียก callback แล้วทิ้ง Promise ที่ได้ ไม่รอและไม่ส่ง error ต่อ จึงเกิดทั้ง log ก่อนเวลาและ unhandled rejection ใช้ await ใน async arrow function ได้ปกติ ควรเปลี่ยนเป็น for...of กับ await หรือ `await Promise.all(items.map(...))`"
+    },
+    {
+      "prompt": "หน้า leaderboard ต้องเรียงคะแนนจากน้อยไปมาก แต่ผลที่เห็นคือ 1, 10, 100, 9 สาเหตุคืออะไร?",
+      "code": "const scores = [10, 9, 1, 100];\nscores.sort();\nconsole.log(scores); // [1, 10, 100, 9]",
+      "options": [
+        "ตัวเลขใน array ถูกเก็บเป็น string มาตั้งแต่ตอนสร้าง array",
+        "sort ที่ไม่มี comparator เทียบเป็น string จึงมอง \"10\" มาก่อน \"9\"",
+        "sort ใช้ได้กับ string เท่านั้น ต้องแปลงกลับเป็นตัวเลขหลังเรียงเสร็จ",
+        "sort เรียงรอบเดียวตามหลักหน่วย ต้องเรียกซ้ำเพื่อเรียงหลักสิบและร้อย"
+      ],
+      "answer": 1,
+      "explain": "เมื่อไม่ส่ง comparator ค่าจะถูกแปลงเป็น string แล้วเทียบแบบพจนานุกรม (\"10\" < \"9\") จึงต้องใช้ `(a, b) => a - b` ตัวเลขใน array ยังเป็น number ตามเดิม ไม่ได้ถูกเก็บเป็น string"
+    },
+    {
+      "prompt": "ฟังก์ชันนับระดับความลึกของเมนูนี้ถูกเรียกด้วย depth(5) แล้วได้ RangeError: Maximum call stack size exceeded ควรแก้ตรงไหน?",
+      "code": "function depth(n) {\n  if (n === 0) return 0;\n  return 1 + depth(n - 2);\n}\ndepth(5);",
+      "options": [
+        "เพิ่มขนาด call stack ของ Node.js ให้ใหญ่ขึ้นเพื่อให้การเรียกซ้อนลึกพอ",
+        "เปลี่ยน depth เป็น async function เพื่อไม่ให้การเรียกสะสมบน stack",
+        "เปลี่ยนเป็น arrow function เพราะใช้พื้นที่ stack ต่อการเรียกน้อยกว่า",
+        "เปลี่ยนเงื่อนไขหยุดเป็น n <= 0 เพราะ n ไล่ 5, 3, 1, -1 ข้าม 0 ไป"
+      ],
+      "answer": 3,
+      "explain": "ปัญหาคือ base case ไม่เคยเกิดขึ้น (5 → 3 → 1 → -1 …) ไม่ใช่ stack เล็กเกินไป การขยาย stack หรือเปลี่ยนรูปแบบฟังก์ชันแค่เลื่อนจุดล้มออกไป ไม่ได้ทำให้การเรียกซ้ำสิ้นสุด"
+    },
+    {
+      "prompt": "หน้าตะกร้าสินค้าคำนวณยอดรวมได้ถูกเมื่อมีสินค้า แต่เมื่อตะกร้าว่างหน้าล่มด้วย TypeError ควรแก้ให้ตรงจุดอย่างไร?",
+      "code": "const total = prices.reduce((sum, p) => sum + p);",
+      "options": [
+        "ใส่ค่าเริ่มต้นเป็น argument ที่สอง: reduce((s, p) => s + p, 0)",
+        "เปลี่ยนไปใช้ forEach เพราะ reduce ใช้กับ array ว่างไม่ได้เลย",
+        "ครอบด้วย try/catch รอบการเรียก reduce แล้วคืน 0 เมื่อเกิด error ขึ้น",
+        "ตรวจว่า p เป็น number ก่อนบวกทุกครั้งที่วนผ่านสมาชิกแต่ละตัวใน array"
+      ],
+      "answer": 0,
+      "explain": "reduce บน array ว่างที่ไม่มี initialValue จะ throw TypeError เพราะไม่มีสมาชิกตัวแรกให้เป็นค่าสะสม การใส่ 0 แก้ที่ต้นเหตุ ส่วน try/catch ได้ผลลัพธ์เดียวกันแต่ซ่อนปัญหาและทำให้โค้ดอ่านยากกว่า"
+    },
+    {
+      "prompt": "ทีมแยกเมธอด greet ออกมาใช้เป็นตัวแปรเดี่ยว ๆ แล้วเจอ TypeError: Cannot read properties of undefined (reading 'name') สาเหตุคืออะไร?",
+      "code": "class Greeter {\n  name = 'Dev';\n  greet() { return `สวัสดี ${this.name}`; }\n}\nconst { greet } = new Greeter();\ngreet();",
+      "options": [
+        "ต้องประกาศ name ด้วย this.name ใน constructor เท่านั้นจึงจะอ่านค่าได้",
+        "template literal อ่านค่า this ไม่ได้ ต้องต่อ string ด้วยเครื่องหมาย +",
+        "เมธอดถูกเรียกโดยไม่มี object นำหน้า this จึงเป็น undefined ใน strict mode",
+        "การ destructuring เมธอดออกมาทำให้ field name ถูกลบออกจาก instance ต้นฉบับ"
+      ],
+      "answer": 2,
+      "explain": "ค่า this ขึ้นกับวิธีเรียก (โค้ดใน class ทำงานใน strict mode) ไม่ใช่ที่ประกาศ ตอนเรียก `greet()` เดี่ยว ๆ ไม่มี object ผูกอยู่ this จึงเป็น undefined แก้ได้ด้วย `bind`, arrow function เป็น class field หรือเรียกเป็น `g.greet()` ส่วน field ที่ประกาศแบบ class field อ่านผ่าน this ได้ปกติ"
+    },
+    {
+      "prompt": "ระบบแปลงราคา 4.35 บาทเป็นสตางค์ด้วยโค้ดนี้ แต่ยอดที่ตัดบัตรได้ 434 สตางค์แทนที่จะเป็น 435 วิธีแก้ที่ถูกหลักที่สุดคืออะไร?",
+      "code": "const satang = Math.floor(4.35 * 100); // 434",
+      "options": [
+        "เก็บเงินเป็นจำนวนเต็มสตางค์ และใช้ Math.round เมื่อต้องแปลง",
+        "เปลี่ยนเป็น Math.ceil เพื่อให้ปัดขึ้นทุกครั้งแล้วจะไม่ขาดอีก",
+        "ใช้ toFixed(20) กับ 4.35 ก่อนคูณเพื่อให้ได้ความแม่นยำสูงขึ้น",
+        "ลบค่าคงที่เล็ก ๆ ออกจากผลคูณก่อน แล้วค่อยปัดเศษลงเสมอ"
+      ],
+      "answer": 0,
+      "explain": "4.35 * 100 ได้ 434.99999999999994 เพราะทศนิยมฐานสองเก็บ 4.35 ไม่พอดี Math.floor จึงตัดทิ้งไปหนึ่งสตางค์ Math.ceil แก้ไม่ได้เพราะบางค่าเช่น 0.07 * 100 ได้ 7.000000000000001 แล้วจะถูกปัดขึ้นเป็น 8"
+    },
+    {
+      "prompt": "บรรทัดใดพิมพ์ก่อนหลังอย่างไรเมื่อรันโค้ดนี้?",
+      "code": "console.log('A');\nsetTimeout(() => console.log('B'), 0);\nPromise.resolve().then(() => console.log('C'));\nconsole.log('D');",
+      "options": [
+        "A, B, C, D",
+        "A, D, C, B",
+        "A, D, B, C",
+        "A, C, D, B"
+      ],
+      "answer": 1,
+      "explain": "โค้ด synchronous (A, D) รันจบก่อน จากนั้น microtask ของ Promise (C) ถูกเคลียร์ก่อนจะหยิบ task ของ setTimeout (B) แม้ตั้งเวลาไว้ 0 ms ก็ตาม `setTimeout(…, 0)` ไม่ได้แปลว่าทำทันที"
+    },
+    {
+      "prompt": "ฟอร์มสร้างรายงานประจำเดือนธันวาคม 2025 ด้วยโค้ดนี้ แต่รายงานที่ได้กลายเป็นเดือนมกราคม 2026 เพราะอะไร?",
+      "code": "const start = new Date(2025, 12, 1);",
+      "options": [
+        "Date constructor ตีความเลขปีเป็น พ.ศ. ตามโซนเวลาไทย จึงเลื่อนไปหนึ่งปี",
+        "ค่าวันที่ 1 ถูกตีความเป็นหนึ่งวันก่อนสิ้นเดือน ทำให้ข้ามเดือนไป",
+        "Date แปลงเวลาเป็น UTC ก่อนเสมอ ทำให้วันที่ 1 เลื่อนเป็นต้นเดือนถัดไป",
+        "เดือนใน Date constructor นับจาก 0 ค่า 12 จึงทบเป็นมกราคมปีถัดไป"
+      ],
+      "answer": 3,
+      "explain": "เดือนของ `new Date(y, m, d)` นับจาก 0 ค่าที่เกินช่วง (12) จะทบขึ้นปีถัดไป ต้องใช้ 11 สำหรับธันวาคม เรื่องโซนเวลาไม่เกี่ยวเพราะแบบ y, m, d ถูกประเมินตามเวลาท้องถิ่นอยู่แล้ว"
+    },
+    {
+      "prompt": "แอปมีผู้ใช้ในนิวยอร์ก (UTC-5) วันครบกำหนด \"2025-03-01\" แสดงเป็นวันที่ 28 ก.พ. แต่ผู้ใช้ในไทยเห็น 1 มี.ค. ซึ่งถูกต้อง สาเหตุคืออะไร?",
+      "code": "const due = new Date('2025-03-01');\ndue.getDate(); // นิวยอร์ก: 28, กรุงเทพ: 1",
+      "options": [
+        "นาฬิกาของเซิร์ฟเวอร์ที่ไทยเดินเร็วกว่าเครื่องของผู้ใช้ที่นิวยอร์กหลายชั่วโมง ทำให้วันที่ต่างกัน",
+        "รูปแบบ YYYY-MM-DD ไม่ใช่มาตรฐาน แต่ละเบราว์เซอร์จึงตีความต่างกันตามผู้พัฒนาแต่ละราย",
+        "วันที่ล้วนถูกตีความเป็น 00:00 UTC แต่ getDate() อ่านเป็นเวลาท้องถิ่น จึงถอยไปวันก่อน",
+        "getDate() คืนค่าที่นับจาก 0 จึงคลาดเคลื่อนได้เฉพาะในบางโซนเวลาเท่านั้น"
+      ],
+      "answer": 2,
+      "explain": "วันที่ล้วนแบบ ISO ถูกตีความเป็นเที่ยงคืน UTC ซึ่งคือ 19:00 ของวันก่อนที่นิวยอร์ก แก้ด้วย `getUTCDate()` หรือสร้างจากสตริงที่ระบุเวลาท้องถิ่น ไม่ใช่ปัญหาเรื่องมาตรฐานของรูปแบบ เพราะรูปแบบนี้กำหนดไว้ชัดเจน"
+    },
+    {
+      "prompt": "ฟังก์ชัน binarySearch ค้น id ในรายการที่ดึงจากฐานข้อมูลโดยไม่ได้ ORDER BY แล้วบางครั้งคืน -1 ทั้งที่ id มีอยู่ ควรสรุปอย่างไร?",
+      "code": "function binarySearch(arr, target) {\n  let lo = 0, hi = arr.length - 1;\n  while (lo <= hi) {\n    const mid = Math.floor((lo + hi) / 2);\n    if (arr[mid] === target) return mid;\n    if (arr[mid] < target) lo = mid + 1;\n    else hi = mid - 1;\n  }\n  return -1;\n}\nbinarySearch([9, 1, 7, 3, 5], 1); // -1",
+      "options": [
+        "ข้อมูลไม่เรียงลำดับ binary search จึงตัดผิดครึ่งและพลาดค่าที่มี",
+        "ฟังก์ชันผิดเฉพาะเมื่อ array มีจำนวนสมาชิกเป็นเลขคู่เท่านั้น",
+        "ต้องใช้ Math.ceil แทน Math.floor ตอนหาค่า mid จึงจะค้นครบทุกตัว",
+        "เทียบด้วย === ใช้ไม่ได้กับ id ที่เป็นตัวเลข ต้องเทียบด้วย == แทน"
+      ],
+      "answer": 0,
+      "explain": "Binary search ตัดทิ้งครึ่งหนึ่งโดยสมมติว่าข้อมูลเรียงลำดับ ถ้าไม่เรียงอาจตัดครึ่งที่มีค่าที่หาอยู่ทิ้งไป (ตัวอย่างนี้ตัดทิ้งไปตั้งแต่รอบแรก) ต้อง sort ก่อนหรือเปลี่ยนไปใช้ Set/Map ส่วนการเปลี่ยน floor เป็น ceil ไม่ได้แก้ข้อสมมติเรื่องลำดับ"
+    },
+    {
+      "prompt": "ช่องชื่อเล่นจำกัด 3 ตัวอักษรด้วย value.length <= 3 ผู้ใช้พิมพ์ \"ก็อต\" ซึ่งเห็นเป็น 3 ตัวอักษร แต่ถูกปฏิเสธ ควรเข้าใจและแก้อย่างไร?",
+      "code": "'ก็อต'.length; // 4",
+      "options": [
+        "ฟอนต์ไทยบางตัววาดตัวอักษรซ้อนกัน ทำให้ length ผิด ต้องตรวจฟอนต์ของผู้ใช้ก่อนนับ",
+        "length นับ code unit ซึ่งไม้ไต่คู้นับแยกจาก ก จึงต้องใช้ Intl.Segmenter",
+        "length นับเป็นจำนวน byte ใน UTF-8 ของข้อความ จึงได้ค่าเกินกว่าที่ตาเห็น",
+        "ใช้ [...value].length แทน เพราะนับตามตัวอักษรที่ผู้ใช้มองเห็นเสมอ"
+      ],
+      "answer": 1,
+      "explain": "`ก็อต` ประกอบด้วย ก, ไม้ไต่คู้, อ, ต รวม 4 code unit ส่วน `[...value].length` นับ code point ก็ยังได้ 4 เท่าเดิม ต้องนับ grapheme cluster ด้วย `Intl.Segmenter` จึงได้ 3"
+    },
+    {
+      "prompt": "endpoint ตรวจรูปแบบรหัสสินค้าด้วย regex นี้ หลังมีคนส่งรหัสยาว ๆ ที่ผิดเล็กน้อย เซิร์ฟเวอร์ตอบช้าลงทุก request เป็นเวลานาน สาเหตุที่เป็นไปได้มากที่สุดคืออะไร?",
+      "code": "const SKU = /^([A-Z0-9]+-?)+$/;\nSKU.test(req.query.sku);",
+      "options": [
+        "regex ที่ไม่ใส่ flag g ถูก cache ผลของ input ทุกค่าไว้ ทำให้หน่วยความจำค่อย ๆ เต็ม",
+        "Node.js สร้าง RegExp ใหม่ทุก request ทำให้ต้อง compile pattern ซ้ำในทุกครั้งที่เรียก",
+        "quantifier ซ้อนกันทำให้ backtracking พุ่งแบบเอ็กซ์โพเนนเชียลจนเธรดค้าง",
+        "test() ไม่ใช่ async จึงต้องใส่ await ไม่เช่นนั้นจะแย่งเธรดกับ request อื่น"
+      ],
+      "answer": 2,
+      "explain": "pattern `([A-Z0-9]+-?)+` ซ้อน quantifier บนตัวอักษรชุดเดียวกัน input ที่เกือบ match ทำให้ engine ลองเส้นทางจำนวนมหาศาลบนเธรดเดียวของ Node จึงบล็อกทุก request ส่วน regex literal ถูกสร้างครั้งเดียว ไม่ได้ compile ใหม่ทุก request และ await ช่วยไม่ได้เพราะ test() เป็นโค้ด synchronous"
+    },
+    {
+      "prompt": "endpoint /report ใช้เวลาคำนวณหลายวินาที และระหว่างนั้น endpoint อื่นของเซิร์ฟเวอร์ Node.js ตอบไม่ได้เลย ทีมใส่ async หน้า handler แล้ว แต่อาการยังเหมือนเดิม ควรทำอย่างไร?",
+      "code": "app.get('/report', async (req, res) => {\n  let sum = 0;\n  for (let i = 0; i < 5e9; i++) sum += i;\n  res.json({ sum });\n});",
+      "options": [
+        "ใส่ await หน้า loop เพื่อให้คืนคิวแก่ request อื่นระหว่างที่คำนวณอยู่ในแต่ละรอบ",
+        "แบ่งงานเป็นหลายส่วนแล้วรวมด้วย Promise.all เพื่อให้ทุกส่วนทำงานขนานกันได้จริง",
+        "เปลี่ยน for เป็น forEach เพราะ forEach ทำงานแบบ async อยู่แล้วโดยไม่บล็อก",
+        "ย้ายการคำนวณไปให้ Worker thread หรือ process แยกจากเธรดหลักของ event loop"
+      ],
+      "answer": 3,
+      "explain": "async/await ไม่สร้างเธรดใหม่ โค้ดใน loop ยังรันบนเธรดเดียวกับ event loop จนจบ จึงบล็อก request อื่น ส่วน Promise.all แค่รอหลายงาน ไม่ได้ทำให้งาน CPU รันขนาน ต้องย้ายงานไป Worker thread หรือ process แยก"
+    },
+    {
+      "prompt": "ทีมมี unit test ของ paginate(items, page, size) เพียงสองข้อ คือหน้า 1 และหน้า 2 จากรายการ 10 ชิ้น (size 3) ซึ่งผ่านทั้งคู่ ควรเพิ่ม test ชุดใดต่อไปเพื่อจับบั๊กได้มากที่สุด?",
+      "code": "function paginate(items, page, size) {\n  return items.slice((page - 1) * size, page * size);\n}",
+      "options": [
+        "รายการว่าง หน้าสุดท้ายที่มีของไม่เต็มหน้า และหน้าที่เกินช่วงที่มี",
+        "รัน paginate ซ้ำ 10,000 ครั้งเพื่อยืนยันว่าเวลารวมไม่เกินหนึ่งวินาที",
+        "mock Array.prototype.slice แล้วตรวจว่าถูกเรียกด้วย argument ที่คำนวณไว้",
+        "หน้า 1 และหน้า 2 อีกหลายชุดโดยใช้ข้อมูลหลายแบบที่อยู่ช่วงกลางเหมือนเดิม"
+      ],
+      "answer": 0,
+      "explain": "บั๊กของโค้ดแบ่งหน้ามักอยู่ที่ขอบ เช่นหน้าสุดท้ายที่มีของไม่ครบ (หน้า 4 ได้ [10]) รายการว่าง หรือ page เกินช่วง กรณีกลาง ๆ เพิ่มอีกก็ไม่ได้ข้อมูลใหม่ ส่วนการ mock slice ผูก test เข้ากับวิธีเขียนแทนที่จะตรวจพฤติกรรม"
+    },
+    {
+      "prompt": "ต้องแปลง ['1', '2', '3'] เป็นตัวเลข เพื่อนเขียนโค้ดนี้แล้วได้ [1, NaN, NaN] ทำไม?",
+      "code": "['1', '2', '3'].map(parseInt);",
+      "options": [
+        "parseInt แปลงได้เฉพาะสมาชิกตัวแรก เพราะ map หยุดทำงานทันทีเมื่อเจอ NaN ตัวแรกในผลลัพธ์",
+        "map ส่ง (value, index, array) ให้ callback ทำให้ parseInt ใช้ index เป็น radix",
+        "map เรียก callback แบบ async ทำให้ค่าที่ได้ออกมาเพี้ยนไปจากที่ควรจะเป็น",
+        "parseInt ใช้กับสตริงที่ไม่มีเครื่องหมายบวกนำหน้าไม่ได้ ต้องเติม + ก่อนเสมอ"
+      ],
+      "answer": 1,
+      "explain": "callback ของ map ได้รับ 3 argument เสมอ parseInt จึงเห็น index เป็น radix: parseInt('1', 0) ได้ 1 แต่ parseInt('2', 1) และ parseInt('3', 2) ได้ NaN แก้ด้วย `.map((s) => parseInt(s, 10))` หรือ `.map(Number)`"
+    },
+    {
+      "prompt": "ต้องกรองผู้ใช้ที่ยัง active ด้วยฟังก์ชัน async แต่ผลที่ได้ยังมีผู้ใช้ครบทุกคนรวมถึงคนที่ไม่ active ทำไม?",
+      "code": "const active = users.filter(async (u) => {\n  return await isActive(u.id);\n});",
+      "options": [
+        "filter ไม่รองรับ callback ที่มี await ข้างใน จึงข้ามเงื่อนไขไปทั้งหมดโดยไม่แจ้ง error",
+        "filter รอ Promise ได้ แต่ต้องใส่ await หน้า users.filter ด้วย ไม่เช่นนั้นผลไม่ถูกกรอง",
+        "async callback คืน Promise ซึ่ง truthy เสมอ filter จึงเก็บทุกตัวโดยไม่รอผล",
+        "filter รอ Promise จนเสร็จ แต่ได้ undefined ซึ่งถูกนับว่าเป็นค่า true เสมอ"
+      ],
+      "answer": 2,
+      "explain": "filter ตัดสินจากค่า truthy ของสิ่งที่ callback คืน แต่ async function คืน Promise (object) ซึ่ง truthy เสมอ จึงไม่มีตัวไหนถูกตัดทิ้ง แก้โดย `const flags = await Promise.all(users.map(u => isActive(u.id)))` แล้วค่อย filter ด้วย flags"
+    },
+    {
+      "prompt": "ฟังก์ชัน getTop3(scores) ใช้ sort แล้ว slice แต่หลังเรียกใช้ รายการคะแนนต้นฉบับที่แสดงตามลำดับเวลากลับถูกเรียงใหม่ ควรแก้อย่างไร?",
+      "code": "function getTop3(scores) {\n  return scores.sort((a, b) => b - a).slice(0, 3);\n}",
+      "options": [
+        "ย้าย slice ไปไว้ก่อน sort เพราะ slice คือตัวที่ไปแก้ array ต้นฉบับ",
+        "ใส่ comparator ให้ครบทุกกรณี เพราะไม่มี comparator เมื่อไรก็แก้ต้นฉบับ",
+        "ประกาศ parameter scores เป็น const เพื่อกันไม่ให้ sort เปลี่ยนค่า",
+        "เรียงบนสำเนา เช่น [...scores].sort(...) เพราะ sort แก้ array เดิมในที่"
+      ],
+      "answer": 3,
+      "explain": "`sort` เรียงใน array เดิม (in place) และคืน reference เดียวกัน ส่วน `slice` ต่างหากที่คืนสำเนา การย้าย slice ไปก่อนจะได้ top 3 ผิดความหมาย และ const/parameter ไม่ได้ห้ามการแก้เนื้อใน array"
+    },
+    {
+      "prompt": "ตอนบันทึกออเดอร์ล้มเหลว log เห็นแค่ \"บันทึกไม่สำเร็จ\" ไม่รู้ต้นเหตุ (เช่น connection refused) ควรแก้ catch นี้อย่างไร?",
+      "code": "try {\n  await db.save(order);\n} catch (err) {\n  throw new Error('บันทึกไม่สำเร็จ');\n}",
+      "options": [
+        "ส่ง err เป็น cause: new Error('บันทึกไม่สำเร็จ', { cause: err })",
+        "catch แล้ว console.log(err) อย่างเดียว ไม่ต้อง throw ต่อให้ผู้เรียก",
+        "ต่อข้อความเป็น 'บันทึกไม่สำเร็จ: ' + err แล้วทิ้ง err ตัวเดิมไปเลย",
+        "throw เป็น string แทน Error เพื่อให้ stack trace ไม่ยาวเกินไป"
+      ],
+      "answer": 0,
+      "explain": "Error รุ่นใหม่รับ option `cause` เพื่อห่อ error เดิมไว้พร้อม stack ของมัน ส่วนการ log แล้วกลืน error ทำให้ผู้เรียกเข้าใจว่าสำเร็จ และการต่อสตริงทำให้ stack ของ error ต้นเหตุหายไป"
+    },
+    {
+      "prompt": "ฟังก์ชัน getExchangeRate() ถูก memoize ไว้ตลอดอายุโปรเซสเพื่อลดการเรียก API ผ่านไปหลายวันเซิร์ฟเวอร์ยังไม่ restart ลูกค้าเห็นเรทเก่าอยู่ ควรปรับอย่างไร?",
+      "options": [
+        "เลิกใช้ cache ทั้งหมด เพราะ memoize ใช้ได้เฉพาะค่าที่ไม่เคยเปลี่ยน",
+        "ให้ cache มีอายุ (TTL) หรือกฎ invalidate เมื่อข้อมูลต้นทางเปลี่ยน",
+        "เก็บผลใน Map แทน object ธรรมดา เพราะ Map ลบค่าเก่าทิ้งให้เอง",
+        "เพิ่ม memory ให้เซิร์ฟเวอร์ เพื่อให้ cache รีเฟรชได้เร็วขึ้น"
+      ],
+      "answer": 1,
+      "explain": "Memoize ได้ผลเต็มที่กับ pure function ส่วนข้อมูลที่เปลี่ยนตามเวลาต้องกำหนดว่า cache เก่าได้นานแค่ไหนหรือล้างเมื่อไร การเลิก cache ทั้งหมดเกินเหตุ ส่วน Map ไม่ลบค่าเก่าเอง และ memory ที่มากขึ้นก็ไม่ทำให้ข้อมูลสดขึ้น"
+    },
+    {
+      "prompt": "ระบบเก็บ ranking ใน object โดยใส่ key ตามลำดับ 'b', 2, 1, 'a' แต่วนด้วย Object.keys แล้วได้ลำดับไม่เหมือนที่ใส่ ถ้าต้องการลำดับตามที่ใส่ ควรทำอย่างไร?",
+      "code": "const ranks = { b: 1, 2: 1, 1: 1, a: 1 };\nObject.keys(ranks);\n// ['1', '2', 'b', 'a']",
+      "options": [
+        "ใช้ Object.entries แทน Object.keys เพราะคงลำดับตามที่ใส่ไว้",
+        "ใส่ key เป็นตัวเลขทั้งหมด แล้วเรียงด้วย Object.keys().sort()",
+        "ใช้ Map ซึ่งวนตามลำดับที่ใส่เสมอ แต่ object เรียง key จำนวนเต็มก่อน",
+        "ใช้ JSON.stringify แล้ว JSON.parse ใหม่เพื่อให้ลำดับกลับมาเหมือนเดิม"
+      ],
+      "answer": 2,
+      "explain": "ลำดับของ object คือ key ที่เป็นจำนวนเต็มไม่ติดลบเรียงจากน้อยไปมากก่อน แล้วตามด้วย key อื่นตามลำดับที่สร้าง ซึ่ง Object.entries และการ stringify/parse ก็ยึดลำดับเดียวกัน ส่วน Map วนตามลำดับที่ใส่ทุกกรณี"
+    },
+    {
+      "prompt": "API ของพาร์ตเนอร์ส่ง order id เป็นตัวเลข 64 บิต ฝั่ง JavaScript parse แล้วได้ id ไม่ตรงกับต้นทาง จึงดึงออเดอร์ผิดใบ แก้ที่ต้นเหตุอย่างไร?",
+      "code": "JSON.parse('{\"id\":9007199254740993}').id;\n// 9007199254740992",
+      "options": [
+        "ใช้ parseFloat กับ id หลัง parse เพื่อเรียกความแม่นยำที่เสียไปคืนมา",
+        "แปลงเป็น BigInt หลัง JSON.parse เพราะ BigInt กู้ค่าเดิมกลับมาได้",
+        "เปลี่ยนเป็น Number(id) ก่อนนำไปเทียบ เพื่อบังคับให้เป็นตัวเลขจริง",
+        "ขอให้ API ส่ง id เป็น string เพราะ Number แม่นยำเฉพาะถึง 2^53 − 1"
+      ],
+      "answer": 3,
+      "explain": "JSON.parse แปลงตัวเลขเป็น Number (double) ซึ่งเก็บจำนวนเต็มได้แม่นยำถึง 2^53 − 1 เท่านั้น ค่าที่เกินจึงถูกปัดไปแล้วตั้งแต่ตอน parse การแปลงเป็น BigInt หรือ parseFloat หลังจากนั้นกู้ค่าเดิมกลับมาไม่ได้ จึงต้องให้ต้นทางส่งเป็น string"
     }
   ],
-  "exercise": {
-    "title": "นับคำที่พบบ่อยที่สุด",
-    "level": "ง่าย",
-    "tags": "function · Map · sort",
-    "lang": "javascript",
-    "prompt": "เขียนฟังก์ชัน topWords(text, n) ที่คืน array ของคำที่พบบ่อยที่สุด n คำพร้อมจำนวน เรียงจากมากไปน้อย ไม่สนตัวพิมพ์เล็กหรือใหญ่ ถ้าจำนวนเท่ากันให้เรียงตามตัวอักษรเพื่อให้ผลแน่นอนทุกครั้ง ไม่นับคำว่างที่เกิดจากช่องว่างซ้ำ และต้องเป็น pure function (ไม่ใช้หรือแก้ตัวแปรนอกฟังก์ชัน ไม่ console.log)",
-    "context": "topWords('a b A c b a', 2)\n// → [['a', 3], ['b', 2]]\n\ntopWords('  b a  c a b ', 3)\n// → [['a', 2], ['b', 2], ['c', 1]]",
-    "starter": "function topWords(text, n) {\n  // เขียนโค้ดที่นี่\n}\n",
-    "solution": "function topWords(text, n) {\n  const counts = new Map();\n  for (const w of text.toLowerCase().split(/\\s+/)) {\n    if (!w) continue;\n    counts.set(w, (counts.get(w) || 0) + 1);\n  }\n  return [...counts.entries()]\n    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))\n    .slice(0, n);\n}",
-    "hints": [
-      "แบ่งงานเป็นสามขั้น: แยกคำ → นับ → เรียงแล้วตัด",
-      "แปลงเป็นตัวพิมพ์เล็กแล้ว split ด้วย /\\s+/ ข้ามคำว่าง และใช้ Map เก็บคู่ คำ → จำนวน",
-      "ใช้ [...map.entries()] แล้ว sort ด้วย b[1] - a[1] || a[0].localeCompare(b[0]) และ slice(0, n)"
-    ],
-    "checks": [
-      {
-        "label": "แปลงเป็นตัวพิมพ์เล็ก (toLowerCase)",
-        "pattern": "tolowercase\\(\\)"
-      },
-      {
-        "label": "แยกคำด้วย split",
-        "pattern": "\\.split\\("
-      },
-      {
-        "label": "นับด้วย Map, object หรือ reduce",
-        "pattern": "new map|=\\s*\\{\\s*\\}|object\\.create\\(null\\)|reduce\\("
-      },
-      {
-        "label": "เรียงผลด้วย sort",
-        "pattern": "\\.sort\\(|\\.tosorted\\("
-      },
-      {
-        "label": "จำนวนเท่ากันเรียงตามตัวอักษร",
-        "pattern": "localecompare\\(|\\[0\\]\\s*[<>]"
-      },
-      {
-        "label": "ตัดเหลือ n คำ",
-        "pattern": "\\.slice\\(\\s*0\\s*,\\s*n\\s*\\)"
-      },
-      {
-        "label": "ไม่ console.log แทนการ return",
-        "pattern": "console\\.log",
-        "negate": true
-      }
-    ]
-  }
+  "exercises": [
+    {
+      "title": "นับคำที่พบบ่อยที่สุด",
+      "level": "ง่าย",
+      "tags": "function · Map · sort",
+      "lang": "javascript",
+      "prompt": "เขียนฟังก์ชัน topWords(text, n) ที่คืน array ของคำที่พบบ่อยที่สุด n คำพร้อมจำนวน เรียงจากมากไปน้อย ไม่สนตัวพิมพ์เล็กหรือใหญ่ ถ้าจำนวนเท่ากันให้เรียงตามตัวอักษรเพื่อให้ผลแน่นอนทุกครั้ง ไม่นับคำว่างที่เกิดจากช่องว่างซ้ำ และต้องเป็น pure function (ไม่ใช้หรือแก้ตัวแปรนอกฟังก์ชัน ไม่ console.log)",
+      "context": "topWords('a b A c b a', 2)\n// → [['a', 3], ['b', 2]]\n\ntopWords('  b a  c a b ', 3)\n// → [['a', 2], ['b', 2], ['c', 1]]",
+      "starter": "function topWords(text, n) {\n  // เขียนโค้ดที่นี่\n}\n",
+      "solution": "function topWords(text, n) {\n  const counts = new Map();\n  for (const w of text.toLowerCase().split(/\\s+/)) {\n    if (!w) continue;\n    counts.set(w, (counts.get(w) || 0) + 1);\n  }\n  return [...counts.entries()]\n    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))\n    .slice(0, n);\n}",
+      "hints": [
+        "แบ่งงานเป็นสามขั้น: แยกคำ → นับ → เรียงแล้วตัด",
+        "แปลงเป็นตัวพิมพ์เล็กแล้ว split ด้วย /\\s+/ ข้ามคำว่าง และใช้ Map เก็บคู่ คำ → จำนวน",
+        "ใช้ [...map.entries()] แล้ว sort ด้วย b[1] - a[1] || a[0].localeCompare(b[0]) และ slice(0, n)"
+      ],
+      "checks": [
+        {
+          "label": "แปลงเป็นตัวพิมพ์เล็ก (toLowerCase)",
+          "pattern": "tolowercase\\(\\)"
+        },
+        {
+          "label": "แยกคำด้วย split",
+          "pattern": "\\.split\\("
+        },
+        {
+          "label": "นับด้วย Map, object หรือ reduce",
+          "pattern": "new map|=\\s*\\{\\s*\\}|object\\.create\\(null\\)|reduce\\("
+        },
+        {
+          "label": "เรียงผลด้วย sort",
+          "pattern": "\\.sort\\(|\\.tosorted\\("
+        },
+        {
+          "label": "จำนวนเท่ากันเรียงตามตัวอักษร",
+          "pattern": "localecompare\\(|\\[0\\]\\s*[<>]"
+        },
+        {
+          "label": "ตัดเหลือ n คำ",
+          "pattern": "\\.slice\\(\\s*0\\s*,\\s*n\\s*\\)"
+        },
+        {
+          "label": "ไม่ console.log แทนการ return",
+          "pattern": "console\\.log",
+          "negate": true
+        }
+      ]
+    },
+    {
+      "title": "retry พร้อม exponential backoff",
+      "level": "กลาง",
+      "tags": "async/await · try/catch · loop",
+      "lang": "javascript",
+      "prompt": "เขียนฟังก์ชัน async retry(fn, attempts, delayMs) ที่เรียก fn(i) (i คือรอบที่ลอง เริ่มที่ 0) ถ้าสำเร็จให้คืนผลทันที ถ้าล้มเหลวให้รอแล้วลองใหม่ โดยเวลารอเพิ่มเป็นสองเท่าทุกรอบ (delayMs, 2*delayMs, 4*delayMs, …) ลองสูงสุด attempts รอบ ไม่ต้องรอหลังรอบสุดท้าย และถ้าล้มเหลวครบทุกรอบให้ throw error ของรอบสุดท้ายต่อไปให้ผู้เรียก ห้ามกลืน error",
+      "context": "let n = 0;\nconst flaky = async () => {\n  if (++n < 3) throw new Error('timeout ' + n);\n  return 'ok';\n};\n\nawait retry(flaky, 5, 100); // 'ok' (รอ 100 ms แล้ว 200 ms)\n\nawait retry(async () => { throw new Error('down'); }, 3, 100);\n// throw Error('down') หลังลองครบ 3 รอบ",
+      "starter": "// เรียก fn(i) สูงสุด attempts รอบ รอก่อนลองใหม่ด้วย backoff แบบเท่าตัว\n// และ throw error ของรอบสุดท้ายเมื่อหมดโอกาส\nasync function retry(fn, attempts, delayMs) {\n  // เขียนโค้ดที่นี่\n}\n",
+      "solution": "async function retry(fn, attempts, delayMs) {\n  let lastError;\n  for (let i = 0; i < attempts; i++) {\n    try {\n      return await fn(i);\n    } catch (err) {\n      lastError = err;\n      if (i < attempts - 1) {\n        await new Promise((resolve) => setTimeout(resolve, delayMs * 2 ** i));\n      }\n    }\n  }\n  throw lastError;\n}\n",
+      "hints": [
+        "แบ่งเป็นสามส่วน: loop ตามจำนวนรอบ, try/catch รอบละหนึ่งครั้ง, รอก่อนลองใหม่ รอบสุดท้ายไม่ต้องรอ",
+        "ต้อง await fn(...) ภายใน try (ถ้าเขียนแค่ return fn() error จะหลุด catch) เก็บ error ล่าสุดไว้ในตัวแปรนอก loop และรอด้วย new Promise((resolve) => setTimeout(resolve, ms))",
+        "เวลารอรอบที่ i คือ delayMs * 2 ** i ทำเฉพาะเมื่อ i < attempts - 1 และหลัง loop จบให้ throw ตัวแปรที่เก็บ error ล่าสุด"
+      ],
+      "checks": [
+        {
+          "label": "ทำซ้ำตามจำนวนรอบที่ลอง (loop หรือเรียก retry ซ้ำ)",
+          "pattern": "(for|while)\\s*\\(|return\\s+(await\\s+)?retry\\s*\\("
+        },
+        {
+          "label": "await fn ภายใน try เพื่อให้ error ถูก catch",
+          "pattern": "try\\s*\\{[^}]*await\\s+fn\\s*\\("
+        },
+        {
+          "label": "มี catch จับ error ของแต่ละรอบ",
+          "pattern": "catch\\s*(\\(|\\{)"
+        },
+        {
+          "label": "รอก่อนลองใหม่ด้วย setTimeout",
+          "pattern": "settimeout\\s*\\("
+        },
+        {
+          "label": "เวลารอเพิ่มเป็นเท่าตัว (backoff)",
+          "pattern": "\\*\\*|math\\.pow|<<|\\*=\\s*2|\\*\\s*2\\b|\\bdelayms\\s*\\*|\\*\\s*delayms"
+        },
+        {
+          "label": "throw error ที่เก็บไว้ ไม่ใช่สร้างใหม่",
+          "pattern": "throw\\s+(?!new\\b)\\w+"
+        },
+        {
+          "label": "ไม่ปล่อย catch ว่าง",
+          "pattern": "catch\\s*(\\([^)]*\\))?\\s*\\{\\s*\\}",
+          "negate": true
+        }
+      ]
+    },
+    {
+      "title": "LRU cache ด้วย Map",
+      "level": "ยาก",
+      "tags": "class · Map · data structure",
+      "lang": "javascript",
+      "prompt": "เขียน class LRUCache(capacity) สำหรับ cache ผลการค้นหาที่จำกัดจำนวนรายการ มีสองเมธอด get(key) คืนค่าหรือ undefined ถ้าไม่มี และนับว่าเพิ่งถูกใช้ล่าสุด กับ set(key, value) เพิ่มหรืออัปเดตค่าและนับว่าเพิ่งถูกใช้ล่าสุดเช่นกัน ถ้ารายการเกิน capacity ให้ลบรายการที่ไม่ได้ใช้นานที่สุดออก ให้ใช้ Map ที่จำลำดับการใส่ได้ ไม่ใช้ array กับ indexOf หรือ shift เพราะช้า",
+      "context": "const c = new LRUCache(2);\nc.set('a', 1);\nc.set('b', 2);\nc.get('a');      // 1  (a เพิ่งถูกใช้ ตอนนี้ b เก่าสุด)\nc.set('c', 3);   // เกิน capacity -> ลบ b\nc.get('b');      // undefined\nc.get('a');      // 1\nc.get('c');      // 3",
+      "starter": "class LRUCache {\n  constructor(capacity) {\n    this.capacity = capacity;\n    // เตรียมที่เก็บข้อมูลที่นี่\n  }\n\n  get(key) {\n    // คืนค่า และนับว่าเพิ่งถูกใช้\n  }\n\n  set(key, value) {\n    // เพิ่มหรืออัปเดต และลบรายการเก่าสุดถ้าเกิน capacity\n  }\n}\n",
+      "solution": "class LRUCache {\n  constructor(capacity) {\n    this.capacity = capacity;\n    this.map = new Map();\n  }\n\n  get(key) {\n    if (!this.map.has(key)) return undefined;\n    const value = this.map.get(key);\n    this.map.delete(key);\n    this.map.set(key, value);\n    return value;\n  }\n\n  set(key, value) {\n    if (this.map.has(key)) this.map.delete(key);\n    this.map.set(key, value);\n    if (this.map.size > this.capacity) {\n      const oldest = this.map.keys().next().value;\n      this.map.delete(oldest);\n    }\n  }\n}\n",
+      "hints": [
+        "Map วนตามลำดับที่ใส่ ดังนั้นรายการแรกสุดของ Map คือรายการที่ไม่ได้ใช้นานที่สุด ถ้าทำให้ตัวที่เพิ่งใช้ไปอยู่ท้ายเสมอ",
+        "ทำให้ key ไปอยู่ท้าย Map โดย delete แล้ว set ใหม่ ทั้งใน get (เมื่อมี key) และใน set (เมื่อ key มีอยู่แล้ว)",
+        "หลัง set ถ้า this.map.size > this.capacity ให้หา key แรกด้วย this.map.keys().next().value แล้ว delete"
+      ],
+      "checks": [
+        {
+          "label": "ประกาศ class LRUCache",
+          "pattern": "class\\s+lrucache"
+        },
+        {
+          "label": "เก็บข้อมูลใน Map",
+          "pattern": "new\\s+map\\s*\\("
+        },
+        {
+          "label": "ย้ายรายการไปท้ายสุดด้วยการ delete แล้ว set ใหม่",
+          "pattern": "\\.delete\\s*\\("
+        },
+        {
+          "label": "get คืน undefined เมื่อไม่มี key",
+          "pattern": "\\.has\\s*\\(|undefined"
+        },
+        {
+          "label": "เทียบจำนวนรายการกับ capacity",
+          "pattern": "\\.size[^;\\n]*capacity|capacity[^;\\n]*\\.size"
+        },
+        {
+          "label": "หา key เก่าสุดจากลำดับของ Map",
+          "pattern": "\\.(keys|entries|values)\\s*\\(\\)|\\[\\s*\\.\\.\\.|for\\s*\\(.+\\s+of\\s+this\\."
+        },
+        {
+          "label": "ไม่ใช้ indexOf, shift หรือ splice (O(n))",
+          "pattern": "indexof\\s*\\(|\\.shift\\s*\\(|\\.splice\\s*\\(",
+          "negate": true
+        }
+      ]
+    }
+  ],
+  "refs": [
+    {
+      "title": "MDN: Functions (JavaScript Guide)",
+      "url": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Functions",
+      "note": "scope, closure, recursion และการประกาศฟังก์ชันแบบต่าง ๆ"
+    },
+    {
+      "title": "MDN: Classes",
+      "url": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Classes",
+      "note": "class, this ใน method และพฤติกรรมเมื่อดึง method ออกมา"
+    },
+    {
+      "title": "MDN: Error cause",
+      "url": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Error/cause",
+      "note": "ห่อ error เดิมไว้เมื่อ throw ต่อ"
+    },
+    {
+      "title": "MDN: Using microtasks in JavaScript with queueMicrotask()",
+      "url": "https://developer.mozilla.org/en-US/docs/Web/API/HTML_DOM_API/Microtask_guide",
+      "note": "microtask กับลำดับการทำงานของ event loop"
+    },
+    {
+      "title": "MDN: Keyed collections (Map และ Set)",
+      "url": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Keyed_collections",
+      "note": "ข้อมูลแบบ key-value ที่คงลำดับการใส่"
+    },
+    {
+      "title": "MDN: Intl.Segmenter",
+      "url": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Intl/Segmenter",
+      "note": "แบ่งข้อความเป็น grapheme, คำ หรือประโยคตามภาษา"
+    },
+    {
+      "title": "Node.js: Don't Block the Event Loop",
+      "url": "https://nodejs.org/en/learn/asynchronous-work/dont-block-the-event-loop",
+      "note": "งานที่บล็อก event loop, ReDoS และการย้ายงานหนักออกไป"
+    }
+  ]
 }

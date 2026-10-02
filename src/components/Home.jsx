@@ -73,7 +73,7 @@ function TopicCard({ t }) {
         </ul>
       </div>
       <div className="muted small">
-        {t.mustKnow.length} เรื่องให้อ่าน · {t.questions.length} คำถาม · {t.exercise ? '1 แบบฝึกหัด' : 'ไม่มีแบบฝึกหัด'}
+        {t.mustKnow.length} เรื่องให้อ่าน · {t.questions.length} คำถาม · {t.exercises.length ? t.exercises.length + ' แบบฝึกหัด' : 'ไม่มีแบบฝึกหัด'}
       </div>
       <div className="row-8">
         <a className="btn btn-dark grow" href={'#/topic/' + t.id}>อ่าน</a>

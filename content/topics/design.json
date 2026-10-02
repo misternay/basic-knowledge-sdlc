@@ -69,6 +69,93 @@
       "tier": "advanced",
       "title": "Modular monolith กับ microservices",
       "body": "Modular monolith คือ deploy เป็นชิ้นเดียว แต่ภายในแบ่งโมดูลตาม domain ชัดเจน แต่ละโมดูลคุยผ่าน interface สาธารณะและไม่แตะตารางของกันและกัน Microservices ได้การ deploy และ scale แยกกันและให้แต่ละทีมเป็นอิสระ แต่แลกกับ network ที่ล้มเหลวได้, data consistency ข้าม service, การ trace ข้ามระบบ และงาน ops ที่มากขึ้น ทีมเล็กหรือ domain ที่ยังไม่นิ่งมักเริ่มจาก modular monolith แล้วค่อยแยก service เมื่อมีเหตุผลจริง ถ้าแยก service แต่ยังใช้ database ร่วมกันและต้อง deploy พร้อมกัน จะได้ distributed monolith ที่แย่กว่าเดิม"
+    },
+    {
+      "tier": "must",
+      "title": "DRY: ซ้ำที่ความรู้ ไม่ใช่ซ้ำที่หน้าตาโค้ด",
+      "body": "DRY จาก The Pragmatic Programmer คือ “ทุกชิ้นของความรู้ต้องมีตัวแทนเดียวที่ชัดเจนและเป็นทางการในระบบ” ถ้ากฎเดียวกัน เช่น ยอดขั้นต่ำที่ส่งฟรี ถูกเขียนไว้ห้าที่ การแก้ที่เดียวไม่พอและเกิด bug แบบกฎไม่ตรงกัน แต่โค้ดสองก้อนที่หน้าตาเหมือนกันโดยบังเอิญ ทั้งที่เป็นความรู้คนละเรื่อง ไม่ควรรีบรวม เพราะวันที่กฎหนึ่งเปลี่ยนจะต้องเติม flag และ if ในฟังก์ชันร่วม ซึ่ง Sandi Metz เรียกว่า wrong abstraction และเขียนว่า duplication is far cheaper than the wrong abstraction (บทความของเธออยู่ในรายการอ้างอิงด้านล่าง)",
+      "code": "// ซ้ำจริง: กฎเดียวกันอยู่หลายที่ ต้องมีที่เดียว\nconst FREE_SHIPPING_MIN = 1000;\nconst shippingFee = (total) => (total >= FREE_SHIPPING_MIN ? 0 : 50);\n\n// ซ้ำแต่คนละความรู้: อย่ารีบรวม\nconst isValidUsername = (s) => s.length >= 3 && s.length <= 20; // กฎของผลิตภัณฑ์\nconst isValidSku = (s) => s.length >= 3 && s.length <= 20;      // กฎของระบบคลัง",
+      "exam": true,
+      "ref": "https://pragprog.com/tips/"
+    },
+    {
+      "tier": "must",
+      "title": "Tell, Don’t Ask: ให้ object ทำเอง อย่าดึงข้อมูลออกมาคิด",
+      "body": "Tell-Don’t-Ask เป็นหลักที่ Fowler ระบุว่ามักเชื่อมโยงกับ Andy Hunt และ Dave Thomas (The Pragmatic Programmers) เพื่อเตือนว่า object-oriented คือการรวมข้อมูลไว้กับฟังก์ชันที่ใช้ข้อมูลนั้น ถ้าโค้ดภายนอกดึงข้อมูลมาคำนวณแล้วตัดสินใจเอง กฎธุรกิจจะกระจายไปหลายที่และซ้ำกันได้ง่าย ควรบอกให้ object ทำงานนั้นแทน แต่ Martin Fowler ย้ำว่าไม่ต้องกำจัด getter ทุกตัว เพราะบางครั้ง object ร่วมมือกันด้วยการให้ข้อมูลก็เหมาะสม และบางครั้งเรื่อง layering สำคัญกว่าการรวมข้อมูลกับพฤติกรรม",
+      "code": "// ถามแล้วคิดเองข้างนอก: กฎส่งฟรีกระจายไปทุกที่ที่ใช้\nlet total = 0;\nfor (const l of order.getLines()) total += l.price * l.qty;\nconst fee = total >= 1000 ? 0 : 50;\n\n// บอกให้ object ทำ: กฎอยู่ใน Order ที่เดียว\nconst fee2 = order.shippingFee();",
+      "ref": "https://martinfowler.com/bliki/TellDontAsk.html"
+    },
+    {
+      "tier": "must",
+      "title": "Liskov Substitution: subclass ต้องรักษาสัญญาของ class แม่",
+      "body": "Barbara Liskov และ Jeannette Wing นิยาม subtype ด้วยพฤติกรรม คือสิ่งที่พิสูจน์ได้กับ supertype ต้องยังเป็นจริงกับ subtype ในทางปฏิบัติ method ที่ถูก override ต้องรับ input ได้ไม่แคบกว่าเดิม (precondition ไม่เข้มขึ้น) และรับประกันผลไม่ด้อยกว่าเดิม (postcondition ไม่อ่อนลง) ตัวอย่างคลาสสิกคือ Square extends Rectangle ที่ setWidth เปลี่ยน height ด้วย โค้ดที่ตั้ง width และ height แยกกันแล้วคาดว่า area เท่ากับผลคูณจึงพัง ทางแก้คือไม่ใช้ is-a ทางโค้ดที่ผิดสัญญา เช่น แยก interface หรือใช้ composition",
+      "code": "class Rectangle {\n  setWidth(w) { this.w = w; }\n  setHeight(h) { this.h = h; }\n  area() { return this.w * this.h; }\n}\nclass Square extends Rectangle {\n  setWidth(w) { this.w = this.h = w; }  // ผิดสัญญา: ผู้เรียกไม่คาดว่า h เปลี่ยน\n  setHeight(h) { this.w = this.h = h; }\n}\n// ตั้ง 5 × 4: Rectangle ได้ 20, Square ได้ 16",
+      "exam": true,
+      "ref": "https://www.cs.cmu.edu/~wing/publications/LiskovWing94.pdf"
+    },
+    {
+      "tier": "must",
+      "title": "แก้ API โดยไม่ทำ client เก่าพัง (backward compatibility)",
+      "body": "ในเวอร์ชันเดียวกัน การเพิ่มของใหม่ เช่น endpoint, field หรือ enum value ที่ใช้เฉพาะ request มักเข้ากันได้ย้อนหลัง แต่การลบหรือเปลี่ยนชื่อ field (ซึ่งเท่ากับลบแล้วเพิ่ม), เปลี่ยนชนิดข้อมูลแม้ wire format เข้ากันได้, เปลี่ยนค่า default หรือเพิ่ม field ที่บังคับกรอกใน request เดิม ถือเป็น breaking change ตามแนวปฏิบัติ AIP-180 ของ Google API ซึ่งสำคัญเพราะ client เก่า เช่น แอปมือถือที่ผู้ใช้ยังไม่อัปเดต จะยังเรียกอยู่ ถ้าจำเป็นต้องแตกหักจริง AIP-185 (เรื่อง versioning ในรายการอ้างอิง) ให้ออก major version ใหม่ เช่น /v2 โดยเวอร์ชันต่างกันต้องทำงานพร้อมกันได้ช่วงเปลี่ยนผ่าน และเวอร์ชันเก่าต้องมีช่วง deprecation ที่ประกาศชัดก่อนปิด",
+      "code": "// v1 ตอบ { \"id\": 7, \"phone\": \"0812345678\" }\n// เข้ากันได้:  เพิ่ม \"nickname\" (client เก่าเมินได้)\n// breaking:    เปลี่ยน \"phone\" เป็น \"phone_number\"\n// breaking:    เปลี่ยน \"id\" จากตัวเลขเป็น string",
+      "exam": true,
+      "ref": "https://google.aip.dev/180"
+    },
+    {
+      "tier": "must",
+      "title": "ETag และ If-Match: กัน lost update ใน PUT/PATCH",
+      "body": "เมื่อผู้ใช้สองคนอ่าน resource เดียวกันแล้วแก้ ใครบันทึกทีหลังจะเขียนทับงานของคนแรกโดยไม่รู้ตัว (lost update) HTTP แก้ได้ด้วยการให้ server ส่ง ETag มากับ GET แล้ว client แนบค่านั้นใน header If-Match ตอน PUT, PATCH หรือ DELETE ถ้า representation ปัจจุบันไม่ตรงกับ ETag ที่ส่งมา server จะไม่ทำงานและโดยทั่วไปตอบ 412 Precondition Failed ให้ client โหลดใหม่แล้วตัดสินใจ (RFC 9110 เปิดช่องให้ตอบ 2xx แทนได้ ถ้าการเปลี่ยนแปลงนั้นถูกนำไปใช้กับ representation ปัจจุบันแล้ว) RFC 9110 กำหนดให้ If-Match เทียบ ETag แบบ strong ดังนั้น ETag แบบ weak (ขึ้นต้นด้วย W/) ใช้ไม่ได้",
+      "code": "GET /products/9\n→ 200 OK\n   ETag: \"v7\"\n\nPUT /products/9\nIf-Match: \"v7\"\n→ 412 Precondition Failed   (มีคนแก้จน ETag เป็น \"v8\" ไปแล้ว)",
+      "ref": "https://www.rfc-editor.org/rfc/rfc9110.html#name-if-match"
+    },
+    {
+      "tier": "should",
+      "title": "Pagination: offset กับ cursor (page token)",
+      "body": "Offset (page=3 หรือ LIMIT/OFFSET) เขียนง่ายและกระโดดไปหน้าใดก็ได้ แต่ถ้ามีแถวเพิ่มหรือลบระหว่างที่ client เลื่อนอ่าน ตำแหน่งจะเลื่อนจนเจอรายการซ้ำหรือตกหล่น และ offset ที่ใหญ่มักช้าเพราะฐานข้อมูลต้องคำนวณแถวที่ข้ามไปก่อน (เอกสาร PostgreSQL บอกว่า large OFFSET might be inefficient) Cursor ชี้ว่า “ต่อจากรายการนี้” จึงนิ่งกว่า แนวปฏิบัติของ Google (AIP-158) ให้ token เป็นค่า opaque ที่ client ส่งกลับโดยไม่ตีความ การ base64 ข้อมูลที่อ่านออกไม่ถือว่าซ่อนเพียงพอ และต้องใส่ pagination ตั้งแต่แรก เพราะเพิ่มทีหลังทำให้ client เดิมพัง",
+      "code": "GET /orders?page_size=2\n→ { \"items\": [ … ], \"next_page_token\": \"opaque-abc\" }\n\nGET /orders?page_size=2&page_token=opaque-abc\n→ { \"items\": [ … ] }   // ไม่มี next_page_token = หมดแล้ว",
+      "exam": true,
+      "ref": "https://google.aip.dev/158"
+    },
+    {
+      "tier": "should",
+      "title": "Decorator: เพิ่มพฤติกรรมด้วยการห่อ ไม่ใช่สืบทอด",
+      "body": "Decorator คือ object ที่ห่อ object เป้าหมายและมี interface เดียวกัน จึงเติมพฤติกรรมก่อนหรือหลังส่งต่อได้ และซ้อนหลายชั้นเพื่อประกอบพฤติกรรมตอน runtime โดยไม่ต้องสร้าง subclass ครบทุกชุดผสม ในงานจริงมักใช้กับเรื่องที่คร่อมหลายที่ เช่น logging, cache, retry ข้อควรระวังคือพฤติกรรมอาจขึ้นกับลำดับการห่อ และ client ต้องเป็นฝ่ายประกอบ decorator เอง",
+      "code": "const withLogging = (repo) => ({\n  async findById(id) { console.log('findById', id); return repo.findById(id); },\n});\nconst withCache = (repo, cache = new Map()) => ({\n  async findById(id) {\n    if (!cache.has(id)) cache.set(id, await repo.findById(id));\n    return cache.get(id);\n  },\n});\n// log ทุกคำเรียก แม้ cache hit เพราะ logging อยู่ชั้นนอกสุด\nconst repo = withLogging(withCache(new PgUserRepo(db)));",
+      "exam": true,
+      "ref": "https://refactoring.guru/design-patterns/decorator"
+    },
+    {
+      "tier": "should",
+      "title": "Value Object: เทียบด้วยค่า และไม่เปลี่ยนค่าหลังสร้าง",
+      "body": "Value object คือ object ที่ถือว่าเท่ากันเมื่อค่าใน property เท่ากัน ไม่ใช่เมื่อเป็น instance เดียวกัน เช่น Money (จำนวนเงินคู่กับสกุลเงิน), พิกัด หรือช่วงวันที่ Fowler แนะนำให้ value object เป็น immutable เพื่อกัน aliasing bug คือ object ที่ถูกแชร์หลายที่ถูกแก้ที่หนึ่งแล้วอีกที่เปลี่ยนตาม การห่อค่าไว้ใน value object ยังช่วยให้กฎตรวจสอบ (เช่น รูปแบบอีเมล) อยู่ที่เดียว แทนที่จะส่ง string ดิบไปทั่วระบบ",
+      "code": "class Email {\n  constructor(raw) {\n    const v = String(raw).trim().toLowerCase();\n    if (!v.includes('@')) throw new Error('invalid email');\n    this.value = v;\n    Object.freeze(this);\n  }\n  equals(other) { return other instanceof Email && other.value === this.value; }\n}\nnew Email(' A@x.com ').equals(new Email('a@x.com')); // true",
+      "ref": "https://martinfowler.com/bliki/ValueObject.html"
+    },
+    {
+      "tier": "should",
+      "title": "Retry และ Circuit Breaker: รับมือบริการที่ล้มเหลวชั่วคราว",
+      "body": "Retry เหมาะกับความล้มเหลวชั่วคราว (transient fault) เช่น network สะดุดหรือบริการยุ่งชั่วขณะ ควรหน่วงระหว่างครั้งโดยเพิ่มระยะห่าง และเติม jitter (การสุ่มเวลาเล็กน้อย) ไม่ให้ทุก instance ยิงพร้อมกัน เพราะ retry ที่ก้าวร้าวอาจทำให้บริการที่ใกล้เต็มกำลังแย่ลง operation ที่ idempotent retry ได้อย่างปลอดภัย ส่วนที่ไม่ idempotent อาจถูกทำซ้ำจนเกิดผลข้างเคียง Circuit breaker เป็น state machine ที่ปิดการเรียกเมื่อล้มเหลวเกินเกณฑ์ (Closed → Open) คำขอถูกปฏิเสธทันทีจนหมด timeout แล้วเข้า Half-Open ปล่อยคำขอทดลองจำนวนจำกัด ผ่านจึงกลับ Closed ล้มก็กลับ Open",
+      "code": "Closed ──(ล้มเหลวเกินเกณฑ์)──▶ Open ──(หมด timeout)──▶ Half-Open\nHalf-Open ──(คำขอทดลองผ่าน)──▶ Closed\nHalf-Open ──(คำขอทดลองล้ม)──▶ Open",
+      "ref": "https://learn.microsoft.com/en-us/azure/architecture/patterns/circuit-breaker"
+    },
+    {
+      "tier": "advanced",
+      "title": "Saga: ธุรกรรมข้าม service ด้วย compensating transaction",
+      "body": "เมื่อแต่ละ service มี database ของตัวเอง จะใช้ ACID transaction ก้อนเดียวคลุมหลาย service ไม่ได้ Saga จึงแบ่งงานเป็นลำดับของ local transaction ที่แต่ละขั้นอัปเดต database ตัวเองแล้วประกาศ event หรือ message เพื่อกระตุ้นขั้นต่อไป ถ้าขั้นใดล้มเหลวจะรัน compensating transaction ที่ย้อนผลของขั้นก่อนหน้า เช่น ปล่อยสต็อกและยกเลิกออเดอร์ ประสานงานได้แบบ choreography (ต่างฝ่ายฟัง event ของกันและกัน) หรือ orchestration (ตัวกลางสั่งแต่ละขั้น) ข้อแลกเปลี่ยนคือไม่มี rollback อัตโนมัติ ต้องออกแบบ compensation เอง และขาด isolation จึงอาจเห็นข้อมูลระหว่างทาง",
+      "ref": "https://microservices.io/patterns/data/saga.html"
+    },
+    {
+      "tier": "advanced",
+      "title": "Transactional outbox: ส่ง event โดยไม่เสี่ยงหายหรือไม่ตรงกับ DB",
+      "body": "ถ้าบริการบันทึก database แล้วค่อยส่ง message เข้า broker เป็นสองขั้นตอนแยก โปรเซสอาจล่มระหว่างทางจนข้อมูลกับ event ไม่ตรงกัน (dual write) Transactional outbox แก้ด้วยการเขียน message ลงตาราง outbox ใน transaction เดียวกับการอัปเดตข้อมูลธุรกิจ แล้วให้ message relay แยกอ่านตารางนั้นไปส่ง broker (แบบ polling หรือ tail transaction log) relay อาจส่งซ้ำได้ ฝั่งรับจึงต้อง idempotent เช่นเก็บ message id ที่ประมวลผลแล้ว",
+      "code": "// db.tx = helper สมมติสำหรับเปิด transaction\nawait db.tx(async (tx) => {\n  await tx.query('INSERT INTO orders (id, total) VALUES ($1, $2)', [id, total]);\n  await tx.query(\n    \"INSERT INTO outbox (id, type, payload) VALUES ($1, 'OrderCreated', $2)\",\n    [msgId, JSON.stringify({ id, total })]);\n}); // สำเร็จหรือล้มพร้อมกัน แล้ว relay ค่อยส่งไป broker",
+      "ref": "https://microservices.io/patterns/data/transactional-outbox.html"
+    },
+    {
+      "tier": "advanced",
+      "title": "CQRS: แยกโมเดลอ่านกับเขียน และไม่ใช่ค่าเริ่มต้น",
+      "body": "CQRS คือการใช้โมเดลหนึ่งสำหรับอัปเดตข้อมูลและอีกโมเดลสำหรับอ่านข้อมูล ซึ่งช่วยเมื่อภาระอ่านกับเขียนต่างกันมากหรือโดเมนซับซ้อน มักใช้คู่กับ event sourcing (เก็บทุกการเปลี่ยนแปลงเป็นลำดับ event) และยอมรับ eventual consistency ระหว่างสองฝั่ง แต่ Fowler เตือนว่า “for most systems CQRS adds risky complexity” และแนะนำให้ใช้เฉพาะบางส่วนของระบบ (bounded context) ที่คุ้มจริง ไม่ใช่ทั้งระบบ ระบบที่อ่านและเขียนด้วยโมเดลเดียวกันได้สบายอยู่แล้วไม่ควรเริ่มที่นี่",
+      "ref": "https://martinfowler.com/bliki/CQRS.html"
     }
   ],
   "questions": [
@@ -183,52 +270,411 @@
       ],
       "answer": 2,
       "explain": "เมื่อขอบเขตยังไม่นิ่ง เส้นแบ่ง service มักผิด และการย้ายเส้นที่ข้าม network แพงกว่าย้ายข้ามโมดูลมาก modular monolith ได้ขอบเขตที่ชัดโดยยังไม่ต้องจ่ายต้นทุน distributed system ส่วน microservices ที่ใช้ database ร่วมกันจะกลายเป็น distributed monolith ที่ได้ข้อเสียของทั้งสองแบบ"
+    },
+    {
+      "prompt": "ในโค้ดสมัครสมาชิกมีสองฟังก์ชันนี้ ทีมมองว่าซ้ำกันและอยากรวมเป็น validateLength ตัวเดียวตามหลัก DRY กฎ username มาจากฝ่ายผลิตภัณฑ์ ส่วนรหัสสินค้ามาจากระบบคลังที่มีแผนจะเปลี่ยนความยาวเป็น 12 ตัวอักษร ควรตัดสินใจอย่างไร?",
+      "code": "const isValidUsername = (s) => s.length >= 3 && s.length <= 20;\nconst isValidSku      = (s) => s.length >= 3 && s.length <= 20;",
+      "options": [
+        "รวมทันที เพราะ DRY ห้ามมีโค้ดหน้าตาเหมือนกันสองที่ไม่ว่ากรณีใด และโค้ดซ้ำคือหนี้เทคนิคเสมอ",
+        "รวมแล้วเพิ่มพารามิเตอร์ type ให้ฟังก์ชันเลือกกฎตามชนิด เผื่อกฎเปลี่ยนในอนาคต",
+        "คงแยกไว้ เพราะเป็นกฎคนละเรื่องที่บังเอิญหน้าตาเหมือนกัน",
+        "ย้ายทั้งสองฟังก์ชันไปไว้ใน utils.js เดียวกันเพื่อให้หาง่ายและแก้ได้ที่เดียว"
+      ],
+      "answer": 2,
+      "explain": "DRY ว่าด้วยความรู้หนึ่งชิ้นที่ต้องมีตัวแทนเดียว ไม่ได้ห้ามโค้ดที่หน้าตาเหมือนกัน สองกฎนี้มีเจ้าของและเหตุผลที่ต่างกัน การรวมแล้วต้องเติม flag ภายหลังคือ wrong abstraction ส่วนข้อที่เพิ่มพารามิเตอร์ type ก็ผูกสองเรื่องไว้ในฟังก์ชันเดียวกันอยู่ดี"
+    },
+    {
+      "prompt": "ฟังก์ชันนี้เคยถูกสร้างเพื่อรวมโค้ดซ้ำของสามหน้าจอ ตอนนี้ถูกเติมพารามิเตอร์มาเรื่อย ๆ และทุกการแก้ไขทำให้หน้าจอใดหน้าจอหนึ่งพัง ควรทำอย่างไร?",
+      "code": "function renderCard(item, { compact, showPrice, isAdmin, legacyLayout, forEmail }) {\n  if (forEmail && !legacyLayout) { /* ... */ }\n  else if (compact && isAdmin) { /* ... */ }\n  // ... อีกหลายสิบบรรทัด\n}",
+      "options": [
+        "แยกกลับเป็นโค้ดของแต่ละหน้าจอ แล้วค่อยดึงเฉพาะส่วนที่ซ้ำจริงออกมาใหม่",
+        "เพิ่มพารามิเตอร์อีกหนึ่งตัวสำหรับกรณีใหม่ เพราะ abstraction ที่ลงแรงไปแล้วไม่ควรทิ้ง",
+        "เขียน unit test ครอบทุกชุดพารามิเตอร์แล้วคงฟังก์ชันไว้เหมือนเดิม จะได้ไม่พังอีก",
+        "เปลี่ยนเป็น class ที่มีหลาย subclass โดยยังรับ flag ชุดเดิมไว้ใน constructor"
+      ],
+      "answer": 0,
+      "explain": "Sandi Metz เขียนว่า duplication is far cheaper than the wrong abstraction และทางออกคือถอยกลับไป inline แล้วสร้างใหม่ ข้อที่ว่าอย่าทิ้งเพราะลงแรงไปแล้วคือ sunk cost fallacy ที่บทความเดียวกันเตือนไว้ ส่วน test ช่วยกันพังแต่ไม่ได้ลดภาระที่ฟังก์ชันนี้แบกเกินตัว"
+    },
+    {
+      "prompt": "โค้ดสามที่ในระบบ (checkout, อีเมลใบเสร็จ, รายงาน) ดึงรายการสินค้าจาก order ไปรวมยอดเอง แล้วตัดสินใจเรื่องค่าส่งด้วยกฎเดียวกันซ้ำ ๆ เมื่อกฎเปลี่ยนต้องไล่แก้ทุกที่ ควรปรับตาม Tell, Don’t Ask อย่างไร?",
+      "code": "let total = 0;\nfor (const l of order.getLines()) total += l.price * l.qty;\nconst fee = total >= 1000 ? 0 : 50;",
+      "options": [
+        "ย้ายโค้ดชุดนี้ไปไว้ใน helpers.js เป็นฟังก์ชัน calcFee(order) แล้วให้ทั้งสามที่เรียกใช้",
+        "เปลี่ยน getLines() ให้เป็น property สาธารณะ จะได้ไม่ต้องผ่าน getter ที่ทำให้โค้ดยาว",
+        "ทำให้ Order เป็น immutable แล้วส่งสำเนา lines ให้โค้ดแต่ละที่คำนวณเองอย่างปลอดภัย",
+        "ให้ Order มีเมธอด total() และ shippingFee() แล้วให้ทุกที่เรียกเมธอดนั้น"
+      ],
+      "answer": 3,
+      "explain": "Tell, Don’t Ask เก็บข้อมูลไว้กับพฤติกรรมที่ใช้ข้อมูลนั้น กฎส่งฟรีจึงอยู่ใน Order ที่เดียว ข้อที่ย้ายไป helpers.js ลดโค้ดซ้ำได้ แต่ logic ยังอยู่นอก Order และโค้ดภายนอกยังต้องดึงข้อมูลออกมาถามอยู่ดี"
+    },
+    {
+      "prompt": "ทีมเขียน Square ให้สืบทอด Rectangle ฟังก์ชัน resize รับ Rectangle แล้วตั้ง width 5 และ height 4 คาดว่า area ได้ 20 แต่เมื่อส่ง Square เข้าไปได้ 16 ปัญหาคืออะไร?",
+      "code": "class Rectangle {\n  setWidth(w) { this.w = w; }\n  setHeight(h) { this.h = h; }\n  area() { return this.w * this.h; }\n}\nclass Square extends Rectangle {\n  setWidth(w) { this.w = this.h = w; }\n  setHeight(h) { this.w = this.h = h; }\n}\nfunction resize(r) { r.setWidth(5); r.setHeight(4); return r.area(); }",
+      "options": [
+        "resize เขียนผิด ควรเช็ก instanceof Square ก่อนเรียก setter เพื่อกันกรณีพิเศษ",
+        "Square แทน Rectangle ไม่ได้โดยผู้เรียกไม่พัง จึงละเมิด LSP ควรเลิกสืบทอดกัน",
+        "Square ควรเขียนทับ area() ให้คืน w * h ตามเดิม แล้วผลลัพธ์จะถูกต้อง",
+        "ปัญหาอยู่ที่ setter ซึ่งเป็นเรื่อง encapsulation มากกว่าเรื่องการสืบทอด"
+      ],
+      "answer": 1,
+      "explain": "Rectangle สัญญาว่า width กับ height ตั้งแยกกันได้ แต่ Square ทำให้ตั้งตัวหนึ่งแล้วอีกตัวเปลี่ยน ผู้เรียกที่พึ่งสัญญานั้นจึงพัง นี่คือสิ่งที่ LSP ห้าม การเช็ก instanceof แก้ที่ปลายทางและยืนยันว่า Square แทนที่ได้ไม่จริง ส่วน area() ในที่นี้ทำงานถูกอยู่แล้ว"
+    },
+    {
+      "prompt": "interface Storage มี read(), write() และ delete() คลาส ReadOnlyStorage implements Storage โดยให้ write กับ delete ทำ throw new Error(\"not supported\") โค้ดที่รับ Storage แล้วเรียก write() เจอ error ตอน runtime ควรแก้ที่ตรงจุดอย่างไร?",
+      "options": [
+        "ครอบ write() ด้วย try/catch ทุกจุดที่รับ Storage แล้วแสดงข้อความเตือนผู้ใช้",
+        "ให้ write กับ delete ใน ReadOnlyStorage คืนค่าว่างเงียบ ๆ แทนการ throw",
+        "เพิ่มเมธอด isReadOnly() ให้ทุกที่เช็กก่อนเรียก write() ทุกครั้ง",
+        "แยก interface เป็น Readable กับ Writable ให้โค้ดขอเฉพาะที่ต้องใช้"
+      ],
+      "answer": 3,
+      "explain": "ReadOnlyStorage ไม่ทำตามสัญญาของ Storage (LSP) และผู้ใช้ถูกบังคับให้พึ่งเมธอดที่ไม่ได้ใช้ (ISP) การแยก interface ทำให้ชนิดบอกความสามารถจริงตั้งแต่ตอน compile ข้อที่กลืน error ทำให้ข้อมูลไม่ถูกบันทึกแบบเงียบ ซึ่งแย่กว่า ส่วน isReadOnly() ยังบังคับให้ผู้เรียกทุกคนรู้ชนิดจริง"
+    },
+    {
+      "prompt": "API v1 ของแอปสั่งอาหารมีแอปมือถือเวอร์ชันเก่าที่ผู้ใช้จำนวนมากยังไม่อัปเดต ทีมจะปล่อยการเปลี่ยนแปลงหลายอย่างใน v1 เดิม ข้อใดมีความเสี่ยงทำให้แอปเก่าพังมากที่สุด?",
+      "options": [
+        "เปลี่ยนชื่อ field ใน response จาก phone เป็น phone_number",
+        "เพิ่ม field ใหม่ชื่อ nickname ใน response โดยคง field เดิมไว้",
+        "เพิ่ม endpoint ใหม่ GET /restaurants/{id}/reviews ไว้คู่กับของเดิม",
+        "เพิ่มค่า \"qr\" ให้ enum วิธีชำระเงินที่ใช้เฉพาะใน request"
+      ],
+      "answer": 0,
+      "explain": "การเปลี่ยนชื่อเท่ากับลบ field เดิมแล้วเพิ่มอันใหม่ ซึ่งเป็น breaking change ตาม AIP-180 แอปเก่าที่อ่าน phone จะได้ค่าว่าง ส่วนการเพิ่ม field, endpoint หรือ enum value ที่ใช้เฉพาะ request เป็นการเพิ่มของใหม่ที่ client เก่าไม่รู้จักและเมินได้"
+    },
+    {
+      "prompt": "ทีมต้องเปลี่ยนโครงสร้าง response ของ /v1/orders แบบไม่เข้ากับของเดิม (ราคาจากตัวเลขเป็น {amount, currency}) ขณะที่ client เก่ายังใช้งานอยู่ แนวทางใดสอดคล้องกับแนวปฏิบัติด้าน versioning มากที่สุด?",
+      "options": [
+        "แก้ /v1/orders ทันที แล้วแจ้งให้ client ทุกรายอัปเดตภายในสัปดาห์นี้เพราะเป็นเรื่องเร่งด่วน",
+        "เปลี่ยนรูปแบบใหม่เป็นค่าเริ่มต้นของ /v1 แล้วให้ client เก่าส่งพารามิเตอร์พิเศษเพื่อขอแบบเดิม",
+        "เพิ่ม field price_v2 ใน v1 แล้วลบ field price เดิมออกในการ deploy ครั้งเดียวกัน",
+        "เปิด /v2/orders ด้วยรูปแบบใหม่ คง /v1 ไว้ทำงานคู่กัน แล้วประกาศกำหนดปิดให้ชัดเจน"
+      ],
+      "answer": 3,
+      "explain": "AIP-185 กำหนดให้การเปลี่ยนที่ไม่เข้ากันต้องเป็น major version ใหม่ เวอร์ชันต่าง ๆ ต้องทำงานพร้อมกันได้ในช่วงเปลี่ยนผ่าน และเวอร์ชันเก่าต้องมีช่วง deprecation ที่ประกาศชัดก่อนปิด การเพิ่ม price_v2 เฉย ๆ ปลอดภัย แต่การลบ price ทันทีคือ breaking change"
+    },
+    {
+      "prompt": "ผู้ดูแลสองคนเปิดหน้าแก้สินค้า #9 พร้อมกัน คนแรกบันทึกชื่อใหม่ จากนั้นคนที่สองบันทึกราคาใหม่ ปรากฏว่าชื่อที่คนแรกแก้หายไป เพราะ PUT ของคนที่สองส่งทั้งก้อนทับ ควรแก้ที่ API อย่างไร?",
+      "options": [
+        "เปลี่ยนทุก PUT เป็น POST เพราะ POST ไม่เขียนทับข้อมูลเดิม",
+        "ให้ GET ส่ง ETag และให้ PUT แนบ If-Match ถ้า ETag ไม่ตรงให้ตอบ 412 แล้วให้ client โหลดใหม่",
+        "ตอบ 200 เสมอแล้วเก็บเฉพาะคำขอล่าสุด เพราะ last-write-wins เป็นพฤติกรรมมาตรฐานของ PUT ที่ต้องยอมรับ",
+        "ลด timeout ของ session ผู้ดูแลให้สั้นลง เพื่อลดโอกาสที่สองคนเปิดหน้าแก้ไขพร้อมกัน"
+      ],
+      "answer": 1,
+      "explain": "If-Match ถูกออกแบบมาป้องกัน lost update กับ method ที่เปลี่ยนสถานะ (RFC 9110) ถ้า representation เปลี่ยนไปแล้ว server ไม่ทำงานและตอบ 412 การเปลี่ยนเป็น POST ไม่แก้ปัญหา เพราะการเขียนทับยังเกิดได้เมื่อ logic ยังเป็นการแก้ข้อมูลทั้งก้อน"
+    },
+    {
+      "prompt": "แอปมือถือโหลดรายการหมวดหมู่ขนาด 300 KB ที่แทบไม่เปลี่ยน ทุกครั้งที่เปิดแอป server ส่ง ETag มากับ response อยู่แล้ว ควรให้ client ทำอย่างไรให้ประหยัด bandwidth โดยยังได้ข้อมูลล่าสุดเสมอ?",
+      "options": [
+        "ส่ง If-Match พร้อม ETag เดิม ถ้า server ตอบ 412 แปลว่าข้อมูลไม่เปลี่ยน",
+        "เก็บ response ไว้ตลอดและไม่ถาม server อีกจนกว่าผู้ใช้จะล้างข้อมูลแอปเอง",
+        "ส่ง GET พร้อม If-None-Match เป็น ETag เดิม ถ้าได้ 304 ก็ใช้ข้อมูลที่เก็บไว้",
+        "ส่ง HEAD ทุกครั้งแล้วเปรียบเทียบ body ที่ได้กับของเดิมว่าเหมือนกันหรือไม่"
+      ],
+      "answer": 2,
+      "explain": "304 Not Modified บอกว่าไม่ต้องส่ง representation ซ้ำเพราะ client มีของที่ใช้ได้อยู่แล้ว และ If-None-Match คือ header สำหรับ conditional GET ส่วน If-Match ใช้กันการเขียนทับ ผลที่ได้คือ 412 ซึ่งมีความหมายคนละอย่าง และ HEAD ไม่มี body ให้เปรียบเทียบ"
+    },
+    {
+      "prompt": "ฟีดข่าวใช้ GET /feed?page=2&size=20 (LIMIT 20 OFFSET 20 เรียงข่าวใหม่สุดก่อน) ผู้ใช้รายงานว่าเลื่อนไปหน้า 2 แล้วเจอข่าวที่เพิ่งเห็นในหน้า 1 ซ้ำ โดยมีข่าวใหม่เข้าตลอด สาเหตุและทางแก้ที่เหมาะคืออะไร?",
+      "options": [
+        "ข่าวใหม่ดันรายการเดิมลงจน offset เลื่อน ควรใช้ cursor ต่อจากรายการสุดท้ายที่ส่งไป",
+        "ฐานข้อมูลคืนผลไม่คงที่เพราะไม่มี index ควรเพิ่ม index บน created_at แล้วปัญหาจะหาย",
+        "page size เล็กเกินไป ควรเพิ่มเป็น 200 เพื่อให้ผู้ใช้ไม่ต้องไปหน้า 2 อีกเลย",
+        "GET ถูก cache จึงได้ข้อมูลซ้ำ ควรเปลี่ยนเป็น POST /feed ทุกครั้งเพื่อไม่ให้ถูก cache"
+      ],
+      "answer": 0,
+      "explain": "Offset นับจากหัวรายการ เมื่อมีแถวใหม่แทรกข้างหน้า ตำแหน่งของแถวเดิมถูกดันลง หน้า 2 จึงมีของเก่าซ้ำ Cursor อ้างอิงรายการจริง จึงไม่ได้รับผลจากแถวที่แทรกเข้ามา index ช่วยเรื่องความเร็วแต่ไม่ได้แก้ปัญหาตำแหน่งที่เลื่อน"
+    },
+    {
+      "prompt": "page_token ของ API เป็น base64 ของ JSON {\"offset\":40} นักพัฒนา client บางรายเริ่ม decode แล้วสร้าง token เองเพื่อกระโดดไปหน้าที่ต้องการ ต่อมาทีม API อยากเปลี่ยนไปใช้ keyset แต่เกรงว่า client เหล่านั้นจะพัง สิ่งที่ควรออกแบบตั้งแต่แรกคืออะไร?",
+      "options": [
+        "เข้ารหัส base64 สองชั้นเพื่อให้ถอดความหมายยากขึ้น",
+        "ประกาศในเอกสารว่า token คือ JSON เพื่อให้ client พึ่งโครงสร้างได้อย่างถูกต้อง",
+        "ให้ token เป็นค่า opaque ที่ client ต้องส่งกลับตามที่ได้รับ โดยไม่ตีความ",
+        "ตัด page_token ทิ้งแล้วให้ client ส่ง offset เองตรง ๆ จะได้ไม่ต้องเดา"
+      ],
+      "answer": 2,
+      "explain": "AIP-158 กำหนดให้ page token เป็น opaque และระบุว่า base64 ของข้อมูลที่อ่านออกไม่พอเป็นการซ่อน ถ้า client ตีความ token ได้ ก็จะผูกกับโครงสร้างภายในและเปลี่ยนภายหลังไม่ได้ การ base64 สองชั้นเป็นแค่ obfuscation ส่วนการให้ส่ง offset ตรง ๆ คือกลับไปผูกกับ offset"
+    },
+    {
+      "prompt": "UserRepository มีเมธอด findById ทีมต้องเพิ่มทั้ง logging และ cache โดยไม่แก้ class เดิม บางสภาพแวดล้อมต้องการเฉพาะ logging บางที่ต้องการทั้งสอง ควรออกแบบอย่างไร?",
+      "code": "class PgUserRepository {\n  async findById(id) { /* query DB */ }\n}",
+      "options": [
+        "สร้าง LoggingCachedUserRepository extends PgUserRepository และ class ผสมเพิ่มสำหรับทุกชุดที่ต้องใช้",
+        "สร้าง wrapper สองตัว (withLogging, withCache) ที่มี findById เหมือนเดิม แล้วห่อซ้อนตามต้องการ",
+        "ใส่ flag enableLogging กับ enableCache ใน PgUserRepository แล้วเช็กใน findById",
+        "ใช้ Observer ให้ findById ประกาศ event แล้วให้ logger กับ cache ฟังเพื่อแก้ผลลัพธ์"
+      ],
+      "answer": 1,
+      "explain": "Decorator ให้ประกอบพฤติกรรมตอน runtime โดยไม่ต้องมี subclass ครบทุกชุดผสม ข้อที่สร้าง class ผสมจะเพิ่มจำนวน class แบบผลคูณ ส่วนข้อ flag ต้องแก้ class เดิมและยัดหลายหน้าที่ไว้ที่เดียว Observer โดยทั่วไปใช้แจ้งเหตุการณ์ ไม่ได้ออกแบบให้ผู้ฟังแทนที่ผลลัพธ์ของผู้ส่ง"
+    },
+    {
+      "prompt": "ทีมห่อ repository สองชั้นด้วย const repo = withCache(withLogging(pgRepo)) แล้วพบว่า log แสดงเฉพาะครั้งที่ cache miss ทั้งที่อยากเห็นทุกการเรียกจากแอป ควรทำอย่างไร?",
+      "code": "const repo = withCache(withLogging(pgRepo));",
+      "options": [
+        "ย้าย console.log ไปไว้ใน PgUserRepository.findById เพื่อให้เห็นทุกครั้งที่มีการเรียกเข้ามา",
+        "ตั้ง TTL ของ cache ให้สั้นมาก จะได้ miss บ่อยขึ้นและ log ครบมากขึ้น",
+        "เพิ่ม withLogging อีกชั้นห่อ pgRepo ให้มี logger ซ้อนสองตัวในสายเดียว",
+        "สลับเป็น withLogging(withCache(pgRepo)) เพราะชั้นนอกสุดเห็นทุกคำเรียก"
+      ],
+      "answer": 3,
+      "explain": "Decorator ชั้นนอกสุดรับคำเรียกก่อน ถ้า cache อยู่นอก คำขอที่ hit จะไม่ถึง logger ที่อยู่ชั้นใน พฤติกรรมจึงขึ้นกับลำดับการห่อ การย้าย log ไปไว้ใน PgUserRepository ไม่ช่วย เพราะคำขอที่ cache hit ไม่เดินทางมาถึง repository ตัวใน log จึงยังขาดเหมือนเดิม"
+    },
+    {
+      "prompt": "ตะกร้าสินค้ามี bug: หลังคำนวณยอดรวม ราคาสินค้าชิ้นแรกที่แสดงในหน้ารายการเปลี่ยนไปด้วย สาเหตุคืออะไรและควรแก้อย่างไร?",
+      "code": "class Money {\n  constructor(amount, currency) { this.amount = amount; this.currency = currency; }\n  add(other) { this.amount += other.amount; return this; }\n}\nconst price = new Money(10000, 'THB');\nconst total = price.add(new Money(5000, 'THB'));\nconsole.log(price.amount); // 15000",
+      "options": [
+        "ต้องเทียบเงินด้วย === แทน == เพราะการเทียบแบบหลวมทำให้ค่าถูกแปลงชนิดระหว่างคำนวณ",
+        "amount เป็นจำนวนเต็มจึงเกิด overflow ควรเปลี่ยนไปเก็บเป็น float เพื่อรองรับเลขใหญ่ขึ้น",
+        "add() แก้ object เดิมที่ถูกแชร์ ควรทำ Money เป็น immutable ให้ add คืนอินสแตนซ์ใหม่",
+        "ต้อง clone price ก่อนเรียก add ทุกครั้งที่นำไปใช้ในโค้ดแต่ละจุดของระบบ"
+      ],
+      "answer": 2,
+      "explain": "add() เปลี่ยน this และคืน this ตัวเดิม ตัวแปร price กับ total จึงชี้ object เดียวกัน Fowler แนะนำให้ value object เป็น immutable เพื่อกัน aliasing bug การบังคับให้ผู้เรียกทุกคนจำ clone เองเป็นการผลักความรับผิดชอบออกไปจนต้องมีคนลืมสักวัน"
+    },
+    {
+      "prompt": "บริการ A เรียกบริการ B ซึ่งตอบ 503 เพราะโหลดสูง โค้ดของ A retry ทันทีห้าครั้งโดยไม่หน่วงเวลา และทุก instance ทำเหมือนกัน ผลคือ B ล่มหนักขึ้นจนฟื้นไม่ได้ ควรปรับอย่างไร?",
+      "options": [
+        "เพิ่มจำนวนครั้ง retry เป็น 20 เพื่อให้มีโอกาสผ่านสักครั้งระหว่างที่ B ยังล่ม",
+        "หน่วงเวลา retry ให้เพิ่มขึ้นและกระจายเวลา จำกัดครั้ง และเคารพ Retry-After",
+        "ตั้ง timeout ของแต่ละครั้งให้ยาวมาก แล้วไม่ต้อง retry อีกเพราะรอจนกว่าจะสำเร็จ",
+        "retry เฉพาะเมื่อได้ 4xx เพราะ 5xx เป็นปัญหาฝั่ง server ที่ client ทำอะไรไม่ได้"
+      ],
+      "answer": 1,
+      "explain": "Retry ที่ก้าวร้าวและไม่หน่วงเวลาอาจทำให้บริการที่ใกล้เต็มกำลังแย่ลง จึงควรหน่วงเพิ่มขึ้น กระจายเวลา และจำกัดครั้ง ตาม RFC 9110 503 อาจมี Retry-After บอกเวลาที่ควรรอ ส่วน 4xx โดยทั่วไปเป็นความผิดของ request ซึ่ง retry ไม่ช่วย และ 503 บอกว่าเป็นปัญหาชั่วคราว"
+    },
+    {
+      "prompt": "circuit breaker ตั้ง failureThreshold = 5 และ timeout = 30 วินาที หลังล้มเหลวครบ 5 ครั้งมันเปิด (Open) เมื่อผ่านไป 30 วินาที คำขอถัดมาควรถูกจัดการอย่างไร?",
+      "options": [
+        "ปล่อยคำขอจำนวนจำกัดไปทดลอง (Half-Open) ถ้าสำเร็จกลับ Closed ถ้าล้มกลับ Open",
+        "กลับเป็น Closed ทันทีโดยไม่ต้องทดลอง เพราะผ่านเวลาไปครบตามที่ตั้งไว้แล้ว",
+        "คง Open ต่อไปจนกว่าผู้ดูแลจะกดรีเซ็ตด้วยมือเท่านั้น ไม่มีทางกลับเองได้",
+        "ปล่อยทุกคำขอผ่านเต็มที่ตลอดช่วง Half-Open เพื่อดูปริมาณการล้มเหลวจริงของระบบ"
+      ],
+      "answer": 0,
+      "explain": "หลังหมด timeout breaker เข้า Half-Open และปล่อยคำขอทดลองจำนวนจำกัด ผ่านจึงกลับ Closed ล้มก็กลับ Open พร้อมเริ่มนับเวลาใหม่ การปล่อยทุกคำขอพร้อมกันอาจท่วมบริการที่เพิ่งฟื้นให้ล้มอีก และการกลับ Closed ทันทีไม่ตรวจว่าบริการหายดีหรือยัง"
+    },
+    {
+      "prompt": "ระบบสั่งซื้อแยก Order, Inventory และ Payment เป็น service ละ database ลำดับคือสร้างออเดอร์ จองสต็อก แล้วตัดเงิน ถ้าตัดเงินไม่ผ่านหลังจองสต็อกไปแล้ว ควรจัดการอย่างไร?",
+      "options": [
+        "ใช้ transaction ของ database ใดฐานหนึ่งแล้ว ROLLBACK เพื่อย้อนผลของทุก service",
+        "ปล่อยสต็อกที่จองไว้ค้างก่อน แล้วให้แอดมินตรวจและคืนด้วยมือทุกสิ้นวันทำการ",
+        "รัน compensating transaction ย้อนแต่ละขั้น เช่น ปล่อยสต็อกและยกเลิกออเดอร์",
+        "สลับลำดับเป็นตัดเงินก่อนจองสต็อก จะได้ไม่ต้องมีขั้นตอนย้อนกลับใด ๆ อีกเลย"
+      ],
+      "answer": 2,
+      "explain": "เมื่อแต่ละ service มี database เอง ROLLBACK ของฐานเดียวย้อนผลของ service อื่นไม่ได้ Saga ใช้ compensating transaction ที่ออกแบบไว้ล่วงหน้าเพื่อย้อนแต่ละขั้น การสลับลำดับแค่ย้ายปัญหา เพราะถ้าตัดเงินแล้วจองสต็อกไม่สำเร็จ ก็ยังต้องคืนเงิน"
+    },
+    {
+      "prompt": "OrderService บันทึกออเดอร์ลง DB แล้วเรียก broker.publish ทีหลัง บางครั้งโปรเซสล่มระหว่างสองขั้นตอน ออเดอร์อยู่ใน DB แต่ไม่มี event ไปถึง service อื่น ควรแก้อย่างไร?",
+      "code": "await db.query('INSERT INTO orders ...');\n// ถ้าล่มตรงนี้ event จะหาย\nawait broker.publish('OrderCreated', payload);",
+      "options": [
+        "สลับให้ publish ก่อนแล้วค่อย INSERT เพราะ event สำคัญกว่าข้อมูลในตารางออเดอร์",
+        "เขียน event ลงตาราง outbox ใน transaction เดียวกับออเดอร์ แล้วให้ตัวส่งแยกไปส่ง broker",
+        "ครอบสองบรรทัดด้วย try/catch แล้ว retry publish ในหน่วยความจำของโปรเซสเดิม",
+        "ตั้ง isolation level เป็น SERIALIZABLE เพื่อให้ INSERT กับ publish เป็นก้อนเดียวกัน"
+      ],
+      "answer": 1,
+      "explain": "Outbox ทำให้ข้อมูลธุรกิจและ event ถูกบันทึกใน transaction เดียวกัน แล้วตัวส่งแยกค่อยส่ง จึงไม่หายแม้โปรเซสล่ม การสลับลำดับแค่เปลี่ยนความเสี่ยงเป็น event ของออเดอร์ที่ไม่มีอยู่จริง และ try/catch ใน memory ช่วยไม่ได้เมื่อโปรเซสตาย ส่วน isolation level ไม่ครอบคลุม broker"
+    },
+    {
+      "prompt": "service ส่งอีเมลรับ OrderCreated จาก broker ที่ใช้ outbox relay พบว่าลูกค้าบางรายได้อีเมลซ้ำสองฉบับ ตรวจแล้วเป็นเพราะ relay ส่ง event เดิมซ้ำหลังเกิดข้อผิดพลาดชั่วคราว วิธีแก้ที่ตรงจุดที่สุดคืออะไร?",
+      "options": [
+        "เลิกใช้ outbox แล้วกลับไปส่งตรงจากโค้ดบริการหลังบันทึก DB ทันทีเพื่อความง่าย",
+        "ให้ relay ลบแถวใน outbox ก่อนยืนยันว่า broker รับแล้ว จะได้ส่งแค่ครั้งเดียว",
+        "เพิ่ม retry ฝั่ง consumer เพื่อให้อีเมลไปถึงลูกค้าแน่นอนมากขึ้นในทุกกรณี",
+        "บันทึก id ของ message ที่ประมวลผลแล้ว ข้ามถ้าเคยเห็น (idempotent consumer)"
+      ],
+      "answer": 3,
+      "explain": "Relay อาจส่งซ้ำได้ จึงต้องให้ฝั่งรับ idempotent เช่นเก็บ message id ที่ประมวลผลแล้ว การลบก่อนยืนยันเสี่ยงทำ event หาย ส่วนการ retry เพิ่มมีแต่ทำให้ซ้ำมากขึ้น และการกลับไปส่งตรงคือปัญหา dual write เดิม"
+    },
+    {
+      "prompt": "ทีมทำระบบจัดการสมาชิกภายในองค์กร เป็นฟอร์ม CRUD กับรายงานง่าย ๆ มีผู้ใช้ไม่กี่ร้อยคน มีคนเสนอให้ใช้ CQRS แยกฐานข้อมูลอ่านกับเขียนทั้งระบบพร้อม event sourcing ควรตอบอย่างไร?",
+      "options": [
+        "ยังไม่ควรเริ่ม เพราะ CQRS มักเพิ่มความซับซ้อน ใช้โมเดลเดียวก่อน แล้วแยกเฉพาะส่วนที่จำเป็นจริง",
+        "รับข้อเสนอ เพราะ CQRS เป็นสถาปัตยกรรมมาตรฐานที่ระบบสมัยใหม่ควรมีตั้งแต่ต้นโครงการ เพื่อรองรับการเติบโต",
+        "ใช้ CQRS ได้ แต่ต้องไม่ใช้ event sourcing เพราะสองอย่างนี้ขัดแย้งกันในเชิงแนวคิด",
+        "ใช้ได้ถ้าเลือก NoSQL สำหรับฝั่งอ่าน เพราะ NoSQL มักเร็วกว่าฐานข้อมูลเชิงสัมพันธ์สำหรับงานอ่าน"
+      ],
+      "answer": 0,
+      "explain": "Fowler ระบุว่า for most systems CQRS adds risky complexity และแนะนำให้จำกัดไว้เฉพาะ bounded context ที่คุ้มจริง ระบบที่อ่านและเขียนด้วยโมเดลเดียวกันได้สบายอยู่แล้วไม่ควรเริ่มที่นี่ ส่วนที่ว่าใช้ร่วมกับ event sourcing ไม่ได้นั้นไม่จริง สองอย่างนี้มักถูกใช้คู่กัน แต่เป็นเรื่องแยกกัน"
     }
   ],
-  "exercise": {
-    "title": "Refactor if/else เป็น Strategy",
-    "level": "กลาง",
-    "tags": "Strategy · Open/Closed",
-    "lang": "javascript",
-    "prompt": "โค้ดในข้อมูลประกอบคำนวณส่วนลดด้วย if/else และต้องเพิ่มโปรโมชันใหม่บ่อย ให้ refactor เป็น Strategy: เก็บแต่ละโปรโมชันเป็นฟังก์ชันใน object หรือ Map เพื่อให้เพิ่มโปรโมชันใหม่ได้โดยไม่แก้ฟังก์ชัน discount ผลลัพธ์ของ 3 โปรโมชันเดิมต้องเหมือนเดิม และต้อง throw error เมื่อไม่รู้จักโปรโมชัน รวมถึงชื่อที่บังเอิญตรงกับ property ที่ติดมากับ object เช่น discount('toString', 500)",
-    "context": "function discount(type, total) {\n  if (type === 'none') return 0;\n  else if (type === 'percent10') return total * 0.1;\n  else if (type === 'flat100') return total >= 1000 ? 100 : 0;\n  else throw new Error('unknown');\n}",
-    "starter": "// เขียนโค้ดใหม่ที่นี่\n",
-    "solution": "const promotions = {\n  none: () => 0,\n  percent10: (total) => total * 0.1,\n  flat100: (total) => (total >= 1000 ? 100 : 0),\n};\n\nfunction discount(type, total) {\n  const strategy = Object.hasOwn(promotions, type) ? promotions[type] : null;\n  if (!strategy) throw new Error(`unknown promotion: ${type}`);\n  return strategy(total);\n}",
-    "hints": [
-      "สร้าง object ที่ key คือชื่อโปรโมชัน และ value คือฟังก์ชัน (total) => ส่วนลด",
-      "discount มีหน้าที่แค่หา strategy ตาม type แล้วเรียกใช้ ไม่ต้องรู้ว่ามีโปรโมชันอะไรบ้าง",
-      "promotions['toString'] คืนฟังก์ชันที่ได้จาก Object.prototype ให้เช็กด้วย Object.hasOwn(promotions, type) หรือใช้ Map กับ .has()/.get() แทน"
-    ],
-    "checks": [
-      {
-        "label": "มี object หรือ Map เก็บโปรโมชัน",
-        "pattern": "(const|let|var)\\s+\\w+\\s*=\\s*(object\\.freeze\\(\\s*)?(\\{|new map|object\\.create|object\\.assign)"
-      },
-      {
-        "label": "ครบ 3 โปรโมชันเดิม",
-        "pattern": "^(?=[\\s\\S]*\\bnone\\b)(?=[\\s\\S]*percent10)(?=[\\s\\S]*flat100)"
-      },
-      {
-        "label": "แต่ละโปรโมชันเป็นฟังก์ชัน",
-        "pattern": "=>|function\\s*\\("
-      },
-      {
-        "label": "เลือก strategy จาก type ด้วยการ lookup",
-        "pattern": "\\w+\\s*\\[\\s*type\\s*\\]|\\.get\\(\\s*type\\s*\\)"
-      },
-      {
-        "label": "ไม่เหลือเงื่อนไข type === … หรือ switch case",
-        "pattern": "\\btype\\s*===|===\\s*type\\b|\\bcase\\s+['\"`]",
-        "negate": true
-      },
-      {
-        "label": "กันชื่อที่มาจาก prototype เช่น toString",
-        "pattern": "hasown|hasownproperty|new map|object\\.create\\(\\s*null|__proto__\\s*:\\s*null"
-      },
-      {
-        "label": "ยัง throw error เมื่อไม่รู้จักโปรโมชัน",
-        "pattern": "\\bthrow\\b"
-      }
-    ]
-  }
+  "exercises": [
+    {
+      "title": "Refactor if/else เป็น Strategy",
+      "level": "กลาง",
+      "tags": "Strategy · Open/Closed",
+      "lang": "javascript",
+      "prompt": "โค้ดในข้อมูลประกอบคำนวณส่วนลดด้วย if/else และต้องเพิ่มโปรโมชันใหม่บ่อย ให้ refactor เป็น Strategy: เก็บแต่ละโปรโมชันเป็นฟังก์ชันใน object หรือ Map เพื่อให้เพิ่มโปรโมชันใหม่ได้โดยไม่แก้ฟังก์ชัน discount ผลลัพธ์ของ 3 โปรโมชันเดิมต้องเหมือนเดิม และต้อง throw error เมื่อไม่รู้จักโปรโมชัน รวมถึงชื่อที่บังเอิญตรงกับ property ที่ติดมากับ object เช่น discount('toString', 500)",
+      "context": "function discount(type, total) {\n  if (type === 'none') return 0;\n  else if (type === 'percent10') return total * 0.1;\n  else if (type === 'flat100') return total >= 1000 ? 100 : 0;\n  else throw new Error('unknown');\n}",
+      "starter": "// เขียนโค้ดใหม่ที่นี่\n",
+      "solution": "const promotions = {\n  none: () => 0,\n  percent10: (total) => total * 0.1,\n  flat100: (total) => (total >= 1000 ? 100 : 0),\n};\n\nfunction discount(type, total) {\n  const strategy = Object.hasOwn(promotions, type) ? promotions[type] : null;\n  if (!strategy) throw new Error(`unknown promotion: ${type}`);\n  return strategy(total);\n}",
+      "hints": [
+        "สร้าง object ที่ key คือชื่อโปรโมชัน และ value คือฟังก์ชัน (total) => ส่วนลด",
+        "discount มีหน้าที่แค่หา strategy ตาม type แล้วเรียกใช้ ไม่ต้องรู้ว่ามีโปรโมชันอะไรบ้าง",
+        "promotions['toString'] คืนฟังก์ชันที่ได้จาก Object.prototype ให้เช็กด้วย Object.hasOwn(promotions, type) หรือใช้ Map กับ .has()/.get() แทน"
+      ],
+      "checks": [
+        {
+          "label": "มี object หรือ Map เก็บโปรโมชัน",
+          "pattern": "(const|let|var)\\s+\\w+\\s*=\\s*(object\\.freeze\\(\\s*)?(\\{|new map|object\\.create|object\\.assign)"
+        },
+        {
+          "label": "ครบ 3 โปรโมชันเดิม",
+          "pattern": "^(?=[\\s\\S]*\\bnone\\b)(?=[\\s\\S]*percent10)(?=[\\s\\S]*flat100)"
+        },
+        {
+          "label": "แต่ละโปรโมชันเป็นฟังก์ชัน",
+          "pattern": "=>|function\\s*\\("
+        },
+        {
+          "label": "เลือก strategy จาก type ด้วยการ lookup",
+          "pattern": "\\w+\\s*\\[\\s*type\\s*\\]|\\.get\\(\\s*type\\s*\\)"
+        },
+        {
+          "label": "ไม่เหลือเงื่อนไข type === … หรือ switch case",
+          "pattern": "\\btype\\s*===|===\\s*type\\b|\\bcase\\s+['\"`]",
+          "negate": true
+        },
+        {
+          "label": "กันชื่อที่มาจาก prototype เช่น toString",
+          "pattern": "hasown|hasownproperty|new map|object\\.create\\(\\s*null|__proto__\\s*:\\s*null"
+        },
+        {
+          "label": "ยัง throw error เมื่อไม่รู้จักโปรโมชัน",
+          "pattern": "\\bthrow\\b"
+        }
+      ]
+    },
+    {
+      "title": "ทำ Money ให้เป็น value object",
+      "level": "ง่าย",
+      "tags": "Value Object · Immutability",
+      "lang": "javascript",
+      "prompt": "class Money ในข้อมูลประกอบมี bug เพราะ add() แก้ object เดิมแล้วคืน this ทำให้ราคาที่ถูกแชร์ไว้หลายที่เปลี่ยนตามไปด้วย ให้แก้เป็น value object: (1) immutable คือ add() ต้องคืน Money ใหม่ object เดิมต้องไม่เปลี่ยน และกันไม่ให้ field ถูกแก้หลังสร้าง (2) add() ต้อง throw error เมื่อสกุลเงินต่างกัน (3) เพิ่มเมธอด equals(other) ที่เทียบทั้ง amount และ currency",
+      "context": "class Money {\n  constructor(amount, currency) {\n    this.amount = amount;      // จำนวนเต็มของหน่วยย่อย เช่น สตางค์\n    this.currency = currency;\n  }\n  add(other) {\n    this.amount += other.amount;\n    return this;\n  }\n}\n\nconst price = new Money(10000, 'THB');\nconst total = price.add(new Money(5000, 'THB'));\nconsole.log(price.amount); // 15000 ทั้งที่ price ไม่ควรเปลี่ยน",
+      "starter": "class Money {\n  constructor(amount, currency) {\n    this.amount = amount;      // จำนวนเต็มของหน่วยย่อย เช่น สตางค์\n    this.currency = currency;\n  }\n  add(other) {\n    this.amount += other.amount;\n    return this;\n  }\n}\n\nconst price = new Money(10000, 'THB');\nconst total = price.add(new Money(5000, 'THB'));\nconsole.log(price.amount); // 15000 ทั้งที่ price ไม่ควรเปลี่ยน",
+      "solution": "class Money {\n  constructor(amount, currency) {\n    this.amount = amount;\n    this.currency = currency;\n    Object.freeze(this);\n  }\n\n  add(other) {\n    if (other.currency !== this.currency) {\n      throw new Error(`currency mismatch: ${this.currency} vs ${other.currency}`);\n    }\n    return new Money(this.amount + other.amount, this.currency);\n  }\n\n  equals(other) {\n    return other instanceof Money &&\n      this.amount === other.amount &&\n      this.currency === other.currency;\n  }\n}",
+      "hints": [
+        "ถ้า add() แก้ this แล้วคืน this ผู้ที่ถือ object เดิมไว้จะเห็นค่าเปลี่ยนตาม ลองดูว่าตัวแปร price กับ total ชี้ที่ไหน",
+        "ให้ add() คืน new Money(...) แทน และล็อก object ไม่ให้แก้ field หลังสร้าง เช่น เรียก Object.freeze(this) ท้าย constructor",
+        "เทียบ currency ของทั้งสองฝั่งก่อนบวก ถ้าต่างกันให้ throw ส่วน equals ต้องเช็กว่าเป็น Money แล้วเทียบ amount และ currency"
+      ],
+      "checks": [
+        {
+          "label": "ล็อก field ไม่ให้แก้หลังสร้าง (freeze, private field หรือ writable: false)",
+          "pattern": "object\\.freeze\\s*\\(|this\\.#\\w+|writable\\s*:\\s*false|defineproperties?"
+        },
+        {
+          "label": "add() คืน Money ใหม่",
+          "pattern": "return\\s+new\\s+money\\s*\\("
+        },
+        {
+          "label": "ไม่แก้ amount ของ this ใน method (ไม่มี += หรือ this.amount = this.amount …)",
+          "pattern": "this\\.#?amount\\s*([+\\-*/]=|=\\s*this\\.#?amount)",
+          "negate": true
+        },
+        {
+          "label": "เช็กสกุลเงินก่อนบวก",
+          "pattern": "^(?=[\\s\\S]*[\\w.#]*currency\\s*[!=]==?\\s*[\\w.#]*currency)"
+        },
+        {
+          "label": "throw เมื่อสกุลเงินไม่ตรงกัน",
+          "pattern": "\\bthrow\\b"
+        },
+        {
+          "label": "มี equals() ที่เทียบ amount",
+          "pattern": "^(?=[\\s\\S]*\\bequals\\s*\\()(?=[\\s\\S]*amount\\s*===?\\s*[\\w.#]*amount)"
+        }
+      ]
+    },
+    {
+      "title": "เขียน circuit breaker ที่ทดสอบเวลาได้",
+      "level": "ยาก",
+      "tags": "Circuit Breaker · Resilience",
+      "lang": "javascript",
+      "prompt": "ระบบเรียก API ชำระเงินภายนอกที่บางครั้งล่มนานหลายนาที และคำขอที่ค้างทำให้ทรัพยากรของเราหมดตามไปด้วย ให้เขียน createBreaker(fn, options) ที่ห่อ async function fn เป็น circuit breaker: สถานะ closed เรียก fn ปกติและนับความล้มเหลวติดต่อกัน ครบ failureThreshold จึงเปลี่ยนเป็น open; สถานะ open ให้ throw Error ทันทีโดยไม่เรียก fn จนกว่า now() - openedAt จะถึง resetTimeoutMs; จากนั้นเป็น half-open ซึ่งปล่อยคำขอผ่านไปลองเรียก fn จริง ถ้าสำเร็จให้กลับ closed และล้างตัวนับ ถ้าล้มเหลวให้กลับ open พร้อมเริ่มนับเวลาใหม่; ความสำเร็จใน closed ล้างตัวนับ ให้รับเวลาผ่าน option now (ฟังก์ชันคืนมิลลิวินาที) เพื่อให้ test เลื่อนเวลาได้ และคืน { call, getState } โดย getState() คืน \"closed\", \"open\" หรือ \"half-open\"",
+      "context": "// ตัวอย่างการใช้งาน (เมื่อ fn ล้มเหลว call() จะ throw error เดิมต่อ ตัวอย่างนี้ละ try/catch ไว้)\nlet t = 0;\nconst breaker = createBreaker(callPaymentApi, {\n  failureThreshold: 2,\n  resetTimeoutMs: 1000,\n  now: () => t,\n});\nawait breaker.call(order);   // ล้มเหลวครั้งที่ 1: ยัง closed\nawait breaker.call(order);   // ล้มเหลวครั้งที่ 2: เปลี่ยนเป็น open\nawait breaker.call(order);   // throw 'circuit open' ทันที ไม่เรียก callPaymentApi\nt = 1000;\nbreaker.getState();          // 'half-open'",
+      "starter": "function createBreaker(fn, { failureThreshold = 3, resetTimeoutMs = 10000, now = Date.now } = {}) {\n  // TODO: เก็บสถานะ แล้วคืน { call, getState }\n}\n",
+      "solution": "function createBreaker(fn, { failureThreshold = 3, resetTimeoutMs = 10000, now = Date.now } = {}) {\n  let failures = 0;\n  let openedAt = null; // null = closed\n\n  function getState() {\n    if (openedAt === null) return 'closed';\n    return now() - openedAt >= resetTimeoutMs ? 'half-open' : 'open';\n  }\n\n  async function call(...args) {\n    if (getState() === 'open') throw new Error('circuit open');\n    try {\n      const result = await fn(...args);\n      failures = 0;\n      openedAt = null;\n      return result;\n    } catch (err) {\n      failures += 1;\n      if (getState() === 'half-open' || failures >= failureThreshold) openedAt = now();\n      throw err;\n    }\n  }\n\n  return { call, getState };\n}",
+      "hints": [
+        "เก็บสถานะแค่สองอย่างคือจำนวนความล้มเหลวติดต่อกัน กับเวลาที่วงจรถูกเปิด (null แปลว่า closed) แล้วคำนวณชื่อสถานะจากสองค่านี้ใน getState()",
+        "ก่อนเรียก fn ให้เช็กว่าเป็น open หรือไม่ ถ้าใช่ให้ throw ทันที ส่วน half-open ให้ปล่อยผ่านไปลองเรียก fn จริง",
+        "ใน catch ให้เปิดวงจรใหม่ (openedAt = now()) เมื่อล้มในสถานะ half-open หรือเมื่อ failures ถึง failureThreshold และต้อง throw error เดิมต่อให้ผู้เรียก"
+      ],
+      "checks": [
+        {
+          "label": "รับ now ผ่าน options",
+          "pattern": "\\bnow\\s*=|\\bnow\\s*[,}]|\\b(options|opts|config)\\.now"
+        },
+        {
+          "label": "อ่านเวลาผ่าน now() ที่ inject มา",
+          "pattern": "(?<![\\w.])now\\(\\)"
+        },
+        {
+          "label": "มีครบสามสถานะ closed, open, half-open",
+          "pattern": "^(?=[\\s\\S]*closed)(?=[\\s\\S]*half-open)(?=[\\s\\S]*['\"`]open['\"`])"
+        },
+        {
+          "label": "ใช้ failureThreshold ตัดสินใจเปิดวงจร",
+          "pattern": "failurethreshold[\\s\\S]*failurethreshold"
+        },
+        {
+          "label": "ใช้ resetTimeoutMs ตัดสินใจเข้า half-open",
+          "pattern": "resettimeoutms[\\s\\S]*resettimeoutms"
+        },
+        {
+          "label": "ความสำเร็จล้างตัวนับความล้มเหลว",
+          "pattern": "(await|\\.then)[\\s\\S]*\\w+\\s*=\\s*(0|null)\\b"
+        },
+        {
+          "label": "จับ error แล้ว throw ต่อให้ผู้เรียก",
+          "pattern": "catch[\\s\\S]*\\bthrow\\b|\\.catch\\("
+        }
+      ]
+    }
+  ],
+  "refs": [
+    {
+      "title": "Sandi Metz: The Wrong Abstraction",
+      "url": "https://sandimetz.com/blog/2016/1/20/the-wrong-abstraction",
+      "note": "ทำไมซ้ำถูกกว่า abstraction ที่ผิด และถอยกลับอย่างไร"
+    },
+    {
+      "title": "Google AIP-185: API Versioning",
+      "url": "https://google.aip.dev/185",
+      "note": "major version ใน path, ช่อง stable/beta/alpha และช่วง deprecation"
+    },
+    {
+      "title": "RFC 9457: Problem Details for HTTP APIs",
+      "url": "https://www.rfc-editor.org/rfc/rfc9457.html",
+      "note": "มาตรฐานรูปแบบ error ของ HTTP API"
+    },
+    {
+      "title": "RFC 9110: Idempotent Methods",
+      "url": "https://www.rfc-editor.org/rfc/rfc9110.html#name-idempotent-methods",
+      "note": "method ใดบ้างที่ idempotent และเมื่อไรที่ client ควร retry อัตโนมัติ"
+    },
+    {
+      "title": "PostgreSQL: LIMIT and OFFSET",
+      "url": "https://www.postgresql.org/docs/current/queries-limit.html",
+      "note": "ทำไม OFFSET ใหญ่จึงช้า และต้องมี ORDER BY"
+    },
+    {
+      "title": "Azure Architecture Center: Retry pattern",
+      "url": "https://learn.microsoft.com/en-us/azure/architecture/patterns/retry",
+      "note": "กลยุทธ์ retry, ความเสี่ยงของ retry ที่ก้าวร้าว และเรื่อง idempotency"
+    },
+    {
+      "title": "Azure Architecture Center: Transient fault handling",
+      "url": "https://learn.microsoft.com/en-us/azure/architecture/best-practices/transient-faults",
+      "note": "ทำไมต้อง backoff และ jitter เมื่อ retry"
+    },
+    {
+      "title": "Martin Fowler: Domain-Driven Design",
+      "url": "https://martinfowler.com/bliki/DomainDrivenDesign.html",
+      "note": "ubiquitous language และ bounded context"
+    }
+  ]
 }

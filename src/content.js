@@ -19,9 +19,10 @@ export function normalize(raw, extra = {}) {
     tr,
     title: raw.title || raw.id,
     blurb: raw.blurb || '',
-    mustKnow: (raw.mustKnow || []).map((m) => ({ tier: tierIndex(m.tier), title: m.title, body: m.body || '', code: m.code || null })),
+    mustKnow: (raw.mustKnow || []).map((m) => ({ tier: tierIndex(m.tier), title: m.title, body: m.body || '', code: m.code || null, exam: m.exam === true, ref: m.ref || null })),
     questions: (raw.questions || []).map((q) => ({ prompt: q.prompt, code: q.code || null, options: q.options, answer: q.answer, explain: q.explain || '' })),
-    exercise: raw.exercise || null,
+    exercises: Array.isArray(raw.exercises) ? raw.exercises : raw.exercise ? [raw.exercise] : [],
+    refs: Array.isArray(raw.refs) ? raw.refs : [],
     ...extra,
   };
 }
@@ -43,7 +44,7 @@ export function mergeTopics(custom) {
     const c = byId.get(t.id);
     if (!c) return t;
     byId.delete(t.id);
-    return { ...t, ...c, code: c.code || t.code, mustKnow: c.mustKnow.length ? c.mustKnow : t.mustKnow, questions: c.questions.length ? c.questions : t.questions, exercise: c.exercise || t.exercise };
+    return { ...t, ...c, code: c.code || t.code, mustKnow: c.mustKnow.length ? c.mustKnow : t.mustKnow, questions: c.questions.length ? c.questions : t.questions, exercises: c.exercises.length ? c.exercises : t.exercises, refs: c.refs.length ? c.refs : t.refs };
   });
   for (const t of byId.values()) {
     if (!t.code) t.code = 'FDOA'[t.tr] + (out.filter((x) => x.tr === t.tr).length + 1);

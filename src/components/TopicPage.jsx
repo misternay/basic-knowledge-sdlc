@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { TRACKS } from '../content.js';
 import { makeItem, shuffle } from '../lib/random.js';
 import { Badge, Code } from './ui.jsx';
@@ -50,7 +51,7 @@ export default function TopicPage({ topics, id, tab }) {
             make={() => shuffle(t.questions.map((_, i) => i)).map((i) => makeItem(t, i))}
             exitHref={base}
             doneActions={[
-              t.exercise && { label: 'ไปทำแบบฝึกหัด', href: base + '/exercise', primary: true },
+              t.exercises.length > 0 && { label: 'ไปทำแบบฝึกหัด', href: base + '/exercise', primary: true },
               next && { label: 'หัวข้อถัดไป: ' + next.title, href: '#/topic/' + next.id },
             ].filter(Boolean)}
           />
@@ -58,7 +59,7 @@ export default function TopicPage({ topics, id, tab }) {
           <Empty title="หัวข้อนี้ยังไม่มีคำถาม" text="เพิ่มได้โดยนำเข้าไฟล์ที่มีส่วน ## Quiz" />
         )
       ) : tab === 'exercise' ? (
-        t.exercise ? <Exercise key={t.id} exercise={t.exercise} /> : (
+        t.exercises.length ? <Exercises key={t.id} list={t.exercises} /> : (
           <Empty title="หัวข้อนี้ยังไม่มีแบบฝึกหัด" text="แบบฝึกหัดที่ตรวจอัตโนมัติต้องเขียนเป็น JSON ที่มี exercise และ checks ดูตัวอย่างได้ที่หน้านำเข้า" />
         )
       ) : (
@@ -79,14 +80,32 @@ function Learn({ t, base, next }) {
             <div className="tier-head"><h2 className="h2">{title}</h2><span className="muted">{desc}</span></div>
             {items.map(({ m, i }) => (
               <article key={i} className="card item">
-                <div className="item-head"><span className="mono muted">{String(i + 1).padStart(2, '0')}</span><h3>{m.title}</h3></div>
+                <div className="item-head">
+                  <span className="mono muted">{String(i + 1).padStart(2, '0')}</span>
+                  <h3>{m.title}</h3>
+                  {m.exam && <Badge kind="soft">มักถูกถาม</Badge>}
+                </div>
                 <p>{m.body}</p>
                 <Code>{m.code}</Code>
+                {m.ref && <a className="link" href={m.ref} target="_blank" rel="noopener noreferrer">อ่านต่อ ↗</a>}
               </article>
             ))}
           </section>
         );
       })}
+      {t.refs.length > 0 && (
+        <section className="stack-12">
+          <div className="tier-head"><h2 className="h2">อ่านต่อ</h2><span className="muted">แหล่งอ้างอิงหลักของหัวข้อนี้</span></div>
+          <ul className="stack-12">
+            {t.refs.map((r) => (
+              <li key={r.url}>
+                <a className="link" href={r.url} target="_blank" rel="noopener noreferrer">{r.title} ↗</a>
+                {r.note && <span className="muted small"> · {r.note}</span>}
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
       <section className="panel-dark stack-12">
         <h2 className="h3">เข้าใจแล้วหรือยัง?</h2>
         <p className="on-dark-muted">
@@ -99,6 +118,24 @@ function Learn({ t, base, next }) {
           {next && <a className="btn btn-ghost-dark" href={'#/topic/' + next.id}>หัวข้อถัดไป: {next.title}</a>}
         </div>
       </section>
+    </div>
+  );
+}
+
+function Exercises({ list }) {
+  const [i, setI] = useState(0);
+  return (
+    <div className="stack-20">
+      {list.length > 1 && (
+        <div className="chips" role="group" aria-label="เลือกแบบฝึกหัด">
+          {list.map((x, n) => (
+            <button key={n} type="button" className="chip" aria-pressed={n === i} onClick={() => setI(n)}>
+              ข้อ {n + 1} · {x.level}
+            </button>
+          ))}
+        </div>
+      )}
+      <Exercise key={i} exercise={list[i]} />
     </div>
   );
 }

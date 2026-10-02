@@ -7,6 +7,11 @@ export const TRACKS = ['foundations', 'data', 'delivery', 'ai'];
 export const TIERS = ['must', 'should', 'advanced'];
 const LEVELS = ['ง่าย', 'กลาง', 'ยาก'];
 
+export function isHttps(u) {
+  if (typeof u !== 'string') return false;
+  try { return new URL(u).protocol === 'https:'; } catch { return false; }
+}
+
 export function trackIndex(v) {
   const s = String(v || '').toLowerCase().trim();
   const alias = { f: 0, foundation: 0, d: 1, security: 1, o: 2, ops: 2, a: 3 };
@@ -41,6 +46,8 @@ export function validateTopic(t, { strict = false, label = 'หัวข้อ' 
     if (!m || !m.title) E(at, 'ไม่มีชื่อเรื่อง');
     else if (!m.body) (strict ? E : W)(at + ' “' + m.title + '”', 'ยังไม่มีคำอธิบาย');
     if (m && m.tier && !TIERS.includes(m.tier) && strict) E(at, 'tier ต้องเป็น ' + TIERS.join(', '));
+    if (m && m.ref !== undefined && !isHttps(m.ref)) E(at, 'ref ต้องเป็น URL ที่ขึ้นต้นด้วย https://');
+    if (m && m.exam !== undefined && typeof m.exam !== 'boolean') E(at, 'exam ต้องเป็น true หรือ false');
   });
   if (strict && !mk.some((m) => (m.tier || 'must') === 'must')) E('mustKnow', 'ต้องมีอย่างน้อย 1 เรื่องที่เป็น tier "must"');
 
@@ -61,30 +68,52 @@ export function validateTopic(t, { strict = false, label = 'หัวข้อ' 
   if (!qs.length) W('', 'ยังไม่มีคำถาม หัวข้อนี้จะไม่มีส่วนลองตอบ');
   else if (strict && qs.length < 8) E('questions', 'ควรมีอย่างน้อย 8 คำถาม (มี ' + qs.length + ')');
 
-  const e = t.exercise;
-  if (e) {
-    if (!e.prompt) E('exercise.prompt', 'แบบฝึกหัดต้องมีโจทย์');
+  const list = Array.isArray(t.exercises) ? t.exercises : t.exercise ? [t.exercise] : [];
+  const legacy = !Array.isArray(t.exercises);
+  const titles = new Set();
+  list.forEach((e, n) => {
+    const p = legacy ? 'exercise' : 'exercises[' + n + ']';
+    const before = errors.length;
+    if (!e || typeof e !== 'object') { E(p, 'แบบฝึกหัดต้องเป็น object'); return; }
+    if (!e.prompt) E(p + '.prompt', 'แบบฝึกหัดต้องมีโจทย์');
     if (strict) {
-      if (!e.title) E('exercise.title', 'ต้องมีชื่อแบบฝึกหัด');
-      if (!LEVELS.includes(e.level)) E('exercise.level', 'level ต้องเป็น ' + LEVELS.join(', '));
-      if (!e.solution) E('exercise.solution', 'ต้องมีเฉลย');
-      if (!Array.isArray(e.hints) || e.hints.length < 2) E('exercise.hints', 'ควรมี hint อย่างน้อย 2 ข้อ');
-      if (!Array.isArray(e.checks) || e.checks.length < 3) E('exercise.checks', 'ควรมีเกณฑ์ตรวจอย่างน้อย 3 ข้อ');
+      if (!e.title) E(p + '.title', 'ต้องมีชื่อแบบฝึกหัด');
+      else if (titles.has(e.title)) E(p + '.title', 'ชื่อแบบฝึกหัดซ้ำกัน');
+      titles.add(e.title);
+      if (!LEVELS.includes(e.level)) E(p + '.level', 'level ต้องเป็น ' + LEVELS.join(', '));
+      if (!e.solution) E(p + '.solution', 'ต้องมีเฉลย');
+      if (!Array.isArray(e.hints) || e.hints.length < 2) E(p + '.hints', 'ควรมี hint อย่างน้อย 2 ข้อ');
+      if (!Array.isArray(e.checks) || e.checks.length < 3) E(p + '.checks', 'ควรมีเกณฑ์ตรวจอย่างน้อย 3 ข้อ');
     }
     (e.checks || []).forEach((c, i) => {
-      const at = 'exercise.checks[' + i + ']';
+      const at = p + '.checks[' + i + ']';
       if (!c.label) E(at, 'ต้องมี label');
       if (c.json) {
         if (!['exists', 'equals', 'contains', 'containsAll', 'matches'].includes(c.json.op)) E(at, 'json.op ไม่รู้จัก');
       } else if (compileCheck(c) === undefined || !c.pattern) E(at, 'pattern ต้องเป็น regex ที่ถูกต้อง');
     });
-    if (strict && e.solution && !errors.length) {
+    if (strict && e.solution && errors.length === before) {
       const failed = runChecks(e, e.solution).filter((r) => !r.ok).map((r) => r.label);
-      if (failed.length) E('exercise', 'เฉลยไม่ผ่านเกณฑ์ของตัวเอง: ' + failed.join(', '));
+      if (failed.length) E(p, 'เฉลยไม่ผ่านเกณฑ์ของตัวเอง: ' + failed.join(', '));
       const starterAll = runChecks(e, e.starter || '').every((r) => r.ok);
-      if (starterAll) E('exercise', 'โค้ดเริ่มต้นผ่านทุกเกณฑ์อยู่แล้ว เกณฑ์หลวมเกินไป');
+      if (starterAll) E(p, 'โค้ดเริ่มต้นผ่านทุกเกณฑ์อยู่แล้ว เกณฑ์หลวมเกินไป');
     }
-  } else if (strict) W('', 'ยังไม่มีแบบฝึกหัด');
+  });
+  if (!list.length && strict) W('', 'ยังไม่มีแบบฝึกหัด');
+
+  if (t.refs !== undefined) {
+    if (!Array.isArray(t.refs)) E('refs', 'refs ต้องเป็น array ของ {title, url}');
+    else {
+      const urls = new Set();
+      t.refs.forEach((r, i) => {
+        const at = 'refs[' + i + ']';
+        if (!r || !r.title) E(at, 'ต้องมี title');
+        if (!r || !isHttps(r.url)) E(at, 'url ต้องขึ้นต้นด้วย https://');
+        else if (urls.has(r.url)) E(at, 'url ซ้ำกัน');
+        else urls.add(r.url);
+      });
+    }
+  }
   return { errors, warnings };
 }
 

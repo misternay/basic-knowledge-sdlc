@@ -66,6 +66,88 @@
       "tier": "advanced",
       "title": "ประเมิน agent ด้วยชุดงานจริงและ trace",
       "body": "สร้างชุดงานที่สะท้อนการใช้งานจริง ตรวจผลจากสถานะปลายทาง (เช่น ข้อมูลในฐานข้อมูลเปลี่ยนจริงไหม test ผ่านไหม) ไม่ใช่เชื่อคำที่ agent บอกว่า \"เสร็จแล้ว\" และรันแต่ละงานหลายรอบเพราะผลไม่ deterministic เมื่อพลาด ให้อ่าน trace ทีละขั้น (โมเดลคิดอะไร เรียก tool ไหน ด้วย input อะไร ได้ผลอะไร) เพื่อหาว่าพลาดที่การเลือก tool, input, การตีความผล หรือ description ของ tool เอง"
+    },
+    {
+      "tier": "must",
+      "title": "ReAct: คิดสลับกับลงมือ แล้วยึดผลจริง",
+      "body": "ReAct (Yao et al.) ให้โมเดลสร้าง reasoning trace กับ action สลับกันเป็นรอบ ๆ การคิดช่วยวางและปรับแผนรวมถึงรับมือเหตุไม่คาดฝัน ส่วน action ไปดึงข้อมูลจากแหล่งภายนอกมายืนยัน บทความรายงานว่าในงานถามตอบและตรวจข้อเท็จจริงที่ใช้ Wikipedia API แบบง่าย วิธีนี้ลดปัญหา hallucination และ error propagation ที่พบใน chain-of-thought ล้วน ๆ และ trajectory อ่านเข้าใจง่ายกว่า โครงนี้คล้ายกับ agent loop ที่เห็นทั่วไป กับดักคือเชื่อ Thought ว่าเป็นหลักฐาน ทั้งที่ข้อเท็จจริงต้องมาจาก Observation ของ action",
+      "code": "Thought: ต้องรู้สถานะคำสั่งซื้อก่อนตอบลูกค้า\nAction: get_order(order_id=\"ORD-10293\")\nObservation: status = shipped\nThought: จัดส่งแล้ว ตอบลูกค้าได้\nAnswer: คำสั่งซื้อ ORD-10293 จัดส่งแล้ว",
+      "exam": true,
+      "ref": "https://arxiv.org/abs/2210.03629"
+    },
+    {
+      "tier": "must",
+      "title": "tool_result ต้องครบ จับคู่ด้วย id และรวมใน message เดียว",
+      "body": "เมื่อโมเดลขอเรียก tool หลายตัวใน turn เดียว (parallel tool calls) เอกสาร Claude API ให้คืน tool_result หนึ่งก้อนต่อหนึ่ง tool_use โดยรวมทั้งหมดใน user message ถัดไปข้อความเดียว จับคู่ด้วย tool_use_id และวาง tool_result ก่อนข้อความอื่น การแยกผลเป็นหลาย user message เป็นสาเหตุที่พบบ่อยที่ทำให้โมเดลเลิกเรียกแบบขนาน ถ้าเลือกไม่รัน call ใดก็ยังต้องตอบ call นั้นด้วย tool_result ที่มี is_error: true พร้อมเหตุผล ส่วน tool ที่มี side effect หรือต้องเรียงลำดับควรรันทีละตัว",
+      "code": "{ \"role\": \"user\", \"content\": [\n  { \"type\": \"tool_result\", \"tool_use_id\": \"toolu_01\",\n    \"content\": \"เหลือ 12 ชิ้น\" },\n  { \"type\": \"tool_result\", \"tool_use_id\": \"toolu_02\",\n    \"content\": \"Not executed: write_file ก่อนหน้าล้มเหลว\",\n    \"is_error\": true }\n] }",
+      "exam": true,
+      "ref": "https://platform.claude.com/docs/en/agents-and-tools/tool-use/parallel-tool-use"
+    },
+    {
+      "tier": "must",
+      "title": "Excessive Agency: tool เกิน สิทธิ์เกิน หรือไม่มีคนยืนยัน",
+      "body": "OWASP LLM06:2025 คือช่องโหว่ที่ทำให้การกระทำเสียหายเกิดจากผลลัพธ์ของ LLM ที่ไม่คาดคิด กำกวม หรือถูกชักนำ ไม่ว่าสาเหตุจะเป็นการหลอน prompt injection หรือ agent เพื่อนร่วมระบบที่ถูกแทรกแซง ต้นเหตุมักเป็น excessive functionality (มี tool เกินจำเป็น) excessive permissions (identity ที่ tool ใช้มีสิทธิ์เกินงาน) หรือ excessive autonomy (งานผลกระทบสูงไม่มีการยืนยัน) แนวแก้ได้แก่ เลี่ยง tool แบบเปิดกว้างอย่าง \"รัน shell command\" ไปใช้ tool ที่ทำสิ่งเดียว ให้ tool ทำงานในบริบทของผู้ใช้คนนั้นด้วยสิทธิ์ขั้นต่ำ และให้ระบบปลายทางตรวจสิทธิ์เองแทนการเชื่อว่า LLM จะตัดสินถูก (complete mediation)",
+      "exam": true,
+      "ref": "https://genai.owasp.org/llmrisk/llm062025-excessive-agency/"
+    },
+    {
+      "tier": "must",
+      "title": "Planning: ให้เห็นแผน และยึดผลจริงทุกขั้น",
+      "body": "Anthropic อธิบายว่า agent เริ่มจากคำสั่งหรือการคุยกับผู้ใช้ แล้ววางแผนและทำงานเองได้ แต่ในทุกขั้นต้องได้ \"ground truth\" จากสภาพแวดล้อม เช่นผลของ tool หรือผลรันโค้ด เพื่อประเมินว่าคืบหน้าจริงหรือไม่ agent อาจหยุดขอความเห็นจากคนที่ checkpoint หรือเมื่อติดขัด และหนึ่งในหลักการของบทความคือแสดงขั้นตอนการวางแผนให้เห็นอย่างโปร่งใส กับดักคือวางแผนยาวแล้วทำตามโดยไม่ตรวจผลระหว่างทาง เพราะ agent มีโอกาสที่ error จะสะสม",
+      "ref": "https://www.anthropic.com/engineering/building-effective-agents"
+    },
+    {
+      "tier": "must",
+      "title": "Memory: จดโน้ตไว้นอก context แล้วอ่านกลับเมื่อต้องใช้",
+      "body": "memory tool ของ Claude ให้ agent สร้าง อ่าน แก้ และลบไฟล์โน้ตที่คงอยู่ข้าม session ได้ โดยไม่ต้องยัดทุกอย่างไว้ใน context window เอกสารเรียกแนวทางนี้ว่า just-in-time context retrieval คือจดสิ่งที่เรียนรู้ไว้แล้วอ่านกลับเมื่อจำเป็น เหมาะกับงานยาวที่ต้องต่อข้ามหลาย session เพราะ context อาจถูกรีเซ็ตเมื่อไรก็ได้ memory เป็น tool ฝั่ง client จึงเป็นหน้าที่ของ harness ที่ต้องตรวจทุก path ไม่ให้หลุดนอกโฟลเดอร์ memory (เช่น ../../secrets.env) จำกัดขนาดไฟล์ และลบโน้ตเก่า",
+      "ref": "https://platform.claude.com/docs/en/agents-and-tools/tool-use/memory-tool"
+    },
+    {
+      "tier": "should",
+      "title": "Multi-agent: ได้ความขนานกับ context แยก แต่แพงขึ้นมาก",
+      "body": "ในระบบวิจัยของ Anthropic lead agent แตกงานให้ subagent ที่ทำงานขนานกัน แต่ละตัวมี context window ของตัวเอง แล้วส่งกลับเฉพาะผลที่กลั่นแล้ว ข้อเสียคือใช้ token มาก ตามข้อมูลของ Anthropic agent ใช้ราว 4 เท่าของแชต และ multi-agent ราว 15 เท่า จึงเหมาะกับงานคุณค่าสูงที่แตกขนานได้จริง ข้อมูลเกินหนึ่ง context หรือใช้ tool ซับซ้อนหลายตัว ส่วนงานที่ทุก agent ต้องแชร์ context เดียวกันหรือพึ่งพากันมากไม่เหมาะ และงานเขียนโค้ดส่วนใหญ่มีส่วนที่ขนานได้น้อยกว่างานวิจัย",
+      "exam": true,
+      "ref": "https://www.anthropic.com/engineering/multi-agent-research-system"
+    },
+    {
+      "tier": "should",
+      "title": "สั่งงาน subagent ให้ชัด: เป้าหมาย รูปแบบผล เครื่องมือ ขอบเขต",
+      "body": "Anthropic พบว่า subagent แต่ละตัวต้องได้รับ objective, output format, คำแนะนำเรื่อง tool และแหล่งข้อมูลที่ใช้ และ task boundaries ที่ชัดเจน ถ้าสั่งสั้นและคลุมเครือ เช่น \"research the semiconductor shortage\" subagent จะตีความผิดหรือค้นซ้ำกัน ในตัวอย่างของบทความ subagent ตัวหนึ่งค้นวิกฤตชิปรถยนต์ปี 2021 ขณะที่อีกสองตัวค้นซ้ำกันเรื่องห่วงโซ่อุปทานปัจจุบัน จึงควรเขียน brief ให้ครบเหมือนส่งงานให้คนที่ไม่เห็นบทสนทนาของเรา",
+      "code": "เป้าหมาย: เปรียบเทียบราคาแพ็กเกจรายเดือนของคู่แข่ง 3 ราย (A, B, C)\nรูปแบบผล: ตาราง ผู้ให้บริการ | แพ็กเกจ | ราคา/เดือน | ลิงก์แหล่งที่มา\nเครื่องมือ: ค้นเว็บและเปิดหน้า pricing ทางการของแต่ละราย\nขอบเขต: ไม่เทียบ feature ไม่ใช้บทความรีวิว ไม่เดาราคาที่หาไม่เจอ\nหยุดเมื่อ: ได้ครบ 3 ราย หรือค้นเกิน 10 ครั้ง",
+      "ref": "https://www.anthropic.com/engineering/multi-agent-research-system",
+      "exam": true
+    },
+    {
+      "tier": "should",
+      "title": "MCP: error สองช่องทาง protocol error กับ tool execution error",
+      "body": "spec ของ MCP แยกข้อผิดพลาดของ tool เป็นสองแบบ Protocol Error เป็น JSON-RPC error สำหรับปัญหาที่โมเดลมีโอกาสแก้ได้น้อย เช่น unknown tool หรือ request ผิดโครงสร้าง ส่วน Tool Execution Error ส่งใน result พร้อม isError: true สำหรับ API ล้มเหลว input ไม่ผ่าน validation (เช่นวันที่รูปแบบผิดหรือค่าเกินช่วง) หรือผิดกฎธุรกิจ ซึ่งเป็นข้อมูลที่โมเดลใช้แก้ตัวเองแล้วลองใหม่ได้ เวลาเขียน server จึงควรบอกสาเหตุและวิธีแก้ใน error ประเภทหลัง ไม่ใช่โยนเป็น JSON-RPC error ทุกกรณี",
+      "code": "{ \"jsonrpc\": \"2.0\", \"id\": 4,\n  \"result\": {\n    \"resultType\": \"complete\",\n    \"content\": [{ \"type\": \"text\",\n      \"text\": \"departure_date ต้องเป็นวันในอนาคต\" }],\n    \"isError\": true\n  } }",
+      "ref": "https://modelcontextprotocol.io/specification/2026-07-28/server/tools"
+    },
+    {
+      "tier": "should",
+      "title": "MCP: ความเชื่อใจ การยืนยัน และสิ่งที่ client ต้องตรวจ",
+      "body": "tool ใน MCP ออกแบบให้โมเดลเรียกได้เอง แต่ spec ระบุว่าควรมีคนอยู่ใน loop ที่ปฏิเสธการเรียก tool ได้เสมอ โดย client ควรแสดงว่า tool ใดเปิดให้โมเดลใช้ แสดง input ให้ผู้ใช้เห็นก่อนเรียกเพื่อกันข้อมูลรั่ว ถามยืนยันกับงานละเอียดอ่อน และ validate ผลของ tool ก่อนส่งให้ LLM annotation ที่อธิบายพฤติกรรมของ tool ต้องถือว่าเชื่อไม่ได้ เว้นแต่มาจาก server ที่ไว้ใจ ส่วนฝั่ง server ต้อง validate input คุมสิทธิ์ rate limit และ sanitize output",
+      "ref": "https://modelcontextprotocol.io/specification/2026-07-28/server/tools"
+    },
+    {
+      "tier": "advanced",
+      "title": "pass^k กับ pass@k: วัดความสม่ำเสมอของ agent",
+      "body": "τ-bench ตัดสินงานของ agent ด้วยการเทียบสถานะฐานข้อมูลปลายทางกับ goal state และเสนอ metric pass^k คือโอกาสที่ทั้ง k รอบ (i.i.d.) ของงานเดียวกันสำเร็จหมด เฉลี่ยทั้งชุดงาน ต่างจาก pass@k ที่ถือว่าผ่านถ้าสำเร็จอย่างน้อยหนึ่งรอบ ซึ่งสะท้อนการค้นหาคำตอบ ไม่ใช่ความน่าเชื่อถือ ในบทความ agent แบบ function calling ของโมเดลแนวหน้าตอนนั้นสำเร็จไม่ถึง 50% ของงาน และ pass^8 ต่ำกว่า 25% ในโดเมน retail ตัวอย่างคือถ้ารู้อัตราสำเร็จจริงต่อรอบ p = 90% และแต่ละรอบเป็นอิสระต่อกัน pass^8 จะเหลือราว 43% (0.9 ยกกำลัง 8)",
+      "code": "# n รอบที่รัน, c รอบที่สำเร็จ, k รอบที่ต้องสำเร็จหมด\npass^k = C(c, k) / C(n, k)\npass@k = 1 - C(n - c, k) / C(n, k)",
+      "ref": "https://arxiv.org/abs/2406.12045"
+    },
+    {
+      "tier": "advanced",
+      "title": "A2A กับ MCP: คนละชั้น เสริมกัน ไม่ใช่ทางเลือกแทนกัน",
+      "body": "เอกสารของ A2A อธิบายว่า MCP ทำให้ agent หนึ่งตัวทำงานได้ลึกขึ้นโดยเชื่อมกับ tool และ resource ที่มี input/output เป็นโครงสร้างชัดเจน (แนวตั้ง) ส่วน Agent2Agent protocol ให้ agent อิสระที่มักมองเข้าไปข้างในไม่ได้ ซึ่งอาจอยู่คนละทีมหรือคนละองค์กร ค้นหากัน ต่อรอง และร่วมมือกันเป็น peer (แนวนอน) เอกสารระบุว่าสองโปรโตคอลเสริมกัน เช่น agent บริการลูกค้าส่งต่อเรื่องให้ agent ฝ่ายบิล โดยแต่ละ agent ยังใช้ MCP เชื่อมกับ tool ของตัวเองได้",
+      "ref": "https://a2a-protocol.org/latest/topics/a2a-and-mcp/"
+    },
+    {
+      "tier": "advanced",
+      "title": "Handoff หรือ agent-as-tool: ใครเป็นเจ้าของคำตอบ",
+      "body": "เอกสาร OpenAI Agents SDK ระบุ core pattern ที่พบบ่อยที่สุดสองแบบ คือ agents as tools โดย manager agent ถือการสนทนาไว้และเรียก specialist ผ่าน tool เหมาะเมื่ออยากให้ agent เดียวเป็นเจ้าของคำตอบสุดท้าย รวมผลจากหลาย specialist หรือบังคับ guardrail ที่จุดเดียว ส่วน handoff คือ triage agent ส่งการสนทนาให้ specialist ที่กลายเป็น agent ที่ active ตลอดที่เหลือของ turn เหมาะเมื่อการ routing เป็นส่วนของ workflow และอยากให้ specialist ตอบผู้ใช้เอง สองแบบใช้ร่วมกันได้",
+      "ref": "https://openai.github.io/openai-agents-python/multi_agent/"
     }
   ],
   "questions": [
@@ -181,84 +263,436 @@
       ],
       "answer": 2,
       "explain": "ผลที่ต้องวัดคือสถานะปลายทางจริง ไม่ใช่คำที่ agent อ้าง และ trace จะบอกว่าพลาดตรงไหน เช่น เรียก tool ผิด ส่ง input ผิด หรือ tool error แต่ agent ไม่สังเกต การแก้ prompt แล้วรันครั้งเดียวโดยไม่รู้สาเหตุเป็นการเดา และผลที่ไม่ deterministic ต้องรันหลายรอบจึงเชื่อได้"
+    },
+    {
+      "prompt": "ผู้ช่วยค้นคว้าภายในบริษัทตอบคำถามหลายขั้น เช่น \"ผู้ก่อตั้งบริษัทที่ซื้อกิจการ X เกิดที่เมืองใด\" โดยให้โมเดลเขียนเหตุผลต่อเนื่องแล้วตอบทีเดียว ไม่มี tool ผลคือมีข้อเท็จจริงที่แต่งขึ้นปนมา การปรับตามแนว ReAct ข้อใดตรงที่สุด?",
+      "options": [
+        "ให้โมเดลเขียนเหตุผลให้ละเอียดยาวขึ้น แล้วค่อยตอบในครั้งเดียวเหมือนเดิมทุกครั้ง",
+        "เพิ่มตัวอย่างคำถามคำตอบที่ถูกต้องหลายข้อใน prompt ให้โมเดลจำรูปแบบคำตอบ",
+        "ตัดการคิดออกให้เหลือแต่การเรียก tool แล้วส่งผลดิบที่ได้กลับไปให้ผู้ใช้เลย",
+        "ให้โมเดลสลับระหว่างคิดกับเรียก tool ค้นข้อมูล แล้วอ่านผลจริงก่อนคิดขั้นต่อไป"
+      ],
+      "answer": 3,
+      "explain": "ReAct ให้ reasoning กับ action สลับกัน: การคิดช่วยวางและปรับแผน ส่วน action ดึงข้อมูลภายนอกมายืนยัน ซึ่งบทความรายงานว่าลด hallucination และ error propagation ที่พบใน chain-of-thought ล้วน ๆ การเขียนเหตุผลยาวขึ้นโดยไม่มีข้อมูลใหม่ไม่ได้เพิ่มหลักฐานจริง"
+    },
+    {
+      "prompt": "assistant ขอ tool 2 ตัวใน turn เดียว (ค้นสต็อกและดึงราคา) harness ส่งผลกลับตามโค้ดด้านล่าง หลังจากนั้นโมเดลเลิกขอ tool หลายตัวพร้อมกัน แม้งานเหมาะกับการขนาน สาเหตุที่เป็นไปได้มากที่สุดคืออะไร?",
+      "code": "messages.push({ role: \"assistant\", content: res.content });\nfor (const call of toolCalls) {\n  const out = await run(call);\n  messages.push({\n    role: \"user\",\n    content: [{ type: \"tool_result\", tool_use_id: call.id, content: out }],\n  });\n}",
+      "options": [
+        "ส่งผลของแต่ละ tool เป็น user message แยกกัน ควรรวมทุก tool_result ไว้ใน user message เดียว",
+        "ใช้ tool_use_id ที่โมเดลสร้างให้ ควรเปลี่ยนเป็นเลขลำดับ 0, 1, 2 ที่ harness กำหนดเอง เพราะ id ของโมเดลซ้ำกันข้าม turn ได้",
+        "รัน tool ทีละตัวด้วย await ควรใช้ Promise.all เพราะผลต้องเรียงตามเวลาที่ tool เสร็จ",
+        "ไม่มีข้อความอธิบายนำหน้า tool_result ควรใส่ข้อความบอกที่มาของผลก่อนทุกก้อน"
+      ],
+      "answer": 0,
+      "explain": "ต้องคืน tool_result ของทุก tool_use พร้อมกันใน user message เดียว และการแยกเป็นหลายข้อความเป็นสาเหตุที่พบบ่อยที่ทำให้โมเดลเลิกเรียกแบบขนาน การ await ทีละตัวหรือ Promise.all เป็นเรื่องวิธีรัน ไม่เกี่ยวกับรูปแบบข้อความ และข้อความอื่นต้องมาหลัง tool_result ไม่ใช่ก่อน"
+    },
+    {
+      "prompt": "tool search_inventory ของ agent เรียก API ภายนอกที่บางครั้ง timeout โค้ด loop ด้านล่างทำให้ทั้ง agent ล้มพร้อม stack trace ทุกครั้งที่ timeout ควรแก้อย่างไร?",
+      "code": "for (const call of toolCalls) {\n  const out = await tools[call.name](call.input); // throw เมื่อ timeout\n  results.push({ type: \"tool_result\", tool_use_id: call.id, content: out });\n}",
+      "options": [
+        "ครอบด้วย try/catch แล้วข้าม call นั้นไปโดยไม่ส่ง tool_result เพราะโมเดลไม่ต้องการผลที่ล้มเหลว",
+        "ครอบด้วย try/catch แล้วคืน tool_result ที่ content เป็นสตริงว่าง เพื่อไม่ให้โมเดลสับสนกับ error",
+        "ครอบด้วย try/catch แล้วส่ง tool_result ที่มี is_error: true พร้อมข้อความว่าล้มเพราะอะไร",
+        "ให้ harness retry เงียบ ๆ ไม่จำกัดครั้งจน tool สำเร็จ แล้วค่อยส่งผลที่ถูกต้องกลับให้โมเดล"
+      ],
+      "answer": 2,
+      "explain": "ทุก tool_use ต้องมี tool_result จับคู่ด้วย id เสมอ ถ้า tool พังให้ส่ง is_error: true พร้อมข้อความว่าเกิดอะไร เพื่อให้โมเดลปรับตัวได้ การข้ามผลขัดกับกติกานี้ ส่วน retry ไม่จำกัดคือ loop ที่ไม่มี stop condition และการซ่อน error ทำให้โมเดลไม่รู้ว่ามีปัญหา"
+    },
+    {
+      "prompt": "agent แนะนำสินค้าอ่านข้อมูลจากตาราง products ผ่าน tool ที่เชื่อมฐานข้อมูลด้วย account ที่มีสิทธิ์ SELECT, INSERT, UPDATE, DELETE ทุกตาราง ตามแนวของ OWASP ตรงกับต้นเหตุ Excessive Agency ข้อใด และควรแก้ที่ใด?",
+      "options": [
+        "Excessive functionality · ใช้ regex กรองใน tool ให้ผ่านเฉพาะคำสั่ง SQL ที่ขึ้นต้นด้วย SELECT เท่านั้น",
+        "Excessive permissions · ให้ identity ที่ tool ใช้มีสิทธิ์ SELECT เฉพาะตาราง products ที่ฝั่งฐานข้อมูล",
+        "Excessive autonomy · เพิ่มใน system prompt ว่าห้ามสั่ง INSERT, UPDATE หรือ DELETE เด็ดขาด",
+        "Prompt injection · ตรวจและกรองข้อความของผู้ใช้ทุกข้อความก่อนส่งให้โมเดลอ่านเสมอ"
+      ],
+      "answer": 1,
+      "explain": "OWASP ยกกรณี tool ที่ตั้งใจอ่านข้อมูลแต่ใช้ identity ที่เขียนและลบได้ เป็นตัวอย่างของ excessive permissions และให้บังคับด้วยสิทธิ์ของ identity ที่ฝั่งฐานข้อมูล การกรอง SQL หรือสั่งใน prompt เป็นชั้นเสริมที่หลบได้ จึงแทนสิทธิ์จริงไม่ได้"
+    },
+    {
+      "prompt": "agent สรุปรายงานต้องบันทึกผลลงไฟล์ในโฟลเดอร์ /reports ทีมทำด้วย tool เดียวคือ run_shell ที่รับคำสั่งอะไรก็ได้ ข้อใดสอดคล้องกับแนวทางลด Excessive Agency มากที่สุด?",
+      "code": "{\n  \"name\": \"run_shell\",\n  \"description\": \"Run any shell command\",\n  \"input_schema\": {\n    \"type\": \"object\",\n    \"properties\": { \"command\": { \"type\": \"string\" } }\n  }\n}",
+      "options": [
+        "คง run_shell ไว้ แต่เขียนใน description ว่าให้ใช้เฉพาะคำสั่งที่เขียนไฟล์ลง /reports",
+        "คง run_shell ไว้ แต่เพิ่ม tool ตรวจคำสั่งให้โมเดลเรียกก่อนรันทุกครั้งเพื่อความมั่นใจ",
+        "เปลี่ยนชื่อ tool เป็น write_file แต่ยังรับ command เป็นสตริงอิสระเหมือนเดิมทุกอย่าง",
+        "แทนด้วย tool เฉพาะอย่าง write_report ที่รับแค่ชื่อไฟล์ใน /reports และเนื้อหา"
+      ],
+      "answer": 3,
+      "explain": "OWASP แนะให้เลี่ยง extension แบบเปิดกว้าง (รัน shell, fetch URL) ไปใช้ tool ที่ทำสิ่งเดียวและรับ input แคบ เพราะ run_shell เปิดให้รันคำสั่งใดก็ได้ การเขียนข้อจำกัดใน description หรือให้โมเดลตรวจเองไม่ได้ลดสิ่งที่ tool ทำได้จริง และการเปลี่ยนชื่อไม่เปลี่ยนขอบเขต"
+    },
+    {
+      "prompt": "ผู้ช่วยเอกสารภายในใช้ service account เดียวที่เข้าถึงไฟล์ของทุกคนในองค์กร พนักงานฝ่ายขายพิมพ์ว่า \"ขอดูไฟล์เงินเดือนของทีม HR\" แล้ว agent ดึงมาให้ได้ ควรออกแบบใหม่อย่างไรตามแนวของ OWASP?",
+      "options": [
+        "ให้ tool เรียกระบบเอกสารในนามผู้ใช้แต่ละคนด้วยสิทธิ์ขั้นต่ำ และให้ระบบเอกสารตรวจสิทธิ์เอง",
+        "เขียนใน system prompt ให้ agent ถามแผนกของผู้ใช้ก่อน แล้วตัดสินเองว่าไฟล์ไหนเปิดให้ดูได้",
+        "เพิ่ม service account อีกตัวสำหรับ HR แล้วให้ agent เลือก account ตามหัวข้อของคำถาม",
+        "ให้ agent ดึงไฟล์มาก่อน แล้วเปิดเผยเฉพาะส่วนที่โมเดลเห็นว่าไม่ละเอียดอ่อนในคำตอบที่ส่งให้ผู้ใช้"
+      ],
+      "answer": 0,
+      "explain": "OWASP แนะให้ execute extension ใน user's context ด้วยสิทธิ์ขั้นต่ำ และใช้ complete mediation คือให้ระบบปลายทางตรวจสิทธิ์ ไม่พึ่งให้ LLM ตัดสินว่าอนุญาตหรือไม่ ตัวเลือกอื่นยังให้โมเดลเป็นผู้ตัดสินสิทธิ์ ซึ่งถูกชักนำด้วย prompt injection หรือเดาผิดได้"
+    },
+    {
+      "prompt": "coding agent วางแผน 8 ขั้นเพื่อ migrate schema แล้วรันตามแผนต่อเนื่อง ขั้นที่ 3 script migration ล้มเหลว (exit code ไม่ใช่ 0) แต่ agent ไม่ได้ตรวจ ขั้นที่ 4–8 จึงทำต่อบนฐานข้อมูลที่ไม่ได้ migrate จริง ควรปรับพฤติกรรม agent อย่างไร?",
+      "options": [
+        "ให้เขียนแผนละเอียดขึ้นเป็น 20 ขั้น เพื่อให้แต่ละขั้นเล็กจนไม่มีโอกาสล้มเหลวอีกต่อไป",
+        "ให้ตรวจผลเฉพาะขั้นสุดท้าย เพราะถ้าขั้นท้ายผ่านก็แปลว่าขั้นก่อนหน้าผ่านด้วยเสมอ",
+        "ซ่อนแผนจากผู้ใช้ เพื่อให้ agent ทำงานต่อเนื่องโดยไม่ถูกขัดจังหวะหรือถูกสอบถามบ่อย",
+        "ให้อ่านผลจริงของแต่ละขั้นก่อนไปต่อ และหยุดขอความเห็นจากคนที่ checkpoint เมื่อติดขัด"
+      ],
+      "answer": 3,
+      "explain": "บทความ Building effective agents ย้ำว่า agent ต้องได้ ground truth จากสภาพแวดล้อมในทุกขั้น เช่นผลของ tool หรือผลรันโค้ด และหยุดขอความเห็นคนที่ checkpoint หรือเมื่อติดขัด การตรวจแค่ขั้นสุดท้ายปล่อยให้ error สะสมไปก่อน และแผนที่ละเอียดขึ้นก็ยังพลาดได้ถ้าไม่ตรวจผล"
+    },
+    {
+      "prompt": "ทีมทำ memory tool ฝั่ง client ให้ agent จดโน้ตลงโฟลเดอร์ /var/app/memories ตามโค้ดด้านล่าง วันหนึ่งมีการขอ view path เป็น /memories/../../../etc/app/secrets.env ปัญหาของโค้ดคืออะไร?",
+      "code": "const MEM_ROOT = \"/var/app/memories\";\n\nfunction viewMemory(p) {\n  // p เช่น \"/memories/notes.md\"\n  const file = MEM_ROOT + p.replace(\"/memories\", \"\");\n  return fs.readFileSync(file, \"utf8\");\n}",
+      "options": [
+        "ใช้ readFileSync แบบ synchronous จึงบล็อก event loop และถูกโจมตีแบบ denial of service ได้",
+        "ไม่ได้ resolve path แล้วตรวจว่ายังอยู่ใน MEM_ROOT จึงอ่านไฟล์นอกโฟลเดอร์ memory ได้",
+        "ไม่ได้เข้ารหัสไฟล์ memory ไว้ ผู้โจมตีจึงอ่านเนื้อหาโน้ตของ agent ได้ทันทีโดยไม่ต้องใช้ path",
+        "รับ path จาก tool input โดยตรง ควรรับผ่านพารามิเตอร์ HTTP เพื่อตรวจสิทธิ์ผู้เรียกได้ง่ายกว่า"
+      ],
+      "answer": 1,
+      "explain": "เอกสาร memory tool เตือนว่า path อย่าง /memories/../../secrets.env เข้าถึงไฟล์นอกโฟลเดอร์ได้ และ implementation ต้องตรวจทุก path ในทุกคำสั่ง (เช่น resolve แล้วตรวจ prefix) เพราะ client เป็นผู้รันทุกการกระทำ การเข้ารหัสไฟล์ไม่ช่วยเมื่อ path หลุดออกนอกโฟลเดอร์ไปแล้ว"
+    },
+    {
+      "prompt": "agent ย้ายโค้ดหลายร้อยไฟล์ในงานที่ต้องทำต่อเนื่องหลายวัน ทุกครั้งที่เริ่ม session ใหม่มันสำรวจ repo ใหม่ทั้งหมดและทำงานซ้ำที่เคยทำแล้ว ควรเพิ่มอะไรเป็นอย่างแรก?",
+      "options": [
+        "ให้ agent บันทึกความคืบหน้าและการตัดสินใจลงไฟล์โน้ต และอ่านไฟล์นั้นก่อนเริ่มงานทุก session",
+        "ใช้โมเดลที่ context window ใหญ่ขึ้น แล้วเก็บบทสนทนาของทุก session ไว้ต่อกันใน messages",
+        "เขียนรายชื่อไฟล์ที่แก้แล้วด้วยมือใน system prompt ก่อนเริ่มงานทุกครั้งที่เปิด session ใหม่",
+        "ตั้ง temperature เป็น 0 เพื่อให้ agent ตัดสินใจเหมือนเดิมทุก session โดยไม่ต้องจำอะไร"
+      ],
+      "answer": 0,
+      "explain": "เอกสาร memory tool ระบุกรณีใช้งานคือรักษา project context ข้ามหลาย agent session และแนะให้ agent บันทึกสถานะ เพราะ context อาจถูกรีเซ็ตเมื่อไรก็ได้ การปรับ temperature ไม่ทำให้มีความจำ และ context window ที่ใหญ่ขึ้นก็ไม่ข้ามไปยัง session ใหม่เอง"
+    },
+    {
+      "prompt": "ทีมอยากเปลี่ยน coding assistant ที่แก้โมดูลชำระเงิน ซึ่งไฟล์ผูกกันแน่นและต้องเห็นบริบทร่วมกัน จาก agent เดียวเป็น multi-agent 6 ตัวทำงานขนาน โดยหวังว่าจะเร็วและดีขึ้น ตามบทความของ Anthropic ควรประเมินอย่างไร?",
+      "options": [
+        "เหมาะมาก เพราะยิ่งเพิ่มจำนวน agent ก็ยิ่งได้ผลดีขึ้นเสมอ โดยไม่ต้องกังวลเรื่องการประสานงาน",
+        "เหมาะ เพราะแต่ละ agent มี context ของตัวเอง จึงไม่กระทบต้นทุนเมื่อเทียบกับ agent เดียว",
+        "ไม่เหมาะ เพราะ multi-agent ใช้ได้เฉพาะงานวิจัยบนเว็บเท่านั้น และห้ามใช้กับการเขียนโค้ด",
+        "ระวัง เพราะงานที่ต้องแชร์ context และพึ่งพากันมากไม่เหมาะ และ multi-agent ใช้ token ราว 15 เท่าของแชต"
+      ],
+      "answer": 3,
+      "explain": "บทความระบุว่าโดเมนที่ agent ต้องแชร์ context หรือมี dependency กันมากไม่เหมาะ งานโค้ดส่วนใหญ่ขนานได้น้อยกว่างานวิจัย และ multi-agent ใช้ token ราว 15 เท่าของแชต (agent เดี่ยวราว 4 เท่า) แต่บทความไม่ได้ห้ามเด็ดขาด เพียงบอกว่าต้องคุ้มค่าและงานต้องขนานได้จริง"
+    },
+    {
+      "prompt": "lead agent ส่งคำสั่งเดียวกันว่า \"หาข้อมูลคู่แข่ง\" ให้ subagent 3 ตัว ผลคือ 2 ตัวค้นเรื่องเดียวกันซ้ำ และไม่มีใครค้นเรื่องราคา ควรแก้ที่ใด?",
+      "options": [
+        "เพิ่มจำนวน subagent เป็น 10 ตัว เพื่อให้โอกาสที่ค้นครอบคลุมทุกหัวข้อสูงขึ้นเอง",
+        "ให้ subagent คุยกันเองก่อนเริ่ม เพื่อตกลงแบ่งงานกันโดย lead agent ไม่ต้องระบุอะไรเพิ่ม",
+        "แยกคำสั่งให้แต่ละตัวมีเป้าหมาย รูปแบบผลลัพธ์ แหล่งหรือเครื่องมือ และขอบเขตที่ไม่ทับกัน",
+        "คงคำสั่งสั้นเหมือนเดิม แต่เปลี่ยนไปใช้โมเดลที่ใหญ่ขึ้นเพื่อให้ตีความคำสั่งได้ดีกว่าเดิม"
+      ],
+      "answer": 2,
+      "explain": "Anthropic พบว่าคำสั่งสั้นและคลุมเครือทำให้ subagent ตีความผิดหรือค้นซ้ำกัน แต่ละตัวต้องได้ objective, output format, คำแนะนำเรื่อง tool/แหล่งข้อมูล และ task boundaries ที่ชัด การเพิ่มจำนวนตัวหรือเปลี่ยนโมเดลไม่ได้แก้เรื่องการแบ่งงาน"
+    },
+    {
+      "prompt": "MCP server จองตั๋วเครื่องบิน (tool book_flight) ได้รับ tools/call ที่ departure_date เป็นวันในอดีต ควรรายงานข้อผิดพลาดนี้อย่างไรเพื่อให้โมเดลแก้ input แล้วลองใหม่ได้?",
+      "options": [
+        "ตอบ JSON-RPC error (เช่น code -32602) เพราะ input ไม่ผ่าน validation จึงถือเป็นความผิดของ protocol",
+        "ตอบ result ที่ isError: false และ content ว่าง เพื่อบอกอ้อม ๆ ว่าไม่มีเที่ยวบินให้จอง",
+        "ปิด connection กับ client แล้วให้เชื่อมต่อใหม่ เพื่อรีเซ็ตสถานะของ tool นี้ให้พร้อมใช้งาน",
+        "ตอบ result ปกติที่มี isError: true พร้อมข้อความว่าวันต้องเป็นอนาคต"
+      ],
+      "answer": 3,
+      "explain": "spec แยก Protocol Errors (เช่น unknown tool, request ผิดโครงสร้าง) ที่โมเดลแก้ได้ยาก ออกจาก Tool Execution Errors (รวม input validation เช่นวันที่ผิด) ที่ส่งใน result ด้วย isError: true เพื่อให้โมเดลแก้ตัวเองได้ การใช้ JSON-RPC error กับกรณีนี้ทำให้โมเดลไม่ได้ข้อมูลที่ใช้แก้"
+    },
+    {
+      "prompt": "client ของคุณเชื่อม MCP server ของบุคคลที่สามที่ไม่รู้จัก tool ตัวหนึ่งมี annotation บอกว่าไม่เป็นอันตราย ทีมเสนอให้ข้ามหน้าต่างขออนุมัติของ tool นั้นเพราะ annotation บอกไว้แล้ว ข้อใดสอดคล้องกับ spec?",
+      "options": [
+        "ไม่ควรข้าม เพราะ spec ให้ client ถือ annotation เป็นข้อมูลที่เชื่อไม่ได้ เว้นแต่มาจาก server ที่ไว้ใจ",
+        "ข้ามได้ เพราะ spec กำหนดให้ annotation เป็นคำรับรองที่ client ต้องเชื่อทุกกรณีทุก server",
+        "ข้ามได้ถ้า server ใช้ HTTPS และมีใบรับรองถูกต้อง เพราะการเข้ารหัสการเชื่อมต่อพิสูจน์ได้ว่า annotation ถูกต้อง",
+        "ไม่ควรข้าม เพราะ spec ห้าม client อ่าน annotation จาก server ใดก็ตามโดยสิ้นเชิง"
+      ],
+      "answer": 0,
+      "explain": "spec ระบุว่า client ต้องถือ annotation ของ tool ว่าเชื่อไม่ได้เว้นแต่มาจาก trusted server และควรมี human in the loop ที่ปฏิเสธการเรียก tool ได้ HTTPS ป้องกันการดักระหว่างทาง แต่ไม่ได้รับรองว่า server พูดความจริง"
+    },
+    {
+      "prompt": "แอป AI (host) เชื่อมต่อ MCP server 2 ตัว คือ server ปฏิทินของบริษัท และ server ค้นเว็บของบุคคลที่สาม ข้อใดอธิบายการแยกขอบเขตตามสถาปัตยกรรมของ MCP ได้ถูกต้อง?",
+      "options": [
+        "server ค้นเว็บอ่านบทสนทนาทั้งหมดและข้อมูลของ server ปฏิทินได้ เพราะใช้ protocol เดียวกันและอยู่ใน host เดียวกัน",
+        "ประวัติบทสนทนาเต็มอยู่ที่ host แต่ละ client คุยกับ server ตัวเดียว และ host ควบคุมการโต้ตอบข้าม server",
+        "client ตัวเดียวถือการเชื่อมต่อกับทั้งสอง server เพื่อให้แชร์ context กันโดยตรงได้เร็วขึ้น",
+        "server แต่ละตัวบังคับ consent ของผู้ใช้เอง ส่วน host ทำหน้าที่แค่ส่งต่อข้อความเท่านั้น"
+      ],
+      "answer": 1,
+      "explain": "ตามสถาปัตยกรรม MCP host สร้าง client หลายตัว แต่ละตัวคุยกับ server เพียงตัวเดียว ประวัติบทสนทนาเต็มอยู่ที่ host และ host บังคับ security boundary กับ consent ส่วน server ไม่ควรอ่านทั้งบทสนทนาหรือมองเข้าไปใน server อื่น"
+    },
+    {
+      "prompt": "ทีมรันงานคืนเงินเดียวกัน 5 รอบ สำเร็จ 3 รอบ ตามนิยามใน τ-bench (ประมาณแบบไม่ลำเอียงจากสูตรด้านล่าง) pass^3 ของงานนี้เท่าไร?",
+      "code": "pass^k = C(c, k) / C(n, k)\n# n = 5 (รอบที่รัน), c = 3 (รอบที่สำเร็จ), k = 3",
+      "options": [
+        "60% (สำเร็จ 3 จากทั้งหมด 5 รอบ)",
+        "100% (มีอย่างน้อยหนึ่งรอบสำเร็จ)",
+        "21.6% (0.6 ยกกำลัง 3 จากอัตราสำเร็จ)",
+        "10% (C(3,3) / C(5,3) = 1 / 10)"
+      ],
+      "answer": 3,
+      "explain": "pass^k คือโอกาสที่ทั้ง k รอบสำเร็จหมด ประมาณด้วย C(c,k)/C(n,k) = 1/10 ส่วน 60% คือ pass^1 และ 100% คือ pass@3 (อย่างน้อยหนึ่งรอบสำเร็จ) ส่วน 0.6^3 เป็นค่าประมาณแบบแทนค่าตรง ๆ ที่ลำเอียงขึ้น ไม่ใช่ตัวประมาณแบบไม่ลำเอียงตามสูตรที่โจทย์กำหนด"
+    },
+    {
+      "prompt": "agent ฝ่ายจัดส่งของคุณต้องทำสองอย่าง คือ query ฐานข้อมูลพัสดุภายในผ่าน API ที่มี input/output เป็นโครงสร้างชัดเจน และมอบหมายงานให้ agent ของบริษัทขนส่งพาร์ตเนอร์ ซึ่งเป็น agent อิสระที่เรามองเข้าไปข้างในไม่ได้ ควรเลือกโปรโตคอลอย่างไร?",
+      "options": [
+        "MCP สำหรับฐานข้อมูลภายใน และ A2A สำหรับ agent ของพาร์ตเนอร์ เพราะสองอย่างเสริมกัน",
+        "A2A สำหรับทั้งสองอย่าง เพราะ A2A เป็นรุ่นใหม่กว่าและใช้แทน MCP ได้ทั้งหมด",
+        "MCP สำหรับ agent ของพาร์ตเนอร์ และ A2A สำหรับฐานข้อมูลภายในซึ่งเป็นระบบของเราเอง",
+        "ไม่ต้องใช้โปรโตคอลมาตรฐาน เพราะ agent ต่างองค์กรต้องใช้ API เฉพาะของแต่ละเจ้าเท่านั้น"
+      ],
+      "answer": 0,
+      "explain": "เอกสาร A2A อธิบายว่า MCP เชื่อม agent กับ tool และ resource ที่มีโครงสร้างชัด ส่วน A2A ให้ agent อิสระที่มักมองเข้าไปไม่ได้คุยและร่วมมือกัน และสองโปรโตคอลเสริมกัน ไม่ได้ใช้แทนกัน ตัวเลือกที่สลับบทบาทจึงผิดตามลักษณะของปลายทาง"
+    },
+    {
+      "prompt": "บอทซัพพอร์ตต้องตอบคำถามที่ปนทั้งเรื่องการจัดส่งและบิล ผลิตภัณฑ์ต้องการให้ agent หลักเป็นเจ้าของคำตอบสุดท้ายเพียงข้อความเดียว โดยรวมผลจาก specialist สองตัว รูปแบบใดตรงกับเอกสาร OpenAI Agents SDK?",
+      "options": [
+        "Handoff ไปหา specialist ด้านจัดส่ง แล้ว handoff ต่อไปด้านบิล ให้ตอบผู้ใช้ตามลำดับ",
+        "Handoff ให้ specialist ตัวแรกเป็นเจ้าของคำตอบ แล้วให้ตัวที่สองส่งความเห็นแยกต่างหาก",
+        "Agents as tools: manager เรียก specialist เป็น tool แล้วเป็นผู้เขียนคำตอบรวม",
+        "Routing ด้วยโค้ด if/else ล้วน ไม่ใช้ LLM ตัดสินว่าจะเรียก specialist ตัวใดเลย"
+      ],
+      "answer": 2,
+      "explain": "เอกสารระบุว่า agents as tools เหมาะเมื่ออยากให้ agent เดียวเป็นเจ้าของคำตอบสุดท้ายและรวมผลจากหลาย specialist ส่วน handoff ทำให้ specialist เป็น agent ที่ active ตลอดที่เหลือของ turn จึงไม่เหมาะกับการรวมผลจากสองตัวเป็นข้อความเดียว"
+    },
+    {
+      "prompt": "agent วิเคราะห์ข้อมูลที่ใช้เวลาหลายชั่วโมงล้มด้วย network error ชั่วคราวเมื่อทำไปแล้วราว 80% ระบบเริ่มงานใหม่ตั้งแต่ต้นทุกครั้ง เสียเวลาและเงินซ้ำ แนวทางใดตรงกับที่ Anthropic อธิบายในบทความระบบวิจัยหลาย agent?",
+      "options": [
+        "เริ่มใหม่ตั้งแต่ต้นต่อไป เพราะ agent ไม่ deterministic จึงไม่ควรนำสถานะจากรอบเดิมมาใช้ซ้ำ",
+        "ใช้ checkpoint กับ retry ที่ deterministic แล้ว resume จากจุดที่ค้าง และบอก agent เมื่อ tool ล้มเหลว",
+        "สั่งใน prompt ว่า \"ห้ามพลาด\" เพื่อให้ error เป็นศูนย์ โดยไม่ต้องมีกลไกกู้คืนใด ๆ เพิ่ม",
+        "ซ่อน network error จากโมเดลทั้งหมด เพราะการให้ agent รู้ว่า tool ล้มจะทำให้สับสนมากขึ้น"
+      ],
+      "answer": 1,
+      "explain": "บทความอธิบายว่า agent มี state และ error สะสม จึงสร้างระบบที่ resume จากจุดที่ค้างแทนการเริ่มใหม่ ใช้ retry logic และ checkpoint ร่วมกับการบอก agent เมื่อ tool ล้มเหลวเพื่อให้ปรับตัวได้ การซ่อน error ตรงข้ามกับที่บทความพบว่าได้ผล"
+    },
+    {
+      "prompt": "ดู trace ของ agent ตัวหนึ่ง ข้อใดชี้จุดบกพร่องและทางแก้ได้ตรงที่สุด?",
+      "code": "Thought: ผู้ใช้ถามสถานะ ORD-10293 ต้องเรียก get_order\nAction: get_order(\"ORD-10293\")\nObservation: error: order not found\nThought: คำสั่งซื้อนี้น่าจะจัดส่งแล้ว\nAnswer: คำสั่งซื้อ ORD-10293 จัดส่งแล้ว",
+      "options": [
+        "ผิดที่เรียก get_order ก่อนคิดเสร็จ ควรให้ตอบจากความรู้ในโมเดลโดยไม่ต้องใช้ tool เลยเพื่อลดความล่าช้า",
+        "ผิดที่ trace มี Thought หลายบรรทัด ควรตัด reasoning ออกทั้งหมดเพื่อให้ตอบได้เร็วขึ้น",
+        "ไม่มีจุดบกพร่อง เพราะ Thought ล่าสุดเป็นข้อสรุปที่สมเหตุสมผลและอ่านเข้าใจได้ง่าย",
+        "Thought ขัดกับ Observation: agent ควรปรับแผนตามผลจริง เช่นตรวจเลขคำสั่งซื้อหรือถามผู้ใช้ ไม่ใช่เดา"
+      ],
+      "answer": 3,
+      "explain": "ใน ReAct การคิดมีไว้ติดตามและปรับแผนตามสิ่งที่ action ส่งกลับ ที่นี่ Observation บอกว่าไม่พบคำสั่งซื้อ แต่ Thought ถัดมาสร้างข้อเท็จจริงเอง ซึ่งเป็นรูปแบบ hallucination ที่ ReAct ตั้งใจลดด้วยการยึดข้อมูลจากภายนอก การตัด reasoning หรือเลิกใช้ tool ไม่แก้ปัญหานี้"
+    },
+    {
+      "prompt": "agent โพสต์โซเชียลของบริษัทมี tool post_to_social ที่เผยแพร่ทันที วันหนึ่งโพสต์ข้อความผิดพลาดออกไปเพราะโมเดลตีความคำขอผิด ตามแนวป้องกัน Excessive Agency ควรแก้ที่ใดเป็นอันดับแรก?",
+      "options": [
+        "ใส่ขั้นตอนให้ผู้ใช้อนุมัติไว้ใน tool post_to_social เอง ก่อนเผยแพร่จริงทุกครั้ง",
+        "ให้ agent ตรวจร่างโพสต์ซ้ำอีกรอบด้วยตัวเอง แล้วเผยแพร่เองได้ถ้ามั่นใจพอ",
+        "ถอด tool อ่านข้อมูลทั้งหมดออก เพราะปัญหาเกิดจากการมี tool มากเกินไปในระบบ",
+        "เปลี่ยนไปใช้โมเดลที่ใหม่กว่า เพราะโมเดลใหม่จะไม่ตีความคำขอผิดอีกต่อไป"
+      ],
+      "answer": 0,
+      "explain": "OWASP ยกการสร้างและโพสต์โซเชียลในนามผู้ใช้เป็นตัวอย่างที่ extension ของ operation post ควรมี routine ให้ผู้ใช้อนุมัติ (human-in-the-loop) ก่อนทำงานผลกระทบสูง ส่วนโมเดลที่ดีขึ้นช่วยลดโอกาสพลาด แต่ช่องโหว่นี้นิยามโดยไม่ขึ้นกับสาเหตุที่ LLM พลาด"
     }
   ],
-  "exercise": {
-    "title": "นิยาม tool ให้ agent",
-    "level": "กลาง",
-    "tags": "JSON schema · description · enum · limit",
-    "lang": "json",
-    "prompt": "เขียนนิยาม tool ชื่อ search_orders เป็น JSON (รูปแบบ name / description / input_schema) ที่ค้นคำสั่งซื้อด้วยอีเมลลูกค้า (จำเป็น) กรองตามสถานะได้ (pending, shipped, delivered ไม่บังคับ) และจำกัดจำนวนผลลัพธ์ได้ด้วย limit ที่เป็นจำนวนเต็ม description ต้องบอกว่าควรใช้เมื่อไรและคืนอะไร",
-    "context": "Agent ฝ่าย support ตอบคำถามลูกค้าเรื่องคำสั่งซื้อ ลูกค้าบางคนมีคำสั่งซื้อหลายร้อยรายการ ถ้า tool คืนทุกรายการ context จะเต็มเร็วและ agent หาข้อมูลที่ต้องการไม่เจอ",
-    "starter": "{\n  \"name\": \"search_orders\"\n}\n",
-    "solution": "{\n  \"name\": \"search_orders\",\n  \"description\": \"ค้นคำสั่งซื้อของลูกค้าด้วยอีเมล ใช้เมื่อลูกค้าถามสถานะหรือประวัติคำสั่งซื้อ คืนรายการล่าสุดก่อน แต่ละรายการมีเลขคำสั่งซื้อ วันที่ สถานะ และยอดรวม\",\n  \"input_schema\": {\n    \"type\": \"object\",\n    \"properties\": {\n      \"email\": {\n        \"type\": \"string\",\n        \"description\": \"อีเมลที่ลูกค้าใช้สั่งซื้อ\"\n      },\n      \"status\": {\n        \"type\": \"string\",\n        \"enum\": [\"pending\", \"shipped\", \"delivered\"],\n        \"description\": \"กรองตามสถานะ ไม่ระบุ = ทุกสถานะ\"\n      },\n      \"limit\": {\n        \"type\": \"integer\",\n        \"minimum\": 1,\n        \"maximum\": 50,\n        \"default\": 10,\n        \"description\": \"จำนวนรายการสูงสุดที่คืน\"\n      }\n    },\n    \"required\": [\"email\"]\n  }\n}",
-    "hints": [
-      "โครงหลักคือ { \"name\", \"description\", \"input_schema\" } และ input_schema เป็น JSON Schema แบบ object",
-      "input_schema มี \"properties\" สำหรับ email, status, limit และ \"required\" เป็น array ของ field ที่ต้องมี",
-      "status ใช้ \"enum\": [\"pending\", \"shipped\", \"delivered\"] และไม่อยู่ใน required ส่วน limit ใช้ \"type\": \"integer\""
-    ],
-    "checks": [
-      {
-        "label": "name เป็น search_orders",
-        "json": {
-          "path": "name",
-          "op": "equals",
-          "value": "search_orders"
-        }
-      },
-      {
-        "label": "description บอกว่าใช้เมื่อไรและคืนอะไร",
-        "json": {
-          "path": "description",
-          "op": "matches",
-          "value": "(ใช้เมื่อ|when)[\\s\\S]*(คืน|return)|(คืน|return)[\\s\\S]*(ใช้เมื่อ|when)"
-        }
-      },
-      {
-        "label": "input_schema เป็น object",
-        "json": {
-          "path": "input_schema.type",
-          "op": "equals",
-          "value": "object"
-        }
-      },
-      {
-        "label": "email อยู่ใน required",
-        "json": {
-          "path": "input_schema.required",
-          "op": "contains",
-          "value": "email"
-        }
-      },
-      {
-        "label": "status ไม่อยู่ใน required",
-        "json": {
-          "path": "input_schema.required",
-          "op": "contains",
-          "value": "status"
+  "exercises": [
+    {
+      "title": "นิยาม tool ให้ agent",
+      "level": "กลาง",
+      "tags": "JSON schema · description · enum · limit",
+      "lang": "json",
+      "prompt": "เขียนนิยาม tool ชื่อ search_orders เป็น JSON (รูปแบบ name / description / input_schema) ที่ค้นคำสั่งซื้อด้วยอีเมลลูกค้า (จำเป็น) กรองตามสถานะได้ (pending, shipped, delivered ไม่บังคับ) และจำกัดจำนวนผลลัพธ์ได้ด้วย limit ที่เป็นจำนวนเต็ม description ต้องบอกว่าควรใช้เมื่อไรและคืนอะไร",
+      "context": "Agent ฝ่าย support ตอบคำถามลูกค้าเรื่องคำสั่งซื้อ ลูกค้าบางคนมีคำสั่งซื้อหลายร้อยรายการ ถ้า tool คืนทุกรายการ context จะเต็มเร็วและ agent หาข้อมูลที่ต้องการไม่เจอ",
+      "starter": "{\n  \"name\": \"search_orders\"\n}\n",
+      "solution": "{\n  \"name\": \"search_orders\",\n  \"description\": \"ค้นคำสั่งซื้อของลูกค้าด้วยอีเมล ใช้เมื่อลูกค้าถามสถานะหรือประวัติคำสั่งซื้อ คืนรายการล่าสุดก่อน แต่ละรายการมีเลขคำสั่งซื้อ วันที่ สถานะ และยอดรวม\",\n  \"input_schema\": {\n    \"type\": \"object\",\n    \"properties\": {\n      \"email\": {\n        \"type\": \"string\",\n        \"description\": \"อีเมลที่ลูกค้าใช้สั่งซื้อ\"\n      },\n      \"status\": {\n        \"type\": \"string\",\n        \"enum\": [\"pending\", \"shipped\", \"delivered\"],\n        \"description\": \"กรองตามสถานะ ไม่ระบุ = ทุกสถานะ\"\n      },\n      \"limit\": {\n        \"type\": \"integer\",\n        \"minimum\": 1,\n        \"maximum\": 50,\n        \"default\": 10,\n        \"description\": \"จำนวนรายการสูงสุดที่คืน\"\n      }\n    },\n    \"required\": [\"email\"]\n  }\n}",
+      "hints": [
+        "โครงหลักคือ { \"name\", \"description\", \"input_schema\" } และ input_schema เป็น JSON Schema แบบ object",
+        "input_schema มี \"properties\" สำหรับ email, status, limit และ \"required\" เป็น array ของ field ที่ต้องมี",
+        "status ใช้ \"enum\": [\"pending\", \"shipped\", \"delivered\"] และไม่อยู่ใน required ส่วน limit ใช้ \"type\": \"integer\""
+      ],
+      "checks": [
+        {
+          "label": "name เป็น search_orders",
+          "json": {
+            "path": "name",
+            "op": "equals",
+            "value": "search_orders"
+          }
         },
-        "negate": true
-      },
-      {
-        "label": "status จำกัดค่าด้วย enum ครบ 3 ค่า",
-        "json": {
-          "path": "input_schema.properties.status.enum",
-          "op": "containsAll",
-          "value": [
-            "pending",
-            "shipped",
-            "delivered"
-          ]
+        {
+          "label": "description บอกว่าใช้เมื่อไรและคืนอะไร",
+          "json": {
+            "path": "description",
+            "op": "matches",
+            "value": "(ใช้เมื่อ|when)[\\s\\S]*(คืน|return)|(คืน|return)[\\s\\S]*(ใช้เมื่อ|when)"
+          }
+        },
+        {
+          "label": "input_schema เป็น object",
+          "json": {
+            "path": "input_schema.type",
+            "op": "equals",
+            "value": "object"
+          }
+        },
+        {
+          "label": "email อยู่ใน required",
+          "json": {
+            "path": "input_schema.required",
+            "op": "contains",
+            "value": "email"
+          }
+        },
+        {
+          "label": "status ไม่อยู่ใน required",
+          "json": {
+            "path": "input_schema.required",
+            "op": "contains",
+            "value": "status"
+          },
+          "negate": true
+        },
+        {
+          "label": "status จำกัดค่าด้วย enum ครบ 3 ค่า",
+          "json": {
+            "path": "input_schema.properties.status.enum",
+            "op": "containsAll",
+            "value": [
+              "pending",
+              "shipped",
+              "delivered"
+            ]
+          }
+        },
+        {
+          "label": "limit เป็น integer",
+          "json": {
+            "path": "input_schema.properties.limit.type",
+            "op": "equals",
+            "value": "integer"
+          }
         }
-      },
-      {
-        "label": "limit เป็น integer",
-        "json": {
-          "path": "input_schema.properties.limit.type",
-          "op": "equals",
-          "value": "integer"
+      ]
+    },
+    {
+      "title": "เขียน brief สั่ง subagent ให้ชัด",
+      "level": "ง่าย",
+      "tags": "subagent · delegation · output format · boundaries",
+      "lang": "markdown",
+      "prompt": "เขียน brief (ข้อความที่ lead agent ส่งให้ subagent) ให้ subagent ตรวจหาว่า service payments เรียก API ของ billing จากไฟล์ใดบ้าง brief ต้องมี เป้าหมาย, รูปแบบผลลัพธ์ที่ต้องการ, เครื่องมือหรือแหล่งข้อมูลที่ให้ใช้ (ระบุโฟลเดอร์ services/payments), ขอบเขตว่าอะไรห้ามหรือไม่ต้องทำ (รวมถึงอ่านอย่างเดียว ไม่แก้ไฟล์) และเงื่อนไขหยุด",
+      "context": "lead agent ของทีมแตกงานตรวจ dependency ก่อนย้าย billing API ไปเวอร์ชันใหม่ และแจกงานให้ subagent หลายตัวที่มี context ของตัวเอง มันไม่เห็นบทสนทนาของ lead agent รู้เท่าที่ brief บอก ครั้งก่อนมีการสั่งสั้น ๆ ว่า \"ไปดูหน่อยว่า payments ใช้ billing ตรงไหน\" แล้วได้ผลที่ไม่สม่ำเสมอ ทั้งค้นกว้างเกินและเงียบเมื่อหาไม่เจอ",
+      "starter": "ไปหาให้หน่อยว่า payments เรียก billing ตรงไหนบ้าง\n",
+      "solution": "## เป้าหมาย\nหาว่าโค้ดใน services/payments เรียก API ของ billing จากไฟล์ใดบ้าง และเรียก endpoint ไหน\n\n## รูปแบบผลลัพธ์\nตาราง markdown 3 คอลัมน์: ไฟล์ | บรรทัด | endpoint ที่เรียก\nท้ายตารางสรุปจำนวนไฟล์ที่พบ และระบุแยกต่างหากว่าส่วนไหนที่ไม่แน่ใจ\n\n## เครื่องมือและแหล่งข้อมูล\nใช้ grep และอ่านไฟล์ในโฟลเดอร์ services/payments/ เท่านั้น\n\n## ขอบเขต\n- อ่านอย่างเดียว ห้ามแก้ไฟล์ใด ๆ\n- ไม่ต้องค้นใน service อื่น เช่น orders หรือ shipping\n- ไม่ต้องเสนอวิธีแก้หรือ refactor\n\n## เมื่อไรให้หยุด\nหยุดเมื่อค้นครบทุกไฟล์ใน services/payments/ หรือใช้ tool ไปแล้ว 15 ครั้ง ถ้าครบเพดานก่อนค้นเสร็จ ให้ส่งผลที่ได้พร้อมบอกว่าเหลือส่วนไหนที่ยังไม่ได้ตรวจ\n",
+      "hints": [
+        "subagent ไม่เห็นบทสนทนาของเรา ลองคิดว่าถ้าส่งให้เพื่อนร่วมทีมที่ไม่รู้เรื่องมาก่อน เขาต้องรู้อะไรบ้างจึงทำได้โดยไม่ต้องถามกลับ",
+        "Anthropic แนะว่า brief ควรมี 4 ส่วน คือ objective, output format, คำแนะนำเรื่อง tool และแหล่งข้อมูล, และ task boundaries ส่วนที่ 5 ที่ช่วยคุมต้นทุนคือเงื่อนไขหยุด",
+        "ระบุโฟลเดอร์ services/payments/ ให้ชัด เขียนรูปแบบผลลัพธ์เป็นตารางหรือรายการที่ lead agent นำไปรวมต่อได้ และเขียนทั้งสิ่งที่ห้าม (แก้ไฟล์) กับเพดานการค้น (เช่น ไม่เกิน 15 ครั้ง)"
+      ],
+      "checks": [
+        {
+          "label": "มีเป้าหมายของงานชัดเจน",
+          "pattern": "(เป้าหมาย|objective|goal)"
+        },
+        {
+          "label": "ระบุรูปแบบผลลัพธ์ (เช่น ตาราง รายการ หรือ JSON)",
+          "pattern": "(รูปแบบ|format|output|ผลลัพธ์)[\\s\\S]*(ตาราง|table|json|รายการ|list|คอลัมน์|column|bullet)"
+        },
+        {
+          "label": "ระบุเครื่องมือหรือแหล่งข้อมูล พร้อมโฟลเดอร์ services/payments",
+          "pattern": "(เครื่องมือ|tools?|grep|แหล่งข้อมูล|sources?)[\\s\\S]*services/payments|services/payments[\\s\\S]*(เครื่องมือ|tools?|grep|แหล่งข้อมูล|sources?)"
+        },
+        {
+          "label": "กำหนดขอบเขตว่าอะไรไม่ต้องทำหรือห้ามทำ",
+          "pattern": "(ขอบเขต|boundar|scope|ไม่ต้อง|ห้าม|do not|don't)"
+        },
+        {
+          "label": "สั่งให้อ่านอย่างเดียว ไม่แก้ไฟล์",
+          "pattern": "(ห้ามแก้|ไม่แก้|อ่านอย่างเดียว|read-only|read only|do not (edit|modify|change|write)|don't (edit|modify|change|write))"
+        },
+        {
+          "label": "มีเงื่อนไขหยุดหรือเพดานการค้น",
+          "pattern": "(หยุด|stop|ไม่เกิน|at most|no more than|maximum)"
         }
-      }
-    ]
-  }
+      ]
+    },
+    {
+      "title": "ทำ agent loop ให้มีเพดานและไม่ล้มเมื่อ tool พัง",
+      "level": "ยาก",
+      "tags": "agent loop · tool_result · is_error · max turns · loop detection",
+      "lang": "javascript",
+      "prompt": "แก้ฟังก์ชัน runAgent ให้ปลอดภัยสำหรับใช้งานจริง (1) มีเพดานจำนวนรอบที่โค้ดบังคับ (2) ตอบทุก tool_use ด้วย tool_result ที่มี tool_use_id ตรงกัน และรวมทุก tool_result ไว้ใน user message เดียวต่อหนึ่ง turn (3) ถ้า tool ไม่มีหรือ throw error ให้ส่ง tool_result ที่มี is_error: true แทนการให้ loop ล้ม (4) หยุดเมื่อมีการเรียก tool เดิมด้วย input เดิมครบ 3 ครั้ง และ (5) เมื่อหยุดก่อนงานเสร็จให้คืน object ที่ระบุเหตุผล",
+      "context": "ทีมรัน agent ตรวจ dependency ข้ามคืนด้วย harness ที่ callModel(messages) คืน { stop_reason, content } และ tools เป็น object ที่แมปชื่อ tool ไปยังฟังก์ชัน async เวอร์ชันปัจจุบันเคยวนไม่จบเมื่อ tool ล้ม และล้มทั้งระบบเมื่อ tool ใดก็ตาม throw error",
+      "starter": "async function runAgent({ task, callModel, tools }) {\n  const messages = [{ role: \"user\", content: task }];\n  while (true) {\n    const res = await callModel(messages);\n    messages.push({ role: \"assistant\", content: res.content });\n    if (res.stop_reason !== \"tool_use\") return { status: \"done\", res };\n    for (const call of res.content.filter((b) => b.type === \"tool_use\")) {\n      const output = await tools[call.name](call.input);\n      messages.push({\n        role: \"user\",\n        content: [{ type: \"tool_result\", content: output }],\n      });\n    }\n  }\n}\n",
+      "solution": "async function runAgent({ task, callModel, tools, maxTurns = 20 }) {\n  const messages = [{ role: \"user\", content: task }];\n  const seen = new Map();\n  for (let turn = 0; turn < maxTurns; turn++) {\n    const res = await callModel(messages);\n    messages.push({ role: \"assistant\", content: res.content });\n    if (res.stop_reason !== \"tool_use\") return { status: \"done\", res };\n    const results = [];\n    for (const call of res.content.filter((b) => b.type === \"tool_use\")) {\n      const key = call.name + JSON.stringify(call.input);\n      const count = (seen.get(key) || 0) + 1;\n      seen.set(key, count);\n      if (count >= 3) {\n        return { status: \"stopped\", reason: \"repeated_call\", call };\n      }\n      try {\n        const output = await tools[call.name](call.input);\n        results.push({ type: \"tool_result\", tool_use_id: call.id, content: String(output) });\n      } catch (err) {\n        results.push({\n          type: \"tool_result\",\n          tool_use_id: call.id,\n          content: \"Tool failed: \" + err.message,\n          is_error: true,\n        });\n      }\n    }\n    messages.push({ role: \"user\", content: results });\n  }\n  return { status: \"stopped\", reason: \"max_turns\" };\n}\n",
+      "hints": [
+        "เปลี่ยน while (true) เป็น loop ที่นับรอบ และเมื่อครบเพดานให้คืนผลที่บอกเหตุผล ไม่ใช่ปล่อยให้ loop ต่อไป",
+        "สร้างอาร์เรย์ results ก่อนวนแต่ละ tool_use ใส่ tool_result ที่มี tool_use_id: call.id ลงไป แล้ว push เป็น user message ครั้งเดียวหลังวนจบ",
+        "ครอบการเรียก tools[call.name](...) ด้วย try/catch แล้วใส่ is_error: true ในผลที่ล้มเหลว ส่วนการตรวจเรียกซ้ำให้เก็บ key จาก call.name กับ JSON.stringify(call.input) ใน Map แล้วนับ"
+      ],
+      "checks": [
+        {
+          "label": "มีเพดานจำนวนรอบที่โค้ดบังคับ (ไม่ใช่ while (true) ลอย ๆ)",
+          "pattern": "(for|while)\\s*\\([^)]*(?<!=)[<>]=?\\s*[\\w.]+|\\bif\\s*\\([^)]*(?<!=)[<>]=?\\s*\\w*(max|limit|budget|turns?)\\w*"
+        },
+        {
+          "label": "tool_result ใส่ tool_use_id ที่ได้จาก tool_use",
+          "pattern": "tool_use_id\\s*(:\\s*[\\w.\\[\\]]*id\\b|[,}])"
+        },
+        {
+          "label": "ไม่ส่ง tool_result เป็น user message แยกทีละ call (รวมผลแล้ว push ทีเดียว)",
+          "pattern": "content\\s*:\\s*\\[\\s*\\{\\s*type\\s*:\\s*[\"'`]tool_result",
+          "negate": true
+        },
+        {
+          "label": "จับ error ของ tool ไม่ให้ loop ล้ม",
+          "pattern": "(try\\s*\\{[\\s\\S]*\\}\\s*catch|\\.catch\\s*\\(|allsettled|\\.then\\s*\\()"
+        },
+        {
+          "label": "ส่ง is_error: true เมื่อ tool ล้มเหลว",
+          "pattern": "is_error\\s*:\\s*true"
+        },
+        {
+          "label": "ตรวจการเรียก tool เดิมด้วย input เดิมซ้ำ",
+          "pattern": "json\\.stringify\\s*\\([^)]*input"
+        },
+        {
+          "label": "เมื่อหยุดก่อนเสร็จ คืนเหตุผลหรือ throw error",
+          "pattern": "(reason|why|cause|stopped)\\s*:|throw\\s+new\\s+error|status\\s*:\\s*[\"'`]\\w*(max|turn|limit|stop|repeat|loop|abort)"
+        }
+      ]
+    }
+  ],
+  "refs": [
+    {
+      "title": "Anthropic: Building effective agents",
+      "url": "https://www.anthropic.com/engineering/building-effective-agents",
+      "note": "workflow กับ agent, ground truth และ checkpoint"
+    },
+    {
+      "title": "Anthropic: How we built our multi-agent research system",
+      "url": "https://www.anthropic.com/engineering/multi-agent-research-system",
+      "note": "subagent, ต้นทุน token, การ resume งานที่ล้ม"
+    },
+    {
+      "title": "Anthropic: Effective context engineering for AI agents",
+      "url": "https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents",
+      "note": "compaction, note-taking, just-in-time context"
+    },
+    {
+      "title": "Claude docs: How tool use works",
+      "url": "https://platform.claude.com/docs/en/agents-and-tools/tool-use/how-tool-use-works",
+      "note": "tool ที่รันฝั่งเรากับฝั่งผู้ให้บริการ และ loop"
+    },
+    {
+      "title": "Model Context Protocol: Architecture",
+      "url": "https://modelcontextprotocol.io/specification/2026-07-28/architecture",
+      "note": "host, client, server และการแยกขอบเขต"
+    },
+    {
+      "title": "OWASP Top 10 for LLM Applications 2025",
+      "url": "https://genai.owasp.org/llm-top-10/",
+      "note": "รายการความเสี่ยง รวม Excessive Agency (LLM06)"
+    },
+    {
+      "title": "Google ADK: Agents",
+      "url": "https://google.github.io/adk-docs/agents/",
+      "note": "เมื่อไรควรแยกจาก agent เดียวเป็น workflow หลาย agent"
+    }
+  ]
 }

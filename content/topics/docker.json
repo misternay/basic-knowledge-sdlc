@@ -75,6 +75,95 @@
       "title": "Healthcheck, liveness และ readiness",
       "body": "HEALTHCHECK ใน Dockerfile หรือ healthcheck ใน Compose ให้ Docker รันคำสั่งตรวจเป็นระยะและแสดงสถานะ healthy/unhealthy (Docker เดี่ยว ๆ ไม่ restart container ที่ unhealthy ให้) ส่วน Kubernetes ไม่ใช้ HEALTHCHECK ของ image ต้องกำหนด probe เอง: readiness ไม่ผ่านคือถอด Pod ออกจาก Service ชั่วคราว liveness ไม่ผ่านคือ restart container กับดักใหญ่คือให้ liveness เช็ก database หรือ service ภายนอก พอ DB ช้า Pod ทุกตัวถูก restart พร้อมกันโดยไม่ช่วยอะไร ให้ liveness เช็กแค่ว่า process ยังตอบได้ และย้ายการเช็ก dependency ไปที่ readiness",
       "code": "readinessProbe:\n  httpGet: { path: /ready, port: 3000 }\n  periodSeconds: 5\nlivenessProbe:\n  httpGet: { path: /healthz, port: 3000 }\n  periodSeconds: 10\n  failureThreshold: 3"
+    },
+    {
+      "tier": "must",
+      "title": "ENTRYPOINT กับ CMD และ exec/shell form",
+      "body": "CMD กำหนดคำสั่งหรืออาร์กิวเมนต์ default ที่ถูกแทนที่ได้ ส่วน ENTRYPOINT กำหนดสิ่งที่ container รันเสมอ เมื่อใช้คู่กันแบบ exec form (JSON array ทั้งคู่) CMD จะกลายเป็นอาร์กิวเมนต์ต่อท้าย ENTRYPOINT และอาร์กิวเมนต์ที่ใส่หลังชื่อ image ใน docker run จะแทนที่เฉพาะ CMD (จะเปลี่ยน ENTRYPOINT ต้องใช้ --entrypoint) กับดักคือ ENTRYPOINT แบบ shell form รันผ่าน /bin/sh -c จึงไม่ส่งสัญญาณถึงโปรแกรมและไม่สนใจทั้ง CMD กับอาร์กิวเมนต์จาก docker run และถ้าใช้ CMD แบบ shell form คู่กับ ENTRYPOINT exec form ค่า CMD จะถูกห่อด้วย /bin/sh -c ด้วย",
+      "code": "ENTRYPOINT [\"python\", \"app.py\"]\nCMD [\"--port\", \"8000\"]\n\n# docker run myapi               -> python app.py --port 8000\n# docker run myapi --port 9000   -> python app.py --port 9000",
+      "exam": true,
+      "ref": "https://docs.docker.com/reference/dockerfile/#understand-how-cmd-and-entrypoint-interact"
+    },
+    {
+      "tier": "must",
+      "title": "ARG กับ ENV: ตัวแปรตอน build และตอนรัน",
+      "body": "ARG คือตัวแปรช่วง build ที่ส่งด้วย --build-arg ใช้ได้ตั้งแต่บรรทัดที่ประกาศ และไม่เป็นตัวแปรใน container ตอนรัน ส่วน ENV ถูกเก็บใน image และมีอยู่ใน container ตอนรัน (แก้ทับได้ด้วย docker run -e) ถ้า ARG กับ ENV ชื่อเดียวกัน ENV จะชนะเสมอ จึงใช้ ENV X=${X} เมื่ออยากส่งค่าตอน build ต่อไปถึงตอนรัน กับดักคือ ARG ที่ประกาศก่อน FROM อยู่นอก build stage ต้องประกาศ ARG ซ้ำ (ไม่ต้องใส่ค่า) ใน stage ก่อนใช้ และห้ามส่ง secret ผ่าน ARG เพราะเห็นได้จาก docker history",
+      "code": "ARG NODE_VERSION=24\nFROM node:${NODE_VERSION}-slim\n# ประกาศซ้ำใน stage จึงจะใช้ต่อได้\nARG APP_ENV=production\n# ENV ทำให้ค่านี้อยู่ใน container ตอนรัน\nENV APP_ENV=${APP_ENV}",
+      "exam": true,
+      "ref": "https://docs.docker.com/reference/dockerfile/#arg"
+    },
+    {
+      "tier": "must",
+      "title": "RUN apt-get: update กับ install ต้องอยู่ใน RUN เดียว",
+      "body": "ถ้าเขียน RUN apt-get update แยกบรรทัด Docker จะ cache บรรทัดนั้นไว้ แล้วตอนเพิ่มแพ็กเกจในบรรทัด install ภายหลังมันยังใช้ผลของ update เก่าจาก cache จึงติดตั้งไม่ได้หรือได้แพ็กเกจเวอร์ชันล้าสมัย วิธีที่ถูกคือรวม update กับ install ไว้ใน RUN เดียวกัน และลบ /var/lib/apt/lists ใน RUN เดียวกันนั้นด้วย เพื่อไม่ให้ cache ของ apt ถูกเก็บอยู่ใน layer ถ้า RUN มี pipe ให้ขึ้นต้นด้วย set -o pipefail เพื่อไม่ให้ความผิดพลาดกลางทางถูกกลืน",
+      "code": "RUN apt-get update && apt-get install -y --no-install-recommends \\\n      curl ca-certificates \\\n && rm -rf /var/lib/apt/lists/*",
+      "ref": "https://docs.docker.com/build/building/best-practices/#apt-get"
+    },
+    {
+      "tier": "must",
+      "title": "Restart policy ของ container",
+      "body": "restart policy ใช้สั่งให้ Docker เปิด container กลับมาเองเมื่อมันหยุด ตั้งด้วย --restart ค่า default คือ no ส่วน on-failure[:max-retries] restart เฉพาะเมื่อ exit code ไม่ใช่ศูนย์ และจะไม่ restart เมื่อ daemon restart always จะเปิดกลับเสมอ รวมถึงเมื่อ daemon restart แม้เราสั่งหยุดเอง ส่วน unless-stopped เหมือน always แต่ container ที่เราสั่งหยุดจะไม่กลับมาแม้ daemon restart และ policy มีผลหลัง container รันได้อย่างน้อย 10 วินาที เพื่อกัน container ที่ start ไม่ขึ้นวนลูป",
+      "code": "docker run -d --name redis --restart unless-stopped redis\n# งานที่ควรจบแล้วจบ: restart เฉพาะตอนล้มเหลว สูงสุด 5 ครั้ง\ndocker run -d --restart on-failure:5 myworker",
+      "exam": true,
+      "ref": "https://docs.docker.com/engine/containers/start-containers-automatically/"
+    },
+    {
+      "tier": "must",
+      "title": "Bind mount กับ volume: -v, --mount และของที่ถูกบัง",
+      "body": "bind mount ผูกโฟลเดอร์ของ host เข้า container ส่วน named volume ให้ Docker จัดการที่เก็บเอง ถ้า mount ทับ path ที่ใน image มีไฟล์อยู่แล้ว ไฟล์เดิมใน image จะถูกบัง เช่น bind ทั้งโปรเจกต์ไปที่ /app จะทำให้ node_modules ที่ติดตั้งไว้ใน image หายไป (ส่วน volume ว่างจะได้สำเนาเนื้อหาจาก image ครั้งแรกเท่านั้น) syntax ก็ต่างกัน -v จะสร้างโฟลเดอร์ฝั่ง host ที่ยังไม่มีให้เงียบ ๆ ทำให้พิมพ์ path ผิดแล้วได้ที่ว่างโดยไม่ error แต่ --mount type=bind จะ error ทันที และควรใส่ readonly กับ bind mount ที่ container ไม่ต้องเขียน",
+      "code": "# error ถ้า ./config ไม่มีอยู่ และ container อ่านได้อย่างเดียว\ndocker run -d \\\n  --mount type=bind,source=\"$(pwd)\"/config,target=/app/config,readonly \\\n  myapp",
+      "exam": true,
+      "ref": "https://docs.docker.com/engine/storage/bind-mounts/"
+    },
+    {
+      "tier": "should",
+      "title": "Log ของ container: stdout/stderr และการหมุนไฟล์",
+      "body": "Docker เก็บ stdout และ stderr ของ container ไว้ (driver default คือ json-file) และ docker logs แสดงข้อมูลนั้น แอปจึงควร log ออก stdout/stderr แทนการเขียนไฟล์ใน container เพราะ docker logs แสดงเฉพาะ STDOUT/STDERR ของ container ไม่ได้อ่านไฟล์ที่แอปเขียนเอง (ข้อสรุปจากเอกสาร ไม่ได้ระบุตรง ๆ) กับดักคือ json-file มี max-size default เป็น -1 (ไม่จำกัด) ไฟล์ log จึงโตจนดิสก์ของ host เต็มได้ ให้ตั้ง max-size คู่กับ max-file (max-file มีผลเมื่อมี max-size เท่านั้น) และการแก้ daemon.json มีผลกับ container ที่สร้างใหม่หลัง restart Docker เท่านั้น",
+      "code": "// daemon.json (ค่าเป็น string ทั้งหมด)\n{\n  \"log-driver\": \"json-file\",\n  \"log-opts\": { \"max-size\": \"10m\", \"max-file\": \"3\" }\n}\n\n// หรือกำหนดรายตัว\n// docker run --log-opt max-size=10m --log-opt max-file=3 myapp",
+      "ref": "https://docs.docker.com/engine/logging/drivers/json-file/"
+    },
+    {
+      "tier": "should",
+      "title": "จำกัดทรัพยากร: --memory, --cpus และ OOM",
+      "body": "โดย default container ใช้ทรัพยากรของ host ได้เท่าที่ kernel จัดให้ จึงควรจำกัดด้วย --memory (hard limit ขั้นต่ำ 6m) และ --cpus เช่น 1.5 คือใช้ได้ไม่เกินหนึ่งตัวครึ่ง ซึ่งเป็นโควตาไม่ใช่การจอง core เฉพาะ (ถ้าจะผูก core ใช้ --cpuset-cpus) ถ้า process ใช้ memory เกิน limit kernel จะ kill process ใน container แทนที่จะแค่ทำให้ช้าลง ส่วน --memory-reservation เป็น soft limit ที่ทำงานเมื่อ host ตึงเท่านั้น และไม่รับประกันว่าจะไม่เกิน",
+      "code": "docker run -d --memory 512m --memory-reservation 256m \\\n  --cpus 1.5 myapp",
+      "exam": true,
+      "ref": "https://docs.docker.com/engine/containers/resource_constraints/"
+    },
+    {
+      "tier": "should",
+      "title": "Publish port อย่างปลอดภัย: ระบุ 127.0.0.1",
+      "body": "port ของ container บน bridge network เข้าถึงได้จาก host และ container ใน network เดียวกันอยู่แล้วโดยไม่ต้อง publish ส่วน -p เป็นสิ่งที่เปิดให้เข้าถึงจากภายนอก host ซึ่งเอกสารระบุว่าไม่ปลอดภัยโดย default เพราะเปิดให้โลกภายนอกเข้าถึงด้วย ถ้าใส่ 127.0.0.1 นำหน้า จะเข้าได้เฉพาะจากเครื่อง host เช่น database ที่มีแค่แอปบนเครื่องเดียวกันเรียก (หรือถ้ามีแต่ container อื่นเรียกก็ไม่ต้อง publish เลย) และใน Docker ก่อน 28.0.0 เครื่องใน L2 segment เดียวกันยังเข้าถึง port ที่ผูกกับ localhost ได้",
+      "code": "# เข้าถึงได้จากภายนอก host ด้วย (ทุก interface)\ndocker run -p 5432:5432 postgres:18\n# เข้าถึงได้จากเครื่อง host เท่านั้น\ndocker run -p 127.0.0.1:5432:5432 postgres:18",
+      "ref": "https://docs.docker.com/engine/network/port-publishing/"
+    },
+    {
+      "tier": "should",
+      "title": "Compose: ลำดับความสำคัญของ environment variable",
+      "body": "ตัวแปรเดียวกันตั้งได้หลายที่ Compose จึงมีลำดับตัดสิน (สูงไปต่ำ) คือ docker compose run -e, ค่าที่ environment หรือ env_file อ้างและแทนจาก shell หรือไฟล์ .env, environment ในไฟล์ Compose, env_file, แล้วจึง ENV ใน image ค่า ARG/ENV ใน Dockerfile จะถูกใช้ก็ต่อเมื่อไม่มีค่าจาก Compose เลย ค่าในไฟล์ .env ใช้แทนที่ ${VAR} ในไฟล์ Compose และจะเข้า container ก็ต่อเมื่อถูกอ้างผ่าน environment หรือ env_file",
+      "code": "services:\n  api:\n    image: myapi\n    env_file: [app.env]   # LOG_LEVEL=info\n    environment:\n      LOG_LEVEL: debug    # ชนะ env_file และ ENV ใน image\n# docker compose run -e LOG_LEVEL=trace api   -> ชนะทุกที่",
+      "ref": "https://docs.docker.com/compose/how-tos/environment-variables/envvars-precedence/"
+    },
+    {
+      "tier": "advanced",
+      "title": "BuildKit cache mount: RUN --mount=type=cache",
+      "body": "cache mount ให้ builder เก็บโฟลเดอร์อย่าง cache ของ compiler หรือ package manager ไว้ข้ามการ build โดยไม่ถูกเขียนเข้า layer และไม่ทำให้ cache ของ instruction เสีย จึงเมื่อ layer ต้อง build ใหม่ (เช่นแก้โค้ด) ก็ยังคอมไพล์หรือดาวน์โหลดเฉพาะส่วนที่เปลี่ยน ใช้เพื่อความเร็วเท่านั้น เพราะ build ต้องสำเร็จได้แม้โฟลเดอร์ cache ว่าง (builder อาจล้างเมื่อพื้นที่ไม่พอ) และถ้ามี build ขนานกับเครื่องมืออย่าง apt ที่ต้องการสิทธิ์เดี่ยวให้ใช้ sharing=locked",
+      "code": "# syntax=docker/dockerfile:1\nFROM golang:1.27 AS build\nWORKDIR /src\nCOPY . .\nRUN --mount=type=cache,target=/root/.cache/go-build \\\n    go build -o /out/api ./cmd/api",
+      "ref": "https://docs.docker.com/reference/dockerfile/#run---mounttypecache"
+    },
+    {
+      "tier": "advanced",
+      "title": "Multi-platform build: buildx และ manifest list",
+      "body": "image แบบ multi-platform คือ manifest list ที่ชี้ไปยัง image หลายสถาปัตยกรรมภายใต้ tag เดียว เมื่อ pull registry ส่ง manifest list มาและ Docker เลือกตัวที่ตรงกับ host เอง สร้างได้ด้วย docker buildx build --platform linux/amd64,linux/arm64 ซึ่งทำได้สามแบบคือจำลองด้วย QEMU (ง่ายที่สุดแต่ช้า), builder หลายเครื่อง native หรือ cross-compile ด้วย FROM --platform=$BUILDPLATFORM คู่กับ TARGETOS/TARGETARCH เก็บ image ต้องใช้ image store ที่รองรับ manifest list (containerd image store เป็น default ใน Docker Desktop และ Engine 29.0 ขึ้นไป ยกเว้นเครื่องที่อัปเกรดมาและยังใช้ classic storage driver) หรือใช้ builder แบบ docker-container แล้ว --push ขึ้น registry",
+      "code": "docker buildx build --platform linux/amd64,linux/arm64 \\\n  -t ghcr.io/acme/myapp:1.4.0 --push .\n\n# cross-compile ไม่ผ่าน QEMU\nFROM --platform=$BUILDPLATFORM golang:1.27 AS build\nARG TARGETOS\nARG TARGETARCH\nRUN GOOS=$TARGETOS GOARCH=$TARGETARCH go build -o /out/api .",
+      "ref": "https://docs.docker.com/build/building/multi-platform/"
+    },
+    {
+      "tier": "advanced",
+      "title": "Hardening ตอนรัน: read-only, capability และ docker.sock",
+      "body": "ลดสิ่งที่ผู้โจมตีทำได้เมื่อหลุดเข้า container ด้วย --read-only (root filesystem อ่านอย่างเดียว เขียนได้เฉพาะ volume หรือ --tmpfs ที่ระบุ), --cap-drop ALL แล้วค่อย --cap-add เฉพาะที่จำเป็น และ --security-opt no-new-privileges ที่ไม่ให้ process ใน container ได้สิทธิ์เพิ่มขึ้น ควรหลีกเลี่ยง --privileged และไม่ mount /var/run/docker.sock เข้า container เพราะตามเอกสารเท่ากับให้ container เข้าถึงเต็มที่ในการสร้างและควบคุม Docker daemon ของ host ซึ่งปกติรันด้วยสิทธิ์ root (ยกเว้น rootless mode) จึงเทียบได้กับการให้สิทธิ์ระดับ root บน host",
+      "code": "docker run -d --read-only --tmpfs /tmp \\\n  --cap-drop ALL --security-opt no-new-privileges \\\n  -p 127.0.0.1:8080:3000 ghcr.io/acme/api:2.3.1",
+      "ref": "https://docs.docker.com/reference/cli/docker/container/run/"
     }
   ],
   "questions": [
@@ -190,47 +279,405 @@
       ],
       "answer": 0,
       "explain": "build context คือไฟล์ทั้งหมดในโฟลเดอร์ที่ส่งให้ docker build และ Docker ดูแค่ .dockerignore ไม่สน .gitignore เมื่อ secret เคยอยู่ใน image สาธารณะต้องถือว่ารั่วแล้ว การ push ทับ tag ไม่ลบ image เดิมที่ถูก pull ไปแล้ว จึงต้อง rotate ด้วย"
+    },
+    {
+      "prompt": "image นี้ถูก build เป็น myapi แล้วผู้ใช้รัน docker run myapi --port 9000 คำสั่งที่ container รันจริงคืออะไร?",
+      "code": "FROM python:3.13-slim\nWORKDIR /app\nCOPY . .\nENTRYPOINT [\"python\", \"app.py\"]\nCMD [\"--port\", \"8000\"]",
+      "options": [
+        "python app.py --port 8000 --port 9000 เพราะ docker run ต่อท้ายต่อจาก CMD ที่ฝังไว้ใน image",
+        "--port 9000 เพียงอย่างเดียว เพราะอาร์กิวเมนต์ของ docker run แทนที่ทั้ง ENTRYPOINT และ CMD",
+        "python app.py --port 9000 เพราะอาร์กิวเมนต์ของ docker run แทนที่ CMD แต่ ENTRYPOINT ยังอยู่",
+        "python app.py --port 8000 เพราะ docker run เปลี่ยนค่าที่ฝังอยู่ใน image ไม่ได้"
+      ],
+      "answer": 2,
+      "explain": "ENTRYPOINT แบบ exec form ยังอยู่เสมอ ส่วนอาร์กิวเมนต์หลังชื่อ image ใน docker run จะแทนที่ CMD ทั้งหมด จึงไม่เหลือ --port 8000 ถ้าอยากเปลี่ยนตัวโปรแกรมต้องใช้ --entrypoint"
+    },
+    {
+      "prompt": "ทีมเพิ่ม CMD [\"--verbose\"] ท้าย Dockerfile หวังให้ server.js ได้อาร์กิวเมนต์นี้ แต่ log ไม่เปลี่ยน และ docker run myapp --debug ก็ไม่มีผลเช่นกัน สาเหตุคืออะไร?",
+      "code": "FROM node:24-slim\nWORKDIR /app\nCOPY . .\nENTRYPOINT node server.js\nCMD [\"--verbose\"]",
+      "options": [
+        "ENTRYPOINT แบบ shell form ไม่รับ CMD และอาร์กิวเมนต์ของ docker run ต้องใช้ exec form",
+        "CMD ต้องเขียนก่อน ENTRYPOINT ใน Dockerfile เพราะลำดับบรรทัดมีผลต่อการทำงานของสองคำสั่งนี้",
+        "Node.js ไม่อ่านอาร์กิวเมนต์ที่ขึ้นต้นด้วย -- เมื่อรันภายใน container จึงไม่เห็นผลใด ๆ",
+        "ใช้ CMD ได้เฉพาะเมื่อไม่มี ENTRYPOINT เพราะสองคำสั่งนี้ใช้ร่วมกันไม่ได้"
+      ],
+      "answer": 0,
+      "explain": "shell form ของ ENTRYPOINT รันผ่าน /bin/sh -c และเอกสาร Docker ระบุว่าไม่สนใจ CMD หรืออาร์กิวเมนต์ของ docker run ส่วนการสลับลำดับบรรทัดไม่เกี่ยว เพราะ CMD กับ ENTRYPOINT ใช้คู่กันได้เมื่อเป็น exec form ทั้งคู่"
+    },
+    {
+      "prompt": "build ด้วย --build-arg APP_ENV=staging แล้ว deploy แต่ process.env.APP_ENV ใน container เป็น undefined ทั้งที่ตอน build ส่งค่าแล้ว แก้อย่างไรให้ตรงจุดที่สุด?",
+      "code": "FROM node:24-slim\nARG APP_ENV=production\nWORKDIR /app\nCOPY . .\nCMD [\"node\", \"server.js\"]",
+      "options": [
+        "เปลี่ยนเป็น ARG APP_ENV โดยไม่ใส่ค่า default เพื่อให้ Docker ส่งต่อให้ container เอง",
+        "ย้าย ARG ไปไว้ก่อนบรรทัด FROM แล้วค่าจะเข้าไปอยู่ใน environment ของ container",
+        "ส่ง --build-arg ให้ docker run ด้วย เพราะ ARG ตัวเดียวกันใช้ได้ตอนรัน",
+        "เพิ่ม ENV APP_ENV=$APP_ENV ต่อจาก ARG เพื่อให้ค่าถูกเก็บไว้ใน image"
+      ],
+      "answer": 3,
+      "explain": "ARG มีผลเฉพาะตอน build และไม่ไปอยู่ใน environment ของ container ส่วน ENV ถูกเก็บใน image จึงไปถึงตอนรัน การย้าย ARG ไปก่อน FROM ยิ่งทำให้ใช้ใน stage ไม่ได้ และ docker run ไม่มี --build-arg"
+    },
+    {
+      "prompt": "build แล้ว log ของ RUN แสดง \"building on python \" โดยไม่มีเวอร์ชัน ทั้งที่ FROM ใช้ BASE_TAG ได้ถูกต้อง เพราะอะไร?",
+      "code": "ARG BASE_TAG=3.13-slim\nFROM python:${BASE_TAG}\nRUN echo \"building on python $BASE_TAG\"",
+      "options": [
+        "RUN ใช้ได้เฉพาะตัวแปรจาก ENV คำสั่ง RUN ไม่รับค่าจาก ARG ในทุกกรณี แม้ประกาศ ARG ไว้ใน stage แล้ว",
+        "ARG ที่ประกาศก่อน FROM ใช้หลัง FROM ไม่ได้ ต้องประกาศ ARG BASE_TAG ซ้ำใน stage",
+        "ค่า default ของ ARG ใช้ได้เฉพาะใน FROM จึงต้องส่ง --build-arg ทุกครั้งสำหรับคำสั่งหลัง FROM",
+        "ต้องเขียน ${BASE_TAG:-} แทน $BASE_TAG ในคำสั่ง RUN ทุกครั้ง ไม่เช่นนั้นถูกแทนด้วยค่าว่าง"
+      ],
+      "answer": 1,
+      "explain": "ARG ก่อน FROM ใช้ได้เฉพาะในค่าของ FROM การประกาศ ARG BASE_TAG ใน stage (ไม่ต้องใส่ค่า) จะดึง default ที่ประกาศไว้ข้างนอกมาใช้ ดังนั้นไม่ต้อง --build-arg และ RUN ก็รับค่า ARG ได้ตามปกติ"
+    },
+    {
+      "prompt": "เดือนก่อน build ผ่านปกติ วันนี้เพิ่ม nginx เข้าบรรทัด install แล้ว build ล้มเหลวหรือได้แพ็กเกจเวอร์ชันเก่า ทั้งที่รันบนเครื่อง CI เดิม สาเหตุที่น่าจะเป็นที่สุดคืออะไร?",
+      "code": "FROM ubuntu:22.04\nRUN apt-get update\nRUN apt-get install -y --no-install-recommends curl nginx",
+      "options": [
+        "บรรทัด RUN apt-get update ไม่เปลี่ยนจึงใช้ cache เก่า ควรรวม update กับ install ใน RUN เดียว",
+        "apt-get update ถูกรันซ้ำทุก build จนดึงรายการใหม่ที่แพ็กเกจเปลี่ยนชื่อ ควรลบบรรทัด update ออก",
+        "Docker ไม่ cache คำสั่ง RUN ที่เรียก apt-get ทุกกรณี จึงต้องเพิ่ม --no-cache ให้ทุก build",
+        "ต้องเพิ่ม RUN apt-get upgrade ไว้ท้ายสุด เพื่อให้ Docker ล้าง cache ของ layer ก่อนหน้า"
+      ],
+      "answer": 0,
+      "explain": "Docker ตัดสิน cache ของ RUN จากข้อความคำสั่ง บรรทัด update จึงถูกใช้ซ้ำทั้งที่รายการแพ็กเกจใน layer นั้นเก่าแล้ว (เอกสารระบุว่าให้รวม update กับ install ใน RUN เดียว) ไม่ใช่เพราะ RUN ไม่ถูก cache"
+    },
+    {
+      "prompt": "รัน docker run -d --restart always --name api myapi แล้วช่วง maintenance สั่ง docker stop api ต่อมาเครื่องถูก reboot และพบว่า api ถูกเปิดกลับมาเองทั้งที่ตั้งใจให้หยุด ส่วนปกติทีมยังอยากให้ api เปิดกลับมาเองหลัง reboot หรือหลัง daemon restart ควรเปลี่ยนเป็น policy ใด?",
+      "options": [
+        "--restart on-failure เพราะจะ restart เฉพาะตอน exit code ผิดปกติ จึงไม่เปิดกลับเมื่อสั่ง stop",
+        "--restart no แล้วตั้ง cron ให้เรียก docker start ตามเวลาที่ต้องการ",
+        "คง always ไว้ เพราะ docker stop ปิด policy ถาวรจนกว่าจะสั่ง docker start เอง",
+        "--restart unless-stopped เพราะ container ที่ถูกสั่งหยุดเองจะไม่ถูกเปิดใหม่แม้ daemon restart"
+      ],
+      "answer": 3,
+      "explain": "always จะเปิด container กลับเมื่อ daemon restart แม้เราสั่ง stop เอง ส่วน unless-stopped เคารพการสั่งหยุดของเรา on-failure ก็ไม่ restart เมื่อ daemon restart เช่นกัน จึงทำให้บริการที่ควรกลับมาหลัง reboot ไม่กลับ"
+    },
+    {
+      "prompt": "ใน dev ทีมใช้ bind mount . ไปที่ /app เพื่อให้แก้โค้ดแล้วเห็นผลทันที แต่รัน docker compose up แล้วเจอ Cannot find module ทั้งที่ npm ci ผ่านตอน build และ node_modules อยู่ใน image แก้อย่างไรให้ตรงจุดที่สุด?",
+      "code": "services:\n  web:\n    build: .\n    volumes:\n      - .:/app",
+      "options": [
+        "Compose ข้ามคำสั่ง npm ci ใน Dockerfile เมื่อมี volumes จึงต้องรัน npm ci ใน command ทุกครั้ง",
+        "bind mount ทับ /app จึงบัง node_modules ใน image ให้ mount เฉพาะ source เช่น ./src:/app/src",
+        "bind mount เป็น read-only ตามค่า default จึงอ่านโมดูลไม่ได้ ต้องเติม :rw ต่อท้ายทุกครั้ง",
+        "ต้องใช้ named volume แทน bind mount ทุกกรณี เพราะ bind mount ใช้กับ Node.js ไม่ได้เลย"
+      ],
+      "answer": 1,
+      "explain": "เอกสารระบุว่า mount ทับโฟลเดอร์ที่มีไฟล์อยู่แล้วจะบังไฟล์เดิมใน image ที่ node_modules หายจึงเป็นผลของ mount ไม่ใช่ขั้นตอน build ที่ถูกข้าม และ bind mount เขียนได้ตาม default"
+    },
+    {
+      "prompt": "รัน docker run -d -v /srv/pgdta:/var/lib/postgresql ... postgres:18 โดยพิมพ์ path ผิดจาก /srv/pgdata หลังเปิดขึ้นมา database ว่างเปล่าและไม่มี error ใด ๆ เกิดจากอะไร?",
+      "options": [
+        "Docker เห็นว่า path ฝั่ง host ไม่มีจึงสร้าง named volume ชื่อ pgdta แทนให้โดยอัตโนมัติ",
+        "bind mount ที่ไม่มีต้นทางจะถูก mount เป็นไฟล์เปล่าเข้าไป Postgres จึงข้ามขั้นตอน init ของตัวเอง",
+        "-v สร้างโฟลเดอร์ที่ไม่มีบน host ให้เงียบ ๆ จึงได้ database ใหม่ที่ path ผิด",
+        "container เขียนข้อมูลลง writable layer แทน แล้ว Docker จะ sync กลับไปที่ host ให้ภายหลัง"
+      ],
+      "answer": 2,
+      "explain": "ตามเอกสาร -v จะสร้างต้นทางที่ไม่มีบน host เป็นโฟลเดอร์ ทำให้ไม่เกิด error แม้พิมพ์ผิด ส่วน --mount type=bind จะ error ทันที จึงจับ typo แบบนี้ได้ ข้อมูลไม่ได้ถูกเก็บใน volume ใหม่หรือ sync กลับ"
+    },
+    {
+      "prompt": "ทีมใช้ named volume site ที่ mount ที่ /usr/share/nginx/html เก็บเว็บ static ที่มากับ image mysite:1.0 ต่อมา deploy mysite:2.0 ที่ไฟล์ใน image เปลี่ยนแล้ว แต่หน้าเว็บยังเป็นเนื้อหาเดิม สาเหตุคืออะไร?",
+      "options": [
+        "Docker copy จาก image เข้า volume เฉพาะตอน volume ว่าง volume เดิมที่มีข้อมูลจึงบังไฟล์ใหม่",
+        "cache ของ image mysite:2.0 ยังชี้ไปที่ layer เก่าของเวอร์ชันก่อน จึงต้อง pull ใหม่ด้วย --no-cache",
+        "volume sync เนื้อหาจาก image ทุกครั้งที่ start แต่ browser cache ทำให้เห็นของเก่า",
+        "named volume ล็อกเวอร์ชันของ image ไว้ จึงต้องใช้ tag 1.0 ต่อไป"
+      ],
+      "answer": 0,
+      "explain": "เอกสารระบุว่าไฟล์ใน image ถูก propagate เข้า volume ที่ว่างเท่านั้น volume ที่มีข้อมูลแล้วจะบังเนื้อหาเดิมใน image การ pull ใหม่จึงไม่ช่วย ต้องลบ volume หรือไม่เก็บไฟล์ที่มากับ image ไว้ใน volume"
+    },
+    {
+      "prompt": "เซิร์ฟเวอร์ที่รัน container หลายตัวด้วยค่า default ดิสก์เต็มทีละน้อย พบว่าไฟล์ log ของ container ใหญ่หลาย GB ควรแก้อย่างไรให้ได้ผลจริง?",
+      "options": [
+        "ตั้ง max-file อย่างเดียวพอ เพราะ Docker จะหมุนไฟล์ log ให้ทุกวันตามค่า default ของ driver",
+        "ตั้ง max-size คู่ max-file ใน daemon.json หรือ --log-opt แล้ว recreate container",
+        "แก้ daemon.json แล้ว restart Docker ก็พอ เพราะ container เดิมทุกตัวจะใช้ค่า log ใหม่ทันที",
+        "รัน docker logs --tail 100 เป็นประจำ เพื่อให้ Docker ตัดไฟล์ log ส่วนเก่าทิ้งให้อัตโนมัติ"
+      ],
+      "answer": 1,
+      "explain": "json-file มี max-size default เป็นไม่จำกัด และ max-file มีผลเมื่อมี max-size เท่านั้น ค่าที่ตั้งใน daemon.json ใช้กับ container ที่สร้างใหม่เท่านั้น จึงต้อง recreate ตัวเดิม"
+    },
+    {
+      "prompt": "แอปเขียน log ไปที่ /var/log/app/app.log ภายใน container ทีม ops รัน docker logs api แล้วว่างเปล่าทั้งที่แอปทำงานและมี log ในไฟล์ ควรแก้อย่างไรให้ใช้เครื่องมือ log ของ Docker ได้?",
+      "options": [
+        "เปลี่ยน log driver เป็น local เพราะ json-file อ่านไฟล์ log ภายใน container ไม่ได้เลย",
+        "เพิ่ม -t ให้ docker logs เพื่อให้มันอ่านไฟล์ log ที่แอปเขียนไว้ใน container แทน stdout",
+        "mount /var/log/app เป็น volume เพราะ docker logs อ่านได้เฉพาะไฟล์ที่อยู่ใน volume เท่านั้น",
+        "ให้แอป log ออก stdout/stderr เพราะ docker logs อ่านจากสองสตรีมนี้ของ container"
+      ],
+      "answer": 3,
+      "explain": "เอกสารระบุว่า docker logs แสดง STDOUT และ STDERR ของ container จึงไม่เห็นไฟล์ที่แอปเขียนเอง การเปลี่ยน driver หรือ mount โฟลเดอร์ไม่เปลี่ยนว่า docker logs อ่านจากไหน"
+    },
+    {
+      "prompt": "container ของ API ที่รันด้วย --memory 256m หายไปเป็นระยะ ใน log แอปไม่มี error และ CPU ปกติ แต่ช่วงมี request เยอะ heap โตเกิน 300 MB อาการนี้สอดคล้องกับอะไรมากที่สุด?",
+      "options": [
+        "Docker ส่ง SIGTERM ให้แอปปิดตัวเองเมื่อเกิน limit แต่แอปไม่มี handler รองรับสัญญาณนี้",
+        "--memory เป็น soft limit container จึงแค่ช้าลง การหายไปมาจาก healthcheck ที่ล้มเหลวแล้วถูก restart",
+        "ใช้ memory เกิน hard limit จึงถูก kernel OOM kill ต้องเพิ่ม limit หรือลดการใช้ memory",
+        "--memory จำกัดเฉพาะ swap จึงไม่ทำให้ process ตาย ปัญหาจริงอยู่ที่โควตา CPU ของ container"
+      ],
+      "answer": 2,
+      "explain": "เอกสารระบุว่า --memory เป็น hard limit และเมื่อเกิด OOM kernel จะ kill process ใน container เกินแล้วหายไปโดยไม่มี error จากแอปเพราะถูก kill จากภายนอก soft limit คือ --memory-reservation ซึ่งคนละตัวกัน"
+    },
+    {
+      "prompt": "ทีม CI อยากให้ job ที่รันใน container ใช้ docker build ได้ จึงแก้ pipeline เป็น docker run -v /var/run/docker.sock:/var/run/docker.sock ci-image ฝ่ายความปลอดภัยคัดค้าน เหตุผลหลักคืออะไร?",
+      "options": [
+        "container คุม daemon ของ host ได้เต็มที่ จึงสร้าง container ที่ mount / ของ host ได้ ถือเป็นสิทธิ์ root",
+        "socket รับการเชื่อมต่อได้ครั้งละหนึ่ง container จึงทำให้ job อื่นใน CI ค้างรอคิวนานเกินไปจนหมดเวลา",
+        "การ mount socket ทำให้ image ที่ build ใน CI ทุกตัวถูกเก็บถาวรลงใน layer ของ ci-image เองจนขนาดโตขึ้น",
+        "socket คือ TCP port ที่ Docker เปิดสู่อินเทอร์เน็ต การ mount จึงเปิดช่องให้โจมตีจากภายนอกได้โดยตรง"
+      ],
+      "answer": 0,
+      "explain": "เอกสารระบุว่าการ mount socket ให้สิทธิ์เต็มในการสร้างและควบคุม daemon ซึ่งปกติรันด้วยสิทธิ์ root (ยกเว้น rootless mode) และสั่ง container ที่ mount / ของ host ได้ socket เป็น Unix socket ในเครื่อง ไม่ใช่ port ที่เปิดออกอินเทอร์เน็ต"
+    },
+    {
+      "prompt": "dev รัน docker run -d --name db postgres:18 กับ docker run --name app -e DB_HOST=db myapp โดยไม่ระบุ --network แอปหา host ชื่อ db ไม่เจอ ขณะที่โปรเจกต์เดียวกันรันผ่าน docker compose up ได้ สาเหตุคืออะไร?",
+      "options": [
+        "ชื่อ container ใช้เป็น hostname ได้เฉพาะเมื่อ publish port ของ container นั้นด้วย -p เท่านั้น",
+        "default bridge ไม่ resolve ชื่อ ต้องสร้าง user-defined network ซึ่ง Compose ทำให้เอง",
+        "Postgres ปิดรับ connection จาก container อื่น จนกว่าจะตั้งค่า listen_addresses ให้เปิด",
+        "ต้องใช้ --link ทุกกรณี เพราะมีเพียง Compose เท่านั้นที่มี DNS ในตัว"
+      ],
+      "answer": 1,
+      "explain": "เอกสารระบุว่า user-defined bridge มี DNS ให้ container เรียกกันด้วยชื่อ ส่วน default bridge เข้าถึงกันได้ด้วย IP เท่านั้น Compose สร้าง network ให้โปรเจกต์ จึงทำงานได้ ส่วนเรื่อง -p ไม่เกี่ยวกับการ resolve ชื่อ"
+    },
+    {
+      "prompt": "VM บน cloud รัน docker run -d -p 5432:5432 -e POSTGRES_PASSWORD=... postgres:18 เพื่อให้แอปบนเครื่องเดียวกันเชื่อมได้ ต่อมาพบความพยายามเดารหัสผ่านจากภายนอก ควรแก้อย่างไรให้ตรงจุดที่สุด?",
+      "options": [
+        "เปลี่ยนเป็น -p 15432:5432 เพราะ port ที่ไม่ใช่มาตรฐานจะไม่ถูกสแกนเจอจากภายนอก",
+        "ลบ EXPOSE ออกจาก Dockerfile ของ postgres เพราะ EXPOSE คือสิ่งที่เปิดให้ภายนอกเห็น",
+        "ผูกกับ loopback เป็น -p 127.0.0.1:5432:5432 หรือไม่ publish ถ้ามีแต่ container อื่นเรียก",
+        "ตั้ง USER ที่ไม่ใช่ root ใน container เพื่อให้ port ถูกปิดต่อผู้ใช้ภายนอกทั้งหมด"
+      ],
+      "answer": 2,
+      "explain": "เอกสารระบุว่า publish port โดยไม่ระบุ IP เปิดให้เข้าถึงจากภายนอก host ด้วย ใส่ 127.0.0.1 จึงจำกัดเฉพาะ host การเปลี่ยนเลข port ยังเปิดเหมือนเดิม และ EXPOSE เป็นแค่เอกสารไม่ใช่ตัวเปิด port"
+    },
+    {
+      "prompt": "API ใช้เวลา warm up ราว 90 วินาที ตั้ง HEALTHCHECK ด้วย --interval=10s --retries=3 แต่ container ถูกประเมินเป็น unhealthy ก่อนแอปพร้อม ทำให้ service ที่ depends_on แบบ service_healthy ไม่ผ่าน ปรับอย่างไรให้ตรงจุดที่สุด?",
+      "options": [
+        "เพิ่ม --timeout เป็น 90s เพื่อให้แต่ละรอบรอแอปพร้อมก่อนตัดสินว่าล้มเหลวหรือไม่",
+        "ลด --interval เป็น 1s เพื่อให้ได้สถานะ healthy เร็วที่สุดทันทีที่แอปพร้อมจริง",
+        "ลด --retries เหลือ 1 เพื่อให้ Docker ตัดสินเร็วขึ้นว่าแอปพร้อมหรือไม่ในรอบแรก",
+        "ใส่ --start-period=90s เพื่อให้การเช็กที่ล้มเหลวช่วง warm up ไม่ถูกนับเข้า retries"
+      ],
+      "answer": 3,
+      "explain": "start period คือเวลาเริ่มต้นที่การเช็กล้มเหลวไม่ถูกนับเข้า retries ส่วน timeout จำกัดเวลาของการเช็กแต่ละรอบ ซึ่งตอนแอปยังไม่ listen จะล้มเหลวทันทีอยู่แล้ว การลด interval หรือ retries มีแต่ทำให้ถึง unhealthy เร็วขึ้น"
+    },
+    {
+      "prompt": "ทีมอยากให้ docker compose up หยุดพร้อมข้อความชัดเจนเมื่อลืมตั้ง TAG เพราะตอนนี้ถ้าไม่ตั้ง Compose จะแทนด้วยค่าว่างและได้ image ที่ไม่สมบูรณ์ ควรเขียนบรรทัด image อย่างไร?",
+      "code": "services:\n  api:\n    image: ghcr.io/acme/api:${TAG}",
+      "options": [
+        "image: ghcr.io/acme/api:${TAG:?set TAG before running compose}",
+        "image: ghcr.io/acme/api:${TAG:-latest}  # ใช้ latest ถ้าไม่ตั้ง",
+        "image: ghcr.io/acme/api:$$TAG  # escape เป็นตัวแปรของ shell",
+        "image: ghcr.io/acme/api:${TAG-}  # ใช้ค่าว่างถ้าไม่ตั้ง"
+      ],
+      "answer": 0,
+      "explain": "${VAR:?error} ทำให้ Compose ออกด้วย error เมื่อ VAR ไม่ได้ตั้งหรือว่าง ส่วน ${TAG:-latest} แค่ใช้ค่า default แทนโดยไม่หยุด และถ้าไม่ใช้รูปแบบพิเศษ ตัวแปรที่ไม่ได้ตั้งจะถูกแทนด้วย string ว่าง"
+    },
+    {
+      "prompt": "เพื่อนร่วมทีมรัน docker compose up แล้วบอกว่า adminer ไม่ขึ้น ทั้งที่อยู่ในไฟล์เดียวกับ app และ db จะทำให้ adminer ทำงานพร้อมกันได้อย่างไร?",
+      "code": "services:\n  app:\n    image: myapp\n  db:\n    image: postgres:18\n  adminer:\n    image: adminer\n    profiles: [debug]",
+      "options": [
+        "ลบบรรทัด profiles ออกแล้วค่อยใส่กลับหลังรันครั้งแรก เพราะ Compose จำสถานะของ service เดิมไว้",
+        "ใช้ docker compose up --build เพื่อให้ Compose สร้าง image ของ adminer ให้ครบก่อนเริ่ม",
+        "รัน docker compose --profile debug up หรือตั้ง COMPOSE_PROFILES=debug เพื่อเปิด profile นั้น",
+        "ตั้ง restart: always ให้ adminer เพื่อให้ Docker เปิดมันขึ้นมาเองโดยอัตโนมัติ"
+      ],
+      "answer": 2,
+      "explain": "service ที่ระบุ profiles จะไม่เริ่มกับ docker compose up ธรรมดา ส่วน service ที่ไม่มี profiles เริ่มเสมอ จึงต้องเปิด profile ด้วย --profile หรือ COMPOSE_PROFILES ส่วน restart policy กับ --build ไม่เปลี่ยนว่า service ถูกเลือกหรือไม่"
+    },
+    {
+      "prompt": "build Go ใช้เวลาหลายนาทีทุกครั้งที่แก้โค้ดแม้ไฟล์เดียว เพราะ layer ของ go build ถูก invalidate และคอมไพล์ใหม่ทั้งหมด ต้องการเก็บ compile cache ข้ามการ build โดย image ไม่โตขึ้น ควรทำอย่างไร?",
+      "code": "FROM golang:1.27 AS build\nWORKDIR /src\nCOPY go.mod go.sum ./\nRUN go mod download\nCOPY . .\nRUN go build -o /out/api ./cmd/api",
+      "options": [
+        "COPY โฟลเดอร์ /root/.cache/go-build จาก build ครั้งก่อนเข้ามาใน image ใหม่ เพื่อให้ compiler ใช้ซ้ำ",
+        "ย้าย COPY . . ไปไว้ก่อน go mod download เพื่อให้ cache ของแต่ละขั้นถูกใช้ซ้ำได้มากขึ้น",
+        "เพิ่ม --no-cache เพื่อบังคับให้ BuildKit สร้าง compile cache ใหม่ที่เร็วกว่าเดิมทุกครั้ง",
+        "ใช้ RUN --mount=type=cache,target=/root/.cache/go-build กับ go build เพราะ cache อยู่นอก layer"
+      ],
+      "answer": 3,
+      "explain": "cache mount เก็บโฟลเดอร์ไว้ข้ามการ build โดยไม่เขียนเข้า layer และไม่ทำให้ cache ของ instruction เสีย การ COPY cache เข้า image ทำให้ image โต ส่วนการย้าย COPY . . ขึ้นไปก่อนยิ่งทำให้ cache ของ go mod download หลุดบ่อยขึ้น"
+    },
+    {
+      "prompt": "ทีมใช้ MacBook Apple Silicon (arm64) แต่ server เป็น amd64 อยากให้ docker pull ghcr.io/acme/myapp:1.4.0 ได้ image ที่ตรงกับ CPU ของแต่ละเครื่องภายใต้ tag เดียว ควรทำอย่างไร?",
+      "options": [
+        "build บน arm64 อย่างเดียวแล้ว tag เพิ่มเป็น :amd64 เพราะ Docker แปลง binary ให้ตอน pull",
+        "buildx build --platform linux/amd64,linux/arm64 --push เพื่อให้ registry เก็บ manifest list",
+        "ใส่ --platform linux/amd64 ตอน docker run บนทุกเครื่อง เพราะ Docker จะ build ใหม่ให้ตรงกับ CPU",
+        "ใส่ ARG TARGETARCH ใน Dockerfile อย่างเดียว เพราะ Docker จะเลือกสถาปัตยกรรมตอน pull ให้เอง"
+      ],
+      "answer": 1,
+      "explain": "image แบบ multi-platform คือ manifest list ที่ชี้หลายสถาปัตยกรรม เมื่อ pull Docker เลือก variant ที่ตรงกับ host เอง ส่วน Docker ไม่แปลง binary ข้ามสถาปัตยกรรมตอน pull และ --platform ตอน run ก็ไม่ build ใหม่"
     }
   ],
-  "exercise": {
-    "title": "เขียน Dockerfile แบบ multi-stage",
-    "level": "กลาง",
-    "tags": "multi-stage · cache · non-root · SIGTERM",
-    "lang": "dockerfile",
-    "prompt": "แอป Node.js build ด้วย npm run build ได้โฟลเดอร์ dist/ และรันด้วย node dist/server.js ที่ port 3000 เขียน Dockerfile ที่ (1) แยก build stage กับ runtime stage (2) ใช้ layer cache ของ dependency โดยติดตั้งก่อน COPY source (3) ติดตั้งเฉพาะ production dependency ใน runtime (4) รันด้วย user ที่ไม่ใช่ root และ (5) ใช้ CMD แบบ exec form เพื่อให้ node ได้รับ SIGTERM โดยตรง",
-    "context": "project/\n├─ .dockerignore   (มี node_modules, .git, .env แล้ว)\n├─ package.json\n├─ package-lock.json\n├─ src/\n└─ (npm run build → dist/)",
-    "starter": "# เขียน Dockerfile ที่นี่\nFROM node:24-slim\n",
-    "solution": "FROM node:24-slim AS build\nWORKDIR /app\nCOPY package*.json ./\nRUN npm ci\nCOPY . .\nRUN npm run build\n\nFROM node:24-slim\nWORKDIR /app\nENV NODE_ENV=production\nCOPY package*.json ./\nRUN npm ci --omit=dev\nCOPY --from=build /app/dist ./dist\nUSER node\nEXPOSE 3000\nCMD [\"node\", \"dist/server.js\"]",
-    "hints": [
-      "แยกเป็นสอง stage: stage แรกติดตั้งทุก dependency และ build ส่วน stage สุดท้ายมีเฉพาะสิ่งที่ต้องใช้ตอนรัน",
-      "COPY package*.json แล้ว npm ci ก่อน COPY . . ส่วน runtime ใช้ npm ci --omit=dev คู่กับ COPY --from=build /app/dist ./dist",
-      "image node มี user ชื่อ node อยู่แล้ว ใส่ USER node ก่อน CMD และเขียน CMD [\"node\", \"dist/server.js\"] แบบ JSON array"
-    ],
-    "checks": [
-      {
-        "label": "มีอย่างน้อย 2 stage (FROM … AS …)",
-        "pattern": "from\\s+(--\\S+\\s+)?\\S+\\s+as\\s+\\w+[\\s\\S]*\\nfrom\\s+"
-      },
-      {
-        "label": "COPY package*.json และติดตั้งก่อน COPY ทั้งโปรเจกต์",
-        "pattern": "copy\\s+package[\\s\\S]*npm (ci|install)[\\s\\S]*copy\\s+\\.\\s"
-      },
-      {
-        "label": "copy ผลลัพธ์จาก build stage (--from)",
-        "pattern": "copy\\s+--from=\\w+"
-      },
-      {
-        "label": "runtime ติดตั้งเฉพาะ production dependency",
-        "pattern": "--omit[=\\s]dev|--only=prod|--production|node_env[=\\s]+[\"']?production"
-      },
-      {
-        "label": "รันด้วย user ที่ไม่ใช่ root",
-        "pattern": "^\\s*user\\s+(?!(root|0)(\\s|:|$))\\S+"
-      },
-      {
-        "label": "CMD แบบ exec form (JSON array) สั่ง node",
-        "pattern": "^\\s*(cmd|entrypoint)\\s*\\[\\s*\"[^\"]*node\""
-      }
-    ]
-  }
+  "exercises": [
+    {
+      "title": "เขียน Dockerfile แบบ multi-stage",
+      "level": "กลาง",
+      "tags": "multi-stage · cache · non-root · SIGTERM",
+      "lang": "dockerfile",
+      "prompt": "แอป Node.js build ด้วย npm run build ได้โฟลเดอร์ dist/ และรันด้วย node dist/server.js ที่ port 3000 เขียน Dockerfile ที่ (1) แยก build stage กับ runtime stage (2) ใช้ layer cache ของ dependency โดยติดตั้งก่อน COPY source (3) ติดตั้งเฉพาะ production dependency ใน runtime (4) รันด้วย user ที่ไม่ใช่ root และ (5) ใช้ CMD แบบ exec form เพื่อให้ node ได้รับ SIGTERM โดยตรง",
+      "context": "project/\n├─ .dockerignore   (มี node_modules, .git, .env แล้ว)\n├─ package.json\n├─ package-lock.json\n├─ src/\n└─ (npm run build → dist/)",
+      "starter": "# เขียน Dockerfile ที่นี่\nFROM node:24-slim\n",
+      "solution": "FROM node:24-slim AS build\nWORKDIR /app\nCOPY package*.json ./\nRUN npm ci\nCOPY . .\nRUN npm run build\n\nFROM node:24-slim\nWORKDIR /app\nENV NODE_ENV=production\nCOPY package*.json ./\nRUN npm ci --omit=dev\nCOPY --from=build /app/dist ./dist\nUSER node\nEXPOSE 3000\nCMD [\"node\", \"dist/server.js\"]",
+      "hints": [
+        "แยกเป็นสอง stage: stage แรกติดตั้งทุก dependency และ build ส่วน stage สุดท้ายมีเฉพาะสิ่งที่ต้องใช้ตอนรัน",
+        "COPY package*.json แล้ว npm ci ก่อน COPY . . ส่วน runtime ใช้ npm ci --omit=dev คู่กับ COPY --from=build /app/dist ./dist",
+        "image node มี user ชื่อ node อยู่แล้ว ใส่ USER node ก่อน CMD และเขียน CMD [\"node\", \"dist/server.js\"] แบบ JSON array"
+      ],
+      "checks": [
+        {
+          "label": "มีอย่างน้อย 2 stage (FROM … AS …)",
+          "pattern": "from\\s+(--\\S+\\s+)?\\S+\\s+as\\s+\\w+[\\s\\S]*\\nfrom\\s+"
+        },
+        {
+          "label": "COPY package*.json และติดตั้งก่อน COPY ทั้งโปรเจกต์",
+          "pattern": "copy\\s+package[\\s\\S]*npm (ci|install)[\\s\\S]*copy\\s+\\.\\s"
+        },
+        {
+          "label": "copy ผลลัพธ์จาก build stage (--from)",
+          "pattern": "copy\\s+--from=\\w+"
+        },
+        {
+          "label": "runtime ติดตั้งเฉพาะ production dependency",
+          "pattern": "--omit[=\\s]dev|--only=prod|--production|node_env[=\\s]+[\"']?production"
+        },
+        {
+          "label": "รันด้วย user ที่ไม่ใช่ root",
+          "pattern": "^\\s*user\\s+(?!(root|0)(\\s|:|$))\\S+"
+        },
+        {
+          "label": "CMD แบบ exec form (JSON array) สั่ง node",
+          "pattern": "^\\s*(cmd|entrypoint)\\s*\\[\\s*\"[^\"]*node\""
+        }
+      ]
+    },
+    {
+      "title": "เขียนคำสั่ง docker run สำหรับ deploy API เครื่องเดียว",
+      "level": "ง่าย",
+      "tags": "docker run · restart policy · resource limit · read-only",
+      "lang": "shell",
+      "prompt": "ทีมจะ deploy API จาก image ghcr.io/acme/api:2.3.1 ขึ้น VM เครื่องเดียว เขียนคำสั่ง docker run ที่ (1) รันเบื้องหลังและตั้งชื่อ container ว่า api (2) กลับมาเองเมื่อ Docker daemon หรือเครื่อง restart แต่ไม่กลับถ้าเราสั่งหยุดเอง (3) publish port 3000 ของ container ไปที่ port 8080 ของ host โดยให้เข้าได้จากเครื่อง host เท่านั้น (4) จำกัด memory 512m และ CPU 1.5 ตัว (5) อ่าน environment variable จากไฟล์ .env.production และ (6) ให้ root filesystem อ่านอย่างเดียว โดยเปิด /tmp เป็น tmpfs ให้แอปเขียนได้",
+      "context": "VM นี้มี nginx reverse proxy อยู่บนเครื่องเดียวกัน ซึ่งเรียก http://127.0.0.1:8080\nไฟล์ .env.production อยู่ในโฟลเดอร์ที่รันคำสั่ง\nแอปเขียนไฟล์ชั่วคราวลง /tmp เท่านั้น",
+      "starter": "# เขียนคำสั่ง docker run ที่นี่\ndocker run ghcr.io/acme/api:2.3.1",
+      "solution": "docker run -d --name api \\\n  --restart unless-stopped \\\n  -p 127.0.0.1:8080:3000 \\\n  --memory 512m --cpus 1.5 \\\n  --env-file .env.production \\\n  --read-only --tmpfs /tmp \\\n  ghcr.io/acme/api:2.3.1",
+      "hints": [
+        "แต่ละข้อเป็น flag ของ docker run หนึ่งตัว ลองไล่ทีละข้อ: detach กับชื่อ, restart policy, publish, ทรัพยากร, env file, filesystem",
+        "policy ที่ไม่เปิด container ที่เราสั่งหยุดเองกลับมาคือ unless-stopped ส่วน -p ที่ให้เข้าได้จาก host เท่านั้นต้องใส่ IP ของ loopback นำหน้า HOST_PORT:CONTAINER_PORT",
+        "จำกัดทรัพยากรด้วย --memory 512m และ --cpus 1.5 อ่าน env ด้วย --env-file ส่วน root filesystem อ่านอย่างเดียวคือ --read-only คู่กับ --tmpfs /tmp"
+      ],
+      "checks": [
+        {
+          "label": "รันเบื้องหลัง (-d)",
+          "pattern": "\\s(-[a-z]*d[a-z]*|--detach)(\\s|=|\\\\|$)"
+        },
+        {
+          "label": "ตั้งชื่อ container เป็น api",
+          "pattern": "--name(=|\\s+)\"?api\"?(\\s|\\\\|$)"
+        },
+        {
+          "label": "restart policy เป็น unless-stopped",
+          "pattern": "--restart(=|\\s+)\"?unless-stopped"
+        },
+        {
+          "label": "publish เฉพาะ loopback: 127.0.0.1:8080:3000",
+          "pattern": "(-p|--publish)(=|\\s+)\"?127\\.0\\.0\\.1:8080:3000"
+        },
+        {
+          "label": "จำกัด --memory 512m และ --cpus 1.5",
+          "pattern": "^(?=[\\s\\S]*(-m|--memory)(=|\\s+)\"?512(m|mb)\\b)(?=[\\s\\S]*--cpus(=|\\s+)\"?1\\.5\\b)"
+        },
+        {
+          "label": "อ่าน env จาก --env-file .env.production",
+          "pattern": "--env-file(=|\\s+)\"?(\\./)?\\.env\\.production"
+        },
+        {
+          "label": "--read-only พร้อม --tmpfs /tmp",
+          "pattern": "^(?=[\\s\\S]*--read-only)(?=[\\s\\S]*(--tmpfs(=|\\s+)\"?/tmp|type=tmpfs,[^\\s]*(target|destination|dst)=/tmp))"
+        }
+      ]
+    },
+    {
+      "title": "เขียน compose.yaml แบบ hardened พร้อม profile สำหรับ debug",
+      "level": "ยาก",
+      "tags": "Compose · interpolation · healthcheck · profiles · hardening",
+      "lang": "yaml",
+      "prompt": "ปรับ compose.yaml ที่ให้มาให้พร้อมใช้งานจริง โดย (1) image ของ api และรหัสผ่านฐานข้อมูลต้องมาจากตัวแปร API_IMAGE และ POSTGRES_PASSWORD และ docker compose up ต้องหยุดด้วย error ถ้าไม่ได้ตั้งตัวแปรทั้งสอง (2) api publish 8080 ไปที่ port 3000 ให้เข้าได้จากเครื่อง host เท่านั้น (3) api เริ่มหลัง db พร้อมจริง (healthy) (4) db มี healthcheck ด้วย pg_isready และเก็บข้อมูลใน named volume pgdata ที่ /var/lib/postgresql (5) api ใช้ root filesystem อ่านอย่างเดียวพร้อม tmpfs ที่ /tmp (6) api ตัด capability ทั้งหมดและกัน privilege escalation และ (7) เพิ่ม service adminer (image adminer, publish 8081 ไปที่ 8080 ของ container เฉพาะ host) ที่เริ่มเมื่อเปิด profile debug เท่านั้น",
+      "context": "docker compose up ปกติต้องเริ่มแค่ api กับ db\nadminer ใช้เฉพาะตอน debug ผ่าน docker compose --profile debug up\napi ต่อ database ผ่าน DATABASE_URL ที่ใช้ user app และ host ชื่อ db\nแอปเขียนไฟล์ชั่วคราวลง /tmp เท่านั้น",
+      "starter": "services:\n  api:\n    image: ghcr.io/acme/api:2.3.1\n    ports:\n      - \"8080:3000\"\n    environment:\n      DATABASE_URL: postgres://app:secret@db:5432/app\n  db:\n    image: postgres:18\n    environment:\n      POSTGRES_USER: app\n      POSTGRES_PASSWORD: secret\n",
+      "solution": "services:\n  api:\n    image: ${API_IMAGE:?set API_IMAGE}\n    ports:\n      - \"127.0.0.1:8080:3000\"\n    environment:\n      DATABASE_URL: postgres://app:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}@db:5432/app\n    depends_on:\n      db:\n        condition: service_healthy\n    read_only: true\n    tmpfs:\n      - /tmp\n    cap_drop:\n      - ALL\n    security_opt:\n      - no-new-privileges:true\n  db:\n    image: postgres:18\n    environment:\n      POSTGRES_USER: app\n      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}\n    volumes:\n      - pgdata:/var/lib/postgresql\n    healthcheck:\n      test: [\"CMD-SHELL\", \"pg_isready -U app\"]\n      interval: 5s\n      timeout: 3s\n      retries: 10\n  adminer:\n    image: adminer\n    ports:\n      - \"127.0.0.1:8081:8080\"\n    profiles: [\"debug\"]\n    depends_on:\n      - db\nvolumes:\n  pgdata:\n",
+      "hints": [
+        "แบ่งทำทีละ service: api (ตัวแปร, port, depends_on, hardening), db (healthcheck, volume), adminer (profile) แล้วค่อยประกาศ volume ระดับบนสุด",
+        "รูปแบบ ${VAR:?ข้อความ} ทำให้ Compose หยุดเมื่อไม่ได้ตั้งตัวแปร, depends_on แบบยาวใช้ condition: service_healthy, และ publish เฉพาะ host ใช้ \"127.0.0.1:8080:3000\"",
+        "hardening ใช้ read_only: true คู่กับ tmpfs, cap_drop: [ALL] และ security_opt: [\"no-new-privileges:true\"] ส่วน adminer ใส่ profiles: [\"debug\"] เพื่อให้เริ่มเมื่อเปิด profile นี้เท่านั้น"
+      ],
+      "checks": [
+        {
+          "label": "image และรหัสผ่านใช้ ${VAR:?} ให้ Compose หยุดเมื่อไม่ตั้งค่า",
+          "pattern": "^(?=[\\s\\S]*\\$\\{api_image:?\\?)(?=[\\s\\S]*\\$\\{postgres_password:?\\?)"
+        },
+        {
+          "label": "api publish เฉพาะ loopback: 127.0.0.1:8080:3000",
+          "pattern": "127\\.0\\.0\\.1:8080:3000|host_ip:\\s*[\"']?127\\.0\\.0\\.1"
+        },
+        {
+          "label": "api รอ db ด้วย condition: service_healthy",
+          "pattern": "depends_on:[\\s\\S]*?condition:\\s*service_healthy"
+        },
+        {
+          "label": "db มี healthcheck ด้วย pg_isready และ volume pgdata ที่ /var/lib/postgresql",
+          "pattern": "^(?=[\\s\\S]*healthcheck:[\\s\\S]*pg_isready)(?=[\\s\\S]*pgdata:/var/lib/postgresql/?([\"'\\s]|$))"
+        },
+        {
+          "label": "api ใช้ read_only: true พร้อม tmpfs /tmp",
+          "pattern": "^(?=[\\s\\S]*read_only:\\s*true)(?=[\\s\\S]*tmpfs:[\\s\\S]*?/tmp)"
+        },
+        {
+          "label": "ตัด capability ทั้งหมด (cap_drop ALL) และ no-new-privileges",
+          "pattern": "^(?=[\\s\\S]*cap_drop:\\s*(\\[\\s*[\"']?all|\\n\\s*-\\s*[\"']?all))(?=[\\s\\S]*no-new-privileges[:=]\\s*true)"
+        },
+        {
+          "label": "adminer อยู่ใน profile debug",
+          "pattern": "profiles:\\s*(\\[\\s*[\"']?debug|\\n\\s*-\\s*[\"']?debug)"
+        }
+      ]
+    }
+  ],
+  "refs": [
+    {
+      "title": "Dockerfile reference",
+      "url": "https://docs.docker.com/reference/dockerfile/",
+      "note": "ทุก instruction รวม ARG, ENV, ENTRYPOINT/CMD, HEALTHCHECK และ RUN --mount"
+    },
+    {
+      "title": "Docker: Building best practices",
+      "url": "https://docs.docker.com/build/building/best-practices/",
+      "note": "แนวทางเขียน Dockerfile เช่น apt-get, pin digest, multi-stage"
+    },
+    {
+      "title": "Compose file reference: services",
+      "url": "https://docs.docker.com/reference/compose-file/services/",
+      "note": "attribute ของ service เช่น depends_on, healthcheck, read_only, cap_drop, profiles"
+    },
+    {
+      "title": "Compose: Variable interpolation",
+      "url": "https://docs.docker.com/compose/how-tos/environment-variables/variable-interpolation/",
+      "note": "รูปแบบ ${VAR:-default} และ ${VAR:?error}"
+    },
+    {
+      "title": "Docker Engine security",
+      "url": "https://docs.docker.com/engine/security/",
+      "note": "namespaces, daemon attack surface, capabilities"
+    },
+    {
+      "title": "What is Docker? (architecture)",
+      "url": "https://docs.docker.com/get-started/docker-overview/",
+      "note": "client, daemon (dockerd), registry และ object ของ Docker"
+    },
+    {
+      "title": "OCI Image Format Specification",
+      "url": "https://github.com/opencontainers/image-spec/blob/main/spec.md",
+      "note": "โครงสร้าง manifest, image index, layer และ config ของ image"
+    }
+  ]
 }

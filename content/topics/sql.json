@@ -75,6 +75,95 @@
       "tier": "advanced",
       "title": "SQL vs NoSQL และการขยายระบบ",
       "body": "relational database เด่นเรื่องข้อมูลที่มีความสัมพันธ์ query แบบ ad-hoc ด้วย JOIN และ constraint กับ transaction ที่เข้มงวด ส่วน NoSQL (document, key-value, wide-column) มักออกแบบตามรูปแบบการอ่านเขียนที่รู้ล่วงหน้าและกระจายข้อมูลข้ามเครื่องได้ง่ายกว่า แต่ query ที่ไม่ได้วางแผนไว้ทำได้ยาก เส้นแบ่งไม่ชัดเหมือนเดิม เพราะ PostgreSQL มี JSONB และ NoSQL หลายตัว (เช่น MongoDB) รองรับ transaction หลายเอกสาร จึงควรเลือกจาก access pattern และความต้องการด้าน consistency ไม่ใช่ตามกระแส ก่อนคิดถึง sharding ให้ลอง index, read replica (ระวัง replication lag ที่ทำให้อ่านค่าที่เพิ่งเขียนไม่เจอ) และ cache ก่อน เพราะ sharding เพิ่มความซับซ้อนมาก"
+    },
+    {
+      "tier": "must",
+      "title": "Subquery, EXISTS และการกรองแบบ semi-join",
+      "body": "subquery คือ SELECT ที่ซ้อนอยู่ในอีก query และถ้ามันอ้างคอลัมน์ของ query ด้านนอกจะเรียกว่า correlated subquery EXISTS (…) ตอบแค่ว่ามีแถวอย่างน้อยหนึ่งแถวหรือไม่ รายการคอลัมน์ใน subquery จึงไม่มีผล และโดยทั่วไปฐานข้อมูลทำงานแค่พอรู้คำตอบ ไม่ต้องรันจนจบ เหมาะกับโจทย์ “ลูกค้าที่มีออเดอร์ paid อย่างน้อยหนึ่งรายการ” เพราะไม่คูณแถวแบบ JOIN ส่วน NOT EXISTS ใช้หาแถวที่ไม่มีคู่ โดย EXISTS ให้ผลเป็นจริงหรือเท็จเท่านั้น NULL ใน subquery จึงไม่ทำให้ผลว่างแบบ NOT IN",
+      "code": "-- ลูกค้าที่มีออเดอร์ paid อย่างน้อย 1 รายการ (ไม่มีแถวซ้ำ)\nSELECT c.name\nFROM customers c\nWHERE EXISTS (\n  SELECT 1 FROM orders o\n  WHERE o.customer_id = c.id AND o.status = 'paid'\n);\n\n-- ลูกค้าที่ไม่เคยมีออเดอร์เลย\nSELECT c.name\nFROM customers c\nWHERE NOT EXISTS (\n  SELECT 1 FROM orders o WHERE o.customer_id = c.id\n);",
+      "exam": true,
+      "ref": "https://www.postgresql.org/docs/current/functions-subquery.html"
+    },
+    {
+      "tier": "must",
+      "title": "UNION, UNION ALL, INTERSECT และ EXCEPT",
+      "body": "set operation รวมผลของสอง query ที่มีจำนวนคอลัมน์เท่ากันและชนิดข้อมูลเข้ากันได้ โดยจับคู่คอลัมน์ตามตำแหน่ง ไม่ใช่ตามชื่อ UNION ตัดแถวที่ซ้ำกันออกเหมือน DISTINCT ส่วน UNION ALL เก็บทุกแถว จึงเหมาะเมื่อต้องการนับหรือรวมทุกแถวและยังเลี่ยงงานตัดแถวซ้ำ INTERSECT คืนแถวที่อยู่ในทั้งสองชุด EXCEPT คืนแถวของชุดแรกที่ไม่อยู่ในชุดที่สอง (ทั้งสามตัดแถวซ้ำ เว้นแต่ใส่ ALL) และถ้าไม่ใส่วงเล็บ INTERSECT จะจับคู่แน่นกว่า UNION กับ EXCEPT ส่วน ORDER BY วางได้ที่ท้ายสุดและมีผลกับผลรวมทั้งก้อน",
+      "code": "-- อีเมลทั้งหมดไม่ซ้ำกัน\nSELECT email FROM newsletter_subscribers\nUNION\nSELECT email FROM app_users;\n\n-- สมาชิกจดหมายข่าวที่ยังไม่ได้ยกเลิก\nSELECT email FROM newsletter_subscribers\nEXCEPT\nSELECT email FROM unsubscribed\nORDER BY email;",
+      "exam": true,
+      "ref": "https://www.postgresql.org/docs/current/queries-union.html"
+    },
+    {
+      "tier": "must",
+      "title": "NUMERIC สำหรับเงิน ไม่ใช่ FLOAT",
+      "body": "real และ double precision เป็นชนิดแบบประมาณ ค่าบางค่าแปลงเป็นรูปแบบภายในได้ไม่พอดี จึงอาจเห็นผลต่างเล็ก ๆ เมื่อเก็บแล้วอ่านกลับหรือบวกลบหลายครั้ง ส่วน NUMERIC(precision, scale) เก็บค่าแบบแม่นยำ และการบวก ลบ คูณ ได้ผลที่แม่นยำ (การหารที่ไม่ลงตัวยังต้องตัดทศนิยม) เอกสาร PostgreSQL แนะนำให้ใช้กับจำนวนเงินและปริมาณที่ต้องแม่นยำ ถ้าค่าที่เก็บมีทศนิยมมากกว่า scale ระบบจะปัดเศษให้ และถ้าส่วนจำนวนเต็มใหญ่เกินที่ประกาศจะเกิด error จึงเลือก precision ให้เผื่อพอ",
+      "code": "SELECT 0.1::double precision + 0.2::double precision\n     = 0.3::double precision;   -- false\nSELECT 0.1::numeric + 0.2::numeric\n     = 0.3::numeric;            -- true\n\nCREATE TABLE invoices (\n  id     BIGINT PRIMARY KEY,\n  amount NUMERIC(12,2) NOT NULL  -- ปัดเหลือ 2 ตำแหน่ง\n);",
+      "ref": "https://www.postgresql.org/docs/current/datatype-numeric.html"
+    },
+    {
+      "tier": "must",
+      "title": "UPSERT: INSERT … ON CONFLICT",
+      "body": "งาน “ถ้ามีแล้วให้อัปเดต ถ้ายังไม่มีให้เพิ่ม” ที่ทำด้วย SELECT ตามด้วย INSERT หรือ UPDATE มีช่องว่างให้ request อื่นแทรกจนเกิดแถวซ้ำหรือ unique violation ได้ PostgreSQL มี INSERT … ON CONFLICT (คอลัมน์ที่ unique) DO UPDATE หรือ DO NOTHING ซึ่งเอกสารรับประกันว่าได้ INSERT หรือ UPDATE อย่างใดอย่างหนึ่งแบบอะตอมแม้มี concurrency สูง ใช้ EXCLUDED อ้างค่าที่พยายามจะ insert และ RETURNING ดึงแถวผลลัพธ์กลับมา สิ่งที่ต้องมีคือ unique constraint หรือ unique index ที่ตรงกับ conflict target",
+      "code": "INSERT INTO page_views (page_id, view_date, views)\nVALUES (42, CURRENT_DATE, 1)\nON CONFLICT (page_id, view_date)\nDO UPDATE SET views = page_views.views + EXCLUDED.views\nRETURNING views;",
+      "exam": true,
+      "ref": "https://www.postgresql.org/docs/current/sql-insert.html"
+    },
+    {
+      "tier": "must",
+      "title": "CASE และ conditional aggregation",
+      "body": "CASE WHEN … THEN … ELSE … END คืนค่าของเงื่อนไขแรกที่เป็นจริง และถ้าไม่มี ELSE ขณะที่ไม่มีเงื่อนไขใดจริง ผลคือ NULL เมื่อใส่ CASE ไว้ใน aggregate จะได้รายงานหลายตัวเลขใน query เดียว เช่น SUM(CASE WHEN status = 'paid' THEN 1 ELSE 0 END) นับเฉพาะ paid ระวัง COUNT(CASE WHEN … THEN 1 ELSE 0 END) ซึ่งนับทุกแถวเพราะ 0 ไม่ใช่ NULL ให้ตัด ELSE ออกหรือใช้ SUM แทน",
+      "code": "SELECT customer_id,\n       COUNT(*) AS orders_total,\n       SUM(CASE WHEN status = 'paid' THEN 1 ELSE 0 END) AS paid,\n       COUNT(CASE WHEN status = 'cancelled' THEN 1 END) AS cancelled\nFROM orders\nGROUP BY customer_id;",
+      "exam": true,
+      "ref": "https://www.postgresql.org/docs/current/functions-conditional.html"
+    },
+    {
+      "tier": "should",
+      "title": "Pagination: OFFSET กับ keyset",
+      "body": "LIMIT … OFFSET … เขียนง่าย แต่ต้องมี ORDER BY ที่ได้ลำดับแน่นอน (ปิดท้ายด้วยคอลัมน์ unique เช่น id) ไม่อย่างนั้นแต่ละหน้าอาจซ้ำหรือตกหล่น และแถวที่ถูกข้ามด้วย OFFSET ยังต้องถูกคำนวณในเซิร์ฟเวอร์ หน้าลึก ๆ จึงช้า ทางเลือกคือ keyset pagination (เทคนิคที่นิยมใช้ ไม่ได้อธิบายในหน้าเอกสารนี้): จำค่าของแถวสุดท้ายในหน้าก่อน แล้วถามต่อด้วย WHERE (created_at, id) < (…) ซึ่ง row comparison ใน PostgreSQL เทียบทีละคอลัมน์จากซ้ายไปขวา และถ้ามี index (created_at, id) ที่เรียงตรงกับ ORDER BY ก็ใช้ index ช่วยให้เร็วได้ ข้อแลกเปลี่ยนคือกระโดดไปหน้า N ตรง ๆ ไม่ได้ และคอลัมน์ที่เรียงควรไม่เป็น NULL ส่วน SQL Server (2012 ขึ้นไป) ไม่มี LIMIT แต่เขียนเป็น ORDER BY … OFFSET n ROWS FETCH NEXT m ROWS ONLY",
+      "code": "-- หน้าแรก\nSELECT id, title, created_at FROM posts\nORDER BY created_at DESC, id DESC\nLIMIT 20;\n\n-- หน้าถัดไป: ส่งค่าแถวสุดท้ายของหน้าก่อนกลับมา\nSELECT id, title, created_at FROM posts\nWHERE (created_at, id) < ($1, $2)\nORDER BY created_at DESC, id DESC\nLIMIT 20;",
+      "exam": true,
+      "ref": "https://www.postgresql.org/docs/current/queries-limit.html"
+    },
+    {
+      "tier": "should",
+      "title": "View และ materialized view",
+      "body": "view คือ query ที่ตั้งชื่อไว้ให้เรียกใช้ซ้ำเหมือนตาราง ส่วน materialized view (ใน PostgreSQL) เก็บผลลัพธ์ไว้จริงในรูปแบบคล้ายตาราง จึงอ่านได้โดยไม่ต้องรัน query หนักซ้ำทุกครั้ง แต่ข้อมูลจะเก่าจนกว่าจะสั่ง REFRESH MATERIALIZED VIEW และแก้ข้อมูลในนั้นโดยตรงไม่ได้ ใช้เมื่อยอมรับข้อมูลที่เก่าได้ระดับหนึ่ง เช่น แดชบอร์ดยอดขายรายวัน ซึ่งต้องมีงานตั้งเวลาภายนอก (เช่น cron) คอยสั่ง refresh ให้ ส่วน DB อื่นอาจมีฟีเจอร์ชื่อคล้ายกันแต่วิธีสร้างและ refresh ต่างกัน หรือไม่มีในตัวเลย ต้องอ่านเอกสารของตัวที่ใช้",
+      "code": "CREATE MATERIALIZED VIEW daily_sales AS\nSELECT created_at::date AS day, SUM(total) AS revenue\nFROM orders\nWHERE status = 'paid'\nGROUP BY 1;\n\n-- ข้อมูลจะเก่าจนกว่าจะสั่ง refresh\nREFRESH MATERIALIZED VIEW daily_sales;",
+      "ref": "https://www.postgresql.org/docs/current/rules-materializedviews.html"
+    },
+    {
+      "tier": "should",
+      "title": "timestamp กับ timestamptz และ time zone",
+      "body": "ใน PostgreSQL timestamptz (timestamp with time zone) เก็บภายในเป็น UTC แล้วแปลงเป็นโซนเวลาของ session (ค่า TimeZone) ตอนแสดงผล ส่วน timestamp (without time zone) เก็บวันเวลาตามที่ใส่ และตัดส่วนบอก offset ในค่าที่ป้อนทิ้งโดยไม่เตือน เอกสารอธิบายพฤติกรรมนี้ไว้ ส่วนคำแนะนำที่ใช้กันทั่วไปคือสำหรับเวลาที่เหตุการณ์เกิดขึ้นจริง เช่น created_at หรือ paid_at ให้ใช้ timestamptz เพื่อให้เทียบข้ามโซนได้ถูก ส่วน timestamp เหมาะกับเวลาแบบแขวนผนัง เช่น เวลาเปิดร้าน 09:00 ที่ไม่ผูกกับโซน DB อื่นมีชนิดและกติกาต่างกัน ต้องอ่านเอกสารของตัวที่ใช้",
+      "code": "SET TIME ZONE 'UTC';\nSELECT TIMESTAMPTZ '2025-03-01 00:00:00+07';\n-- 2025-02-28 17:00:00+00\nSET TIME ZONE 'Asia/Bangkok';\nSELECT TIMESTAMPTZ '2025-03-01 00:00:00+07';\n-- 2025-03-01 00:00:00+07 (ค่าเดียวกัน แสดงตามโซน)\nSELECT TIMESTAMP '2025-03-01 00:00:00+07';\n-- 2025-03-01 00:00:00 (+07 ถูกตัดทิ้ง)",
+      "ref": "https://www.postgresql.org/docs/current/datatype-datetime.html"
+    },
+    {
+      "tier": "should",
+      "title": "Recursive CTE สำหรับข้อมูลแบบต้นไม้",
+      "body": "WITH RECURSIVE ประกอบด้วยส่วนเริ่มต้น (non-recursive term) ต่อด้วย UNION ALL กับส่วนวนซ้ำ (recursive term) ที่อ้างถึงผลของ CTE เอง ฐานข้อมูลทำทีละรอบ โดยใช้แถวจากรอบก่อนไปหาแถวรอบถัดไปจนไม่มีแถวใหม่ เหมาะกับโครงสร้างต้นไม้ที่มี parent_id เช่น หมวดหมู่สินค้าหรือผังองค์กร ถ้าข้อมูลมีรอบวน (A เป็นลูกของ B และ B เป็นลูกของ A) แล้วใช้ UNION ALL query จะไม่จบ ต้องมี cycle detection (PostgreSQL 14 ขึ้นไปมี CYCLE clause) หรือจำกัดความลึกไว้เสมอ",
+      "code": "WITH RECURSIVE tree AS (\n  SELECT id, name, 0 AS depth\n  FROM categories\n  WHERE parent_id IS NULL        -- จุดเริ่ม: หมวดราก\n  UNION ALL\n  SELECT c.id, c.name, t.depth + 1\n  FROM categories c\n  JOIN tree t ON c.parent_id = t.id\n  WHERE t.depth < 10             -- กันข้อมูลวนเป็นรอบ\n)\nSELECT * FROM tree ORDER BY depth, id;",
+      "ref": "https://www.postgresql.org/docs/current/queries-with.html"
+    },
+    {
+      "tier": "advanced",
+      "title": "Deadlock และลำดับการ lock",
+      "body": "deadlock เกิดเมื่อสอง transaction ต่างถือ lock ที่อีกฝ่ายต้องการ เช่น T1 แก้บัญชี 1 แล้วจะไปแก้บัญชี 2 ขณะที่ T2 แก้บัญชี 2 แล้วจะไปแก้บัญชี 1 PostgreSQL ตรวจพบเองและยกเลิกหนึ่งใน transaction (เดาไม่ได้ว่าตัวไหน) โค้ดจึงต้องพร้อม retry ทั้ง transaction ทางป้องกันที่เอกสารแนะนำคือให้ทุกโค้ดขอ lock หลายรายการตามลำดับเดียวกัน เช่นเรียงตาม id นอกจากนี้ SELECT … FOR UPDATE ล็อกแถวไว้จนจบ transaction ซึ่งบล็อกคนที่จะแก้หรือล็อกแถวเดียวกัน แต่ไม่บล็อก SELECT ธรรมดา",
+      "code": "-- ทุก transaction แตะบัญชีที่ id น้อยกว่าก่อนเสมอ\n-- (โอนจากบัญชี 2 ไป 1 ก็ปรับลำดับ UPDATE ในโค้ดให้แตะ 1 ก่อน)\nBEGIN;\nUPDATE accounts SET balance = balance - 500 WHERE id = 1;\nUPDATE accounts SET balance = balance + 500 WHERE id = 2;\nCOMMIT;",
+      "ref": "https://www.postgresql.org/docs/current/explicit-locking.html"
+    },
+    {
+      "tier": "advanced",
+      "title": "MVCC, แถวตาย และ VACUUM",
+      "body": "PostgreSQL ไม่ลบแถวเก่าทันทีเมื่อ UPDATE หรือ DELETE แต่เก็บเวอร์ชันเก่าไว้ให้ transaction อื่นที่ยังอาจต้องเห็น (MVCC) พอไม่มีใครต้องการแล้ว เวอร์ชันเก่าต้องถูกเก็บกวาดด้วย VACUUM ซึ่ง autovacuum เปิดเป็นค่าเริ่มต้นและทำให้อัตโนมัติ VACUUM ธรรมดาทำให้พื้นที่ถูกนำกลับมาใช้ซ้ำได้โดยไม่ล็อกการใช้งานปกติ แต่โดยทั่วไปไม่คืนพื้นที่ให้ระบบปฏิบัติการ ส่วน VACUUM FULL เขียนตารางใหม่และคืนพื้นที่ได้ แต่ต้องใช้ ACCESS EXCLUSIVE lock จึงควรเลี่ยง",
+      "code": "-- ตารางไหนมีแถวตายสะสมมาก\nSELECT relname, n_live_tup, n_dead_tup, last_autovacuum\nFROM pg_stat_user_tables\nORDER BY n_dead_tup DESC\nLIMIT 10;\n\nVACUUM (VERBOSE, ANALYZE) orders;",
+      "ref": "https://www.postgresql.org/docs/current/routine-vacuuming.html"
+    },
+    {
+      "tier": "advanced",
+      "title": "Partial index และ unique เฉพาะบางแถว",
+      "body": "partial index สร้างจากเฉพาะแถวที่ตรงเงื่อนไข WHERE ที่ระบุ ทำให้ index เล็กลงและถูกอัปเดตน้อยลง เหมาะกับค่าที่เป็นส่วนน้อยของตาราง เช่น งานสถานะ pending หรือผู้ใช้ที่ยังไม่ถูกลบ query จะใช้ index นี้ได้ก็ต่อเมื่อ planner พิสูจน์ได้ว่าเงื่อนไขของ query บังคับให้เป็นไปตาม predicate ของ index ที่เขียนไว้ และใช้เป็น UNIQUE index เพื่อบังคับความไม่ซ้ำเฉพาะบางแถวได้ เช่น email ต้องไม่ซ้ำในหมู่ผู้ใช้ที่ยังไม่ถูก soft delete เอกสารเตือนว่าต้องรู้การกระจายของข้อมูลดี และไม่ควรใช้แทน table partitioning",
+      "code": "-- email ซ้ำไม่ได้ เฉพาะบัญชีที่ยังไม่ถูกลบ\nCREATE UNIQUE INDEX uq_users_email_active\n  ON users (email)\n  WHERE deleted_at IS NULL;\n\n-- index เล็ก ๆ สำหรับงานที่รอประมวลผล\nCREATE INDEX idx_jobs_pending\n  ON jobs (created_at)\n  WHERE status = 'pending';",
+      "ref": "https://www.postgresql.org/docs/current/indexes-partial.html"
     }
   ],
   "questions": [
@@ -191,47 +280,417 @@
       ],
       "answer": 2,
       "explain": "window function คำนวณในขั้น SELECT ซึ่งมาหลัง WHERE จึงใส่ใน WHERE ไม่ได้ ต้องห่อด้วย CTE หรือ subquery ก่อนกรอง ส่วน GROUP BY แล้วเลือก id ที่ไม่ได้ aggregate จะ error ใน DB ส่วนใหญ่ และไม่รับประกันว่า id มาจากแถวเดียวกับ MAX ขณะที่ LIMIT 1 ได้แค่ออเดอร์เดียวของทั้งตาราง"
+    },
+    {
+      "prompt": "หน้าแอดมินต้องการรายชื่อลูกค้าที่มีออเดอร์ paid อย่างน้อยหนึ่งรายการ แต่ query นี้คืนลูกค้าคนเดิมซ้ำหลายแถวตามจำนวนออเดอร์ วิธีแก้ที่ตรงจุดที่สุดคืออะไร?",
+      "code": "SELECT c.name\nFROM customers c\nJOIN orders o ON o.customer_id = c.id\nWHERE o.status = 'paid';",
+      "options": [
+        "เขียนใหม่เป็น WHERE EXISTS (…) ที่ตรวจว่าลูกค้าคนนั้นมีออเดอร์ paid",
+        "เปลี่ยน JOIN เป็น LEFT JOIN เพื่อให้ฐานข้อมูลรวมแถวของลูกค้าคนเดียวกันให้เองอัตโนมัติ",
+        "เพิ่ม ORDER BY c.name เพื่อให้แถวที่ชื่อซ้ำถูกรวมเป็นแถวเดียว",
+        "ย้ายเงื่อนไข o.status = 'paid' ไปไว้ใน ON ซึ่งจะทำให้ไม่เกิดแถวซ้ำ"
+      ],
+      "answer": 0,
+      "explain": "JOIN สร้างหนึ่งแถวต่อทุกคู่ที่ตรงเงื่อนไข ลูกค้าที่มี 3 ออเดอร์ paid จึงออกมา 3 แถว ส่วน EXISTS แค่ถามว่ามีออเดอร์ paid หรือไม่ จึงได้ลูกค้าคนละหนึ่งแถว LEFT JOIN, ORDER BY หรือการย้ายเงื่อนไขไป ON ไม่ได้ลดจำนวนคู่ที่จับได้"
+    },
+    {
+      "prompt": "รายงานรวมรายการขายจากสองช่องทางด้วย query นี้ ผลรวมได้ 9,950 แถว แต่ผลรวมของจำนวนแถวในสองตารางคือ 10,000 และตรวจพบว่ามีแถวต่างช่องทางที่ค่า (order_no, amount) เท่ากันพอดี สาเหตุคืออะไร?",
+      "code": "SELECT order_no, amount FROM online_sales\nUNION\nSELECT order_no, amount FROM store_sales;",
+      "options": [
+        "UNION จับคู่คอลัมน์ตามชื่อ จึงข้ามแถวที่ชื่อคอลัมน์ไม่ตรงกันไป",
+        "UNION ตัดแถวที่ซ้ำกันทั้งแถวออก ถ้าต้องการเก็บทุกแถวให้ใช้ UNION ALL",
+        "UNION ALL เท่านั้นที่ตรวจชนิดข้อมูลให้ UNION เลยทิ้งแถวที่ชนิดไม่ตรง",
+        "ต้องใส่ ORDER BY ที่ท้ายแต่ละ query ไม่เช่นนั้น UNION จะทำแถวหาย"
+      ],
+      "answer": 1,
+      "explain": "UNION ทำงานเหมือน DISTINCT บนผลรวม แถวที่ค่าทุกคอลัมน์เท่ากันจึงเหลือแถวเดียว UNION ALL เก็บทุกแถว ส่วนการจับคู่คอลัมน์ใช้ตำแหน่ง ไม่ใช่ชื่อ และ ORDER BY ที่ท้ายแต่ละ query ไม่เกี่ยวกับการตัดแถวซ้ำ"
+    },
+    {
+      "prompt": "ตาราง payments เก็บ amount เป็น DOUBLE PRECISION ฝ่ายบัญชีพบว่าผลรวมยอดหลายพันรายการเพี้ยนไปเศษสตางค์เป็นระยะ และเทียบด้วย = กับยอดใบแจ้งหนี้แล้วไม่เท่ากัน ทางแก้ที่เหมาะที่สุดคืออะไร?",
+      "options": [
+        "ครอบ ROUND ไว้ที่ผลลัพธ์ทุก query แล้วค่อยเทียบ โดยไม่ต้องแก้ชนิดคอลัมน์",
+        "สร้าง index บน amount เพื่อให้ SUM อ่านค่าที่แม่นยำจาก index",
+        "เปลี่ยนคอลัมน์เป็น NUMERIC(12,2) ซึ่งคำนวณแบบแม่นยำและปัดตาม scale",
+        "เปลี่ยนเป็น REAL เพราะเป็นชนิดทศนิยมอีกแบบที่แม่นกว่า"
+      ],
+      "answer": 2,
+      "explain": "real และ double precision เป็นชนิดแบบประมาณ ค่าบางค่าเก็บได้ไม่พอดี การครอบ ROUND ปิดอาการบางส่วนแต่ข้อมูลที่เก็บยังคลาดเคลื่อนอยู่ NUMERIC ถูกออกแบบให้แม่นยำกับจำนวนเงิน ส่วน index ไม่เปลี่ยนค่าที่เก็บ"
+    },
+    {
+      "prompt": "บน PostgreSQL ตาราง page_views มี PRIMARY KEY (page_id, view_date) โค้ดนับยอดดูทำแบบนี้ แต่บางครั้งช่วงคนเข้าเยอะเกิด unique violation หรือยอดนับขาด ควรแก้อย่างไร?",
+      "code": "-- 1) ตรวจว่ามีแถวของวันนี้หรือยัง\nSELECT 1 FROM page_views\nWHERE page_id = 42 AND view_date = CURRENT_DATE;\n-- 2) ถ้าไม่เจอ INSERT views = 1  ถ้าเจอ UPDATE views = views + 1",
+      "options": [
+        "ครอบทั้งสองขั้นด้วย BEGIN … COMMIT เฉย ๆ transaction จะกันไม่ให้ request อื่นแทรกเอง",
+        "ใช้ SELECT … FOR SHARE ในขั้นแรก เพื่อล็อกแถวที่ยังไม่มีอยู่ไม่ให้ใครเพิ่ม",
+        "ลบ primary key ออก เพื่อไม่ให้เกิด unique violation ตอนสอง request ชนกัน",
+        "ใช้ INSERT … ON CONFLICT (page_id, view_date) DO UPDATE เป็นคำสั่งเดียวแบบอะตอม"
+      ],
+      "answer": 3,
+      "explain": "ช่วงระหว่าง SELECT กับ INSERT ยังมี request อื่นแทรกได้ แม้อยู่ใน transaction (ที่ Read Committed) เพราะแถวที่ยังไม่มีไม่มีอะไรให้ล็อก ON CONFLICT DO UPDATE ทำ insert-or-update เป็นขั้นเดียวแบบอะตอมโดยอาศัย unique constraint ส่วนการลบ primary key แค่เปลี่ยนจาก error เป็นข้อมูลซ้ำ"
+    },
+    {
+      "prompt": "ทีมย้ายโค้ดอัปเสิร์ตมาใช้ PostgreSQL แล้ว query นี้ error ว่า there is no unique or exclusion constraint matching the ON CONFLICT specification สาเหตุที่น่าเป็นไปได้ที่สุดคืออะไร?",
+      "code": "INSERT INTO users (email, name)\nVALUES ('a@example.com', 'Somchai')\nON CONFLICT (email)\nDO UPDATE SET name = EXCLUDED.name;",
+      "options": [
+        "ตาราง users ไม่มี unique constraint หรือ unique index บน email",
+        "ON CONFLICT ใช้ได้กับ DO NOTHING เท่านั้น DO UPDATE ไม่รองรับ",
+        "ต้องเปลี่ยนเป็น ON DUPLICATE KEY UPDATE ซึ่งเป็นไวยากรณ์ของ PostgreSQL",
+        "ต้องเติม RETURNING ท้ายคำสั่ง ไม่เช่นนั้น ON CONFLICT จะไม่ทำงาน"
+      ],
+      "answer": 0,
+      "explain": "ON CONFLICT ต้องมีข้อจำกัดความไม่ซ้ำที่ตรงกับคอลัมน์ที่ระบุ ถ้าไม่มี PostgreSQL ไม่รู้ว่าอะไรคือ “ซ้ำ” และ DO UPDATE ก็รองรับตามปกติ ส่วน ON DUPLICATE KEY UPDATE เป็นไวยากรณ์ของ MySQL ซึ่งทำงานกับ PRIMARY KEY หรือ UNIQUE index เช่นกัน"
+    },
+    {
+      "prompt": "รายงานนี้ควรแสดงจำนวนออเดอร์ paid และ cancelled ต่อลูกค้า แต่ทั้งสองคอลัมน์ได้ตัวเลขเท่ากันกับจำนวนออเดอร์ทั้งหมดทุกแถว ทำไม?",
+      "code": "SELECT customer_id,\n       COUNT(CASE WHEN status = 'paid' THEN 1 ELSE 0 END) AS paid,\n       COUNT(CASE WHEN status = 'cancelled' THEN 1 ELSE 0 END) AS cancelled\nFROM orders\nGROUP BY customer_id;",
+      "options": [
+        "CASE ใช้ภายใน aggregate ไม่ได้ ต้องย้ายเงื่อนไขไปไว้ใน WHERE แล้วแยกเป็นหลาย query",
+        "ELSE 0 ไม่ใช่ NULL จึงถูก COUNT นับทุกแถว ควรตัด ELSE ออกหรือใช้ SUM",
+        "COUNT นับเฉพาะค่าที่มากกว่า 0 อยู่แล้ว ปัญหาจริงอยู่ที่ GROUP BY customer_id",
+        "ต้องใส่ DISTINCT ใน COUNT มิฉะนั้นจะนับแถวซ้ำของลูกค้าเดียวกัน"
+      ],
+      "answer": 1,
+      "explain": "COUNT(expr) นับแถวที่ expr ไม่เป็น NULL ซึ่งแถวที่เงื่อนไขไม่ตรงได้ 0 ไม่ใช่ NULL จึงถูกนับด้วย ถ้าตัด ELSE ออก CASE จะให้ NULL แทนและนับถูก หรือใช้ SUM(CASE … THEN 1 ELSE 0 END) (ใน PostgreSQL ใช้ COUNT(*) FILTER (WHERE status = 'paid') ก็ได้)"
+    },
+    {
+      "prompt": "หน้ารายการสินค้ามี 2 ล้านแถว หน้าแรกโหลดเร็ว แต่เมื่อ OFFSET ถึงหลักล้านใช้เวลาหลายวินาที ทั้งที่มี index บน created_at, id ครบ ควรแก้อย่างไร?",
+      "code": "SELECT id, name FROM products\nORDER BY created_at DESC, id DESC\nLIMIT 20 OFFSET 1000000;",
+      "options": [
+        "เพิ่มค่า LIMIT ให้มากขึ้น เพื่อให้ planner ยอมเลือกใช้ index แทนการสแกนทั้งตาราง",
+        "ลบ ORDER BY ออก เพราะ OFFSET ใช้ร่วมกับ index ที่เรียงไว้ไม่ได้",
+        "ใช้ keyset: WHERE (created_at, id) < ($1, $2) คู่กับ ORDER BY และ LIMIT เดิม",
+        "รัน VACUUM FULL ก่อนเปิดหน้าทุกครั้ง เพื่อให้การข้ามแถวด้วย OFFSET เร็วขึ้น"
+      ],
+      "answer": 2,
+      "explain": "แถวที่ถูกข้ามด้วย OFFSET ยังต้องถูกคำนวณในเซิร์ฟเวอร์ ยิ่ง OFFSET มากยิ่งช้า keyset ใช้ index กระโดดไปต่อจากแถวสุดท้ายที่เห็นได้ทันที การลบ ORDER BY ทำให้ลำดับไม่แน่นอน และ VACUUM FULL ไม่เกี่ยวกับต้นทุนของ OFFSET"
+    },
+    {
+      "prompt": "ผู้ใช้แจ้งว่าเลื่อนดูหน้า 2 แล้วเจอบทความที่เพิ่งเห็นในหน้า 1 และบางบทความไม่โผล่เลย ตารางมีบทความนำเข้าเป็นชุดที่ published_at เท่ากันหลายร้อยแถว สาเหตุคืออะไร?",
+      "code": "SELECT id, title FROM posts\nORDER BY published_at\nLIMIT 20 OFFSET 20;",
+      "options": [
+        "OFFSET นับจาก 1 จึงซ้ำแถวสุดท้ายของหน้าก่อนหน้าเสมอ ต้องใช้ OFFSET 21 แทน",
+        "LIMIT ไม่เสถียรเมื่อใช้ร่วมกับ OFFSET ต้องเปลี่ยนไปใช้ DISTINCT เพื่อกันแถวซ้ำข้ามหน้า",
+        "แถวที่ซ้ำเกิดจาก JOIN ที่ซ่อนอยู่ใน view ของตาราง posts ไม่เกี่ยวกับ ORDER BY",
+        "published_at ซ้ำกัน ลำดับแถวที่เท่ากันไม่แน่นอน ต้องเติม id ท้าย ORDER BY"
+      ],
+      "answer": 3,
+      "explain": "ถ้าลำดับไม่ถูกกำหนดครบ แต่ละ query อาจเรียงแถวที่ค่าเท่ากันต่างกัน จึงซ้ำหรือตกหล่นข้ามหน้าได้ ใน PostgreSQL OFFSET 20 คือข้าม 20 แถวพอดี และ DISTINCT ไม่ช่วยเพราะแต่ละแถวไม่ได้ซ้ำกัน"
+    },
+    {
+      "prompt": "ทีมรันเทสต์บน SQLite ในเครื่อง การ INSERT orders ที่ customer_id ไม่มีอยู่จริงผ่านฉลุย ทั้งที่ตารางประกาศ REFERENCES customers(id) แต่บน PostgreSQL จริงได้ error ทำไม?",
+      "code": "CREATE TABLE orders (\n  id INTEGER PRIMARY KEY,\n  customer_id INTEGER NOT NULL REFERENCES customers(id)\n);\nINSERT INTO orders (id, customer_id) VALUES (1, 999);  -- ไม่มี customer 999",
+      "options": [
+        "SQLite ไม่บังคับ foreign key เป็นค่าเริ่มต้น ต้องเปิดด้วย PRAGMA foreign_keys = ON",
+        "SQLite ไม่รู้จัก REFERENCES จึงข้ามคำสั่งนี้ไปตอนสร้างตาราง",
+        "SQLite ตรวจ foreign key เฉพาะตอน COMMIT เทสต์ที่ ROLLBACK ทุกครั้งจึงไม่เห็น error",
+        "SQLite ต้องมี index บนคอลัมน์ customer_id ก่อน จึงจะบังคับ foreign key"
+      ],
+      "answer": 0,
+      "explain": "เอกสาร SQLite ระบุว่า foreign key ปิดอยู่เป็นค่าเริ่มต้นและต้องเปิดแยกในแต่ละ connection ด้วย PRAGMA foreign_keys ตัว schema ยังถูกอ่านตามปกติ การใช้ DB คนละชนิดตอนเทสต์จึงซ่อนบั๊กได้ ควรเทสต์กับ DB ชนิดเดียวกับ production"
+    },
+    {
+      "prompt": "บน PostgreSQL แดชบอร์ดใช้ materialized view ที่ query หนักมาก ทีมอยากให้ refresh ได้โดยไม่บล็อกคนที่กำลัง SELECT แต่คำสั่งนี้ error ว่า cannot refresh materialized view concurrently สาเหตุที่ถูกต้องคืออะไร?",
+      "code": "REFRESH MATERIALIZED VIEW CONCURRENTLY daily_sales;",
+      "options": [
+        "CONCURRENTLY ใช้ได้เฉพาะ materialized view ที่สร้างด้วย WITH NO DATA และยังไม่เคยมีข้อมูล",
+        "materialized view ต้องมี UNIQUE index บนคอลัมน์ล้วน ๆ จึงจะ refresh แบบ CONCURRENTLY ได้",
+        "ต้องมี REFRESH แบบปกติรันค้างอยู่อีกคำสั่งหนึ่ง CONCURRENTLY จึงจะรอคิวต่อจากคำสั่งนั้นได้",
+        "ต้อง DROP แล้วสร้าง materialized view ใหม่ด้วย WITH DATA ทุกครั้งที่อยากใช้ CONCURRENTLY"
+      ],
+      "answer": 1,
+      "explain": "CONCURRENTLY ต้องมี UNIQUE index ที่ใช้เฉพาะชื่อคอลัมน์และครอบคลุมทุกแถว (ไม่ใช่ expression index และไม่มี WHERE) และใช้ได้เมื่อ view ถูก populate แล้ว ซึ่งตรงข้ามกับข้อแรก ส่วน REFRESH แบบปกติอาจบล็อกคนอ่านระหว่างทำงาน"
+    },
+    {
+      "prompt": "บน PostgreSQL dev คาดว่าค่าที่เก็บจะถูกแปลงเป็น UTC เป็น 2025-02-28 17:00 แต่เมื่อ SELECT กลับมาได้ 2025-03-01 00:00:00 และการเทียบเวลากับข้อมูลจากต่างประเทศเพี้ยน สาเหตุคืออะไร?",
+      "code": "CREATE TABLE events (id INT, happened_at TIMESTAMP);\nSET TIME ZONE 'UTC';\nINSERT INTO events VALUES (1, '2025-03-01 00:00:00+07');\nSELECT happened_at FROM events;  -- 2025-03-01 00:00:00",
+      "options": [
+        "PostgreSQL แปลงเป็น UTC แล้ว แต่ psql แสดงผลตามโซนของเครื่องจึงดูเหมือนไม่เปลี่ยน",
+        "SET TIME ZONE ไม่มีผลกับค่าที่ป้อนตอน INSERT ไม่ว่าคอลัมน์จะเป็นชนิดใด",
+        "คอลัมน์เป็น timestamp ซึ่งตัด +07 ทิ้งเงียบ ๆ ควรใช้ timestamptz",
+        "ต้องเขียน literal เป็นรูป ISO แบบมีตัว T ระหว่างวันกับเวลา จึงจะนำ offset มาคิด"
+      ],
+      "answer": 2,
+      "explain": "ชนิด timestamp without time zone เก็บวันเวลาตามที่ป้อนและเพิกเฉยส่วนบอกโซนโดยไม่เตือน timestamptz จะแปลงเป็น UTC ตอนเก็บและแปลงกลับเป็นโซนของ session ตอนแสดงผล การเปลี่ยนรูปแบบ literal ไม่ทำให้ชนิด timestamp ใช้ offset"
+    },
+    {
+      "prompt": "query หาสายผู้จัดการของพนักงานคนหนึ่งรันแล้วไม่จบ ใช้ CPU เต็ม ข้อมูลเก่ามีกรณี employee 7 ถูกบันทึกว่าหัวหน้าคือ 9 และ employee 9 หัวหน้าคือ 7 สาเหตุคืออะไร?",
+      "code": "WITH RECURSIVE chain AS (\n  SELECT id, manager_id FROM employees WHERE id = 7\n  UNION ALL\n  SELECT e.id, e.manager_id\n  FROM employees e JOIN chain c ON e.id = c.manager_id\n)\nSELECT * FROM chain;",
+      "options": [
+        "ต้องใส่ LIMIT 100 ท้าย query ซึ่งเป็นวิธีมาตรฐานที่เอกสารแนะนำให้ใช้บน production",
+        "ส่วน recursive ต้องใช้ LEFT JOIN แทน JOIN จึงจะหยุดเมื่อ manager_id เป็น NULL",
+        "UNION ALL ใช้ใน recursive CTE ไม่ได้ ต้องเปลี่ยนเป็น UNION เท่านั้นจึงจะทำงาน",
+        "ข้อมูลวนเป็นรอบและ UNION ALL ไม่ตัดแถวซ้ำ ต้องมี cycle detection หรือจำกัดความลึก"
+      ],
+      "answer": 3,
+      "explain": "recursive CTE หยุดเมื่อรอบหนึ่งไม่ได้แถวใหม่ แต่เมื่อข้อมูลวน 7 → 9 → 7 รอบใหม่จะได้แถวเสมอ UNION ALL ใช้ได้ตามปกติ (UNION ตัดแถวซ้ำจนจบได้เฉพาะกรณีแถวซ้ำกันเป๊ะ ซึ่งไม่ใช่ทางแก้ทั่วไปถ้ามีคอลัมน์อย่าง depth) ส่วน LIMIT เอกสาร PostgreSQL ว่าใช้ทดสอบได้ แต่ไม่แนะนำบน production"
+    },
+    {
+      "prompt": "ระบบโอนเงินมี error deadlock detected เป็นครั้งคราว log พบว่าเกิดตอนมีสองคำขอโอนสวนทางกันพร้อมกัน (1 ไป 2 และ 2 ไป 1) แนวทางแก้ที่ตรงสาเหตุที่สุดคืออะไร?",
+      "code": "-- T1: โอน 1 -> 2\nUPDATE accounts SET balance = balance - 500 WHERE id = 1;\nUPDATE accounts SET balance = balance + 500 WHERE id = 2;\n-- T2: โอน 2 -> 1\nUPDATE accounts SET balance = balance - 300 WHERE id = 2;\nUPDATE accounts SET balance = balance + 300 WHERE id = 1;",
+      "options": [
+        "ให้โค้ดทุกจุดแตะบัญชีตามลำดับ id เดียวกัน และ retry transaction ที่ถูกยกเลิก",
+        "ตั้ง isolation level เป็น SERIALIZABLE แล้ว deadlock จะไม่เกิดอีก",
+        "เพิ่ม timeout ของ lock ให้นานขึ้น เพื่อให้ทั้งสองฝั่งรอจนอีกฝั่งปล่อย",
+        "เลิกใช้ transaction แล้วให้ทุกคำสั่งเป็น autocommit เพื่อไม่ให้ถือ lock ค้าง"
+      ],
+      "answer": 0,
+      "explain": "แต่ละฝั่งถือ lock ของแถวที่แก้ไปแล้วและรอแถวที่อีกฝั่งถืออยู่ จึงวนรอกัน การเรียงลำดับการแตะแถวให้เหมือนกันตัดวงรอนี้ และควร retry เพราะ DB จะยกเลิกหนึ่งฝั่ง การรอนานขึ้นไม่ช่วยเพราะต่างฝ่ายรอกันเอง และ autocommit ทำให้การหักกับเติมไม่เป็นอะตอม"
+    },
+    {
+      "prompt": "มี worker 3 ตัวดึงงานจากตาราง jobs แล้วพบว่างานเดียวกันถูกประมวลผลซ้ำ เพราะแต่ละตัวทำสองขั้นนี้ ควรแก้อย่างไรบน PostgreSQL หรือ MySQL 8.4?",
+      "code": "SELECT id FROM jobs\nWHERE status = 'pending'\nORDER BY id LIMIT 1;\n\nUPDATE jobs SET status = 'running' WHERE id = $1;",
+      "options": [
+        "ใส่ FOR SHARE ในขั้นแรก เพื่อให้ worker อื่นเห็นว่าแถวนั้นถูกหยิบไปแล้ว",
+        "ใน transaction เดียว ใช้ FOR UPDATE SKIP LOCKED LIMIT 1 แล้ว UPDATE แถวนั้นต่อ",
+        "ใช้ FOR UPDATE NOWAIT เพื่อให้ worker ที่ชนกันรอคิวต่อโดยอัตโนมัติจนได้แถว",
+        "ตั้ง SERIALIZABLE แล้วไม่ต้องเขียนโค้ด retry เพราะ DB จะจัดคิวงานให้เองโดยไม่ชนกัน"
+      ],
+      "answer": 1,
+      "explain": "FOR UPDATE ล็อกแถวที่เลือก ส่วน SKIP LOCKED ทำให้ worker อื่นข้ามแถวที่ถูกล็อกไปหยิบแถวถัดไป เอกสารของทั้ง PostgreSQL และ MySQL ระบุว่าเหมาะกับตารางแบบคิว แต่ไม่เหมาะกับงานทั่วไปเพราะได้ภาพข้อมูลไม่สมบูรณ์ NOWAIT ไม่รอแต่ยก error ส่วน FOR SHARE ให้หลายคนถือพร้อมกันได้จึงกันซ้ำไม่ได้"
+    },
+    {
+      "prompt": "รายงานที่ใช้ SELECT ยาว 10 นาทีบน PostgreSQL กำลังรัน ทีมกังวลว่า UPDATE orders จากแอปหลักจะค้างรอจนรายงานเสร็จ ข้อใดถูกต้อง?",
+      "options": [
+        "UPDATE จะรอจนรายงานเสร็จ เพราะ SELECT ถือ shared lock ระดับแถวไว้จนจบ query",
+        "UPDATE จะถูกบล็อกก็ต่อเมื่อ SELECT มี ORDER BY หรือ GROUP BY ที่ต้องเรียงทั้งตาราง",
+        "ไม่ถูกบล็อก เพราะ MVCC ให้ SELECT เห็น snapshot ของตัวเองโดยไม่ล็อกแถว",
+        "UPDATE ไม่ถูกบล็อก แต่ SELECT จะเริ่มเห็นค่าใหม่กลางทางจนผลรายงานปนกันหลายช่วงเวลา"
+      ],
+      "answer": 2,
+      "explain": "เอกสาร PostgreSQL ระบุว่าการอ่านไม่บล็อกการเขียนและการเขียนไม่บล็อกการอ่าน และ SELECT ธรรมดา (ไม่มี FOR UPDATE/SHARE) ไม่โดน row lock กั้น ส่วนที่ Read Committed แต่ละคำสั่งเห็น snapshot ณ เวลาที่คำสั่งเริ่ม จึงไม่เห็นค่าที่ commit กลางทาง"
+    },
+    {
+      "prompt": "หลัง UPDATE ทุกแถวในตาราง 50 GB ไฟล์ตารางโตเกือบสองเท่า autovacuum รันเสร็จแล้วแต่ขนาดไฟล์ไม่ลดลง ทีมสงสัยว่า vacuum ไม่ทำงาน ข้อใดอธิบายถูกที่สุด?",
+      "options": [
+        "autovacuum ล้มเหลว เพราะ VACUUM ที่ทำงานถูกต้องต้องทำให้ไฟล์เล็กลงทันทีเสมอ",
+        "UPDATE สร้างเวอร์ชันใหม่แล้วแถวเก่าไม่มีวันถูกลบ ต้องโหลดข้อมูลใหม่ทั้งตาราง",
+        "ต้องรัน ANALYZE ซึ่งเป็นคำสั่งที่จะคืนพื้นที่ที่ไม่ใช้ให้ระบบปฏิบัติการทันที",
+        "VACUUM ธรรมดาทำให้พื้นที่แถวตายถูกใช้ซ้ำ แต่มักไม่คืนให้ OS ไฟล์จึงไม่หด"
+      ],
+      "answer": 3,
+      "explain": "UPDATE เก็บแถวเวอร์ชันเก่าไว้ก่อนเพราะ MVCC แล้ว VACUUM จะทำให้พื้นที่นั้นถูกใช้ซ้ำโดยแถวใหม่ จึงไม่โตต่อ แต่ไฟล์มักไม่หดลง VACUUM FULL เขียนตารางใหม่เพื่อคืนพื้นที่ แต่ล็อกเต็มรูปแบบตลอดการทำงาน ส่วน ANALYZE ทำสถิติให้ planner ไม่เกี่ยวกับการคืนพื้นที่"
+    },
+    {
+      "prompt": "ระบบใช้ soft delete (ตั้ง deleted_at แทนการลบแถว) ต้องการให้ email ซ้ำไม่ได้ในหมู่ผู้ใช้ที่ยังไม่ถูกลบ แต่ผู้ใช้ที่ถูกลบแล้วมี email เดียวกันกี่แถวก็ได้ ควรทำอย่างไรบน PostgreSQL?",
+      "options": [
+        "CREATE UNIQUE INDEX ON users (email) WHERE deleted_at IS NULL",
+        "ประกาศ UNIQUE (email, deleted_at) เพราะรวมเวลาลบเข้าไปแล้วแต่ละคู่จะไม่ซ้ำ",
+        "ใช้ CHECK constraint ที่นับ email ซ้ำในตารางตอน INSERT",
+        "ประกาศ UNIQUE (email) ปกติ แล้วให้แอปลบแถวเก่าจริงก่อนสมัครใหม่ทุกครั้ง"
+      ],
+      "answer": 0,
+      "explain": "partial unique index บังคับความไม่ซ้ำเฉพาะแถวที่ตรง predicate UNIQUE (email, deleted_at) ใช้ไม่ได้ เพราะโดยปริยาย NULL สองค่าไม่ถือว่าเท่ากัน ผู้ใช้ที่ยังไม่ถูกลบ (deleted_at เป็น NULL) จึงมี email ซ้ำกันได้ (PostgreSQL 15 ขึ้นไปมี NULLS NOT DISTINCT ที่เปลี่ยนพฤติกรรมนี้ แต่ตัวเลือกนี้ไม่ได้ใช้) CHECK ออกแบบมาตรวจค่าของแถวนั้นเอง ไม่เหมาะกับการกันข้อมูลซ้ำข้ามแถว"
+    },
+    {
+      "prompt": "ทีมสร้าง partial index สำหรับงานค้างประมวลผล แต่ EXPLAIN ของ query นี้ยังเป็น Seq Scan สาเหตุที่น่าเป็นไปได้มากที่สุดคืออะไร?",
+      "code": "CREATE INDEX idx_jobs_pending ON jobs (created_at)\n  WHERE status = 'pending';\n\nEXPLAIN SELECT * FROM jobs\nWHERE created_at < now() - interval '1 hour';",
+      "options": [
+        "partial index ใช้ได้เฉพาะกับ UNIQUE index เท่านั้น ไม่ใช้กับ query ทั่วไป",
+        "query ไม่มี status = 'pending' ที่ตรงกับ predicate ของ index",
+        "ต้องเพิ่ม ORDER BY created_at ท้าย query ให้ตรงกับคีย์ของ index planner จึงจะยอมใช้",
+        "partial index ต้องสร้างด้วย CONCURRENTLY เสมอ มิฉะนั้น planner จะไม่เลือกใช้ index นั้น"
+      ],
+      "answer": 1,
+      "explain": "index ที่สร้างจากแถว pending เท่านั้นไม่ครอบคลุมแถวสถานะอื่นที่ query ก็อาจต้องการ จึงใช้ได้ก็ต่อเมื่อเงื่อนไขของ query บังคับให้ตรง predicate ถ้าเติม AND status = 'pending' ก็จะใช้ index ได้ ส่วน CONCURRENTLY เป็นเรื่องวิธีสร้างโดยไม่บล็อกการเขียน ไม่ใช่เงื่อนไขการเลือกใช้"
+    },
+    {
+      "prompt": "บน PostgreSQL query นี้ใช้ Index Scan บน (customer_id) แต่ยังต้องกลับไปอ่านแถวในตารางเพื่อเอา total ทีมอยากให้เป็น index-only scan โดยไม่ให้ total เป็นส่วนของ search key ควรทำอย่างไร?",
+      "code": "CREATE INDEX idx_orders_customer ON orders (customer_id);\n\nSELECT customer_id, total\nFROM orders\nWHERE customer_id = 42;",
+      "options": [
+        "ทำไม่ได้ เพราะ INCLUDE ใช้กับ B-tree ไม่ได้ ต้องเพิ่ม total เป็นคอลัมน์ที่สองของ index เท่านั้น",
+        "เปลี่ยนเป็น SELECT * เพราะ index-only scan ต้องอ่านทุกคอลัมน์ของตาราง",
+        "สร้าง index ใหม่ด้วย INCLUDE (total) และ VACUUM สม่ำเสมอให้ visibility map ทำงาน",
+        "ลบ index ทิ้งและพึ่ง Seq Scan เพราะ index-only scan ใช้ได้กับตารางที่ไม่มี index"
+      ],
+      "answer": 2,
+      "explain": "index-only scan ทำได้เมื่อ query ใช้เฉพาะคอลัมน์ที่เก็บอยู่ใน index และ INCLUDE (ใช้กับ B-tree ได้) ใส่คอลัมน์พ่วงโดยไม่ต้องเป็น search key นอกจากนั้นต้องมี visibility map จาก VACUUM จึงจะข้ามการอ่านตารางได้เป็นส่วนใหญ่ SELECT * กลับทำให้ต้องอ่านตาราง"
+    },
+    {
+      "prompt": "หลังนำเข้าข้อมูลคืนเงิน 180,000 แถว query นี้ช้าลงมาก EXPLAIN ANALYZE แสดงตามนี้ ควรทำอะไรก่อน?",
+      "code": "-- Seq Scan on orders o  (rows=3)  (actual rows=180000 loops=1)\n-- Nested Loop  (rows=3)  (actual rows=180000 loops=1)\nEXPLAIN ANALYZE\nSELECT * FROM orders o JOIN customers c ON c.id = o.customer_id\nWHERE o.status = 'refunded';",
+      "options": [
+        "แปลงค่า cost ให้เป็นมิลลิวินาที เพราะ cost ที่เห็นไม่ตรงกับเวลาจริง",
+        "รัน query ซ้ำอีกครั้ง เพราะ EXPLAIN ANALYZE รอบแรกไม่แม่นและรอบถัดไปจะตรง",
+        "เพิ่ม index ให้ทุกคอลัมน์ของ orders เพื่อให้ planner มีตัวเลือกมากขึ้น",
+        "รัน ANALYZE orders เพราะประเมิน 3 แถวแต่จริง 180,000 แปลว่าสถิติล้าสมัย"
+      ],
+      "answer": 3,
+      "explain": "planner เลือกแผนจากจำนวนแถวที่ประเมินจากสถิติ ถ้าประเมินต่ำกว่าจริงมากก็มักเลือกแผนที่เหมาะกับข้อมูลเล็กอย่าง nested loop ANALYZE ทำสถิติใหม่ ส่วน cost เป็นหน่วยสมมติของ planner ไม่ใช่เวลา และการรันซ้ำไม่เปลี่ยนค่าประเมิน"
     }
   ],
-  "exercise": {
-    "title": "ลูกค้ายอดซื้อสูงสุด 5 อันดับของปี 2025",
-    "level": "ง่าย",
-    "tags": "JOIN · GROUP BY · ORDER BY · LIMIT",
-    "lang": "sql",
-    "prompt": "ทีมการตลาดอยากส่งของขวัญให้ลูกค้าที่ซื้อมากที่สุด เขียน query แสดง name, city และ total_spent (ยอดรวมของออเดอร์ในปี 2025) ของลูกค้า 5 อันดับแรก เรียงจากมากไปน้อย ลูกค้าบางคนชื่อซ้ำกันได้ และไม่ต้องแสดงลูกค้าที่ไม่มีออเดอร์ในปี 2025",
-    "context": "customers(id INT PK, name TEXT, city TEXT)\norders(id INT PK,\n       customer_id INT → customers.id,\n       total NUMERIC,\n       created_at DATE)",
-    "starter": "-- เขียน query ของคุณที่นี่\nSELECT c.name, c.city\nFROM customers c\n",
-    "solution": "SELECT c.name, c.city, SUM(o.total) AS total_spent\nFROM customers c\nJOIN orders o ON o.customer_id = c.id\nWHERE o.created_at >= '2025-01-01'\n  AND o.created_at <  '2026-01-01'\nGROUP BY c.id, c.name, c.city\nORDER BY total_spent DESC\nLIMIT 5;",
-    "hints": [
-      "ข้อมูลยอดซื้ออยู่ใน orders ส่วนชื่อและเมืองอยู่ใน customers ต้องเชื่อมสองตารางก่อน แล้วรวมยอดต่อคน",
-      "JOIN orders o ON o.customer_id = c.id แล้วใช้ SUM(o.total) AS total_spent และ GROUP BY c.id (ไม่ใช่ชื่อ เพราะชื่อซ้ำได้)",
-      "กรองปี 2025 ใน WHERE ก่อนจัดกลุ่ม เช่น o.created_at >= '2025-01-01' AND o.created_at < '2026-01-01' แล้วปิดท้ายด้วย ORDER BY total_spent DESC LIMIT 5"
-    ],
-    "checks": [
-      {
-        "label": "เชื่อม orders กับ customers ด้วย customer_id = id",
-        "pattern": "customer_id\\s*=\\s*\\w+\\.id\\b|\\b\\w+\\.id\\s*=\\s*(\\w+\\.)?customer_id"
-      },
-      {
-        "label": "รวมยอดด้วย SUM(total) ตั้งชื่อ total_spent",
-        "pattern": "sum\\s*\\(\\s*(\\w+\\.)?total\\s*\\)[^;]*\\btotal_spent\\b"
-      },
-      {
-        "label": "กรองเฉพาะปี 2025 จาก created_at",
-        "pattern": "created_at[^;]*2025|2025[^;]*created_at"
-      },
-      {
-        "label": "GROUP BY ด้วย id ลูกค้า (ชื่อซ้ำกันได้)",
-        "pattern": "group\\s+by[^;]*(\\b(?!o\\.|orders\\.)\\w+\\.id\\b|customer_id|(^|[\\s,(])id\\b)"
-      },
-      {
-        "label": "เรียงจากมากไปน้อย (ORDER BY … DESC)",
-        "pattern": "order\\s+by\\s+[^;]*?\\bdesc\\b"
-      },
-      {
-        "label": "จำกัด 5 แถว",
-        "pattern": "limit\\s+5\\b|fetch\\s+(first|next)\\s+5\\b|\\btop\\s*\\(?\\s*5\\b|(row_number|rank|dense_rank)\\s*\\(\\s*\\)[^;]*(<=\\s*5\\b|<\\s*6\\b)"
-      }
-    ]
-  }
+  "exercises": [
+    {
+      "title": "ลูกค้ายอดซื้อสูงสุด 5 อันดับของปี 2025",
+      "level": "ง่าย",
+      "tags": "JOIN · GROUP BY · ORDER BY · LIMIT",
+      "lang": "sql",
+      "prompt": "ทีมการตลาดอยากส่งของขวัญให้ลูกค้าที่ซื้อมากที่สุด เขียน query แสดง name, city และ total_spent (ยอดรวมของออเดอร์ในปี 2025) ของลูกค้า 5 อันดับแรก เรียงจากมากไปน้อย ลูกค้าบางคนชื่อซ้ำกันได้ และไม่ต้องแสดงลูกค้าที่ไม่มีออเดอร์ในปี 2025",
+      "context": "customers(id INT PK, name TEXT, city TEXT)\norders(id INT PK,\n       customer_id INT → customers.id,\n       total NUMERIC,\n       created_at DATE)",
+      "starter": "-- เขียน query ของคุณที่นี่\nSELECT c.name, c.city\nFROM customers c\n",
+      "solution": "SELECT c.name, c.city, SUM(o.total) AS total_spent\nFROM customers c\nJOIN orders o ON o.customer_id = c.id\nWHERE o.created_at >= '2025-01-01'\n  AND o.created_at <  '2026-01-01'\nGROUP BY c.id, c.name, c.city\nORDER BY total_spent DESC\nLIMIT 5;",
+      "hints": [
+        "ข้อมูลยอดซื้ออยู่ใน orders ส่วนชื่อและเมืองอยู่ใน customers ต้องเชื่อมสองตารางก่อน แล้วรวมยอดต่อคน",
+        "JOIN orders o ON o.customer_id = c.id แล้วใช้ SUM(o.total) AS total_spent และ GROUP BY c.id (ไม่ใช่ชื่อ เพราะชื่อซ้ำได้)",
+        "กรองปี 2025 ใน WHERE ก่อนจัดกลุ่ม เช่น o.created_at >= '2025-01-01' AND o.created_at < '2026-01-01' แล้วปิดท้ายด้วย ORDER BY total_spent DESC LIMIT 5"
+      ],
+      "checks": [
+        {
+          "label": "เชื่อม orders กับ customers ด้วย customer_id = id",
+          "pattern": "customer_id\\s*=\\s*\\w+\\.id\\b|\\b\\w+\\.id\\s*=\\s*(\\w+\\.)?customer_id"
+        },
+        {
+          "label": "รวมยอดด้วย SUM(total) ตั้งชื่อ total_spent",
+          "pattern": "sum\\s*\\(\\s*(\\w+\\.)?total\\s*\\)[^;]*\\btotal_spent\\b"
+        },
+        {
+          "label": "กรองเฉพาะปี 2025 จาก created_at",
+          "pattern": "created_at[^;]*2025|2025[^;]*created_at"
+        },
+        {
+          "label": "GROUP BY ด้วย id ลูกค้า (ชื่อซ้ำกันได้)",
+          "pattern": "group\\s+by[^;]*(\\b(?!o\\.|orders\\.)\\w+\\.id\\b|customer_id|(^|[\\s,(])id\\b)"
+        },
+        {
+          "label": "เรียงจากมากไปน้อย (ORDER BY … DESC)",
+          "pattern": "order\\s+by\\s+[^;]*?\\bdesc\\b"
+        },
+        {
+          "label": "จำกัด 5 แถว",
+          "pattern": "limit\\s+5\\b|fetch\\s+(first|next)\\s+5\\b|\\btop\\s*\\(?\\s*5\\b|(row_number|rank|dense_rank)\\s*\\(\\s*\\)[^;]*(<=\\s*5\\b|<\\s*6\\b)"
+        }
+      ]
+    },
+    {
+      "title": "สินค้าขายดี 2 อันดับแรกในแต่ละหมวด",
+      "level": "กลาง",
+      "tags": "CTE · window function · ROW_NUMBER",
+      "lang": "sql",
+      "prompt": "ทีมสินค้าต้องการหน้า “Top 2 ของแต่ละหมวด” เขียน query แสดง category, name และ revenue (ยอดขาย = ผลรวมของ quantity * unit_price) ของสินค้าที่ขายดีที่สุด 2 อันดับแรกในแต่ละหมวด นับเฉพาะออเดอร์ที่ status เป็น 'paid' เรียงตาม category แล้วตามอันดับ ถ้ายอดเท่ากันให้สินค้าที่ id น้อยกว่าได้อันดับก่อน",
+      "context": "products(id INT PK, name TEXT, category TEXT)\norders(id INT PK, status TEXT)\norder_items(order_id INT → orders.id,\n            product_id INT → products.id,\n            quantity INT,\n            unit_price NUMERIC)",
+      "starter": "-- รวมยอดขายต่อสินค้าไว้ให้แล้ว แต่ยังไม่ได้จัดอันดับในแต่ละหมวด\nSELECT p.category, p.name,\n       SUM(i.quantity * i.unit_price) AS revenue\nFROM products p\nJOIN order_items i ON i.product_id = p.id\nGROUP BY p.category, p.name;",
+      "solution": "WITH revenue AS (\n  SELECT p.category, p.id, p.name,\n         SUM(i.quantity * i.unit_price) AS revenue\n  FROM products p\n  JOIN order_items i ON i.product_id = p.id\n  JOIN orders o ON o.id = i.order_id\n  WHERE o.status = 'paid'\n  GROUP BY p.category, p.id, p.name\n), ranked AS (\n  SELECT category, name, revenue,\n         ROW_NUMBER() OVER (\n           PARTITION BY category\n           ORDER BY revenue DESC, id\n         ) AS rn\n  FROM revenue\n)\nSELECT category, name, revenue\nFROM ranked\nWHERE rn <= 2\nORDER BY category, rn;",
+      "hints": [
+        "ต้องการ “อันดับภายในแต่ละกลุ่ม” โดยไม่ยุบแถว ลองคิดถึง window function แทน GROUP BY ขั้นที่สอง",
+        "รวมยอดต่อสินค้าก่อนใน CTE แล้วใช้ ROW_NUMBER() OVER (PARTITION BY category ORDER BY revenue DESC, id) ใน CTE ถัดไป",
+        "window function ใช้ใน WHERE ตรง ๆ ไม่ได้ ให้ห่อด้วย CTE หรือ subquery แล้วกรอง rn <= 2 ข้างนอก อย่าลืม JOIN orders และกรอง status = 'paid'"
+      ],
+      "checks": [
+        {
+          "label": "นับเฉพาะออเดอร์ที่ status เป็น paid (อ้าง orders)",
+          "pattern": "orders[\\s\\S]*status\\s*=\\s*'paid'"
+        },
+        {
+          "label": "รวมยอดขายด้วย SUM(quantity * unit_price)",
+          "pattern": "sum\\s*\\(\\s*(\\w+\\.)?quantity\\s*\\*\\s*(\\w+\\.)?unit_price\\s*\\)|sum\\s*\\(\\s*(\\w+\\.)?unit_price\\s*\\*\\s*(\\w+\\.)?quantity\\s*\\)"
+        },
+        {
+          "label": "ใช้ ROW_NUMBER/RANK/DENSE_RANK แบบ window",
+          "pattern": "(row_number|rank|dense_rank)\\s*\\(\\s*\\)\\s*over\\s*\\("
+        },
+        {
+          "label": "PARTITION BY category",
+          "pattern": "partition\\s+by\\s+(\\w+\\.)?category\\b"
+        },
+        {
+          "label": "เรียงยอดขายจากมากไปน้อยภายใน window",
+          "pattern": "over\\s*\\([\\s\\S]*?order\\s+by[\\s\\S]*?\\bdesc\\b"
+        },
+        {
+          "label": "จัดอันดับในขั้นของ CTE หรือ subquery แล้วกรองข้างนอก",
+          "pattern": "\\bwith\\s+\\w+\\s+as\\s*\\(|from\\s*\\(\\s*select"
+        },
+        {
+          "label": "เหลือเฉพาะอันดับ 1-2 (rn <= 2)",
+          "pattern": "(<=\\s*2\\b|<\\s*3\\b)"
+        }
+      ]
+    },
+    {
+      "title": "ต้นไม้หมวดหมู่ด้วย recursive CTE",
+      "level": "ยาก",
+      "tags": "WITH RECURSIVE · hierarchy · cycle guard",
+      "lang": "sql",
+      "prompt": "หน้าเมนูของเว็บต้องแสดงหมวด Electronics (id = 1) และหมวดลูกทุกระดับ เขียน query ที่คืน id, name, depth (หมวดราก = 0) และ path (ชื่อจากรากถึงหมวดนั้น คั่นด้วย ' > ' เช่น Electronics > Phones > Android) เรียงตาม path ข้อมูลเก่าอาจมี parent_id วนเป็นรอบโดยบังเอิญ query ของคุณต้องไม่วนไม่จบ",
+      "context": "categories(id INT PK,\n           name TEXT NOT NULL,\n           parent_id INT → categories.id  -- NULL = หมวดราก)",
+      "starter": "-- เริ่มจากหมวด Electronics (id = 1) แต่ยังไม่ได้ลงไปหาหมวดลูก\nSELECT id, name, 0 AS depth, name AS path\nFROM categories\nWHERE id = 1;",
+      "solution": "WITH RECURSIVE tree AS (\n  SELECT id, name, 0 AS depth, name AS path\n  FROM categories\n  WHERE id = 1\n  UNION ALL\n  SELECT c.id, c.name, t.depth + 1, t.path || ' > ' || c.name\n  FROM categories c\n  JOIN tree t ON c.parent_id = t.id\n  WHERE t.depth < 10\n)\nSELECT id, name, depth, path\nFROM tree\nORDER BY path;",
+      "hints": [
+        "โครงสร้างต้นไม้ที่ไม่รู้ความลึกต้องใช้ WITH RECURSIVE: ส่วนเริ่ม UNION ALL ส่วนที่เอาผลรอบก่อนไปหาลูก",
+        "ส่วนเริ่มคือหมวด id = 1 ที่ depth 0 ส่วนวนซ้ำ JOIN categories c กับ tree t ที่ c.parent_id = t.id แล้ว depth = t.depth + 1 และ path = t.path || ' > ' || c.name",
+        "กันวนไม่จบด้วยการจำกัดความลึกในส่วนวนซ้ำ เช่น WHERE t.depth < 10 หรือใช้ CYCLE clause ของ PostgreSQL ก็ได้"
+      ],
+      "checks": [
+        {
+          "label": "ใช้ WITH RECURSIVE",
+          "pattern": "with\\s+recursive\\b"
+        },
+        {
+          "label": "ต่อส่วนเริ่มกับส่วนวนซ้ำด้วย UNION",
+          "pattern": "\\bunion\\b"
+        },
+        {
+          "label": "เริ่มจากหมวด Electronics (id = 1)",
+          "pattern": "where\\s+(\\w+\\.)?(id\\s*=\\s*1\\b|name\\s*=\\s*'electronics')"
+        },
+        {
+          "label": "JOIN ลูกด้วย parent_id = id ของผลรอบก่อน",
+          "pattern": "parent_id\\s*=\\s*\\w+\\.id\\b|\\b\\w+\\.id\\s*=\\s*\\w+\\.parent_id\\b"
+        },
+        {
+          "label": "นับ depth เพิ่มทีละ 1",
+          "pattern": "\\bdepth\\s*\\+\\s*1\\b"
+        },
+        {
+          "label": "สร้าง path ด้วย || หรือ concat",
+          "pattern": "\\|\\||concat(_ws)?\\s*\\("
+        },
+        {
+          "label": "มีตัวกันวนไม่จบ (จำกัด depth หรือ CYCLE)",
+          "pattern": "cycle\\s+\\w+(\\s*,\\s*\\w+)*\\s+set|\\b\\w*(depth|level|lvl)\\w*\\s*<=?\\s*\\d+|(<>|!=)\\s*all\\s*\\(|not\\s*\\(?[^;]*=\\s*any\\s*\\("
+        }
+      ]
+    }
+  ],
+  "refs": [
+    {
+      "title": "PostgreSQL: Queries",
+      "url": "https://www.postgresql.org/docs/current/queries.html",
+      "note": "JOIN, subquery, set operation, WITH, LIMIT รวมอยู่ในบทเดียว"
+    },
+    {
+      "title": "PostgreSQL: Indexes",
+      "url": "https://www.postgresql.org/docs/current/indexes.html",
+      "note": "ชนิด index, multicolumn, partial, index-only scan"
+    },
+    {
+      "title": "PostgreSQL: Using EXPLAIN",
+      "url": "https://www.postgresql.org/docs/current/using-explain.html",
+      "note": "อ่านแผน ประมาณการ vs ค่าจริง และผลของสถิติ"
+    },
+    {
+      "title": "PostgreSQL: Concurrency Control",
+      "url": "https://www.postgresql.org/docs/current/mvcc.html",
+      "note": "MVCC, isolation level, explicit locking"
+    },
+    {
+      "title": "PostgreSQL: Routine Vacuuming",
+      "url": "https://www.postgresql.org/docs/current/routine-vacuuming.html",
+      "note": "VACUUM, autovacuum และการดูแลตาราง"
+    },
+    {
+      "title": "MySQL 8.4: Deadlocks in InnoDB",
+      "url": "https://dev.mysql.com/doc/refman/8.4/en/innodb-deadlocks.html",
+      "note": "เปรียบเทียบการจัดการ deadlock ของ MySQL"
+    },
+    {
+      "title": "SQLite: Foreign Key Support",
+      "url": "https://www.sqlite.org/foreignkeys.html",
+      "note": "ตัวอย่างว่าพฤติกรรมเริ่มต้นต่างกันตาม DB"
+    },
+    {
+      "title": "SQL Server: ORDER BY, OFFSET และ FETCH",
+      "url": "https://learn.microsoft.com/en-us/sql/t-sql/queries/select-order-by-clause-transact-sql",
+      "note": "ไวยากรณ์ pagination ของ T-SQL"
+    }
+  ]
 }

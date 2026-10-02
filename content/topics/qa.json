@@ -69,6 +69,90 @@
       "tier": "advanced",
       "title": "Contract testing และ mutation testing",
       "body": "Contract testing ตรวจว่า consumer กับ provider ยังคุยกันรู้เรื่อง ในแบบ consumer-driven (เช่น Pact) consumer บันทึกสิ่งที่คาดหวังจาก API เป็น contract แล้ว CI ของ provider นำไปตรวจทุกครั้ง จึงจับการเปลี่ยน field ได้โดยไม่ต้องมี E2E ข้ามทุก service ส่วน mutation testing (เช่น StrykerJS สำหรับ JavaScript หรือ PIT สำหรับ Java) แก้โค้ดทีละจุด เช่น เปลี่ยน >= เป็น > แล้วรัน test ถ้า test ยังผ่าน (mutant survived) แปลว่าไม่มี test ตรวจพฤติกรรมนั้นจริง เป็นมาตรวัดคุณภาพ test ที่ตรงกว่า coverage แต่รันช้า จึงมักรันเฉพาะโค้ดที่เปลี่ยนหรือรันเป็นรอบ"
+    },
+    {
+      "tier": "must",
+      "exam": true,
+      "title": "หลักการทดสอบ 7 ข้อของ ISTQB",
+      "body": "หลักทั่วไปที่ใช้ได้กับการทดสอบทุกแบบมี 7 ข้อ คือ การทดสอบแสดงได้ว่ามี defect แต่พิสูจน์ไม่ได้ว่าไม่มี, ทดสอบทุกอย่างไม่ได้จึงต้องเลือกด้วย technique และความเสี่ยง, ทดสอบเร็วประหยัดกว่า, defect มักกระจุกอยู่ในไม่กี่ component, test ที่รันซ้ำจนชินจะจับ defect ใหม่ได้น้อยลง (tests wear out) ต้องปรับ test และข้อมูล, วิธีทดสอบขึ้นกับบริบท และ absence-of-defects fallacy คือการผ่านทุก requirement ไม่ได้แปลว่าระบบตอบโจทย์ผู้ใช้ ต้องมี validation ควบคู่กับ verification ข้อที่มักพลาดคือเหมาเอาว่าการรัน regression ซ้ำไม่มีประโยชน์ ทั้งที่เอกสารระบุว่าการรันซ้ำบางกรณี เช่น automated regression ยังให้ผลดี",
+      "ref": "https://astqb.org/assets/documents/ISTQB_CTFL_Syllabus_v4.0.1.pdf#page=17"
+    },
+    {
+      "tier": "must",
+      "exam": true,
+      "title": "Test level กับ test type ต่างกันอย่างไร",
+      "body": "test level คือ \"ทดสอบที่ชั้นไหนของระบบ\" ซึ่ง ISTQB แบ่งเป็น component (หรือ unit), component integration, system, system integration และ acceptance ส่วน test type คือ \"ทดสอบเรื่องอะไร\" เช่น functional, non-functional (performance, security, usability ฯลฯ), black-box และ white-box โดยแต่ละ type ทำได้ในทุก level เช่น วัดเวลาตอบสนองของฟังก์ชันเดี่ยวก็เป็น non-functional test ระดับ component กับดักที่พบบ่อยคือสับสนระหว่าง component integration (รอยต่อระหว่าง component ภายในระบบ) กับ system integration (รอยต่อกับระบบอื่นหรือ external service เช่น payment gateway)",
+      "ref": "https://astqb.org/assets/documents/ISTQB_CTFL_Syllabus_v4.0.1.pdf#page=29"
+    },
+    {
+      "tier": "must",
+      "exam": true,
+      "title": "Confirmation testing กับ regression testing",
+      "body": "หลังแก้บั๊กต้องทำสองอย่างที่ต่างกัน confirmation testing ตรวจว่า defect เดิมถูกแก้แล้วจริง (เช่น รันกรณีที่เคย fail ซ้ำ) ส่วน regression testing ตรวจว่าการเปลี่ยนแปลง รวมถึงการแก้ที่ confirm แล้ว ไม่ทำให้ส่วนอื่นพัง ทั้งใน component เดิม component อื่น หรือระบบที่เชื่อมกัน ตัวอย่างเช่น แก้สูตรคูปองแล้วรันกรณีคูปองที่เคยผิด (confirmation) และรัน test ของ checkout กับราคาทั้งชุด (regression) เพราะ regression suite ถูกรันบ่อยและโตขึ้นเรื่อย ๆ จึงเหมาะกับการ automate และรันใน CI และควรทำ impact analysis เพื่อกำหนดขอบเขตว่าควรรันส่วนไหน",
+      "ref": "https://astqb.org/assets/documents/ISTQB_CTFL_Syllabus_v4.0.1.pdf#page=30"
+    },
+    {
+      "tier": "must",
+      "title": "ทดสอบโค้ด async: ต้อง await หรือ return promise",
+      "body": "Jest ต้องรู้ว่าโค้ดทำงานเสร็จเมื่อไร จึงต้อง return promise หรือใช้ async/await ถ้าลืม test จะจบก่อนที่ promise จะ resolve หรือ reject และผลที่ได้ไม่น่าเชื่อถือ ใช้ .resolves และ .rejects ได้เมื่อต้องการให้อ่านง่าย แต่ต้อง await หรือ return ด้วยเสมอ ถ้าเลือกเขียนแบบ try/catch ต้องใส่ expect.assertions(n) เพราะไม่อย่างนั้น promise ที่ fulfilled (ไม่ throw) จะทำให้ test ผ่านโดยไม่เคยตรวจอะไรเลย",
+      "code": "test('ดึงผู้ใช้สำเร็จ', async () => {\n  await expect(fetchUser(1)).resolves.toMatchObject({ id: 1 });\n});\n\ntest('throw เมื่อไม่พบผู้ใช้', async () => {\n  await expect(fetchUser(999)).rejects.toThrow('not found');\n});\n\n// แบบ try/catch ต้องล็อกจำนวน assertion\ntest('throw เมื่อไม่พบผู้ใช้ (try/catch)', async () => {\n  expect.assertions(1);\n  try { await fetchUser(999); } catch (e) { expect(e.message).toBe('not found'); }\n});",
+      "ref": "https://jestjs.io/docs/asynchronous"
+    },
+    {
+      "tier": "must",
+      "title": "Setup/teardown และการแยก state ระหว่าง test",
+      "body": "beforeEach และ afterEach รันรอบทุก test ส่วน beforeAll และ afterAll รันครั้งเดียวต่อไฟล์หรือต่อ describe hook ที่อยู่ใน describe มีผลเฉพาะ test ใน block นั้น และ beforeEach ระดับบนสุดจะรันก่อน beforeEach ที่อยู่ข้างใน อาการคลาสสิกคือ test ผ่านเมื่อรันเดี่ยว (test.only) แต่ fail เมื่อรันทั้งชุด แปลว่ามี state ที่ test อื่นแก้ทิ้งไว้ ให้สร้างหรือ reset ข้อมูลใน beforeEach แทนการสร้าง object ที่แก้ไขได้ไว้ระดับไฟล์หรือใน beforeAll แล้วแชร์กัน",
+      "code": "let cache;\nbeforeEach(() => {\n  cache = new Map();            // ใหม่ทุก test ไม่มีของเหลือจาก test ก่อนหน้า\n});\n\ntest('เก็บค่าแล้วอ่านกลับได้', () => {\n  cache.set('a', 1);\n  expect(cache.get('a')).toBe(1);\n});\n\ntest('cache ใหม่ต้องว่าง', () => {\n  expect(cache.size).toBe(0);\n});",
+      "ref": "https://jestjs.io/docs/setup-teardown"
+    },
+    {
+      "tier": "should",
+      "exam": true,
+      "title": "Defect report ที่ดี: severity กับ priority",
+      "body": "defect report มีไว้ให้คนแก้ทำซ้ำและแก้ได้โดยไม่ต้องถามกลับ จึงควรมี title สั้น ๆ, test object และ environment, ขั้นตอนที่ทำให้เกิด, expected result เทียบกับ actual result, log หรือ screenshot, severity, priority และ status syllabus ของ ISTQB ระบุ severity ว่าเป็นระดับผลกระทบ (degree of impact) ต่อผู้มีส่วนได้ส่วนเสียหรือต่อ requirement ส่วน priority คือ \"priority to fix\" หรือลำดับการแก้ ซึ่งในทางปฏิบัติสองค่านี้ไม่จำเป็นต้องไปทางเดียวกัน เช่น โลโก้เพี้ยนบนหน้าแรกก่อนงานแถลงข่าววันพรุ่งนี้ กระทบการทำงานน้อยแต่ควรแก้ทันที",
+      "ref": "https://astqb.org/assets/documents/ISTQB_CTFL_Syllabus_v4.0.1.pdf#page=56"
+    },
+    {
+      "tier": "should",
+      "exam": true,
+      "title": "Decision table และ state transition testing",
+      "body": "decision table ใช้กับกฎที่ผลลัพธ์ขึ้นกับการรวมกันของหลายเงื่อนไข โดยแถวคือเงื่อนไขกับ action ส่วนคอลัมน์คือกฎแต่ละข้อ และ coverage คือสัดส่วนคอลัมน์ที่เป็นไปได้ซึ่งมี test ครอบคลุม ช่วยให้เห็น combination ที่ตกหล่นหรือกฎที่ขัดกัน แต่จำนวนกฎโตเร็วตามจำนวนเงื่อนไข (เงื่อนไข true/false 3 ข้อมี 8 combination) ส่วน state transition testing ใช้กับระบบที่พฤติกรรมขึ้นกับสถานะ เช่น ออเดอร์ โดย test case คือลำดับ event ที่พาระบบเปลี่ยน state และ coverage ที่ syllabus ยกมาสามระดับคือ all states, valid transitions และ all transitions ซึ่งระดับหลังต้องลองทำ transition ที่ไม่ถูกต้องด้วย โดยลองทีละ test เพื่อไม่ให้ defect หนึ่งบังอีกอัน",
+      "code": "# ตัวอย่างสมมติ: กฎส่วนลดของร้านค้า\ncondition / rule      R1  R2  R3  R4\nis_member             T   T   F   F\ntotal >= 1000         T   F   T   F\n----------------------------------\ndiscount 15%          X\ndiscount 5%               X   X\nno discount                       X",
+      "ref": "https://astqb.org/assets/documents/ISTQB_CTFL_Syllabus_v4.0.1.pdf#page=41"
+    },
+    {
+      "tier": "should",
+      "title": "E2E ด้วย Playwright: locator, auto-wait และ web-first assertion",
+      "body": "Playwright รอ element ให้พร้อมก่อนลงมือทำเอง (auto-waiting) เช่น ก่อน click จะตรวจว่า element เป็น element เดียว มองเห็น นิ่ง ไม่ถูกบังและ enabled จึงไม่ต้องใส่ sleep เอง ให้เลือก locator ตามที่ผู้ใช้เห็น เช่น getByRole แทน CSS หรือ XPath ที่ผูกกับโครงสร้าง DOM และใช้ assertion แบบ web-first อย่าง await expect(locator).toBeVisible() ซึ่ง retry จนเงื่อนไขเป็นจริง แต่ถ้าเขียน expect(await locator.isVisible()).toBe(true) จะเช็กครั้งเดียวแล้วจบทันที ทำให้ test flaky นอกจากนี้ควรให้แต่ละ test แยกกันอิสระ ไม่พึ่ง state ของ test ก่อนหน้า",
+      "code": "// เปราะ: ผูกกับ class และเช็กครั้งเดียว\nawait page.locator('button.btn.btn-primary.x1').click();\nexpect(await page.getByText('สั่งซื้อสำเร็จ').isVisible()).toBe(true);\n\n// ทน: locator แบบที่ผู้ใช้เห็น + assertion ที่ retry\nawait page.getByRole('button', { name: 'ชำระเงิน' }).click();\nawait expect(page.getByText('สั่งซื้อสำเร็จ')).toBeVisible();",
+      "ref": "https://playwright.dev/docs/best-practices"
+    },
+    {
+      "tier": "should",
+      "title": "Snapshot testing: ใช้ให้ถูกที่และรีวิวให้จริง",
+      "body": "snapshot test เก็บค่าที่ serialize แล้วลงไฟล์ข้อความ และรอบถัดไปเทียบด้วย diff จึงเหมาะกับผลลัพธ์ที่เล็กและโฟกัสซึ่งโครงสร้างสำคัญ เช่น output ของ component หรือ error message ต้องถือไฟล์ .snap เป็นส่วนหนึ่งของ test คือ commit เข้า repo และดู diff ตอนรีวิว และค่าที่เปลี่ยนทุกครั้ง เช่น เวลา กับ id สุ่ม ต้องควบคุมให้ deterministic หรือใช้ property matcher บน CI Jest จะไม่เขียน snapshot ใหม่ให้เอง ถ้ากด jest -u เพื่อให้เขียวโดยไม่อ่านว่าอะไรเปลี่ยน test ก็จะกลายเป็นตรายางที่อนุมัติทุกอย่าง",
+      "code": "test('สรุปคำสั่งซื้อ', () => {\n  const order = createOrder(cart);   // id สุ่มทุกครั้ง\n  expect(order).toMatchSnapshot({\n    id: expect.any(String),          // คุมค่าที่ไม่คงที่\n  });\n});",
+      "ref": "https://jestjs.io/docs/snapshot-testing"
+    },
+    {
+      "tier": "advanced",
+      "title": "Property-based testing ด้วย fast-check",
+      "body": "แทนที่จะเลือกค่าตัวอย่างเอง ให้เขียน property คือความสัมพันธ์ระหว่าง input กับ output ที่ต้องจริงกับ input ทุกค่า แล้วไลบรารีจะสุ่ม input ให้จำนวนมาก และเมื่อพบกรณีที่ผิดจะพยายาม shrink ให้ counterexample เล็กที่สุดเท่าที่ทำได้ ตัวอย่าง property ที่นึกได้ เช่น ผลเรียงลำดับต้องไม่ลดลงและความยาวเท่าเดิม หรือ decode(encode(x)) ต้องได้ x กลับมา ข้อควรระวังทั่วไป (ไม่ได้มาจากหน้าเอกสารนี้) คือ property ที่ไปคำนวณซ้ำด้วยสูตรเดียวกับโค้ด จะผิดพร้อมกันและไม่จับอะไร",
+      "code": "const fc = require('fast-check');\n\ntest('sortNumbers เรียงจากน้อยไปมากและความยาวเท่าเดิม', () => {\n  fc.assert(\n    fc.property(fc.array(fc.integer()), (xs) => {\n      const out = sortNumbers(xs);\n      expect(out).toHaveLength(xs.length);\n      for (let i = 1; i < out.length; i++) {\n        expect(out[i - 1]).toBeLessThanOrEqual(out[i]);\n      }\n    })\n  );\n});",
+      "ref": "https://fast-check.dev/docs/introduction/what-is-property-based-testing/"
+    },
+    {
+      "tier": "advanced",
+      "title": "Risk-based testing: จัดลำดับตามความเสี่ยง",
+      "body": "เมื่อทดสอบทุกอย่างไม่ได้ ISTQB แนะนำให้เลือกและจัดลำดับ test จากความเสี่ยง โดย risk level มาจาก likelihood (โอกาสเกิด) กับ impact (ผลกระทบ) ซึ่งประเมินเชิงปริมาณด้วยการคูณกัน หรือเชิงคุณภาพด้วย risk matrix ผลการวิเคราะห์ใช้กำหนดขอบเขต test level และ technique รวมถึงความลึกของ coverage ตัวอย่างเช่น โค้ดยืนยันตัวตนที่เพิ่งเขียนใหม่ควรได้ test หนักกว่าการเปลี่ยนชื่อ label ของปุ่ม และตำแหน่งที่ defect เคยกระจุกก็เป็นข้อมูลนำเข้าของการประเมินด้วย",
+      "ref": "https://astqb.org/assets/documents/ISTQB_CTFL_Syllabus_v4.0.1.pdf#page=52"
+    },
+    {
+      "tier": "advanced",
+      "title": "jest.mock ถูก hoist และการ partial mock",
+      "body": "เมื่อใช้ babel-jest คำสั่ง jest.mock จะถูกยกขึ้นไปไว้บนสุดของไฟล์ก่อน import จึงอ้างตัวแปรที่ประกาศไว้ข้างบนไม่ได้ Jest จะ error ว่า factory ห้ามอ้างตัวแปรนอก scope ยกเว้นตัวแปรที่ชื่อขึ้นต้นด้วย mock ซึ่งผู้เขียนต้องรับประกันเองว่าถูกกำหนดค่าทันเวลา ถ้า mock module ด้วย factory ที่คืนเฉพาะบาง export ส่วนที่เหลือจะหายไป ให้ใช้ jest.requireActual เก็บของจริงไว้แล้วแทนที่เฉพาะตัวที่ต้องการ (partial mock) และถ้าต้องการ mock ต่างกันในแต่ละ test ให้ใช้ jest.doMock ที่ไม่ถูก hoist",
+      "code": "jest.mock('./mailer', () => ({\n  ...jest.requireActual('./mailer'),  // เก็บ export จริงไว้\n  send: jest.fn(),                    // แทนที่เฉพาะ send\n}));\n\nconst mailer = require('./mailer');\n// mailer.formatSubject ยังเป็นของจริง, mailer.send เป็น mock",
+      "ref": "https://jestjs.io/docs/es6-class-mocks#calling-jestmock-with-the-module-factory-parameter"
     }
   ],
   "questions": [
@@ -185,52 +269,414 @@
       ],
       "answer": 0,
       "explain": "ทั้งค่าเฉลี่ยและ median กลบกลุ่ม request ที่ช้ามาก ถ้า p99 อยู่ที่หลายวินาที 1 ใน 100 request จะรอนานแม้ค่าเฉลี่ยดูดี จึงต้องดู percentile สูงและ error rate ควบคู่กัน ส่วนการลดโหลดทำให้ผลดูดีขึ้นแต่ไม่ตรงกับสภาพจริง"
+    },
+    {
+      "prompt": "ชุด regression อัตโนมัติ 600 test รันผ่านเขียวทุกคืนมาครึ่งปี แต่ฟีเจอร์ที่ทีมแก้บ่อยยังมีบั๊กใหม่หลุดไปถึงผู้ใช้เรื่อย ๆ ข้อสรุปใดสอดคล้องกับหลักการทดสอบมากที่สุด?",
+      "options": [
+        "test ชุดเดิมจับ defect ใหม่ได้น้อยลง ควรปรับ test และข้อมูลตามส่วนที่เปลี่ยน",
+        "เขียวทุกคืนแปลว่าไม่มี defect เหลือ บั๊กที่หลุดคือ requirement เปลี่ยนไม่ใช่ความผิดของ test",
+        "ควรเลิก regression อัตโนมัติทั้งหมด เพราะการรัน test เดิมซ้ำไม่มีคุณค่าเลย",
+        "ควรรัน test ชุดเดิมให้บ่อยขึ้นเป็นหลายรอบต่อคืนเพื่อให้จับบั๊กได้มากขึ้น"
+      ],
+      "answer": 0,
+      "explain": "หลัก \"tests wear out\" บอกว่า test ที่รันซ้ำเหมือนเดิมจะจับ defect ใหม่ได้น้อยลง จึงต้องปรับ test และข้อมูลหรือเขียนเพิ่ม แต่เอกสารก็ระบุว่าการรันซ้ำยังมีประโยชน์ในบางกรณี เช่น automated regression จึงไม่ถึงกับเลิกใช้ ส่วนการรันถี่ขึ้นไม่ช่วยเพราะ test ชุดเดิมก็ยังตรวจสิ่งเดิม"
+    },
+    {
+      "prompt": "จากประวัติ defect หลายเดือน บั๊กที่ลูกค้ารายงานส่วนใหญ่อยู่ในโมดูลคำนวณภาษีโมดูลเดียว ก่อน release ทีมมีเวลาทดสอบจำกัด ควรจัดสรรเวลาอย่างไร?",
+      "options": [
+        "แบ่งเวลาเท่า ๆ กันทุกโมดูลเพื่อให้ยุติธรรมและไม่มีส่วนใดถูกละเลย",
+        "เพิ่มเวลาทดสอบที่โมดูลคำนวณภาษีเป็นพิเศษ เพราะ defect มักกระจุกตัว",
+        "ข้ามโมดูลภาษีไปทดสอบโมดูลอื่นก่อน เพราะบั๊กเยอะแปลว่าทดสอบไปก็ไม่มีวันหมด",
+        "ทดสอบเฉพาะโมดูลที่เพิ่งเขียนใหม่ เพราะโมดูลเก่าผ่านการใช้งานมาแล้ว"
+      ],
+      "answer": 1,
+      "explain": "หลัก defects cluster บอกว่า component จำนวนน้อยมักมี defect ส่วนใหญ่ และข้อมูล defect เก่าเป็นข้อมูลนำเข้าของการจัดลำดับตามความเสี่ยง จึงควรทุ่มที่นั่น การแบ่งเท่ากันดูยุติธรรมแต่ไม่สัมพันธ์กับความเสี่ยง ส่วนการข้ามไปเพราะบั๊กเยอะคือทำตรงข้ามกับหลักการ"
+    },
+    {
+      "prompt": "ทีมทดสอบครบทุก requirement ใน spec และแก้บั๊กที่พบหมดแล้ว แต่หลัง release ผู้ใช้บ่นว่าขั้นตอนไม่ตรงกับงานจริงและยากเกินใช้ สถานการณ์นี้ตรงกับแนวคิดใด?",
+      "options": [
+        "Pesticide paradox: test ชุดเดิมที่รันซ้ำจับ defect ใหม่ไม่ได้อีกแล้ว",
+        "Exhaustive testing is impossible: ทดสอบไม่ครบทุก input และทุกเส้นทางที่เป็นไปได้",
+        "Absence-of-defects fallacy: ผ่านทุก requirement ไม่ได้แปลว่าตอบโจทย์ผู้ใช้",
+        "Defect clustering: บั๊กทั้งหมดอยู่รวมกันในโมดูลเดียวของระบบ"
+      ],
+      "answer": 2,
+      "explain": "การตรวจว่าระบบทำตาม spec (verification) ไม่ได้การันตีว่า spec นั้นตรงกับความต้องการจริง จึงต้องมี validation เช่น ให้ผู้ใช้จริงลองหรือทำ acceptance testing ส่วน pesticide paradox พูดถึงประสิทธิภาพของ test ที่รันซ้ำ ซึ่งไม่ใช่ปัญหาของกรณีนี้"
+    },
+    {
+      "prompt": "ทีมเขียน test ที่เรียก payment gateway ของผู้ให้บริการภายนอกใน sandbox เพื่อตรวจว่า request และ response ตรงตามที่ตกลงกัน ตามการแบ่งของ ISTQB จัดเป็น test level ใด?",
+      "options": [
+        "Component testing เพราะทดสอบโมดูลชำระเงินของเราโดยตรงแบบแยกส่วน",
+        "Component integration testing เพราะทดสอบรอยต่อระหว่างโค้ดสองส่วน",
+        "Acceptance testing เพราะใช้ข้อมูลที่ใกล้เคียงของจริงในการทดสอบ",
+        "System integration testing เพราะทดสอบรอยต่อกับบริการภายนอก"
+      ],
+      "answer": 3,
+      "explain": "System integration testing เน้นรอยต่อระหว่างระบบที่ทดสอบกับระบบอื่นและ external service และควรทำใน environment ที่ใกล้ของจริง ส่วน component integration พูดถึงรอยต่อระหว่าง component ภายในระบบเดียวกัน ซึ่งเป็นตัวเลือกที่น่าสับสนที่สุด"
+    },
+    {
+      "prompt": "dev แก้บั๊กส่วนลดคูปองซ้อนกันที่คิดเงินผิด QA รันกรณีเดิมที่เคย fail แล้วผ่านแล้ว ก่อนปิด ticket ควรทำอะไรเพิ่มตามหลักการทดสอบ?",
+      "options": [
+        "รัน regression test ของส่วนที่อาจได้รับผลกระทบ เช่น ราคาและ checkout",
+        "ปิด ticket ได้เลย เพราะ confirmation testing ผ่านแล้วแปลว่าการแก้สมบูรณ์",
+        "รันกรณีเดิมซ้ำอีกหลายสิบรอบ จนมั่นใจว่าไม่เป็น flaky ก่อนปิด",
+        "ทดสอบเฉพาะหน้าจอที่แสดงส่วนลด เพราะผู้ใช้เห็นผลที่นั่นและไม่ต้องดูส่วนอื่น"
+      ],
+      "answer": 0,
+      "explain": "confirmation testing ตอบแค่ว่าบั๊กเดิมหายหรือยัง ส่วน regression testing ตรวจว่าการเปลี่ยนแปลงไม่สร้างผลเสียในส่วนอื่น ซึ่งต้องทำแม้การแก้นั้นผ่าน confirmation แล้ว ตัวเลือกที่ให้ปิดทันทีพลาดตรงนี้"
+    },
+    {
+      "prompt": "ในระบบ e-commerce บั๊กข้อใดอธิบายได้ว่าเป็น \"severity ต่ำ แต่ priority สูง\"?",
+      "options": [
+        "หน้าชำระเงินล่มทุกครั้งที่ลูกค้าใช้บัตรเครดิตในช่วง flash sale จนขายไม่ได้",
+        "ฟีเจอร์ส่งออกรายงานเก่าที่ไม่มีใครเปิดใช้ทำให้ระบบ crash เมื่อกดปุ่ม",
+        "ชื่อแบรนด์สะกดผิดบนหน้าแคมเปญที่เปิดตัวพรุ่งนี้เช้า ระบบยังใช้งานได้ปกติ",
+        "ปุ่มเปลี่ยนภาษาเลื่อนผิดตำแหน่งสองพิกเซลบนมือถือบางรุ่นซึ่งแทบไม่มีใครสังเกต"
+      ],
+      "answer": 2,
+      "explain": "severity คือระดับผลกระทบ ส่วน priority คือความเร่งด่วนในการแก้ ซึ่งไม่จำเป็นต้องสอดคล้องกัน ชื่อแบรนด์ผิดมีผลกระทบเชิงระบบต่ำแต่ต้องแก้ก่อนเปิดตัว ส่วนหน้าชำระเงินล่มคือสูงทั้งสองค่า และ crash ในฟีเจอร์ที่ไม่มีใครใช้คือ severity สูงแต่ priority ต่ำ"
+    },
+    {
+      "prompt": "กฎค่าส่ง: ลูกค้ามีเงื่อนไข 3 ข้อแบบ จริง/เท็จ คือ เป็นสมาชิก ยอดถึงเกณฑ์ และมีคูปองส่งฟรี ผลลัพธ์ของแต่ละ combination ต่างกัน ถ้าสร้าง decision table แบบเต็มและยังไม่ได้ตัดอะไรออก จะมีกฎกี่ข้อ และ coverage วัดอย่างไร?",
+      "options": [
+        "3 กฎ หนึ่งข้อต่อหนึ่งเงื่อนไข และวัดจากจำนวนเงื่อนไขที่มี test ครบ",
+        "8 กฎ และวัดจากสัดส่วนกฎที่เป็นไปได้ซึ่งมี test ครอบคลุม",
+        "6 กฎ เพราะแต่ละเงื่อนไขมีสองค่า และวัดจากจำนวน test ทั้งหมด",
+        "9 กฎ จากสามเงื่อนไขคูณสามค่า และวัดจากบรรทัดโค้ดที่ถูกรัน"
+      ],
+      "answer": 1,
+      "explain": "เงื่อนไขแบบ true/false สามข้อให้ 2 x 2 x 2 = 8 combination และ coverage ของ decision table คือจำนวนคอลัมน์ที่เป็นไปได้ที่ถูกทดสอบ หารด้วยจำนวนคอลัมน์ที่เป็นไปได้ทั้งหมด การคิดแบบบวกหรือหนึ่งกฎต่อหนึ่งเงื่อนไขพลาด เพราะผลลัพธ์ขึ้นกับการรวมกันของเงื่อนไข"
+    },
+    {
+      "prompt": "ออเดอร์มีสถานะ สร้างแล้ว, ชำระแล้ว, จัดส่งแล้ว, ปิดแล้ว และยกเลิกได้เฉพาะก่อนจัดส่ง ทีมตั้งเป้า \"all transitions coverage\" นอกจากทดสอบ transition ที่ถูกต้องครบทุกเส้น ต้องทำอะไรอีก?",
+      "options": [
+        "ไม่ต้องทำอะไรเพิ่ม เพราะผ่านทุก state แล้วถือว่าครบ",
+        "ไม่ต้องทำอะไรเพิ่ม เพราะ transition ที่ถูกต้องครบทุกเส้นก็ครอบคลุมทั้งหมดแล้ว",
+        "ลองทำ transition ที่ไม่ถูกต้องทั้งหมดรวมใน test เดียวเพื่อประหยัดเวลา",
+        "ลองทำ transition ที่ไม่ถูกต้อง เช่น ยกเลิกหลังจัดส่ง โดยแยกทีละ test"
+      ],
+      "answer": 3,
+      "explain": "all transitions coverage ครอบคลุม transition ที่ถูกต้องทุกเส้นและต้องลองทำ transition ที่ไม่ถูกต้องด้วย การลองทีละ test ช่วยเลี่ยง defect masking คือ defect หนึ่งบังไม่ให้เห็นอีกอัน การรวมหลายกรณีไว้ใน test เดียวจึงเสี่ยงพลาด ส่วนแค่ valid transitions คือระดับที่อ่อนกว่า"
+    },
+    {
+      "prompt": "getUser เป็น async function ที่ควร throw \"not found\" แต่มีบั๊กทำให้คืน null แทน ทั้งที่ test ด้านล่างยังเขียวอยู่ ควรแก้ test อย่างไรให้จับบั๊กนี้ได้?",
+      "code": "test('ไม่พบผู้ใช้ต้อง throw', async () => {\n  try {\n    await getUser(999);\n  } catch (e) {\n    expect(e.message).toBe('not found');\n  }\n});",
+      "options": [
+        "ใส่ await หน้า expect(e.message) ใน catch เพื่อให้รอผลการตรวจ",
+        "เปลี่ยนเป็น expect(() => getUser(999)).toThrow(\"not found\") โดยไม่ใช้ await",
+        "เปลี่ยนเป็น await expect(getUser(999)).rejects.toThrow(\"not found\")",
+        "เพิ่ม timeout ของ test ให้ยาวขึ้นเพื่อให้ catch มีเวลาทำงาน"
+      ],
+      "answer": 2,
+      "explain": "เมื่อ getUser ไม่ throw โค้ดใน catch ไม่เคยทำงาน จึงไม่มี assertion ใดถูกเรียกและ test ผ่านโดยไม่ตรวจอะไร แก้ด้วย .rejects (ถ้า promise สำเร็จ test จะ fail เอง) หรือใส่ expect.assertions(1) ส่วนการใส่ await ใน catch ไม่เปลี่ยนความจริงที่ว่า catch ไม่ทำงาน และ toThrow แบบไม่ await ใช้กับ async function ไม่ได้ เพราะมันคืน promise ที่ reject แทนการ throw ทันที ต่อให้โค้ดแก้ถูกแล้ว test นั้นก็ยัง fail"
+    },
+    {
+      "prompt": "test สองข้อนี้อยู่ในไฟล์เดียวกัน รันด้วย test.only เฉพาะข้อที่สองแล้วผ่าน แต่รันทั้งไฟล์แล้วข้อที่สอง fail สาเหตุและวิธีแก้ที่ตรงจุดคืออะไร?",
+      "code": "const cart = createCart();\n\ntest('เพิ่มสินค้า A แล้วมี 1 ชิ้น', () => {\n  cart.add('A');\n  expect(cart.count()).toBe(1);\n});\n\ntest('ตะกร้าใหม่ต้องว่าง', () => {\n  expect(cart.count()).toBe(0);\n});",
+      "options": [
+        "Jest รัน test แบบสุ่มลำดับ ควรตั้งค่าให้รันตามลำดับในไฟล์เสมอไป",
+        "ฟังก์ชัน count มีบั๊กเฉพาะเมื่อเรียกหลายครั้ง ควรแก้โค้ดจริงอย่างเดียว",
+        "ควรเปลี่ยนเป็น beforeAll เพื่อสร้าง cart ครั้งเดียวจะได้เร็วขึ้นกว่าเดิม",
+        "cart ถูกแชร์ระหว่าง test จึงมี state ค้าง ควรสร้างใหม่ใน beforeEach"
+      ],
+      "answer": 3,
+      "explain": "cart ระดับไฟล์ถูกแก้โดย test แรก ทำให้ test ที่สองเห็นของที่ค้างอยู่ ซึ่งรันเดี่ยวจะไม่เจอ การสร้างใหม่ใน beforeEach ทำให้ทุก test เริ่มจากสถานะเดียวกัน ส่วน beforeAll ยิ่งทำให้แชร์ state มากขึ้น และ Jest ไม่ได้สุ่มลำดับ test ในไฟล์ปกติ"
+    },
+    {
+      "prompt": "PR หนึ่งเปลี่ยน component ทำให้ snapshot test fail 14 ไฟล์ dev รัน jest -u แล้ว commit ทั้งหมดโดยไม่เปิดดู ปัญหาของวิธีนี้และสิ่งที่ควรทำคืออะไร?",
+      "options": [
+        "ไม่มีปัญหา เพราะ snapshot สร้างจากโค้ดจริงจึงถูกต้องอยู่แล้วเสมอ",
+        "jest -u อนุมัติทุกอย่างรวมที่ไม่ตั้งใจ ควรอ่าน diff ก่อน",
+        "ไม่ควร commit ไฟล์ .snap เพราะเป็นไฟล์ที่ Jest สร้างอัตโนมัติ",
+        "ควรลบ snapshot test ทั้งหมดและเขียนใหม่ด้วย toBe ทุกข้อ"
+      ],
+      "answer": 1,
+      "explain": "ไฟล์ .snap ถือเป็นส่วนหนึ่งของ test และต้องผ่านการรีวิวเหมือนโค้ด การอัปเดตโดยไม่อ่านทำให้ test ยอมรับพฤติกรรมที่เปลี่ยนโดยไม่ตั้งใจไปด้วย ส่วนการไม่ commit ไฟล์ .snap ผิด เพราะ Jest แนะนำให้ commit ไว้ใน version control"
+    },
+    {
+      "prompt": "dev เขียน test ใหม่ที่ใช้ toMatchSnapshot ผ่านบนเครื่องตัวเอง แต่ลืม commit ไฟล์ .snap แล้ว CI รัน Jest ด้วย --ci จะเกิดอะไรขึ้น?",
+      "options": [
+        "test ผ่าน และ Jest เขียนไฟล์ .snap ใหม่ให้บน CI อัตโนมัติทันที",
+        "test ถูกข้ามและขึ้นสถานะ skipped จนกว่าจะมีไฟล์ .snap ใน repo",
+        "test fail เพราะ CI ไม่เขียน snapshot ใหม่ให้ ต้อง commit ไฟล์ .snap",
+        "test ผ่าน แต่ Jest แจ้งเตือนว่ามี snapshot ที่ยังไม่ได้บันทึกลงไฟล์"
+      ],
+      "answer": 2,
+      "explain": "ในโหมด --ci snapshot ใหม่จะไม่ถูกเขียนถ้าไม่ส่ง --updateSnapshot และ test จะ fail เพื่อกันไม่ให้ snapshot ที่ไม่เคยถูกรีวิวผ่านโดยอัตโนมัติ ตัวเลือกที่บอกว่าเขียนไฟล์ให้บน CI ตรงข้ามกับพฤติกรรมจริง"
+    },
+    {
+      "prompt": "dev เขียนโค้ดนี้แล้ว Jest ฟ้องว่า module factory ของ jest.mock() ห้ามอ้างตัวแปรนอก scope ข้อใดอธิบายสาเหตุและทางแก้ได้ถูกต้อง?",
+      "code": "const fakeMailer = { send: jest.fn() };\njest.mock('./mailer', () => fakeMailer);",
+      "options": [
+        "jest.fn ใช้ใน factory ไม่ได้ ต้องเขียน mock เป็นฟังก์ชันธรรมดาเท่านั้น",
+        "ต้องย้าย jest.mock ไปไว้หลัง require เพราะ Jest รันตามลำดับบรรทัดเสมอ",
+        "ต้องใช้ jest.doMock ทุกครั้งที่ factory อ้างตัวแปรภายนอก ไม่มีทางเลี่ยง",
+        "jest.mock ถูก hoist ขึ้นบนสุด จึงตั้งชื่อตัวแปรให้ขึ้นต้นด้วย mock"
+      ],
+      "answer": 3,
+      "explain": "jest.mock ถูกยกขึ้นบนสุดของไฟล์ ตัวแปรที่ประกาศไว้ข้างล่างจึงยังไม่ถูกกำหนดค่า Jest เลยกันไว้ก่อน ยกเว้นชื่อที่ขึ้นต้นด้วย mock ซึ่งผู้เขียนต้องรับประกันว่าถูกกำหนดค่าทันเวลา jest.doMock เป็นทางเลือกหนึ่งที่ไม่ hoist แต่ไม่ใช่ทางเดียว"
+    },
+    {
+      "prompt": "E2E test นี้ผ่านบ้างพังบ้างเพราะ toast \"บันทึกแล้ว\" แสดงหลังคลิกประมาณ 300 ms ควรแก้อย่างไรให้ตรงต้นเหตุที่สุด?",
+      "code": "await page.getByRole('button', { name: 'บันทึก' }).click();\nexpect(await page.getByText('บันทึกแล้ว').isVisible()).toBe(true);",
+      "options": [
+        "ใช้ await expect(page.getByText(\"บันทึกแล้ว\")).toBeVisible()",
+        "เพิ่ม await page.waitForTimeout(2000) ก่อนบรรทัดที่ตรวจ toast ให้รอนานพอ",
+        "ตั้ง retries ของ test runner เป็น 3 ให้ลองรันใหม่ทั้ง test เมื่อ fail",
+        "เปลี่ยน locator เป็น CSS selector ของ toast ให้เจาะจงขึ้นและเสถียรกว่าเดิม"
+      ],
+      "answer": 0,
+      "explain": "isVisible() เช็กครั้งเดียวแล้วคืนค่าทันที ไม่รอ ส่วน web-first assertion อย่าง toBeVisible() จะ retry จนเงื่อนไขเป็นจริงหรือหมดเวลา การหน่วงเวลาด้วยตัวเลขคงที่ยังเป็นการเดา และ retry ของ runner แค่ซ่อนปัญหา"
+    },
+    {
+      "prompt": "ดีไซเนอร์ refactor ชื่อ class CSS ทั้งเว็บ ทำให้ E2E เกือบทั้งชุด fail ทั้งที่หน้าจอใช้งานได้เหมือนเดิม locator ส่วนใหญ่เขียนแบบ div.card > button.btn-x1:nth-child(2) ควรปรับอย่างไร?",
+      "options": [
+        "ห้ามดีไซเนอร์เปลี่ยนชื่อ class อีก เพราะ test ต้องพึ่งชื่อเหล่านี้",
+        "เปลี่ยนเป็น getByRole พร้อมชื่อปุ่ม หรือ test id ที่ตกลงกันไว้",
+        "เปลี่ยนเป็น XPath เต็มจาก root เพราะแม่นยำกว่า CSS",
+        "ลดจำนวน E2E ลงครึ่งหนึ่งเพื่อลดงานซ่อมเวลา refactor"
+      ],
+      "answer": 1,
+      "explain": "locator ที่ผูกกับโครงสร้าง DOM หรือ class จะพังเมื่อโครงสร้าง markup เปลี่ยนทั้งที่พฤติกรรมเหมือนเดิม Playwright แนะนำให้ใช้ locator ที่ใกล้กับสิ่งที่ผู้ใช้รับรู้ เช่น role หรือกำหนด test id เป็นข้อตกลง ส่วน XPath ยาว ๆ เปราะกว่าเดิม"
+    },
+    {
+      "prompt": "test \"แก้ไขโปรไฟล์\" ใน E2E พึ่งว่า test \"ล็อกอิน\" ก่อนหน้ารันเสร็จและทิ้ง session ไว้ พอรันเดี่ยวหรือรันขนานก็ fail ควรแก้อย่างไร?",
+      "options": [
+        "บังคับลำดับการรันให้ test ล็อกอินรันก่อนเสมอ แล้วปิดการรันขนาน",
+        "รวมทุกขั้นตอนเป็น test เดียวยาว ๆ เพื่อไม่ต้องพึ่งกัน",
+        "ตั้ง retry ให้ test แก้ไขโปรไฟล์ เผื่อ session มาทัน",
+        "ให้แต่ละ test ล็อกอินเองใน beforeEach โดยไม่พึ่ง test อื่น"
+      ],
+      "answer": 3,
+      "explain": "แต่ละ test ควรแยกอิสระด้วย storage, cookie และข้อมูลของตัวเอง ซึ่งช่วยให้ผลทำซ้ำได้และ debug ง่าย การบังคับลำดับแก้อาการแต่ทำให้ test หนึ่งพังแล้วลามไปอีกหลายข้อ ส่วน test เดียวยาว ๆ ก็บอกไม่ได้ว่าพังตรงไหน"
+    },
+    {
+      "prompt": "property test นี้ผ่านเสมอแม้ sortNumbers จะคืน array ที่ไม่ได้เรียงเลย ควรเพิ่ม property ใดเพื่อให้จับบั๊กเรื่องการเรียงได้?",
+      "code": "fc.assert(\n  fc.property(fc.array(fc.integer()), (xs) => {\n    return sortNumbers(xs).length === xs.length;\n  })\n);",
+      "options": [
+        "ตรวจว่าสมาชิกที่อยู่ติดกันทุกคู่เรียงจากน้อยไปมาก",
+        "เพิ่มจำนวนรอบที่สุ่มเป็นสิบเท่าเพื่อให้ครอบคลุมมากขึ้น",
+        "ตรวจว่าผลลัพธ์เป็น array เสมอไม่ว่า input จะเป็นอะไร",
+        "ตรวจว่า sortNumbers ไม่ throw กับ input ใด ๆ ที่สุ่มมา"
+      ],
+      "answer": 0,
+      "explain": "property เดิมตรวจแค่ความยาว ซึ่ง implementation ที่ไม่เรียงก็ผ่าน ต้องเพิ่ม property ที่พูดถึงลำดับโดยตรง การสุ่มเพิ่มไม่ช่วยถ้า property ไม่ได้ตรวจสิ่งที่ผิด และการตรวจว่าเป็น array หรือไม่ throw เป็นเงื่อนไขที่อ่อนเกินไป"
+    },
+    {
+      "prompt": "ก่อน release เหลือเวลาทดสอบสองวัน มีสามส่วนคือ โมดูลชำระเงินที่เขียนใหม่ทั้งหมด หน้า About ที่แก้แค่ข้อความ และรายงานภายในที่ใช้เดือนละครั้ง ควรจัดลำดับอย่างไรตามแนวคิด risk-based testing?",
+      "options": [
+        "เริ่มจากส่วนที่ทดสอบง่ายที่สุดก่อน เพื่อให้ได้ coverage สูงเร็วที่สุด",
+        "เริ่มที่โมดูลชำระเงิน เพราะโอกาสผิดและผลกระทบสูงทั้งคู่",
+        "เรียงตามลำดับเมนูในแอปเพื่อไม่ให้ตกหล่นส่วนใดเลย",
+        "แบ่งเวลาเท่ากันทุกส่วนเพื่อให้ได้ความเท่าเทียมกันของทีม"
+      ],
+      "answer": 1,
+      "explain": "risk level มาจาก likelihood กับ impact โค้ดที่เพิ่งเขียนใหม่มีโอกาสผิดสูงและความผิดพลาดเรื่องเงินมีผลกระทบสูง จึงควรได้ลำดับและเวลามากที่สุด ส่วนการเริ่มจากส่วนที่ง่ายทำให้ตัวเลข coverage ดีแต่ไม่ลดความเสี่ยงจริง"
+    },
+    {
+      "prompt": "ฟังก์ชันนี้มี test เพียงข้อเดียว discount(1000, true) coverage report จะออกมาอย่างไร และต้องเพิ่มอะไรเพื่อให้ branch coverage ครบ?",
+      "code": "function discount(total, isMember) {\n  let rate = 0;\n  if (isMember) rate = 0.1;\n  return total * (1 - rate);\n}",
+      "options": [
+        "statement 100% และ branch 100% เพราะทุกบรรทัดถูกรันแล้วใน test เดียว",
+        "statement 50% และ branch 50% ต้องเพิ่ม test ให้ครบทั้งสองกรณี",
+        "statement 100% แต่ branch ไม่ครบ ต้องเพิ่มกรณี isMember เป็น false",
+        "statement ไม่ครบ ต้องเพิ่ม test ให้ผ่านบรรทัด return ด้วย"
+      ],
+      "answer": 2,
+      "explain": "test เดียวรันทุกบรรทัด (statement 100%) แต่ไม่เคยไปทางที่ if เป็นเท็จ จึงได้ branch ไม่ถึง 100% (รันจริงได้ 50%) branch coverage ครอบคลุม statement coverage แต่ไม่ใช่ในทางกลับกัน"
+    },
+    {
+      "prompt": "ทีมได้ฟีเจอร์นำเข้าไฟล์ใหม่ที่ spec ยังบางมาก และเหลือเวลาก่อนส่งมอบแค่หนึ่งวัน ควรเสริมการทดสอบแบบใดจึงเหมาะที่สุด?",
+      "options": [
+        "ใช้ exploratory testing แบบ session-based ที่มี charter และกรอบเวลา",
+        "รอจน spec ละเอียดครบแล้วค่อยเริ่มทดสอบ เพื่อไม่ให้เสียเวลาทดสอบผิดสิ่ง",
+        "เขียน test case เชิงเอกสารละเอียดล่วงหน้าให้ครบทุกกรณีก่อนลงมือรัน",
+        "ใช้ unit test อย่างเดียวเพราะรันเร็วและไม่ต้องใช้ดุลยพินิจของคนทดสอบ"
+      ],
+      "answer": 0,
+      "explain": "exploratory testing ออกแบบ รัน และประเมิน test ไปพร้อมกับการเรียนรู้ระบบ จึงมีประโยชน์เมื่อ spec น้อยหรือเวลาจำกัด การทำเป็น session ที่มี charter และ time box ช่วยให้มีโครงสร้าง ส่วนการรอ spec ทำให้ไม่มีเวลาทดสอบเลย"
     }
   ],
-  "exercise": {
-    "title": "เขียน unit test ให้ฟังก์ชันค่าส่งที่ครอบคลุมค่าขอบ",
-    "level": "ง่าย",
-    "tags": "Jest · AAA · boundary value",
-    "lang": "javascript",
-    "prompt": "ฟังก์ชัน shippingFee(total) คิดค่าส่ง 50 บาท ส่งฟรีเมื่อยอดตั้งแต่ 500 บาท และ throw error เมื่อยอดติดลบ ให้เขียน unit test ด้วย Jest อย่างน้อย 4 test โดยแต่ละ test ตรวจพฤติกรรมเดียวและเรียก shippingFee ตรง ๆ ให้ครอบคลุมค่าขอบทั้งสองฝั่งของ 500 ยอด 0 และยอดติดลบ",
-    "context": "function shippingFee(total) {\n  if (total < 0) throw new Error('invalid total');\n  return total >= 500 ? 0 : 50;\n}",
-    "starter": "describe('shippingFee', () => {\n  // เขียน test ที่นี่\n});\n",
-    "solution": "describe('shippingFee', () => {\n  test('คิดค่าส่ง 50 เมื่อยอด 499 ซึ่งต่ำกว่าขอบ', () => {\n    expect(shippingFee(499)).toBe(50);\n  });\n\n  test('ส่งฟรีเมื่อยอดเท่ากับ 500 พอดี', () => {\n    expect(shippingFee(500)).toBe(0);\n  });\n\n  test('ยอด 0 ยังคิดค่าส่ง 50 และไม่ throw', () => {\n    expect(shippingFee(0)).toBe(50);\n  });\n\n  test('throw error เมื่อยอดติดลบ', () => {\n    expect(() => shippingFee(-1)).toThrow('invalid total');\n  });\n});\n",
-    "hints": [
-      "แยกพฤติกรรมก่อน: ยอดต่ำกว่า 500, ยอดตั้งแต่ 500 และยอดติดลบ แล้วหาค่าที่อยู่ตรงขอบของแต่ละกลุ่ม",
-      "ขอบของกฎส่งฟรีคือ 499 กับ 500 ส่วนขอบของกฎยอดติดลบคือ -1 กับ 0",
-      "กรณี error ต้องห่อด้วยฟังก์ชัน: expect(() => shippingFee(-1)).toThrow() ถ้าเขียน expect(shippingFee(-1)) error จะเกิดก่อนที่ expect จะได้ทำงาน"
-    ],
-    "checks": [
-      {
-        "label": "มี test อย่างน้อย 4 กรณี",
-        "pattern": "(\\b(test|it)\\([\\s\\S]*){4}"
-      },
-      {
-        "label": "ทดสอบค่าขอบ 500 พอดี",
-        "pattern": "shippingfee\\(\\s*500\\s*\\)"
-      },
-      {
-        "label": "ทดสอบค่าใต้ขอบ 499",
-        "pattern": "shippingfee\\(\\s*499(\\.\\d+)?\\s*\\)"
-      },
-      {
-        "label": "ทดสอบยอด 0",
-        "pattern": "shippingfee\\(\\s*0(\\.0+)?\\s*\\)"
-      },
-      {
-        "label": "ทดสอบกรณี error ด้วย toThrow",
-        "pattern": "\\.tothrow"
-      },
-      {
-        "label": "ไม่เรียกฟังก์ชันที่ throw ตรง ๆ ใน expect",
-        "pattern": "expect\\(\\s*shippingfee\\(\\s*-",
-        "negate": true
-      },
-      {
-        "label": "ตรวจค่าที่คืนด้วย toBe หรือ toEqual",
-        "pattern": "\\.(tobe|toequal|tostrictequal)\\("
-      }
-    ]
-  }
+  "exercises": [
+    {
+      "title": "เขียน unit test ให้ฟังก์ชันค่าส่งที่ครอบคลุมค่าขอบ",
+      "level": "ง่าย",
+      "tags": "Jest · AAA · boundary value",
+      "lang": "javascript",
+      "prompt": "ฟังก์ชัน shippingFee(total) คิดค่าส่ง 50 บาท ส่งฟรีเมื่อยอดตั้งแต่ 500 บาท และ throw error เมื่อยอดติดลบ ให้เขียน unit test ด้วย Jest อย่างน้อย 4 test โดยแต่ละ test ตรวจพฤติกรรมเดียวและเรียก shippingFee ตรง ๆ ให้ครอบคลุมค่าขอบทั้งสองฝั่งของ 500 ยอด 0 และยอดติดลบ",
+      "context": "function shippingFee(total) {\n  if (total < 0) throw new Error('invalid total');\n  return total >= 500 ? 0 : 50;\n}",
+      "starter": "describe('shippingFee', () => {\n  // เขียน test ที่นี่\n});\n",
+      "solution": "describe('shippingFee', () => {\n  test('คิดค่าส่ง 50 เมื่อยอด 499 ซึ่งต่ำกว่าขอบ', () => {\n    expect(shippingFee(499)).toBe(50);\n  });\n\n  test('ส่งฟรีเมื่อยอดเท่ากับ 500 พอดี', () => {\n    expect(shippingFee(500)).toBe(0);\n  });\n\n  test('ยอด 0 ยังคิดค่าส่ง 50 และไม่ throw', () => {\n    expect(shippingFee(0)).toBe(50);\n  });\n\n  test('throw error เมื่อยอดติดลบ', () => {\n    expect(() => shippingFee(-1)).toThrow('invalid total');\n  });\n});\n",
+      "hints": [
+        "แยกพฤติกรรมก่อน: ยอดต่ำกว่า 500, ยอดตั้งแต่ 500 และยอดติดลบ แล้วหาค่าที่อยู่ตรงขอบของแต่ละกลุ่ม",
+        "ขอบของกฎส่งฟรีคือ 499 กับ 500 ส่วนขอบของกฎยอดติดลบคือ -1 กับ 0",
+        "กรณี error ต้องห่อด้วยฟังก์ชัน: expect(() => shippingFee(-1)).toThrow() ถ้าเขียน expect(shippingFee(-1)) error จะเกิดก่อนที่ expect จะได้ทำงาน"
+      ],
+      "checks": [
+        {
+          "label": "มี test อย่างน้อย 4 กรณี",
+          "pattern": "(\\b(test|it)\\([\\s\\S]*){4}"
+        },
+        {
+          "label": "ทดสอบค่าขอบ 500 พอดี",
+          "pattern": "shippingfee\\(\\s*500\\s*\\)"
+        },
+        {
+          "label": "ทดสอบค่าใต้ขอบ 499",
+          "pattern": "shippingfee\\(\\s*499(\\.\\d+)?\\s*\\)"
+        },
+        {
+          "label": "ทดสอบยอด 0",
+          "pattern": "shippingfee\\(\\s*0(\\.0+)?\\s*\\)"
+        },
+        {
+          "label": "ทดสอบกรณี error ด้วย toThrow",
+          "pattern": "\\.tothrow"
+        },
+        {
+          "label": "ไม่เรียกฟังก์ชันที่ throw ตรง ๆ ใน expect",
+          "pattern": "expect\\(\\s*shippingfee\\(\\s*-",
+          "negate": true
+        },
+        {
+          "label": "ตรวจค่าที่คืนด้วย toBe หรือ toEqual",
+          "pattern": "\\.(tobe|toequal|tostrictequal)\\("
+        }
+      ]
+    },
+    {
+      "title": "เขียน test async ที่ใช้ stub และ mock กับฟังก์ชันส่งอีเมลต้อนรับ",
+      "level": "กลาง",
+      "tags": "Jest · async/await · stub · mock",
+      "lang": "javascript",
+      "prompt": "ฟังก์ชัน sendWelcome รับ repo (ดึงผู้ใช้) และ mailer (ส่งอีเมล) เป็น dependency ให้เขียน Jest test แบบ async อย่างน้อย 3 test ได้แก่ (1) ผู้ใช้มีอีเมล ต้องคืน sent true และเรียก mailer.send ด้วยอีเมลของผู้ใช้ (2) ผู้ใช้ไม่มีอีเมล ต้องคืน sent false และไม่เรียก mailer.send (3) ไม่พบผู้ใช้ ต้อง reject ด้วยข้อความ user not found ให้ใช้ jest.fn() สร้าง stub กับ mock แทนของจริง และ await ทุก promise",
+      "context": "async function sendWelcome({ repo, mailer }, userId) {\n  const user = await repo.findById(userId);\n  if (!user) throw new Error('user not found');\n  if (!user.email) return { sent: false };\n  await mailer.send({ to: user.email, subject: 'ยินดีต้อนรับ' });\n  return { sent: true };\n}\nmodule.exports = { sendWelcome };",
+      "starter": "const { sendWelcome } = require('./welcome');\n\ndescribe('sendWelcome', () => {\n  // เตรียม stub ของ repo กับ mock ของ mailer แล้วเขียน test ที่นี่\n});\n",
+      "solution": "const { sendWelcome } = require('./welcome');\n\ndescribe('sendWelcome', () => {\n  let repo;\n  let mailer;\n\n  beforeEach(() => {\n    repo = { findById: jest.fn() };\n    mailer = { send: jest.fn().mockResolvedValue(undefined) };\n  });\n\n  test('ส่งอีเมลต้อนรับและคืน sent true เมื่อผู้ใช้มีอีเมล', async () => {\n    repo.findById.mockResolvedValue({ id: 1, email: 'a@example.com' });\n\n    const result = await sendWelcome({ repo, mailer }, 1);\n\n    expect(result).toEqual({ sent: true });\n    expect(mailer.send).toHaveBeenCalledWith(\n      expect.objectContaining({ to: 'a@example.com' })\n    );\n  });\n\n  test('ไม่ส่งอีเมลและคืน sent false เมื่อผู้ใช้ไม่มีอีเมล', async () => {\n    repo.findById.mockResolvedValue({ id: 2, email: null });\n\n    const result = await sendWelcome({ repo, mailer }, 2);\n\n    expect(result).toEqual({ sent: false });\n    expect(mailer.send).not.toHaveBeenCalled();\n  });\n\n  test('throw user not found เมื่อไม่พบผู้ใช้ และไม่ส่งอีเมล', async () => {\n    repo.findById.mockResolvedValue(null);\n\n    await expect(sendWelcome({ repo, mailer }, 3)).rejects.toThrow('user not found');\n    expect(mailer.send).not.toHaveBeenCalled();\n  });\n});\n",
+      "hints": [
+        "dependency ถูกส่งเข้ามาเป็น argument จึงสร้าง object ปลอมแล้วส่งเข้าไปได้เลย โดยไม่ต้อง jest.mock ทั้ง module และควรสร้างใหม่ใน beforeEach เพื่อไม่ให้ state ค้างข้าม test",
+        "repo.findById กับ mailer.send เป็น async จึงใช้ jest.fn().mockResolvedValue(...) ให้คืน promise ได้ และ test ต้องเป็น async พร้อม await sendWelcome(...)",
+        "กรณีไม่มีอีเมลใช้ expect(mailer.send).not.toHaveBeenCalled() ส่วนกรณีไม่พบผู้ใช้ให้ใช้ await expect(sendWelcome(...)).rejects.toThrow(\"user not found\") ถ้าลืม await test จะจบก่อนตรวจ"
+      ],
+      "checks": [
+        {
+          "label": "มี test อย่างน้อย 3 กรณี",
+          "pattern": "(\\b(test|it)\\([\\s\\S]*){3}"
+        },
+        {
+          "label": "test เป็น async และใช้ await",
+          "pattern": "async[\\s\\S]*await\\s"
+        },
+        {
+          "label": "stub ของ repo คืน promise (mockResolvedValue, async function หรือ Promise.resolve)",
+          "pattern": "mockresolvedvalue(once)?\\(|mockimplementation(once)?\\(\\s*async|findbyid\\s*[:=]\\s*async|promise\\.resolve\\(|jest\\.fn\\(\\s*async"
+        },
+        {
+          "label": "ตรวจว่า mailer.send ถูกเรียกด้วยอีเมลของผู้ใช้",
+          "pattern": "tohavebeencalledwith\\([\\s\\S]*?\\bto\\s*[:,}]|mock\\.calls\\[\\d+\\]\\[0\\]\\.to\\b"
+        },
+        {
+          "label": "ตรวจว่ากรณีไม่มีอีเมลไม่เรียก mailer.send",
+          "pattern": "\\.not\\.tohavebeencalled"
+        },
+        {
+          "label": "กรณีไม่พบผู้ใช้ตรวจ reject ด้วย rejects หรือ expect.assertions",
+          "pattern": "\\.rejects\\.(tothrow|toequal|tostrictequal|tomatch|tobe)|expect\\.assertions\\("
+        },
+        {
+          "label": "ไม่ลืม await หรือ return หน้า expect(...).rejects/resolves",
+          "pattern": "^\\s*expect\\([^\\n]*\\.(rejects|resolves)",
+          "negate": true
+        }
+      ]
+    },
+    {
+      "title": "ทดสอบ retry ที่มี delay โดยคุมเวลาด้วย fake timers",
+      "level": "ยาก",
+      "tags": "Jest · fake timers · async · retry",
+      "lang": "javascript",
+      "prompt": "ฟังก์ชัน retry เรียก fn ซ้ำเมื่อ reject โดยรอ delayMs ระหว่างรอบ และ reject ด้วย error ล่าสุดเมื่อลองครบจำนวน retries ทีมมี test เดิมที่รอเวลาจริงกว่าสองวินาที ช้าและพึ่งนาฬิกาจริง ให้เขียนใหม่ด้วย fake timers โดยไม่รอเวลาจริงเลย ครอบคลุม (1) สำเร็จในครั้งที่ 3 หลังล้มเหลวสองครั้ง fn ถูกเรียก 3 ครั้ง (2) ก่อนครบ delayMs fn ยังถูกเรียกแค่ 1 ครั้ง และเรียกครั้งที่สองเมื่อครบเวลา (3) ล้มเหลวทุกครั้งแล้ว reject ด้วย error ของครั้งสุดท้าย และคืน real timers หลังจบทุก test",
+      "context": "async function retry(fn, { retries, delayMs }) {\n  let lastError;\n  for (let attempt = 0; attempt <= retries; attempt++) {\n    try {\n      return await fn(attempt);\n    } catch (err) {\n      lastError = err;\n      if (attempt < retries) {\n        await new Promise((resolve) => setTimeout(resolve, delayMs));\n      }\n    }\n  }\n  throw lastError;\n}\nmodule.exports = { retry };",
+      "starter": "const { retry } = require('./retry');\n\n// test เดิม: รอเวลาจริงสองวินาที ช้าและพึ่งนาฬิกาจริง\ntest('retry สำเร็จในครั้งที่ 3', async () => {\n  const fn = jest\n    .fn()\n    .mockRejectedValueOnce(new Error('fail 1'))\n    .mockRejectedValueOnce(new Error('fail 2'))\n    .mockResolvedValue('ok');\n\n  await expect(retry(fn, { retries: 3, delayMs: 1000 })).resolves.toBe('ok');\n  expect(fn).toHaveBeenCalledTimes(3);\n});\n",
+      "solution": "const { retry } = require('./retry');\n\ndescribe('retry', () => {\n  beforeEach(() => {\n    jest.useFakeTimers();\n  });\n\n  afterEach(() => {\n    jest.useRealTimers();\n  });\n\n  test('สำเร็จในครั้งที่ 3 หลังล้มเหลว 2 ครั้ง', async () => {\n    const fn = jest\n      .fn()\n      .mockRejectedValueOnce(new Error('fail 1'))\n      .mockRejectedValueOnce(new Error('fail 2'))\n      .mockResolvedValue('ok');\n\n    const promise = retry(fn, { retries: 3, delayMs: 1000 });\n    await jest.advanceTimersByTimeAsync(2000);\n\n    await expect(promise).resolves.toBe('ok');\n    expect(fn).toHaveBeenCalledTimes(3);\n  });\n\n  test('ยังไม่เรียกซ้ำจนกว่าจะครบ delayMs', async () => {\n    const fn = jest.fn().mockRejectedValueOnce(new Error('fail')).mockResolvedValue('ok');\n\n    const promise = retry(fn, { retries: 1, delayMs: 1000 });\n    await jest.advanceTimersByTimeAsync(999);\n    expect(fn).toHaveBeenCalledTimes(1);\n\n    await jest.advanceTimersByTimeAsync(1);\n    expect(fn).toHaveBeenCalledTimes(2);\n    await expect(promise).resolves.toBe('ok');\n  });\n\n  test('reject ด้วย error ล่าสุดเมื่อลองครบตามจำนวน retries', async () => {\n    const fn = jest.fn().mockImplementation(async (attempt) => {\n      throw new Error(`fail ${attempt}`);\n    });\n\n    const assertion = expect(retry(fn, { retries: 2, delayMs: 500 })).rejects.toThrow('fail 2');\n    await jest.advanceTimersByTimeAsync(1000);\n\n    await assertion;\n    expect(fn).toHaveBeenCalledTimes(3);\n  });\n});\n",
+      "hints": [
+        "เปิด fake timers ใน beforeEach ด้วย jest.useFakeTimers() และคืนนาฬิกาจริงใน afterEach ด้วย jest.useRealTimers() เพื่อไม่ให้ลามไป test อื่น",
+        "retry รอด้วย promise ระหว่างรอบ จึงต้องใช้ await jest.advanceTimersByTimeAsync(ms) ซึ่งยอมให้ promise callback ทำงานก่อนเดินเวลา ส่วนแบบ sync ไม่ปล่อยให้ promise ที่รออยู่ทำงานต่อ",
+        "กรณี reject ทุกรอบ ให้ผูก const assertion = expect(retry(...)).rejects.toThrow(\"...\") ไว้ก่อนเลื่อนเวลา แล้วค่อย await assertion ท้าย test ถ้าเลื่อนเวลาก่อน promise จะ reject โดยยังไม่มีใครรับ error และ Jest จะรายงานเป็น unhandled rejection"
+      ],
+      "checks": [
+        {
+          "label": "เปิด fake timers ด้วย jest.useFakeTimers()",
+          "pattern": "jest\\.usefaketimers\\("
+        },
+        {
+          "label": "เลื่อนเวลาด้วยเวอร์ชัน async (advanceTimersByTimeAsync หรือ runAllTimersAsync)",
+          "pattern": "jest\\.(advancetimersbytimeasync|advancetimerstonexttimerasync|runalltimersasync|runonlypendingtimersasync)\\("
+        },
+        {
+          "label": "คืน real timers ใน afterEach (หรือ afterAll)",
+          "pattern": "after(each|all)\\([\\s\\S]*?userealtimers\\("
+        },
+        {
+          "label": "ยืนยันว่า fn ถูกเรียกแค่ 1 ครั้งก่อนครบ delay",
+          "pattern": "tohavebeencalledtimes\\(\\s*1\\s*\\)|mock\\.calls\\.length\\)\\.tobe\\(\\s*1\\s*\\)"
+        },
+        {
+          "label": "ยืนยันว่า fn ถูกเรียกครบ 3 ครั้ง",
+          "pattern": "tohavebeencalledtimes\\(\\s*3\\s*\\)|mock\\.calls\\.length\\)\\.tobe\\(\\s*3\\s*\\)"
+        },
+        {
+          "label": "ตรวจกรณีล้มเหลวทุกรอบด้วย .rejects",
+          "pattern": "\\.rejects\\.(tothrow|toequal|tostrictequal|tomatch|tobe)"
+        },
+        {
+          "label": "ไม่รอเวลาจริงด้วย setTimeout ตัวเลขใน test",
+          "pattern": "settimeout\\(\\s*\\w+\\s*,\\s*\\d{3,}\\s*\\)",
+          "negate": true
+        }
+      ]
+    }
+  ],
+  "refs": [
+    {
+      "title": "ISTQB Certified Tester Foundation Level Syllabus v4.0.1",
+      "url": "https://astqb.org/assets/documents/ISTQB_CTFL_Syllabus_v4.0.1.pdf",
+      "note": "หลักการทดสอบ test level/type, technique, risk และ defect report อ้างอิงมาตรฐานเดียวกัน"
+    },
+    {
+      "title": "Martin Fowler: Test Pyramid",
+      "url": "https://martinfowler.com/bliki/TestPyramid.html",
+      "note": "ที่มาและข้อควรระวังของ test pyramid รวมถึงเหตุผลที่ UI test ควรมีน้อย"
+    },
+    {
+      "title": "Jest: Testing Asynchronous Code",
+      "url": "https://jestjs.io/docs/asynchronous",
+      "note": "promise, async/await, resolves/rejects และกับดักเรื่องลืม await"
+    },
+    {
+      "title": "Jest: Snapshot Testing",
+      "url": "https://jestjs.io/docs/snapshot-testing",
+      "note": "best practices, property matcher และพฤติกรรมบน CI"
+    },
+    {
+      "title": "Jest: The Jest Object",
+      "url": "https://jestjs.io/docs/jest-object",
+      "note": "jest.mock, requireActual, doMock และ fake timers ครบในหน้าเดียว"
+    },
+    {
+      "title": "Playwright: Best Practices",
+      "url": "https://playwright.dev/docs/best-practices",
+      "note": "locator, web-first assertion และการแยก test ให้อิสระ"
+    },
+    {
+      "title": "Playwright: Auto-waiting",
+      "url": "https://playwright.dev/docs/actionability",
+      "note": "รายการ actionability check ก่อนทำ action"
+    },
+    {
+      "title": "fast-check: What is Property-Based Testing?",
+      "url": "https://fast-check.dev/docs/introduction/what-is-property-based-testing/",
+      "note": "แนวคิด property, การสุ่ม input และ shrinking"
+    }
+  ]
 }

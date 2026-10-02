@@ -75,6 +75,95 @@
       "title": "git bisect หา commit ที่ทำให้พัง",
       "body": "เมื่อรู้ว่าเวอร์ชันหนึ่งยังดีและเวอร์ชันล่าสุดพัง bisect จะ checkout commit ตรงกลางให้ทดสอบแล้วตัดครึ่งไปเรื่อย ๆ แม้มี 1,000 commit ก็ใช้ราว 10 รอบ ถ้ามี script ที่ exit 0 เมื่อผ่านและ exit 1 เมื่อพัง ใช้ git bisect run ให้หาอัตโนมัติได้ เสร็จแล้วอย่าลืม git bisect reset เพื่อกลับไป branch เดิม",
       "code": "git bisect start\ngit bisect bad              # commit ปัจจุบันพัง\ngit bisect good v2.3.0      # tag ที่รู้ว่ายังดี\ngit bisect run npm test     # ให้ Git ทดสอบแต่ละ commit เอง\ngit bisect reset"
+    },
+    {
+      "tier": "must",
+      "title": "fetch กับ pull ต่างกันอย่างไร",
+      "body": "git fetch ดาวน์โหลด commit ใหม่จาก remote มาอัปเดต remote-tracking branch อย่าง origin/main โดยไม่แตะ branch และไฟล์ที่เรากำลังทำ จึงใช้ดูก่อนได้ว่าเพื่อนส่งอะไรมา ส่วน git pull คือ fetch แล้วรวมเข้า branch ปัจจุบันต่อทันที ค่าเริ่มต้นตามเอกสารปัจจุบันคือ fast-forward เท่านั้น ถ้าประวัติสองฝั่งแยกกันจะหยุดและให้เราเลือกเองว่าจะ --rebase หรือ --no-rebase (หรือตั้ง pull.rebase / pull.ff) ข้อความ \"Need to specify how to reconcile divergent branches\" จึงไม่ใช่ Git พัง แต่เป็นสัญญาณว่าทั้งสองฝั่งมี commit ที่อีกฝั่งไม่มี",
+      "code": "git fetch origin\ngit log --oneline HEAD..origin/main   # commit ที่ remote มีแต่เรายังไม่มี\ngit merge --ff-only origin/main       # รวมเมื่อพร้อม (หรือ git rebase origin/main)\ngit pull --rebase                     # fetch + rebase commit ที่ยังไม่ push",
+      "exam": true,
+      "ref": "https://git-scm.com/docs/git-pull"
+    },
+    {
+      "tier": "must",
+      "title": "fast-forward, merge commit และ --no-ff",
+      "body": "ถ้า branch ปลายทางไม่มี commit ใหม่เลยตั้งแต่ตอนแตก branch git merge จะแค่เลื่อน pointer ไปข้างหน้า (fast-forward) โดยไม่สร้าง merge commit ประวัติจึงเป็นเส้นตรง แต่ถ้าสองฝั่งมี commit ใหม่ทั้งคู่ Git จะสร้าง merge commit ที่มี parent สองตัว --no-ff บังคับให้สร้าง merge commit แม้ fast-forward ได้ เพื่อให้เห็นว่า feature นี้เป็นก้อนเดียว ส่วน --ff-only จะ merge เฉพาะเมื่อ fast-forward ได้ ไม่เช่นนั้นล้มเหลว การย้อน merge commit ต้องบอกว่าฝั่งไหนคือ mainline ด้วย -m <เลข parent> เพราะ Git ไม่รู้เองว่าจะย้อนเทียบกับฝั่งไหน (ตามเอกสาร git revert) โดยเลขเริ่มที่ 1 และ parent ตัวแรกคือ branch ที่เราอยู่ตอนรัน merge ซึ่งปกติคือ main",
+      "code": "git merge feat/search              # fast-forward ถ้า main ไม่ขยับ\ngit merge --no-ff feat/search      # สร้าง merge commit เสมอ\ngit merge --ff-only origin/main    # ไม่ยอมสร้าง merge commit\ngit revert -m 1 <merge-commit>     # ย้อนทั้ง feature ที่ merge มา",
+      "exam": true,
+      "ref": "https://git-scm.com/docs/git-merge"
+    },
+    {
+      "tier": "must",
+      "title": "git stash เก็บงานค้างชั่วคราว",
+      "body": "git stash เก็บการแก้ไขที่ยังไม่ commit ของไฟล์ที่ track อยู่ไว้ในกองชั่วคราว แล้วคืน working tree ให้สะอาด เหมาะเมื่อต้องสลับไปแก้งานด่วนบนอีก branch ค่าเริ่มต้นไม่รวมไฟล์ใหม่ที่ยังไม่ track ต้องใส่ -u (หรือ -a เพื่อรวมไฟล์ที่ถูก ignore ด้วย) และควรใส่ -m ตั้งชื่อไว้ git stash pop คืนงานแล้วลบ entry ออกจากกอง แต่ถ้าเกิด conflict Git จะเก็บ stash ไว้ให้ ต้องแก้ conflict แล้ว git stash drop เอง ส่วน apply คืนงานโดยไม่ลบ entry",
+      "code": "git stash push -u -m \"wip: report filter\"\ngit switch main                  # ...ไปแก้งานด่วน...\ngit switch feat/report\ngit stash list\ngit stash pop                    # ถ้า conflict: แก้แล้วค่อย git stash drop",
+      "exam": true,
+      "ref": "https://git-scm.com/docs/git-stash"
+    },
+    {
+      "tier": "must",
+      "title": "tag และการติดป้ายเวอร์ชัน release",
+      "body": "tag คือชื่อที่ชี้ commit หนึ่งแบบคงที่ ต่างจาก branch ที่เลื่อนตาม commit ใหม่ จึงเหมาะกับป้ายเวอร์ชันอย่าง v1.4.0 annotated tag (git tag -a) เก็บเป็น object เต็มที่มีชื่อผู้สร้าง วันที่ และข้อความ (เซ็นได้ด้วย -s) เอกสารระบุว่าเหมาะกับ release ส่วน lightweight tag เป็นแค่ชื่อที่ชี้ commit เหมาะกับป้ายส่วนตัวชั่วคราว กับดักคือ git push ปกติไม่ส่ง tag ขึ้น remote (ตาม Pro Git) ต้อง git push origin <tag> หรือ --tags และ git describe ค่าเริ่มต้นจะมองเฉพาะ annotated tag เพราะเอกสาร git tag ระบุว่าคำสั่งตั้งชื่อ object บางตัวอย่าง describe จะข้าม lightweight tag",
+      "code": "git tag -a v1.4.0 -m \"Release 1.4.0\"\ngit push origin v1.4.0     # git push เฉย ๆ ไม่ส่ง tag\ngit describe               # เช่น v1.4.0-3-g9fceb02 (tag + จำนวน commit ที่ตามมา)\ngit tag -d v1.4.0          # ลบ tag ในเครื่อง",
+      "exam": true,
+      "ref": "https://git-scm.com/docs/git-tag"
+    },
+    {
+      "tier": "must",
+      "title": "reset ทั้งสามโหมด: --soft, --mixed, --hard",
+      "body": "git reset <commit> ย้าย branch ปัจจุบันไปที่ commit นั้น ความต่างอยู่ที่ว่าแตะ staging area และ working tree แค่ไหน --soft ย้ายแค่ pointer การแก้ยังอยู่ใน staging, --mixed (ค่าเริ่มต้น) ย้าย pointer และล้าง staging แต่ไฟล์ยังเป็นการแก้ที่ยังไม่ stage, --hard เขียนทับ working tree ให้เท่ากับ commit ปลายทาง การแก้ที่ยังไม่ commit จึงหายและกู้ไม่ได้ ใช้ --soft รวมหลาย commit ที่ยังไม่ push เป็นหนึ่งเดียวได้ ส่วน git reset -- <path> ที่ระบุ path จะแค่ถอนไฟล์ออกจาก staging",
+      "code": "git reset --soft HEAD~3    # ยกเลิก 3 commit การแก้ทั้งหมดยังอยู่ใน staging\ngit commit -m \"feat(export): export CSV\"\ngit reset HEAD~1           # --mixed: ยกเลิก commit และ unstage แต่การแก้ยังอยู่ในไฟล์\ngit reset --hard HEAD~1    # ทิ้งทั้ง commit และการแก้ในไฟล์",
+      "exam": true,
+      "ref": "https://git-scm.com/docs/git-reset"
+    },
+    {
+      "tier": "should",
+      "title": "วิธี merge PR: merge commit, squash, rebase",
+      "body": "GitHub มีสามวิธีรวม PR: merge commit เก็บทุก commit เดิมและเพิ่ม merge commit (ใช้ --no-ff), squash and merge รวมทุก commit ของ PR เป็น commit เดียวบน base branch ด้วย SHA ใหม่ และ rebase and merge เติมทีละ commit แบบเส้นตรงโดยได้ SHA ใหม่เสมอ ผลข้างเคียงของ squash คือ commit เดิมของ branch ไม่อยู่ในประวัติ main ทำให้ git branch -d ในเครื่องฟ้องว่ายัง not fully merged (ใช้ -D ได้เมื่อเช็กแล้วว่า PR ถูก merge) และ branch ที่แตกต่อจาก branch นั้นต้องย้ายฐานใหม่",
+      "code": "git branch -d feat/search\n# error: the branch 'feat/search' is not fully merged\ngit branch -D feat/search   # ลบ หลังเช็กแล้วว่า PR ถูก squash merge",
+      "ref": "https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/incorporating-changes-from-a-pull-request/about-pull-request-merges"
+    },
+    {
+      "tier": "should",
+      "title": "cherry-pick: คัดลอก commit เดียวไป branch อื่น",
+      "body": "git cherry-pick <commit> นำการเปลี่ยนแปลงของ commit หนึ่งมาสร้างเป็น commit ใหม่บน branch ปัจจุบัน (hash ไม่เหมือนต้นฉบับ) เหมาะกับการ backport hotfix จาก main ไปยัง release/1.4 โดยไม่ต้องลาก commit อื่นที่ยังไม่พร้อมไปด้วย -x ต่อท้ายข้อความว่า (cherry picked from commit …) ซึ่งเอกสารแนะนำเมื่อ pick ระหว่าง branch สาธารณะ แต่ไม่ต้องใช้กับ branch ส่วนตัว ถ้าจะ pick merge commit ต้องระบุ -m <parent-number> และถ้าต้องการงานทั้ง branch ควรใช้ merge หรือ rebase แทนการ pick ทีละตัว",
+      "code": "git switch release/1.4\ngit cherry-pick -x 9fceb02   # backport fix ตัวเดียว\n# ถ้า conflict: แก้ไฟล์ -> git add -> git cherry-pick --continue",
+      "ref": "https://git-scm.com/docs/git-cherry-pick"
+    },
+    {
+      "tier": "should",
+      "title": "หาที่มาของโค้ด: blame และ log -S",
+      "body": "git blame <file> บอกว่าแต่ละบรรทัดมาจาก commit ไหนและใคร ใช้ -L เลือกช่วงบรรทัด และ -C ตามโค้ดที่ย้ายมาจากไฟล์อื่น แต่ blame ไม่บอกอะไรเกี่ยวกับบรรทัดที่ถูกลบไปแล้ว ให้ใช้ git log -S\"ข้อความ\" ซึ่งตามเอกสาร git log จะหา commit ที่ทำให้จำนวนครั้งที่ข้อความนั้นปรากฏเปลี่ยนไป (เพิ่มหรือลบ) ถ้ามี commit ที่แค่ format ทั้งโปรเจกต์บัง blame อยู่ ให้ใส่ hash ลงไฟล์ เช่น .git-blame-ignore-revs แล้วตั้ง blame.ignoreRevsFile ชี้ไปที่ไฟล์นั้น (หรือใช้ --ignore-revs-file)",
+      "code": "git blame -L 40,60 src/pay.js\ngit log -S\"calculateTax\" --oneline -- src/   # commit ที่เพิ่มหรือลบข้อความนี้\necho <hash-ของ-commit-format> >> .git-blame-ignore-revs\ngit config blame.ignoreRevsFile .git-blame-ignore-revs",
+      "ref": "https://git-scm.com/docs/git-blame"
+    },
+    {
+      "tier": "should",
+      "title": "Git hooks: pre-commit และข้อจำกัด",
+      "body": "hook คือ script ที่ Git เรียกเองในจังหวะต่าง ๆ เช่น pre-commit รัน lint หรือ test ก่อนสร้าง commit (ออกด้วยค่าไม่ใช่ 0 คือยกเลิก) และ commit-msg ตรวจข้อความ commit ไฟล์ใน .git/hooks ไม่ถูกคัดลอกตอน clone และไม่อยู่ใน version control ทีมจึงมักเก็บ script ไว้ใน repo เช่น .githooks/ แล้วให้ทุกคนตั้ง core.hooksPath ชี้ไปที่นั่น (ไฟล์ต้องมี executable bit) ทุกคนข้าม pre-commit และ commit-msg ได้ด้วย --no-verify จึงต้องตรวจซ้ำใน CI ด้วย",
+      "code": "#!/bin/sh\n# .githooks/pre-commit  (chmod +x ด้วย)\nnpm run lint || exit 1\n\n# เปิดใช้ ทำครั้งเดียวต่อเครื่อง\ngit config core.hooksPath .githooks",
+      "ref": "https://git-scm.com/docs/githooks"
+    },
+    {
+      "tier": "advanced",
+      "title": "โมเดลข้อมูลของ Git: blob, tree, commit",
+      "body": "Git เก็บข้อมูลเป็น object ที่ตั้งชื่อด้วย hash ของเนื้อหา มีสามชนิดหลัก คือ blob (เนื้อไฟล์ ไม่มีชื่อไฟล์) tree (รายการใน directory ที่ชี้ blob หรือ tree พร้อมชื่อและ mode) และ commit (ชี้ tree ราก พร้อม parent, author และข้อความ) เพราะชื่อมาจากเนื้อหา ไฟล์ที่เนื้อหาเหมือนกันจึงใช้ blob เดียวกันแม้ชื่อต่างกัน และ commit hash รวม parent ไว้ด้วย การ rebase ที่เปลี่ยนฐานจึงได้ hash ใหม่ทั้งชุด ตามหนังสือ hash ที่ใช้คือ SHA-1 และเอกสาร git init ระบุว่า sha1 เป็นค่าเริ่มต้น แต่ git init --object-format=sha256 สร้าง repo แบบ SHA-256 ได้ (ตามเอกสารเดียวกัน ปัจจุบันยังไม่ interoperate กับ repo SHA-1)",
+      "code": "git cat-file -t HEAD          # commit\ngit cat-file -p HEAD          # tree <hash> / parent <hash> / author ...\ngit cat-file -p 'HEAD^{tree}'  # รายการ blob และ tree ใน commit นั้น\ngit hash-object a.txt b.txt   # เนื้อหาเหมือนกัน = hash เดียวกัน",
+      "ref": "https://git-scm.com/book/en/v2/Git-Internals-Git-Objects"
+    },
+    {
+      "tier": "advanced",
+      "title": "git rebase --onto ย้าย branch ที่แตกซ้อนกัน",
+      "body": "git rebase main ปกติเล่น commit ที่ branch มีแต่ main ไม่มีซ้ำบน main แต่ถ้า feature-b แตกจาก feature-a และ feature-a ถูก squash merge เข้า main commit เดิมของ feature-a จะไม่อยู่ใน main (มีแต่ commit squash ใหม่) rebase ธรรมดาจึงเล่น commit ของ a ซ้ำและมักชนกัน ใช้ --onto <ฐานใหม่> <ฐานเก่า> <branch> เพื่อบอกว่าเอาเฉพาะ commit หลังฐานเก่าไปวางบนฐานใหม่ เพราะ hash เปลี่ยน ถ้า branch เคย push จะ push ธรรมดาไม่ผ่านและต้อง force push จึงควรใช้ --force-with-lease ซึ่งไม่ทับถ้า remote มีงานใหม่ที่เรายังไม่เห็น",
+      "code": "# main: ... S   (S = squash ของ a1+a2)\n# feature-a: a1--a2    feature-b: a1--a2--b1--b2\ngit fetch origin\ngit rebase --onto origin/main feature-a feature-b\ngit push --force-with-lease origin feature-b",
+      "ref": "https://git-scm.com/docs/git-rebase"
+    },
+    {
+      "tier": "advanced",
+      "title": "เซ็น commit และ tag ด้วย key",
+      "body": "Git ไม่ตรวจ user.name และ user.email ตอน commit ใครก็ตั้งเป็นอะไรก็ได้ (git commit --author ก็ระบุผู้เขียนเองได้) จึงไม่ใช่หลักฐานว่าใครเขียนโค้ดจริง Pro Git บอกว่า Git ปลอดภัยด้วย hash แต่ไม่ใช่ทุกกรณี การเซ็นด้วย key ทำให้ตรวจได้ว่า commit มาจากเจ้าของ key git commit -S เซ็นหนึ่ง commit, ตั้ง commit.gpgsign เป็น true เพื่อเซ็นทุก commit, git tag -s เซ็น tag และ git log --show-signature แสดงผลตรวจ Pro Git สอนด้วย GPG เป็นหลัก แต่ตามเอกสาร git config ชนิด key เลือกได้ด้วย gpg.format (openpgp เป็นค่าเริ่มต้น หรือ x509 และ ssh)",
+      "code": "git config --local commit.gpgsign true\ngit commit -S -m \"fix(auth): revoke token on logout\"\ngit log --show-signature -1\ngit tag -s v1.4.0 -m \"Release 1.4.0\"",
+      "ref": "https://git-scm.com/book/en/v2/Git-Tools-Signing-Your-Work"
     }
   ],
   "questions": [
@@ -191,52 +280,421 @@
       ],
       "answer": 1,
       "explain": "conflict โตตามอายุของ branch การ merge เล็ก ๆ บ่อย ๆ แบบ trunk-based ทำให้ conflict เล็กและ CI ตรวจงานได้เร็ว ส่วน GitFlow เพิ่ม branch อายุยาวซึ่งเหมาะกับซอฟต์แวร์ที่ออกเป็นเวอร์ชันมากกว่า และ trunk-based ไม่ได้แปลว่าข้าม CI หรือ review"
+    },
+    {
+      "prompt": "คุณแก้ไฟล์ค้างอยู่บน feat/report และอยากรู้ว่าเพื่อนร่วมทีม push อะไรขึ้น main บ้าง โดยยังไม่อยากให้โค้ดของเพื่อนมารวมกับ branch ที่กำลังทำ ควรทำอย่างไร?",
+      "options": [
+        "git fetch origin แล้วดูด้วย git log HEAD..origin/main",
+        "git pull ทันที แล้วค่อย reset ถ้าไม่ชอบสิ่งที่ได้มาจาก remote",
+        "git merge origin/main แล้วดูผลลัพธ์จาก diff ย้อนหลังหลังรวมเสร็จ",
+        "git checkout origin/main เพื่อดูไฟล์ล่าสุดของเพื่อนในเครื่องเรา"
+      ],
+      "answer": 0,
+      "explain": "fetch อัปเดตเฉพาะ origin/* โดยไม่แตะ branch และไฟล์ของเรา จึงดูก่อนตัดสินใจรวมได้ ส่วน pull คือ fetch แล้ว merge ทันที (และ merge origin/main โดยไม่ fetch จะใช้ข้อมูลเก่า) ขณะที่ checkout origin/main จะไม่ได้ข้อมูลใหม่และทำให้ HEAD แยกออกจาก branch"
+    },
+    {
+      "prompt": "คุณมี commit ที่ยังไม่ push 1 ตัวบน main แต่เพื่อน push ขึ้น main ไปก่อน พอ git pull ได้ข้อความนี้ คุณต้องการประวัติเส้นตรงโดยไม่ทิ้ง commit ของตัวเอง ควรทำอย่างไร?",
+      "code": "$ git pull\nhint: You have divergent branches and need to specify how to reconcile them.\nfatal: Need to specify how to reconcile divergent branches.",
+      "options": [
+        "git push --force เพื่อให้ remote ตรงกับ commit ในเครื่องของเรา",
+        "git pull --rebase เพื่อวาง commit ของเราต่อท้ายของเพื่อน",
+        "git reset --hard origin/main แล้ว pull ใหม่ให้ประวัติเรียบร้อย",
+        "git pull --ff-only ซ้ำไปเรื่อย ๆ จนกว่าจะผ่านได้เอง"
+      ],
+      "answer": 1,
+      "explain": "rebase เอา commit ที่ยังไม่ push ของเราไปเล่นซ้ำบนปลาย origin/main จึงได้เส้นตรงและงานครบทั้งสองฝั่ง force push จะทับ commit ของเพื่อน ส่วน reset --hard ทิ้ง commit ของเราเอง และ --ff-only จะล้มซ้ำเพราะประวัติแยกกันแล้ว"
+    },
+    {
+      "prompt": "คุณมี feat/search 3 commit แตกจาก main และ main ไม่มี commit ใหม่เลยหลังจากนั้น ทีมต้องการให้ประวัติเห็นชัดว่า feature นี้ถูกรวมเมื่อไรและย้อนทั้งก้อนได้ง่าย ควรรันคำสั่งใดบน main?",
+      "options": [
+        "git merge feat/search เฉย ๆ เพราะ Git สร้าง merge commit ให้เสมอ",
+        "git merge --ff-only feat/search เพื่อเก็บประวัติให้ครบ",
+        "git merge --no-ff feat/search เพื่อบังคับให้มี merge commit",
+        "git rebase main feat/search แล้วค่อย merge เข้ามา"
+      ],
+      "answer": 2,
+      "explain": "เมื่อ main ไม่ขยับ merge ธรรมดาจะ fast-forward คือเลื่อน pointer ไปเฉย ๆ ไม่มี merge commit จึงไม่เห็นขอบเขตของ feature --no-ff บังคับให้สร้าง merge commit แม้ fast-forward ได้ ส่วน --ff-only ก็ fast-forward เหมือนกัน"
+    },
+    {
+      "prompt": "PR ของ feat/search ถูก squash and merge บน GitHub แล้ว คุณ pull main แล้วพยายามลบ branch ในเครื่อง และเจอข้อความนี้ เกิดอะไรขึ้น?",
+      "code": "$ git switch main && git pull\n$ git branch -d feat/search\nerror: the branch 'feat/search' is not fully merged",
+      "options": [
+        "การ pull ล้มเหลวเงียบ ๆ main จึงยังไม่มีงานของ feature อยู่เลย",
+        "PR ถูก merge ผิดพลาด ต้องเปิด PR ใหม่อีกครั้งเพื่อรวมงานให้ครบ",
+        "GitHub ล็อก branch ไว้ ต้องลบฝั่ง remote ก่อนเท่านั้นจึงลบในเครื่องได้",
+        "squash สร้าง commit ใหม่ commit เดิมจึงไม่ใช่ส่วนหนึ่งของ main"
+      ],
+      "answer": 3,
+      "explain": "squash and merge รวมทุก commit เป็น commit ใหม่หนึ่งตัว commit เดิมของ branch จึงไม่ใช่ ancestor ของ main และ git branch -d มองว่ายังไม่ merge เมื่อเช็กแล้วว่า PR ถูก merge จริง ใช้ -D ได้ งานของ feature อยู่บน main เรียบร้อยแล้ว ไม่ได้หาย"
+    },
+    {
+      "prompt": "คุณแก้ report.js (track อยู่แล้ว) และสร้างไฟล์ใหม่ draft.md ที่ยังไม่เคย git add จากนั้นรัน git stash เพื่อสลับไปแก้บั๊กด่วน ผลลัพธ์ข้อใดถูกต้อง?",
+      "code": "git stash\ngit status -s\n?? draft.md",
+      "options": [
+        "report.js ถูกเก็บเข้า stash ส่วน draft.md ยังอยู่ใน working tree",
+        "ทั้งสองไฟล์ถูกเก็บเข้า stash เพราะ stash เก็บทุกไฟล์ใน working tree",
+        "git stash ไม่ทำอะไรเลย เพราะมีไฟล์ untracked ปนอยู่ ต้อง add ก่อน",
+        "report.js ถูกเก็บเข้า stash ส่วน draft.md ถูกลบทิ้งจากดิสก์"
+      ],
+      "answer": 0,
+      "explain": "ค่าเริ่มต้นของ git stash เก็บเฉพาะไฟล์ที่ track อยู่ ไฟล์ใหม่ที่ยังไม่ track จะค้างอยู่ใน working tree (และติดไปกับ branch ที่สลับไป) ถ้าต้องการเก็บด้วยให้ใช้ git stash -u ส่วนข้อที่ว่า stash ปฏิเสธการทำงานเพราะมี untracked นั้นไม่จริง"
+    },
+    {
+      "prompt": "คุณรัน git stash pop แล้วเกิด conflict กับงานที่เพื่อนแก้ไฟล์เดียวกัน Git แจ้งว่า The stash entry is kept in case you need it again. หลังแก้ conflict และ commit เสร็จ ควรทำอะไรให้เรียบร้อย?",
+      "options": [
+        "ไม่ต้องทำอะไร เพราะ pop ลบ stash ออกให้แล้วตั้งแต่ตอนรัน",
+        "git stash drop เพื่อลบ entry ที่ค้างอยู่เมื่อไม่ใช้แล้ว",
+        "git stash apply เพื่อให้ Git ลบ entry ที่ค้างอยู่ออกให้",
+        "git reset --hard เพื่อล้าง stash ที่ค้างอยู่ทั้งหมดออกไปพร้อมกัน"
+      ],
+      "answer": 1,
+      "explain": "เมื่อ pop ติด conflict Git จะไม่ลบ entry ออกจากกอง เผื่อต้องกลับมาใช้ จึงต้องแก้ conflict แล้ว drop เอง ส่วน apply ก็ไม่ลบ entry เช่นกัน และ reset --hard ไม่ได้ล้าง stash แต่จะทิ้งงานใน working tree"
+    },
+    {
+      "prompt": "คุณสร้าง tag release แล้วรันคำสั่งด้านล่าง แต่ pipeline ที่ trigger จาก tag v2.4.1 ไม่ทำงาน และบน GitHub ไม่มี tag นี้ สาเหตุคืออะไร?",
+      "code": "git tag -a v2.4.1 -m \"Release 2.4.1\"\ngit push origin main",
+      "options": [
+        "annotated tag push ไม่ได้ จึงต้องเปลี่ยนไปใช้ lightweight tag แทน",
+        "ต้องรอให้ CI ตรวจ main เสร็จทั้งหมดก่อน tag จึงจะปรากฏบน remote",
+        "git push ไม่ส่ง tag ไปเอง ต้อง git push origin v2.4.1 หรือ --tags",
+        "ชื่อ tag ที่ขึ้นต้นด้วยตัว v ใช้ไม่ได้ ต้องเป็นตัวเลขล้วนเท่านั้น"
+      ],
+      "answer": 2,
+      "explain": "ค่าเริ่มต้นของ git push ไม่ส่ง tag ต้องสั่งส่งเองด้วยชื่อ tag หรือ --tags ไม่เกี่ยวกับชนิด tag และไม่มีกฎเรื่องตัว v หรือการรอ CI"
+    },
+    {
+      "prompt": "สคริปต์ build ของทีมใช้ git describe สร้างเลขเวอร์ชัน แต่บนเครื่องหนึ่งได้ error ตามนี้ สาเหตุที่เป็นไปได้มากที่สุดคือข้อใด?",
+      "code": "$ git tag v1.0.0\n$ git describe\nfatal: No annotated tags can describe '0be2f92...'.\nHowever, there were unannotated tags: try --tags.",
+      "options": [
+        "tag ยังไม่ถูกดึงมาจาก remote จึงต้อง git fetch --tags ก่อนใช้",
+        "tag ชี้ไปที่ commit อื่นที่ไม่ใช่ HEAD จึงอธิบาย HEAD ไม่ได้",
+        "ต้องมี commit ใหม่หลัง tag อย่างน้อยหนึ่งตัวก่อน describe ถึงทำงาน",
+        "v1.0.0 เป็น lightweight tag แต่ describe มองเฉพาะ annotated tag"
+      ],
+      "answer": 3,
+      "explain": "ข้อความ error บอกเองว่ามี unannotated tag อยู่แล้วในเครื่อง (จึงไม่ใช่เรื่อง fetch) git describe ค่าเริ่มต้นใช้เฉพาะ annotated tag แก้ได้ด้วย --tags หรือสร้าง tag ด้วย -a"
+    },
+    {
+      "prompt": "คุณ commit ไป 3 ครั้งบน feat/export (ยังไม่ push) ข้อความเป็น wip ทั้งหมด และอยากรวมเป็น commit เดียวที่ข้อความดี ๆ โดยไม่ต้องแก้ไฟล์ซ้ำ ควรใส่ flag ใดแทน ??? ?",
+      "code": "git reset ??? HEAD~3\ngit commit -m \"feat(export): export CSV\"",
+      "options": [
+        "--soft เพราะการแก้ทั้งหมดยังอยู่ใน staging พร้อม commit ต่อ",
+        "--hard เพราะจะจัด commit ให้ใหม่โดยเก็บเนื้อหาไว้ครบทุกไฟล์",
+        "--mixed เพราะ commit ต่อได้ทันทีโดยไม่ต้อง git add อีกรอบ",
+        "ไม่มีโหมดของ reset ที่ทำได้ ต้องใช้ git rebase -i เท่านั้น"
+      ],
+      "answer": 0,
+      "explain": "--soft ย้ายแค่ pointer จึงเหลือการแก้ทั้งสามชุดใน staging พร้อม commit ส่วน --mixed ล้าง staging ต้อง git add ใหม่ก่อน (ไม่งั้น commit ว่าง) และ --hard ทิ้งการแก้ไปเลย แม้ rebase -i ทำได้ แต่ไม่ใช่วิธีเดียว"
+    },
+    {
+      "prompt": "บั๊กถูกแก้ด้วย commit 9fceb02 บน main แล้ว ตอนนี้ต้องแก้เรื่องเดียวกันบน release/1.4 ซึ่ง main มี commit ใหม่อีก 40 ตัวที่ยังไม่พร้อมปล่อย ควรทำอย่างไร?",
+      "code": "git switch release/1.4\ngit cherry-pick -x 9fceb02",
+      "options": [
+        "git merge main เข้า release/1.4 เพื่อให้ได้ commit นั้นมา",
+        "cherry-pick เฉพาะ commit นั้น แล้วใช้ -x เพื่อบันทึกที่มา",
+        "git revert 9fceb02 บน release/1.4 เพื่อนำการแก้กลับมา",
+        "git reset --hard 9fceb02 บน release/1.4 เพื่อไปที่จุดนั้น"
+      ],
+      "answer": 1,
+      "explain": "cherry-pick สร้าง commit ใหม่ที่มีการแก้เหมือนต้นฉบับเฉพาะตัวนั้น ไม่ลาก commit อื่นมาด้วย ส่วน merge main จะพา commit ใหม่ 40 ตัวมาและ revert คือการหักล้างการแก้ ไม่ใช่นำมันมาใช้"
+    },
+    {
+      "prompt": "PR ของ feature ถูก merge เข้า main ด้วย merge commit aab8fcd แล้วพบว่าทำให้ระบบพัง คุณรัน git revert aab8fcd และได้ error นี้ ควรทำอย่างไร?",
+      "code": "$ git revert aab8fcd\nerror: commit aab8fcd is a merge but no -m option was given.",
+      "options": [
+        "รัน git revert --no-edit aab8fcd ซ้ำ เพราะ error นี้เกิดชั่วคราว",
+        "ต้อง revert ทีละ commit ของ branch เพราะ revert merge commit ทำไม่ได้",
+        "git revert -m 1 aab8fcd โดยระบุ parent 1 เป็น mainline",
+        "git reset --hard aab8fcd~1 แล้ว push --force เพื่อลบ merge ออก"
+      ],
+      "answer": 2,
+      "explain": "merge commit มี parent สองตัว Git ไม่รู้ว่าจะย้อนการเปลี่ยนแปลงเทียบกับฝั่งไหน จึงต้องบอกด้วย -m (1 คือฝั่ง main) ส่วนการ reset แล้ว force push คือ rewrite ประวัติที่ทีมใช้อยู่แล้ว ซึ่งไม่ควรทำกับ main"
+    },
+    {
+      "prompt": "ฟังก์ชัน calculateTax หายไปจาก src/tax.js และมีคนสงสัยว่าใครลบและทำไม ไฟล์มีประวัติ 200 commit วิธีที่ตรงที่สุดในการหา commit ที่ลบมันคือข้อใด?",
+      "options": [
+        "git blame src/tax.js แล้วหาบรรทัดที่ calculateTax เคยอยู่",
+        "git log --follow src/tax.js แล้วเปิดดูทีละ commit",
+        "git diff HEAD~200 src/tax.js แล้วอ่านผลต่างทั้งหมด",
+        "git log -S\"calculateTax\" --oneline -- src/tax.js"
+      ],
+      "answer": 3,
+      "explain": "git log -S แสดงเฉพาะ commit ที่ทำให้จำนวนครั้งที่ข้อความนั้นปรากฏเปลี่ยน ซึ่งรวม commit ที่ลบด้วย blame ใช้ไม่ได้เพราะแสดงเฉพาะบรรทัดที่ยังมีอยู่ ส่วน diff ให้ผลรวมของ 200 commit โดยไม่บอกว่า commit ไหนเป็นตัวลบ"
+    },
+    {
+      "prompt": "ทีมรัน formatter ทั้งโปรเจกต์ใน commit 5143960 ตอนนี้ git blame ของแทบทุกบรรทัดชี้มาที่ commit นี้และไม่ช่วยหาเหตุผลของโค้ดจริง จะให้ blame ข้าม commit นี้โดยไม่แก้ประวัติได้อย่างไร?",
+      "code": "echo <full-hash> >> .git-blame-ignore-revs\ngit config blame.ignoreRevsFile .git-blame-ignore-revs",
+      "options": [
+        "ใส่ hash ลง .git-blame-ignore-revs แล้วตั้ง blame.ignoreRevsFile",
+        "git rebase -i แล้ว drop commit format ออกจากประวัติของ main",
+        "ใช้ git blame -w ซึ่งจะข้ามทุก commit ที่เป็นการ format ให้เองทุกกรณี โดยไม่ต้องตั้งค่าอะไรเพิ่ม",
+        "git revert commit นั้นเพื่อให้ blame กลับไปชี้ผู้เขียนเดิม"
+      ],
+      "answer": 0,
+      "explain": "ไฟล์ ignore-revs ทำให้ blame มองข้าม commit ที่ระบุเหมือนไม่เคยเกิดขึ้น โดยไม่แตะประวัติ (แต่ละเครื่องตั้ง config เอง หรือใส่ --ignore-revs-file) ส่วน -w ข้ามแค่ความต่างของ whitespace ใน diff (ไม่ใช่ทุกการ format และไม่ได้ข้าม commit) และ revert จะกลายเป็นอีกหนึ่ง commit ที่ blame ชี้มา"
+    },
+    {
+      "prompt": "คุณเขียน .git/hooks/pre-commit ที่รัน lint บนเครื่องตัวเอง แล้วบอกทีมว่า \"ตอนนี้ทุกคนจะถูกตรวจ lint ก่อน commit\" หนึ่งสัปดาห์ต่อมามี commit ที่ lint ไม่ผ่านจากเพื่อนที่เพิ่ง clone repo มา ทำไม?",
+      "options": [
+        "Git ปิด hook อัตโนมัติเมื่อมีหลายคนใช้ repo เดียวกัน",
+        "ไฟล์ใน .git/hooks ไม่ถูก clone มาด้วย เพื่อนจึงไม่มี hook นั้น",
+        "pre-commit ทำงานเฉพาะตอน git push จึงไม่กระทบ commit ในเครื่อง",
+        "ต้องตั้งค่า pre-commit.enabled=true ก่อน hook ถึงจะทำงาน"
+      ],
+      "answer": 1,
+      "explain": "โฟลเดอร์ .git ไม่ถูกส่งไปกับการ clone และไม่อยู่ใน version control วิธีที่ทีมใช้คือเก็บ script ไว้ใน repo แล้วให้ทุกคนตั้ง core.hooksPath (และตรวจซ้ำใน CI) pre-commit ทำงานตอน commit ไม่ใช่ตอน push และไม่มี config ชื่อ pre-commit.enabled"
+    },
+    {
+      "prompt": "ทีมบังคับ pre-commit ตรวจ secret ในโค้ด แต่มีคนใช้ git commit --no-verify เพราะ hook ช้า แล้ว API key หลุดขึ้น PR ควรปรับระบบอย่างไรให้ได้ผลที่สุด?",
+      "options": [
+        "เขียนห้ามใช้ --no-verify ไว้ใน README ของ repo แล้วให้ทุกคนอ่าน",
+        "ย้ายคำสั่งตรวจไปไว้ในไฟล์ .git/config เพื่อให้ข้ามไม่ได้",
+        "คง hook ไว้ แต่ตรวจซ้ำใน CI ที่ PR ต้องผ่านก่อน merge",
+        "เปลี่ยนจาก pre-commit เป็น post-commit เพราะข้ามไม่ได้"
+      ],
+      "answer": 2,
+      "explain": "--no-verify ข้าม pre-commit และ commit-msg ได้เสมอ hook ฝั่งเครื่องจึงเป็นแค่ด่านช่วยเตือนเร็ว ส่วนด่านบังคับต้องอยู่ฝั่งที่คนข้ามไม่ได้ เช่น CI ส่วน post-commit รันหลังสร้าง commit ไปแล้วและมีผลกับผลลัพธ์ของ commit ไม่ได้"
+    },
+    {
+      "prompt": "คุณ fork repo โอเพนซอร์สแล้ว clone fork มาทำงาน สองเดือนต่อมา main ของ fork ตามหลังต้นทางมาก ต้องการอัปเดตก่อนเริ่ม branch ใหม่ ควรทำอย่างไร?",
+      "code": "$ git remote -v\norigin  git@github.com:you/app.git (fetch)\norigin  git@github.com:you/app.git (push)",
+      "options": [
+        "git pull origin main เพราะ origin คือ repo ต้นทางที่ fork มา",
+        "ลบ fork แล้ว fork ใหม่ทุกครั้งที่ต้นทางมีการอัปเดตเพื่อให้ตรงกัน",
+        "git push origin main เพื่อให้ GitHub ดึงจากต้นทางมาให้เอง",
+        "เพิ่ม remote upstream แล้ว fetch และ merge upstream/main เข้า main"
+      ],
+      "answer": 3,
+      "explain": "origin คือ fork ของเราเอง ไม่ใช่ต้นทาง จึง pull จาก origin ไม่ได้อะไรใหม่ ต้องเพิ่ม remote อีกชื่อ (ธรรมเนียมคือ upstream) แล้ว fetch และ merge เข้า main สุดท้าย push ขึ้น fork เพราะการ sync ทำแค่สำเนาในเครื่อง"
+    },
+    {
+      "prompt": "repo มีไฟล์ LICENSE และ docs/LICENSE.txt ที่เนื้อหาเหมือนกันทุกตัวอักษร คุณรัน git hash-object กับทั้งสองไฟล์ ผลลัพธ์และความหมายคืออะไร?",
+      "code": "git hash-object LICENSE docs/LICENSE.txt",
+      "options": [
+        "ได้ hash เดียวกัน เพราะ blob ตั้งชื่อจากเนื้อหาอย่างเดียว",
+        "ได้ hash ต่างกัน เพราะ hash รวมชื่อไฟล์และเวลาที่แก้ไฟล์ล่าสุดไว้ด้วย",
+        "ได้ hash ต่างกัน เพราะ hash ผูกกับ path ของไฟล์ใน tree",
+        "ได้ hash เดียวกัน แต่เฉพาะเมื่อสองไฟล์อยู่ใน commit เดียวกัน"
+      ],
+      "answer": 0,
+      "explain": "blob เก็บเฉพาะเนื้อหา ส่วนชื่อไฟล์และ mode เก็บใน tree hash-object จึงให้ค่าเดียวกันสำหรับเนื้อหาเดียวกัน และ Git เก็บเนื้อหานั้นไว้ชุดเดียว ไม่เกี่ยวกับเวลาแก้ไข path หรือ commit"
+    },
+    {
+      "prompt": "feature-b แตกมาจาก feature-a ซึ่งเพิ่งถูก squash merge เข้า main คุณรัน git rebase origin/main บน feature-b แล้วชนกันในไฟล์ที่ feature-a เคยเพิ่ม วิธีที่ถูกคือข้อใด?",
+      "code": "A---a1---a2        (feature-a)\n          \\\n           b1---b2  (feature-b)\nmain: ... S             (S = squash ของ a1+a2)",
+      "options": [
+        "แก้ conflict ของ commit feature-a ซ้ำทุกรอบแล้วค่อย push --force",
+        "git rebase --onto origin/main feature-a feature-b เพื่อย้ายเฉพาะ b1 b2",
+        "git merge origin/main เข้า feature-b แล้ว cherry-pick a1 a2 ซ้ำอีกรอบ",
+        "ลบ feature-b แล้วเขียนงานใหม่ เพราะ squash ทำให้ branch ที่แตกต่อใช้ไม่ได้"
+      ],
+      "answer": 1,
+      "explain": "rebase ธรรมดาเล่น a1 a2 ซ้ำ ทั้งที่เนื้อหาอยู่ใน commit squash บน main แล้ว จึงชนกัน --onto บอกให้เอาเฉพาะ commit หลัง feature-a ไปวางบน origin/main ได้ผลสะอาด (เมื่อ push ต้องใช้ --force-with-lease) ส่วนการ cherry-pick a1 a2 ซ้ำก็ซ้ำกับ squash อีก"
+    },
+    {
+      "prompt": "เพื่อนร่วมทีมรัน git config user.email \"you@company.com\" แล้ว commit ราวกับเป็นคุณ และ push ผ่านบัญชีของเขาเอง เหตุการณ์นี้ชี้ให้เห็นอะไร และอะไรช่วยได้จริง?",
+      "options": [
+        "Git เทียบ user.email กับบัญชีผู้ push อยู่แล้ว จึงเกิดขึ้นจริงไม่ได้",
+        "ตั้ง user.useConfigOnly เพื่อไม่ให้ Git เดา email ของคนอื่นเอง",
+        "author ตั้งเองได้ ต้องเซ็น commit ด้วย key (-S) แล้วตรวจลายเซ็น",
+        "ใช้ git commit --reset-author เพื่อพิสูจน์ว่า commit เป็นของจริง"
+      ],
+      "answer": 2,
+      "explain": "author และ committer ใน commit เป็นข้อความที่ตั้งเองได้ ไม่ได้ถูกตรวจกับตัวตนผู้ push ลายเซ็นด้วย key เท่านั้นที่ตรวจได้ว่าเจ้าของ key เป็นผู้สร้าง commit user.useConfigOnly แค่ไม่ให้ Git เดาชื่อกับ email ของเครื่องเรา และ --reset-author ตั้ง author เป็นค่าปัจจุบันของผู้รันเท่านั้น"
+    },
+    {
+      "prompt": "ก่อนเปิด PR คุณอยากเห็นรายการ commit ที่อยู่บน feat/search แต่ main ยังไม่มี คำสั่งใดถูกต้อง?",
+      "code": "main:         A---B---C\n                   \\\nfeat/search:        D---E",
+      "options": [
+        "git log feat/search..main",
+        "git log main feat/search",
+        "git diff main feat/search --stat",
+        "git log main..feat/search"
+      ],
+      "answer": 3,
+      "explain": "A..B หมายถึง commit ที่ไปถึงได้จาก B แต่ไปไม่ถึงจาก A ดังนั้น main..feat/search ให้ D และ E ส่วนสลับด้านจะได้ commit ฝั่ง main ที่ feat/search ไม่มี และ git log main feat/search รวมประวัติของทั้งสอง branch ส่วน git diff แสดงผลต่างของไฟล์ ไม่ใช่รายการ commit"
     }
   ],
-  "exercise": {
-    "title": "แตก branch, commit และย้อนงานอย่างปลอดภัย",
-    "level": "ง่าย",
-    "tags": "branch · commit · push · revert",
-    "lang": "shell",
-    "prompt": "คุณอยู่บน main และแก้ src/auth.js ไว้แล้ว ต้องการ (1) สร้าง branch ชื่อ feat/login-rate-limit (2) commit ไฟล์ src/auth.js ด้วยข้อความแบบ Conventional Commits (3) push ขึ้น origin พร้อมตั้ง upstream และ (4) กลับไปที่ main แล้วย้อน commit abc1234 ที่อยู่บน main แล้ว ด้วยวิธีที่ไม่ rewrite ประวัติที่ทีมใช้ร่วมกัน เขียนคำสั่ง git ทีละบรรทัด",
-    "context": "$ git status\nOn branch main\nChanges not staged for commit:\n  modified:   src/auth.js\n\n$ git log --oneline -3 main\n7d9e2f1 (HEAD -> main, origin/main) docs: update README\nabc1234 feat: cache session in localStorage\n5c4b3a2 fix: trim email before login",
-    "starter": "# เขียนคำสั่ง git ทีละบรรทัด\n",
-    "solution": "git switch -c feat/login-rate-limit\ngit add src/auth.js\ngit commit -m \"feat(auth): จำกัดจำนวนครั้ง login ต่อนาที\"\ngit push -u origin feat/login-rate-limit\n\n# ย้อน commit บน main โดยไม่ rewrite ประวัติ\ngit switch main\ngit pull\ngit revert abc1234",
-    "hints": [
-      "งานนี้มีสองส่วน: ส่ง feature ใหม่ผ่าน branch ของตัวเอง และย้อน commit ที่ทีมมีอยู่แล้วบน main",
-      "ใช้ git switch -c สร้าง branch, git add ก่อน commit, ข้อความขึ้นต้นด้วย feat: และ git push -u origin <branch>",
-      "commit ที่อยู่บน main แล้วให้ git switch main ก่อน แล้วใช้ git revert abc1234 ไม่ใช่ reset --hard หรือ force push"
-    ],
-    "checks": [
-      {
-        "label": "สร้าง branch feat/login-rate-limit",
-        "pattern": "git (switch -c|checkout -b) feat\\/login-rate-limit"
-      },
-      {
-        "label": "stage ไฟล์ก่อน commit",
-        "pattern": "git add (src\\/auth\\.js|\\.|-a)|git commit -a"
-      },
-      {
-        "label": "commit message แบบ Conventional Commits",
-        "pattern": "git commit (-a\\s+)?-a?m [\"'](feat|fix)(\\([^)]*\\))?!?: "
-      },
-      {
-        "label": "push ขึ้น origin",
-        "pattern": "git push( -u| --set-upstream)? origin"
-      },
-      {
-        "label": "กลับไปที่ main ก่อน revert",
-        "pattern": "git (switch|checkout) main\\b[\\s\\S]*git revert"
-      },
-      {
-        "label": "ย้อนด้วย git revert abc1234",
-        "pattern": "git revert (--no-edit )?abc1234"
-      },
-      {
-        "label": "ไม่ใช้ force push หรือ reset --hard",
-        "pattern": "push\\b.*(\\s-f\\b|--force)|reset --hard",
-        "negate": true
-      }
-    ]
-  }
+  "exercises": [
+    {
+      "title": "แตก branch, commit และย้อนงานอย่างปลอดภัย",
+      "level": "ง่าย",
+      "tags": "branch · commit · push · revert",
+      "lang": "shell",
+      "prompt": "คุณอยู่บน main และแก้ src/auth.js ไว้แล้ว ต้องการ (1) สร้าง branch ชื่อ feat/login-rate-limit (2) commit ไฟล์ src/auth.js ด้วยข้อความแบบ Conventional Commits (3) push ขึ้น origin พร้อมตั้ง upstream และ (4) กลับไปที่ main แล้วย้อน commit abc1234 ที่อยู่บน main แล้ว ด้วยวิธีที่ไม่ rewrite ประวัติที่ทีมใช้ร่วมกัน เขียนคำสั่ง git ทีละบรรทัด",
+      "context": "$ git status\nOn branch main\nChanges not staged for commit:\n  modified:   src/auth.js\n\n$ git log --oneline -3 main\n7d9e2f1 (HEAD -> main, origin/main) docs: update README\nabc1234 feat: cache session in localStorage\n5c4b3a2 fix: trim email before login",
+      "starter": "# เขียนคำสั่ง git ทีละบรรทัด\n",
+      "solution": "git switch -c feat/login-rate-limit\ngit add src/auth.js\ngit commit -m \"feat(auth): จำกัดจำนวนครั้ง login ต่อนาที\"\ngit push -u origin feat/login-rate-limit\n\n# ย้อน commit บน main โดยไม่ rewrite ประวัติ\ngit switch main\ngit pull\ngit revert abc1234",
+      "hints": [
+        "งานนี้มีสองส่วน: ส่ง feature ใหม่ผ่าน branch ของตัวเอง และย้อน commit ที่ทีมมีอยู่แล้วบน main",
+        "ใช้ git switch -c สร้าง branch, git add ก่อน commit, ข้อความขึ้นต้นด้วย feat: และ git push -u origin <branch>",
+        "commit ที่อยู่บน main แล้วให้ git switch main ก่อน แล้วใช้ git revert abc1234 ไม่ใช่ reset --hard หรือ force push"
+      ],
+      "checks": [
+        {
+          "label": "สร้าง branch feat/login-rate-limit",
+          "pattern": "git (switch -c|checkout -b) feat\\/login-rate-limit"
+        },
+        {
+          "label": "stage ไฟล์ก่อน commit",
+          "pattern": "git add (src\\/auth\\.js|\\.|-a)|git commit -a"
+        },
+        {
+          "label": "commit message แบบ Conventional Commits",
+          "pattern": "git commit (-a\\s+)?-a?m [\"'](feat|fix)(\\([^)]*\\))?!?: "
+        },
+        {
+          "label": "push ขึ้น origin",
+          "pattern": "git push( -u| --set-upstream)? origin"
+        },
+        {
+          "label": "กลับไปที่ main ก่อน revert",
+          "pattern": "git (switch|checkout) main\\b[\\s\\S]*git revert"
+        },
+        {
+          "label": "ย้อนด้วย git revert abc1234",
+          "pattern": "git revert (--no-edit )?abc1234"
+        },
+        {
+          "label": "ไม่ใช้ force push หรือ reset --hard",
+          "pattern": "push\\b.*(\\s-f\\b|--force)|reset --hard",
+          "negate": true
+        }
+      ]
+    },
+    {
+      "title": "ติดป้าย release โดยไม่ให้งานค้างหาย",
+      "level": "กลาง",
+      "tags": "stash · pull · tag · push tag",
+      "lang": "shell",
+      "prompt": "หัวหน้าขอให้ติดป้าย release v2.4.1 ที่ main ล่าสุดและส่งป้ายนั้นขึ้น origin ตอนนี้คุณอยู่บน feat/report ซึ่งมีงานค้างที่ยังไม่ commit ทั้งไฟล์ที่ track อยู่และไฟล์ใหม่ที่ยังไม่ add ห้ามให้งานค้างหายหรือติดไปกับ main และ tag ต้องมีข้อความบอกว่าเป็น release จริง เขียนคำสั่ง git ทีละบรรทัดตามลำดับ ตั้งแต่เก็บงานค้างไปจนถึงกลับมาทำงานต่อบน feat/report",
+      "context": "$ git status -sb\n## feat/report...origin/feat/report\n M src/report.js\n?? notes/draft.md\n\n$ git log --oneline -2 origin/main\ne41a9c0 (origin/main) fix: handle empty cart\n2b7f3d8 feat: add export button",
+      "starter": "# เขียนคำสั่ง git ทีละบรรทัด ตามลำดับ\n",
+      "solution": "git stash push -u -m \"wip: report filter\"\ngit switch main\ngit pull --ff-only\ngit tag -a v2.4.1 -m \"Release 2.4.1\"\ngit push origin v2.4.1\ngit switch feat/report\ngit stash pop",
+      "hints": [
+        "งานค้างต้องถูกเก็บก่อนสลับ branch และ release ต้องมาจาก main ที่ตรงกับ remote ลำดับคือ เก็บงาน ไป main อัปเดต ติด tag ส่ง tag แล้วกลับมาคืนงาน",
+        "git stash เฉย ๆ ไม่เก็บไฟล์ใหม่ที่ยังไม่ track ให้เพิ่ม -u (และจะใส่ -m ตั้งชื่อก็ได้) ส่วน tag ที่มีข้อความใช้ git tag -a <ชื่อ> -m \"...\"",
+        "git push ปกติไม่ส่ง tag ให้ใช้ git push origin v2.4.1 และเมื่อกลับมาที่ feat/report ใช้ git stash pop เพื่อคืนงาน"
+      ],
+      "checks": [
+        {
+          "label": "stash รวมไฟล์ untracked ด้วย (-u)",
+          "pattern": "git stash( push)?\\b[^\\n]*\\s(-[a-z]*[ua][a-z]*|--include-untracked|--all)(\\s|$)"
+        },
+        {
+          "label": "เก็บงานด้วย stash ก่อนสลับไป main",
+          "pattern": "git stash\\b[\\s\\S]*git (switch|checkout) main\\b"
+        },
+        {
+          "label": "อัปเดต main ล่าสุดก่อนติด tag",
+          "pattern": "git (switch|checkout) main\\b[\\s\\S]*git (pull|merge)\\b[\\s\\S]*git tag\\b"
+        },
+        {
+          "label": "annotated tag v2.4.1 พร้อมข้อความ",
+          "pattern": "git tag\\b(?=[^\\n]*\\s(-a|-s|-m|-am|-sm|--annotate|--sign|--message)\\b)(?=[^\\n]*\\sv2\\.4\\.1\\b)"
+        },
+        {
+          "label": "push tag ขึ้น origin",
+          "pattern": "git push\\b[^\\n]*(\\sv2\\.4\\.1\\b|refs\\/tags\\/v2\\.4\\.1\\b|--tags|--follow-tags)"
+        },
+        {
+          "label": "กลับ feat/report แล้วคืนงานด้วย stash pop หรือ apply",
+          "pattern": "git (switch|checkout) feat\\/report\\b[\\s\\S]*git stash (pop|apply)\\b"
+        },
+        {
+          "label": "ไม่ใช้คำสั่งทิ้งงาน (reset --hard, clean -f, stash drop, force)",
+          "pattern": "reset --hard|clean -[a-z]*f|checkout (-f|--force)|switch (-f|--force|--discard-changes)|stash (drop|clear)|push\\b[^\\n]*(\\s-f\\b|--force(?![-\\w]))",
+          "negate": true
+        }
+      ]
+    },
+    {
+      "title": "ย้าย branch ที่แตกซ้อนหลัง squash merge",
+      "level": "ยาก",
+      "tags": "rebase --onto · force-with-lease · log range",
+      "lang": "shell",
+      "prompt": "feature-b ถูกแตกจาก feature-a และ push ขึ้น origin แล้ว ตอนนี้ PR #1 ของ feature-a ถูก squash and merge เข้า main บน GitHub เรียบร้อย (กลายเป็น commit 936dcd2) เขียนคำสั่ง git ทีละบรรทัดที่ (1) ดึงสถานะล่าสุดจาก remote (2) ย้ายเฉพาะ commit ของ feature-b ไปต่อจาก origin/main โดยไม่เล่น commit ของ feature-a ซ้ำ (3) ตรวจว่า feature-b มีแต่ commit ของตัวเอง และ (4) ส่งขึ้น origin โดยไม่ทับงานที่คนอื่นอาจ push เข้า feature-b มาก่อน",
+      "context": "$ git branch --show-current\nfeature-b\n\n$ git log --oneline --graph --all\n* 9835509 (HEAD -> feature-b, origin/feature-b) b2: add export button\n* d682c6c b1: add export API\n* 47870a1 (feature-a, origin/feature-a) a2: add filter UI\n* 3057afd a1: add filter API\n| * 936dcd2 (origin/main) feat: filter (#1)\n|/\n* 55ad6c4 base",
+      "starter": "# เขียนคำสั่ง git ทีละบรรทัด\n",
+      "solution": "git fetch origin\ngit rebase --onto origin/main feature-a feature-b\ngit log --oneline origin/main..feature-b\ngit push --force-with-lease origin feature-b",
+      "hints": [
+        "หลัง squash merge main ไม่มี commit เดิมของ feature-a (มีแต่ commit squash ใหม่) rebase ธรรมดาจึงเล่น a1 a2 ซ้ำ ต้องบอก Git ว่าฐานเก่าของ feature-b คืออะไร",
+        "รูปแบบคือ git rebase --onto <ฐานใหม่> <ฐานเก่า> [<branch>] ฐานใหม่คือ origin/main ส่วนฐานเก่าคือปลายของ feature-a",
+        "rebase ทำให้ hash ของ b1 b2 เปลี่ยน push ปกติจะถูกปฏิเสธ ให้ใช้ git push --force-with-lease ไม่ใช่ --force เพื่อไม่ทับงานที่คนอื่น push มา"
+      ],
+      "checks": [
+        {
+          "label": "git fetch ก่อน rebase",
+          "pattern": "git fetch\\b[\\s\\S]*git rebase\\b"
+        },
+        {
+          "label": "rebase --onto ฐานใหม่คือ main (origin/main)",
+          "pattern": "git rebase\\b[^\\n]*--onto[ =](origin\\/)?main\\b"
+        },
+        {
+          "label": "ระบุฐานเก่าเป็นปลาย feature-a (ชื่อ branch หรือ hash 47870a1)",
+          "pattern": "--onto[ =]\\S+\\s+(feature-a|origin\\/feature-a|47870a1)\\b"
+        },
+        {
+          "label": "ไม่ใช้ git rebase main แบบธรรมดา",
+          "pattern": "git rebase\\s+(origin\\/)?main\\b",
+          "negate": true
+        },
+        {
+          "label": "ตรวจผลก่อน push (git log หรือ git diff)",
+          "pattern": "git (log|diff|range-diff|show-branch)\\b[\\s\\S]*git push\\b"
+        },
+        {
+          "label": "push ด้วย --force-with-lease หลัง rebase",
+          "pattern": "git rebase\\b[\\s\\S]*git push\\b[^\\n]*--force-with-lease"
+        },
+        {
+          "label": "ไม่ใช้ force push แบบ -f / --force / +branch",
+          "pattern": "git push\\b[^\\n]*(\\s-f\\b|--force(?![-\\w])|\\s\\+\\S)",
+          "negate": true
+        }
+      ]
+    }
+  ],
+  "refs": [
+    {
+      "title": "Pro Git (หนังสือ Git ฉบับทางการ)",
+      "url": "https://git-scm.com/book/en/v2",
+      "note": "อ่านเรียงบทได้ ตั้งแต่พื้นฐานจนถึง internals"
+    },
+    {
+      "title": "gitworkflows: แยกการเปลี่ยนแปลงและจัดการ branch",
+      "url": "https://git-scm.com/docs/gitworkflows",
+      "note": "หัวข้อ SEPARATE CHANGES, MANAGING BRANCHES, DISTRIBUTED WORKFLOWS"
+    },
+    {
+      "title": "giteveryday: ชุดคำสั่งขั้นต่ำที่ใช้ทุกวัน",
+      "url": "https://git-scm.com/docs/giteveryday",
+      "note": "แบ่งตามบทบาท เช่น developer เดี่ยว, ผู้ร่วมงาน, integrator"
+    },
+    {
+      "title": "gitrevisions: ระบุ commit และช่วง commit (A..B, HEAD~, ^)",
+      "url": "https://git-scm.com/docs/gitrevisions"
+    },
+    {
+      "title": "Pro Git: Searching (git log -S, -L)",
+      "url": "https://git-scm.com/book/en/v2/Git-Tools-Searching",
+      "note": "ค้นหาว่าข้อความหรือฟังก์ชันถูกเพิ่ม/แก้ใน commit ไหน"
+    },
+    {
+      "title": "GitHub Docs: Syncing a fork",
+      "url": "https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/working-with-forks/syncing-a-fork",
+      "note": "fetch upstream แล้ว merge"
+    },
+    {
+      "title": "git-config: gpg.format, user.signingKey, commit.gpgSign",
+      "url": "https://git-scm.com/docs/git-config#Documentation/git-config.txt-gpgformat",
+      "note": "ตั้งค่าเซ็น commit ด้วย openpgp, x509 หรือ ssh"
+    },
+    {
+      "title": "git init: --object-format (sha1 / sha256)",
+      "url": "https://git-scm.com/docs/git-init",
+      "note": "ค่าเริ่มต้น hash และข้อจำกัดของ repo แบบ SHA-256"
+    }
+  ]
 }
