@@ -1,0 +1,6 @@
+[
+  { "id": "foundations", "num": "01", "name": "Foundations", "th": "Software Engineering Fundamentals", "en": "Software Engineering Fundamentals" },
+  { "id": "data", "num": "02", "name": "Data & Security", "th": "Data & Security", "en": "Data & Security" },
+  { "id": "delivery", "num": "03", "name": "Delivery & Ops", "th": "Delivery & Operations", "en": "Delivery & Operations" },
+  { "id": "ai", "num": "04", "name": "AI Fundamentals", "th": "AI Fundamentals for Developers", "en": "AI Fundamentals for Developers" }
+]

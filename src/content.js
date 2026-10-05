@@ -3,10 +3,14 @@
 import { parseContent, trackIndex, tierIndex } from './lib/validate.js';
 import TRACKS from '../content/tracks.json';
 import EXAMS from '../content/exams.json';
+import EN_TRACKS from '../content/en/tracks.json';
+import EN_EXAMS from '../content/en/exams.json';
 
 const files = import.meta.glob('../content/topics/*.{json,md}', { query: '?raw', import: 'default', eager: true });
 
-export { TRACKS, EXAMS };
+const englishFiles = import.meta.glob('../content/en/topics/*.{json,md}', { query: '?raw', import: 'default', eager: true });
+
+export { TRACKS, EXAMS, EN_TRACKS, EN_EXAMS };
 
 const codeNum = (code) => parseInt(String(code || '').replace(/\D/g, ''), 10) || 999;
 
@@ -36,11 +40,20 @@ export const BUILTIN = sortTopics(
     .filter(Boolean),
 );
 
+export const EN_BUILTIN = sortTopics(
+  Object.values(englishFiles)
+    .flatMap((text) => (parseContent(text, { language: 'en' }) || { topics: [] }).topics)
+    .map((t) => normalize(t))
+    .filter(Boolean),
+);
+
 // Temporary topics from the Import page replace built-in ones with the same id.
-export function mergeTopics(custom) {
-  if (!custom.length) return BUILTIN;
+// User-authored imports keep the language supplied by their author.
+export function mergeTopics(custom, language = 'th') {
+  const builtin = language === 'en' ? EN_BUILTIN : BUILTIN;
+  if (!custom.length) return builtin;
   const byId = new Map(custom.map((c) => [c.id, normalize(c, { temp: true })]).filter(([, t]) => t));
-  const out = BUILTIN.map((t) => {
+  const out = builtin.map((t) => {
     const c = byId.get(t.id);
     if (!c) return t;
     byId.delete(t.id);

@@ -1,10 +1,13 @@
+import { useI18n } from '../i18n.jsx';
+
 export function Code({ children }) {
   if (!children) return null;
   return <pre className="code"><code>{children}</code></pre>;
 }
 
 export function Mark({ ok, children }) {
-  return <span className={'mark ' + (ok ? 'mark-ok' : 'mark-bad')}>{children ?? (ok ? 'ถูก' : 'ผิด')}</span>;
+  const { t } = useI18n();
+  return <span className={'mark ' + (ok ? 'mark-ok' : 'mark-bad')}>{children ?? (ok ? t('ถูก', 'Correct') : t('ผิด', 'Incorrect'))}</span>;
 }
 
 export function Progress({ value }) {

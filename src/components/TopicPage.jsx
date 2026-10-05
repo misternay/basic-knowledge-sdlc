@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { TRACKS } from '../content.js';
+import { useI18n } from '../i18n.jsx';
 import { makeItem, shuffle } from '../lib/random.js';
 import { Badge, Code } from './ui.jsx';
 import QuestionRunner from './QuestionRunner.jsx';
@@ -13,12 +13,13 @@ const TIERS = [
 const TABS = [['learn', 'อ่าน'], ['quiz', 'ลองตอบ'], ['exercise', 'แบบฝึกหัด']];
 
 export default function TopicPage({ topics, id, tab }) {
+  const { t: translate, tracks } = useI18n();
   const idx = topics.findIndex((t) => t.id === id);
   if (idx < 0) {
     return (
       <div className="card stack-14">
-        <h1 className="h2">ไม่พบหัวข้อนี้</h1>
-        <a className="btn btn-secondary self-start" href="#/">กลับไปหน้าหัวข้อ</a>
+        <h1 className="h2">{translate('ไม่พบหัวข้อนี้', 'Topic not found')}</h1>
+        <a className="btn btn-secondary self-start" href="#/">{translate('กลับไปหน้าหัวข้อ', 'Back to topics')}</a>
       </div>
     );
   }
@@ -29,9 +30,9 @@ export default function TopicPage({ topics, id, tab }) {
 
   return (
     <div className="stack-20">
-      <div className="crumbs"><a href="#/">หัวข้อทั้งหมด</a><span aria-hidden="true">/</span><span>{TRACKS[t.tr].name}</span></div>
+      <div className="crumbs"><a href="#/">{translate('หัวข้อทั้งหมด', 'All topics')}</a><span aria-hidden="true">/</span><span>{tracks[t.tr].name}</span></div>
       <div className="stack-12">
-        <div className="row-8"><Badge>{t.code}</Badge>{t.temp && <span className="muted small">หัวข้อชั่วคราว หายเมื่อรีเฟรช</span>}</div>
+        <div className="row-8"><Badge>{t.code}</Badge>{t.temp && <span className="muted small">{translate('หัวข้อชั่วคราว หายเมื่อรีเฟรช', 'Temporary topic; cleared on refresh')}</span>}</div>
         <h1 className="h1">{t.title}</h1>
         <p className="lead">{t.blurb}</p>
         <div className="row">
@@ -39,9 +40,11 @@ export default function TopicPage({ topics, id, tab }) {
           {next && <a className="link" href={'#/topic/' + next.id}>{next.title} →</a>}
         </div>
       </div>
-      <nav className="tabs" aria-label="ส่วนของหัวข้อ">
-        {TABS.map(([key, label]) => (
+      <nav className="tabs" aria-label={translate('ส่วนของหัวข้อ', 'Topic sections')}>
+        {TABS.map(([key, th]) => (
+          (() => { const label = translate(th, ({ 'อ่าน': 'Learn', 'ลองตอบ': 'Quiz', 'แบบฝึกหัด': 'Exercises' })[th]); return (
           <a key={key} className="tab" href={key === 'learn' ? base : base + '/' + key} aria-current={tab === key ? 'page' : undefined}>{label}</a>
+          ); })()
         ))}
       </nav>
       {tab === 'quiz' ? (
@@ -51,16 +54,17 @@ export default function TopicPage({ topics, id, tab }) {
             make={() => shuffle(t.questions.map((_, i) => i)).map((i) => makeItem(t, i))}
             exitHref={base}
             doneActions={[
-              t.exercises.length > 0 && { label: 'ไปทำแบบฝึกหัด', href: base + '/exercise', primary: true },
-              next && { label: 'หัวข้อถัดไป: ' + next.title, href: '#/topic/' + next.id },
+              t.exercises.length > 0 && { label: translate('ไปทำแบบฝึกหัด', 'Go to exercises'), href: base + '/exercise', primary: true },
+              next && { label: translate('หัวข้อถัดไป:', 'Next topic:') + ' ' + next.title, href: '#/topic/' + next.id },
             ].filter(Boolean)}
+            topics={topics}
           />
         ) : (
-          <Empty title="หัวข้อนี้ยังไม่มีคำถาม" text="เพิ่มได้โดยนำเข้าไฟล์ที่มีส่วน ## Quiz" />
+              <Empty title={translate('หัวข้อนี้ยังไม่มีคำถาม', 'No questions in this topic yet')} text={translate('เพิ่มได้โดยนำเข้าไฟล์ที่มีส่วน ## Quiz', 'Add questions by importing a file with a ## Quiz section')} />
         )
       ) : tab === 'exercise' ? (
         t.exercises.length ? <Exercises key={t.id} list={t.exercises} /> : (
-          <Empty title="หัวข้อนี้ยังไม่มีแบบฝึกหัด" text="แบบฝึกหัดที่ตรวจอัตโนมัติต้องเขียนเป็น JSON ที่มี exercise และ checks ดูตัวอย่างได้ที่หน้านำเข้า" />
+          <Empty title={translate('หัวข้อนี้ยังไม่มีแบบฝึกหัด', 'No exercises in this topic yet')} text={translate('แบบฝึกหัดที่ตรวจอัตโนมัติต้องเขียนเป็น JSON ที่มี exercise และ checks ดูตัวอย่างได้ที่หน้านำเข้า', 'Auto-checked exercises use JSON with exercise and checks fields. See the import page for an example.')} />
         )
       ) : (
         <Learn t={t} base={base} next={next} />
@@ -69,11 +73,14 @@ export default function TopicPage({ topics, id, tab }) {
   );
 }
 
-function Learn({ t, base, next }) {
+function Learn({ t: topic, base, next }) {
+  const { t } = useI18n();
   return (
     <div className="stack-32 narrow">
-      {TIERS.map(([title, desc], ti) => {
-        const items = t.mustKnow.map((m, i) => ({ m, i })).filter(({ m }) => m.tier === ti);
+      {TIERS.map(([titleTh, descTh], ti) => {
+        const title = t(titleTh, ['Essentials', 'Recommended', 'Advanced'][ti]);
+        const desc = t(descTh, ['Foundations for everyday work', 'Build stronger judgment', 'For larger systems and teams'][ti]);
+        const items = topic.mustKnow.map((m, i) => ({ m, i })).filter(({ m }) => m.tier === ti);
         if (!items.length) return null;
         return (
           <section key={title} className="stack-12">
@@ -83,21 +90,21 @@ function Learn({ t, base, next }) {
                 <div className="item-head">
                   <span className="mono muted">{String(i + 1).padStart(2, '0')}</span>
                   <h3>{m.title}</h3>
-                  {m.exam && <Badge kind="soft">มักถูกถาม</Badge>}
+                {m.exam && <Badge kind="soft">{t('มักถูกถาม', 'Commonly asked')}</Badge>}
                 </div>
                 <p>{m.body}</p>
                 <Code>{m.code}</Code>
-                {m.ref && <a className="link" href={m.ref} target="_blank" rel="noopener noreferrer">อ่านต่อ ↗</a>}
+                {m.ref && <a className="link" href={m.ref} target="_blank" rel="noopener noreferrer">{t('อ่านต่อ', 'Read more')} ↗</a>}
               </article>
             ))}
           </section>
         );
       })}
-      {t.refs.length > 0 && (
+      {topic.refs.length > 0 && (
         <section className="stack-12">
-          <div className="tier-head"><h2 className="h2">อ่านต่อ</h2><span className="muted">แหล่งอ้างอิงหลักของหัวข้อนี้</span></div>
+          <div className="tier-head"><h2 className="h2">{t('อ่านต่อ', 'Further reading')}</h2><span className="muted">{t('แหล่งอ้างอิงหลักของหัวข้อนี้', 'Primary references for this topic')}</span></div>
           <ul className="stack-12">
-            {t.refs.map((r) => (
+            {topic.refs.map((r) => (
               <li key={r.url}>
                 <a className="link" href={r.url} target="_blank" rel="noopener noreferrer">{r.title} ↗</a>
                 {r.note && <span className="muted small"> · {r.note}</span>}
@@ -107,15 +114,15 @@ function Learn({ t, base, next }) {
         </section>
       )}
       <section className="panel-dark stack-12">
-        <h2 className="h3">เข้าใจแล้วหรือยัง?</h2>
+        <h2 className="h3">{t('เข้าใจแล้วหรือยัง?', 'Ready to check your understanding?')}</h2>
         <p className="on-dark-muted">
-          {t.questions.length
-            ? 'ลองตอบคำถาม ' + t.questions.length + ' ข้อ ถ้าตอบผิดจะเห็นคำอธิบายทันทีว่าเข้าใจคลาดตรงไหน'
-            : 'หัวข้อนี้ยังไม่มีคำถาม ไปต่อหัวข้อถัดไปได้เลย'}
+          {topic.questions.length
+            ? t('ลองตอบคำถาม', 'Try') + ' ' + topic.questions.length + ' ' + t('ข้อ ถ้าตอบผิดจะเห็นคำอธิบายทันทีว่าเข้าใจคลาดตรงไหน', 'questions. If you miss one, you’ll see where your understanding diverged.')
+            : t('หัวข้อนี้ยังไม่มีคำถาม ไปต่อหัวข้อถัดไปได้เลย', 'No questions here yet. Continue to the next topic.')}
         </p>
         <div className="row">
-          {t.questions.length > 0 && <a className="btn btn-accent" href={base + '/quiz'}>ลองตอบ {t.questions.length} ข้อ</a>}
-          {next && <a className="btn btn-ghost-dark" href={'#/topic/' + next.id}>หัวข้อถัดไป: {next.title}</a>}
+          {topic.questions.length > 0 && <a className="btn btn-accent" href={base + '/quiz'}>{t('ลองตอบ', 'Try')} {topic.questions.length} {t('ข้อ', 'questions')}</a>}
+          {next && <a className="btn btn-ghost-dark" href={'#/topic/' + next.id}>{t('หัวข้อถัดไป:', 'Next topic:')} {next.title}</a>}
         </div>
       </section>
     </div>
@@ -123,14 +130,15 @@ function Learn({ t, base, next }) {
 }
 
 function Exercises({ list }) {
+  const { t } = useI18n();
   const [i, setI] = useState(0);
   return (
     <div className="stack-20">
       {list.length > 1 && (
-        <div className="chips" role="group" aria-label="เลือกแบบฝึกหัด">
+        <div className="chips" role="group" aria-label={t('เลือกแบบฝึกหัด', 'Choose an exercise')}>
           {list.map((x, n) => (
             <button key={n} type="button" className="chip" aria-pressed={n === i} onClick={() => setI(n)}>
-              ข้อ {n + 1} · {x.level}
+              {t('ข้อ', 'Exercise')} {n + 1} · {t(x.level, ({ 'ง่าย': 'Easy', 'กลาง': 'Intermediate', 'ยาก': 'Advanced' })[x.level] || x.level)}
             </button>
           ))}
         </div>
@@ -141,11 +149,12 @@ function Exercises({ list }) {
 }
 
 function Empty({ title, text }) {
+  const { t } = useI18n();
   return (
     <section className="card card-dashed stack-12 narrow">
       <h2 className="h3">{title}</h2>
       <p>{text}</p>
-      <a className="btn btn-secondary self-start" href="#/import">ไปหน้านำเข้า</a>
+      <a className="btn btn-secondary self-start" href="#/import">{t('ไปหน้านำเข้า', 'Go to import')}</a>
     </section>
   );
 }

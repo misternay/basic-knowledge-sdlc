@@ -1,0 +1,683 @@
+{
+  "id": "docker",
+  "code": "O2",
+  "track": "delivery",
+  "title": "Docker and Containers",
+  "blurb": "Package apps in lightweight containers so they run consistently across environments, build quickly, and shut down cleanly.",
+  "mustKnow": [
+    {
+      "tier": "must",
+      "title": "Images, containers, and registries",
+      "body": "An image is a read-only package containing an application's filesystem (runtime, libraries, and files) plus metadata such as its startup command. A container is a process created from an image with a thin writable layer on top. Multiple containers can use the same image without changing it. A registry such as Docker Hub, GHCR, or ECR stores and distributes images through push and pull. Editing files in a running container does not change its image; update the Dockerfile and rebuild instead.",
+      "code": "docker build -t ghcr.io/acme/myapp:1.4.0 .\ndocker push ghcr.io/acme/myapp:1.4.0\n# เครื่องอื่น pull แล้วรันเป็น container ได้หลายตัว\ndocker run -d --name web1 ghcr.io/acme/myapp:1.4.0\ndocker run -d --name web2 ghcr.io/acme/myapp:1.4.0"
+    },
+    {
+      "tier": "must",
+      "title": "Containers are not virtual machines",
+      "body": "A virtual machine emulates hardware and runs its own kernel. A container is an isolated process on the host: namespaces isolate processes, networking, and filesystems, while cgroups limit resources. Containers share the host kernel, start quickly, and provide less isolation than VMs; kernel vulnerabilities or excessive root privileges can put the host at risk. The image's binaries must also match the machine's CPU architecture. Emulators such as QEMU can run amd64 images on arm64 and vice versa, but more slowly. On macOS and Windows, Docker Desktop runs Linux containers inside a Linux VM."
+    },
+    {
+      "tier": "must",
+      "title": "Image layers and build cache",
+      "body": "Filesystem-changing instructions such as RUN, COPY, and ADD create image layers. Docker can reuse a layer's cache only when that instruction and its inputs match and the preceding layers are cached; a change invalidates that layer and the layers after it. COPY cache depends on file contents, while RUN cache depends on the command text, so a cached RUN does not know that an external package has released a newer version. Put stable steps, such as installing dependencies from a lockfile, before frequently changing steps such as copying application source.",
+      "code": "FROM node:24-slim\nWORKDIR /app\n# cache ของ npm ci อยู่ตราบที่ lockfile ไม่เปลี่ยน\nCOPY package.json package-lock.json ./\nRUN npm ci\n# แก้ source ทำให้ cache หลุดตั้งแต่บรรทัดนี้ลงไป\nCOPY . .\nRUN npm run build"
+    },
+    {
+      "tier": "must",
+      "title": "Multi-stage builds",
+      "body": "A Dockerfile can contain multiple FROM instructions, each starting a new build stage. The final image includes only files copied into the last stage. Put compilers, development dependencies, and source files in a build stage, then use COPY --from to bring only the runtime artifacts into a smaller final stage. This reduces image size and pull time, and removes tools attackers could otherwise use. Check that the final stage includes every runtime file the app needs, such as configuration or migration files.",
+      "code": "FROM golang:1.27 AS build\nWORKDIR /src\nCOPY go.mod go.sum ./\nRUN go mod download\nCOPY . .\nRUN CGO_ENABLED=0 go build -o /out/api ./cmd/api\n\nFROM gcr.io/distroless/static-debian13\nCOPY --from=build /out/api /api\nUSER nonroot\nENTRYPOINT [\"/api\"]"
+    },
+    {
+      "tier": "must",
+      "title": "Run as non-root and use .dockerignore",
+      "body": "If an image does not specify USER (as many base images do not), its container process runs as root (UID 0). If an attacker compromises the app or escapes the container, root access gives them the greatest privileges available. Run as a non-root user instead; for example, the official Node image includes a node user. Set USER before CMD. Use .dockerignore to keep files out of the build context, which speeds builds, avoids cache invalidation from irrelevant files, and prevents COPY . . from including files such as .env or .git. Docker does not use .gitignore.",
+      "code": "# .dockerignore\n.git\nnode_modules\ndist\n.env\n*.log"
+    },
+    {
+      "tier": "must",
+      "title": "Volumes, networks, and port mapping",
+      "body": "Files written only in a container's writable layer disappear when the container is removed. Persist data in a named volume, or use a bind mount to map a host directory into the container (often useful for source files during development). Mount data at the path expected by the image; for example, postgres:18 uses /var/lib/postgresql, not the /var/lib/postgresql/data path used by earlier versions. Port mapping -p 8080:3000 means HOST:CONTAINER. Apps usually need to listen on 0.0.0.0 inside the container. EXPOSE is documentation; it does not publish a port. Containers on the same user-defined network can reach each other by service or container name. Inside a container, localhost refers to that container, not the host.",
+      "code": "docker network create appnet\ndocker volume create pgdata\ndocker run -d --name db --network appnet \\\n  -v pgdata:/var/lib/postgresql \\\n  -e POSTGRES_PASSWORD=dev postgres:18\ndocker run -d --network appnet -p 8080:3000 \\\n  -e DATABASE_HOST=db ghcr.io/acme/myapp:1.4.0"
+    },
+    {
+      "tier": "should",
+      "title": "Docker Compose for local development",
+      "body": "Define the system's services, networks, and volumes in compose.yaml, then start them with docker compose up. Services share a network and can reach one another by service name, such as db:5432. By default, depends_on orders startup but does not wait for the database to accept connections. If readiness matters, add a database healthcheck and use condition: service_healthy. Be careful: docker compose down -v also deletes named volumes and their data.",
+      "code": "services:\n  app:\n    build: .\n    ports: [\"8080:3000\"]\n    environment: { DATABASE_URL: \"postgres://postgres:dev@db:5432/postgres\" }\n    depends_on: { db: { condition: service_healthy } }\n  db:\n    image: postgres:18\n    environment: { POSTGRES_PASSWORD: dev }\n    volumes: [\"pgdata:/var/lib/postgresql\"]\n    healthcheck: { test: [\"CMD\", \"pg_isready\", \"-U\", \"postgres\"], interval: 5s }\nvolumes: { pgdata: {} }"
+    },
+    {
+      "tier": "should",
+      "title": "Tags and digests",
+      "body": "A tag such as :latest or :1.4 is a movable label; it can point to a different image later. A digest (sha256:…) identifies specific image content and does not move. For production, use an immutable release tag (such as 1.4.0 or a Git SHA) or pin the digest so machines run the same image and rollbacks are predictable. Do not assume :latest always means the newest image; it is simply the default tag when none is specified.",
+      "code": "# tag เลื่อนได้: build วันนี้กับเดือนหน้าอาจได้ base คนละตัว\nFROM node:24-slim\n# digest ตายตัว (ดูได้จาก docker images --digests)\nFROM node:24-slim@sha256:<digest>"
+    },
+    {
+      "tier": "should",
+      "title": "Image security",
+      "body": "Start from a small base image, such as slim, distroless, or Alpine. Alpine uses musl libc, which can cause compatibility issues with native modules. Unneeded packages increase the attack surface. Scan images in CI with tools such as Trivy or Docker Scout, and rebuild periodically to pick up base-image patches. Never put secrets in COPY, ENV, or ARG: they can remain in image layers, metadata, or history, even if a later instruction runs rm. If a build needs a secret, use a BuildKit secret mount. At runtime, provide secrets through the environment or a secret manager.",
+      "code": "# Dockerfile: secret ถูก mount เฉพาะตอน RUN นี้ ไม่ถูกเขียนลง layer\nRUN --mount=type=secret,id=npmrc,target=/root/.npmrc npm ci\n\n# คำสั่ง build\ndocker build --secret id=npmrc,src=$HOME/.npmrc -t myapp:1.4.0 ."
+    },
+    {
+      "tier": "should",
+      "title": "SIGTERM and graceful shutdown",
+      "body": "docker stop sends SIGTERM to the main process (PID 1), waits 10 seconds by default, then sends SIGKILL. Kubernetes waits for terminationGracePeriodSeconds, which defaults to 30 seconds. A well-behaved app handles SIGTERM by stopping new requests, finishing in-flight work, closing connections, and exiting. PID 1 in a container does not receive the kernel's usual default signal handling, so a Node.js process may not exit without a handler. Shell-form CMD runs through /bin/sh -c and may prevent signals from reaching the app. Use exec-form CMD (a JSON array) or docker run --init.",
+      "code": "# Dockerfile: exec form ให้ node เป็น PID 1 และได้รับสัญญาณโดยตรง\nCMD [\"node\", \"dist/server.js\"]\n\n// server.js\nprocess.on('SIGTERM', () => {\n  server.close(() => process.exit(0)); // รอ request ที่ค้างจบก่อน\n});"
+    },
+    {
+      "tier": "advanced",
+      "title": "Kubernetes basics",
+      "body": "Kubernetes manages containers across machines. A Pod is its smallest deployable unit and contains one or more containers that share a network. A Deployment maintains the desired number of Pods and performs rolling updates. A Service provides a stable DNS name and routes traffic to available Pods. Pods can be recreated with different IP addresses, so apps should be stateless and read configuration from a ConfigMap or Secret instead of baking it into the image. Kubernetes Secret values are base64-encoded, not encrypted.",
+      "code": "apiVersion: apps/v1\nkind: Deployment\nmetadata: { name: api }\nspec:\n  replicas: 3\n  selector: { matchLabels: { app: api } }\n  template:\n    metadata: { labels: { app: api } }\n    spec:\n      containers:\n        - name: api\n          image: ghcr.io/acme/myapp:1.4.0"
+    },
+    {
+      "tier": "advanced",
+      "title": "Healthchecks, liveness, and readiness",
+      "body": "HEALTHCHECK in a Dockerfile or healthcheck in Compose runs a periodic check and reports a healthy or unhealthy status. Docker alone does not restart an unhealthy container. Kubernetes does not use an image's Docker HEALTHCHECK; define probes separately. A failed readiness probe temporarily removes a Pod from the Service, while a failed liveness probe restarts its container. Do not make liveness depend on a database or external service: if the database slows down, Kubernetes could restart every Pod at once without fixing the cause. Use liveness to check that the process is responsive, and readiness to check dependencies.",
+      "code": "readinessProbe:\n  httpGet: { path: /ready, port: 3000 }\n  periodSeconds: 5\nlivenessProbe:\n  httpGet: { path: /healthz, port: 3000 }\n  periodSeconds: 10\n  failureThreshold: 3"
+    },
+    {
+      "tier": "must",
+      "title": "ENTRYPOINT, CMD, and exec versus shell form",
+      "body": "CMD supplies a default command or arguments that can be overridden; ENTRYPOINT defines the program the container always runs. When both use exec form (JSON arrays), CMD becomes arguments to ENTRYPOINT. Arguments after the image name in docker run replace CMD; use --entrypoint to replace ENTRYPOINT. Shell-form ENTRYPOINT runs through /bin/sh -c, may not forward signals to the program, and ignores CMD and arguments supplied to docker run. If an exec-form ENTRYPOINT is paired with a shell-form CMD, the CMD is also wrapped in /bin/sh -c.",
+      "code": "ENTRYPOINT [\"python\", \"app.py\"]\nCMD [\"--port\", \"8000\"]\n\n# docker run myapi               -> python app.py --port 8000\n# docker run myapi --port 9000   -> python app.py --port 9000",
+      "exam": true,
+      "ref": "https://docs.docker.com/reference/dockerfile/#understand-how-cmd-and-entrypoint-interact"
+    },
+    {
+      "tier": "must",
+      "title": "ARG and ENV: build-time and runtime variables",
+      "body": "ARG defines a build-time variable supplied with --build-arg and is available from its declaration onward; it is not automatically present in the running container. ENV is stored in the image and is available at runtime, where docker run -e can override it. If ARG and ENV share a name, ENV takes precedence. Use ENV X=$X to carry a build argument into the runtime environment. An ARG declared before FROM is outside the build stage, so redeclare it (without a value) inside the stage before using it. Never pass secrets through ARG because they can appear in docker history.",
+      "code": "ARG NODE_VERSION=24\nFROM node:${NODE_VERSION}-slim\n# ARG ก่อน FROM อยู่นอก stage: ประกาศซ้ำ (ไม่ต้องใส่ค่า) จึงจะใช้ใน stage นี้ได้\nARG NODE_VERSION\n# ARG ที่ประกาศใน stage ใช้ได้ทันที ส่วน ENV ทำให้ค่าอยู่ใน container ตอนรัน\nARG APP_ENV=production\nENV APP_ENV=${APP_ENV}",
+      "exam": true,
+      "ref": "https://docs.docker.com/reference/dockerfile/#arg"
+    },
+    {
+      "tier": "must",
+      "title": "RUN apt-get: update and install together",
+      "body": "If RUN apt-get update is on a separate line, Docker may reuse its cached layer when you later change the install command, leaving an old package index and causing installation failures or outdated packages. Combine apt-get update and apt-get install in the same RUN instruction, then remove /var/lib/apt/lists in that instruction so the package index is not stored in the layer. If a RUN command uses pipes, set -o pipefail prevents an earlier command's failure from being hidden. Some shells, including dash in Debian images, do not support it; use exec-form RUN to select a supported shell such as /bin/bash.",
+      "code": "RUN apt-get update && apt-get install -y --no-install-recommends \\\n      curl ca-certificates \\\n && rm -rf /var/lib/apt/lists/*",
+      "ref": "https://docs.docker.com/build/building/best-practices/#apt-get"
+    },
+    {
+      "tier": "must",
+      "title": "Container restart policies",
+      "body": "A restart policy tells Docker whether to restart a container when it exits; the default is no. on-failure[:max-retries] restarts only after a non-zero exit and does not restart the container just because the daemon restarted. always restarts it when the daemon starts, even if it was manually stopped. unless-stopped behaves like always, except that a manually stopped container remains stopped after a daemon restart. Docker applies the policy after the container has run for at least 10 seconds, which helps prevent restart loops during startup.",
+      "code": "docker run -d --name redis --restart unless-stopped redis\n# งานที่ควรจบแล้วจบ: restart เฉพาะตอนล้มเหลว สูงสุด 5 ครั้ง\ndocker run -d --restart on-failure:5 myworker",
+      "exam": true,
+      "ref": "https://docs.docker.com/engine/containers/start-containers-automatically/"
+    },
+    {
+      "tier": "must",
+      "title": "Bind mounts, volumes, and obscured files",
+      "body": "A bind mount maps a host directory into a container; a named volume is managed by Docker. Mounting over a path that already contains files hides the image's original files. For example, mounting the whole project at /app hides node_modules installed in the image. A new empty volume is different: Docker copies the image's existing contents into it the first time. The -v syntax silently creates a missing host directory, so a typo can look like an empty folder. --mount type=bind reports the missing path immediately. Make bind mounts read-only when the container does not need to write to them.",
+      "code": "# error ถ้า ./config ไม่มีอยู่ และ container อ่านได้อย่างเดียว\ndocker run -d \\\n  --mount type=bind,source=\"$(pwd)\"/config,target=/app/config,readonly \\\n  myapp",
+      "exam": true,
+      "ref": "https://docs.docker.com/engine/storage/bind-mounts/"
+    },
+    {
+      "tier": "should",
+      "title": "Container logs: stdout, stderr, and rotation",
+      "body": "Docker captures a container's stdout and stderr (the default driver is json-file), and docker logs displays those streams. Apps should log to stdout/stderr instead of files inside the container; docker logs does not read files written by the app. The json-file driver's default max-size is -1 (unlimited), so logs can fill the host's disk. Set max-size and max-file together; max-file has no effect without max-size. Changes to daemon.json apply only to containers created after Docker restarts.",
+      "code": "// daemon.json (ค่าเป็น string ทั้งหมด)\n{\n  \"log-driver\": \"json-file\",\n  \"log-opts\": { \"max-size\": \"10m\", \"max-file\": \"3\" }\n}\n\n// หรือกำหนดรายตัว\n// docker run --log-opt max-size=10m --log-opt max-file=3 myapp",
+      "ref": "https://docs.docker.com/engine/logging/drivers/json-file/"
+    },
+    {
+      "tier": "should",
+      "title": "Resource limits: --memory, --cpus, and OOM",
+      "body": "By default, a container can use the host's resources as the kernel allows. Set limits with --memory (the minimum hard limit is 6m) and --cpus. For example, --cpus=1.5 sets a CPU quota; it does not reserve a particular core. Use --cpuset-cpus to bind a container to specific cores. If a process exceeds its memory limit, the kernel can kill it rather than merely slow it down. --memory-reservation is a soft limit that applies under host memory pressure; it is not a hard cap, so usage can exceed it.",
+      "code": "docker run -d --memory 512m --memory-reservation 256m \\\n  --cpus 1.5 myapp",
+      "exam": true,
+      "ref": "https://docs.docker.com/engine/containers/resource_constraints/"
+    },
+    {
+      "tier": "should",
+      "title": "Publish ports securely: bind to 127.0.0.1",
+      "body": "On a bridge network, the host and containers on that network can reach a container without publishing its port. The -p option publishes a port on the host and, by default, can expose it beyond the host. Prefix the host port with 127.0.0.1 to make it reachable only from the host, for example for a database used by an app on the same machine. If only other containers need access, do not publish the port. In Docker versions earlier than 28.0.0, other machines on the same layer-2 network could still reach ports bound to localhost.",
+      "code": "# เข้าถึงได้จากภายนอก host ด้วย (ทุก interface)\ndocker run -p 5432:5432 -e POSTGRES_PASSWORD=dev postgres:18\n# เข้าถึงได้จากเครื่อง host เท่านั้น\ndocker run -p 127.0.0.1:5432:5432 -e POSTGRES_PASSWORD=dev postgres:18",
+      "ref": "https://docs.docker.com/engine/network/port-publishing/"
+    },
+    {
+      "tier": "should",
+      "title": "Compose environment-variable precedence",
+      "body": "A variable can be set in several places, and Compose resolves them in this order, from highest to lowest: docker compose run -e; values supplied by the shell or .env file and used by environment or env_file; environment in the Compose file; env_file; then ENV from the image. Dockerfile ENV is used only when Compose provides no value. ARG is build-time only unless passed into ENV. Values in .env substitute for ${VAR} in the Compose file; they enter the container only when referenced by environment or env_file.",
+      "code": "services:\n  api:\n    image: myapi\n    env_file: [app.env]   # LOG_LEVEL=info\n    environment:\n      LOG_LEVEL: debug    # ชนะ env_file และ ENV ใน image\n# docker compose run -e LOG_LEVEL=trace api   -> ชนะทุกที่",
+      "ref": "https://docs.docker.com/compose/how-tos/environment-variables/envvars-precedence/"
+    },
+    {
+      "tier": "advanced",
+      "title": "BuildKit cache mounts: RUN --mount=type=cache",
+      "body": "A cache mount lets the builder reuse a directory, such as a compiler or package-manager cache, across builds without writing it into an image layer or invalidating the instruction cache. If a layer must be rebuilt after a source change, the build can still reuse downloaded packages or compiled artifacts. Treat this as a performance optimization: builds must also succeed with an empty cache, since the builder may clear it when space is low. For tools such as apt that require exclusive access to a cache during simultaneous builds, use sharing=locked.",
+      "code": "# syntax=docker/dockerfile:1\nFROM golang:1.27 AS build\nWORKDIR /src\nCOPY . .\nRUN --mount=type=cache,target=/root/.cache/go-build \\\n    go build -o /out/api ./cmd/api",
+      "ref": "https://docs.docker.com/reference/dockerfile/#run---mounttypecache"
+    },
+    {
+      "tier": "advanced",
+      "title": "Multi-platform builds: buildx and manifest lists",
+      "body": "A multi-platform image uses a manifest list (image index) to point to images for several CPU architectures under one tag. The registry returns the list on pull, and Docker selects the variant for the host. Build one with docker buildx build --platform linux/amd64,linux/arm64. Options include emulation with QEMU (simple but slow), a native multi-machine builder, or cross-compilation using FROM --platform=$BUILDPLATFORM with TARGETOS and TARGETARCH. To store a multi-platform image, use an image store that supports manifest lists, or use a docker-container builder with --push to publish directly to a registry. Docker Desktop and Engine 29.0+ use the containerd image store by default, though upgraded installations may still use the classic storage driver.",
+      "code": "docker buildx build --platform linux/amd64,linux/arm64 \\\n  -t ghcr.io/acme/myapp:1.4.0 --push .\n\n# cross-compile ไม่ผ่าน QEMU\nFROM --platform=$BUILDPLATFORM golang:1.27 AS build\nARG TARGETOS\nARG TARGETARCH\nRUN GOOS=$TARGETOS GOARCH=$TARGETARCH go build -o /out/api .",
+      "ref": "https://docs.docker.com/build/building/multi-platform/"
+    },
+    {
+      "tier": "advanced",
+      "title": "Runtime hardening: read-only filesystems, capabilities, and docker.sock",
+      "body": "Limit the damage an attacker can do inside a compromised container. Use --read-only so the root filesystem cannot be written; provide writable paths only through specified volumes or --tmpfs mounts. Drop all capabilities with --cap-drop ALL, then add back only those needed. Use --security-opt no-new-privileges to prevent processes from gaining additional privileges. Avoid --privileged and do not mount /var/run/docker.sock into a container: that grants control over the host's Docker daemon, which usually runs as root except in rootless mode. In practice, it is comparable to granting root access on the host.",
+      "code": "docker run -d --read-only --tmpfs /tmp \\\n  --cap-drop ALL --security-opt no-new-privileges \\\n  -p 127.0.0.1:8080:3000 ghcr.io/acme/api:2.3.1",
+      "ref": "https://docs.docker.com/reference/cli/docker/container/run/"
+    }
+  ],
+  "questions": [
+    {
+      "prompt": "A source edit invalidates the Docker build cache, so docker build runs npm ci again and takes about three minutes. How should the Dockerfile be changed?",
+      "code": "FROM node:24-slim\nWORKDIR /app\nCOPY . .\nRUN npm ci\nRUN npm run build\nCMD [\"node\", \"dist/server.js\"]",
+      "options": [
+        "Always pass --no-cache so Docker does not reuse confusing old layers.",
+        "Copy package.json and package-lock.json, run npm ci, then copy the rest of the source.",
+        "Combine npm ci and npm run build into one RUN instruction to reduce layers.",
+        "Use npm install instead of npm ci because npm install uses Docker’s cache."
+      ],
+      "answer": 1,
+      "explain": "Docker keys the COPY . . cache to the contents of the whole build context. A source edit therefore invalidates that layer and every later layer. Copy the package manifests first and run npm ci before copying the source; the dependency layer can then be reused until the lockfile changes."
+    },
+    {
+      "prompt": "After docker compose up, the app logs ECONNREFUSED 127.0.0.1:5432 even though the db container is running. What is the likely cause?",
+      "code": "services:\n  app:\n    build: .\n    environment:\n      DATABASE_URL: postgres://postgres:dev@localhost:5432/postgres\n  db:\n    image: postgres:18\n    environment:\n      POSTGRES_PASSWORD: dev",
+      "options": [
+        "Inside the app container, localhost refers to the app itself. Connect to db, the Compose service name.",
+        "The db service must publish ports: [\"5432:5432\"] before the app can connect to it.",
+        "Every service must use network_mode: host because Compose does not create a shared network.",
+        "Postgres 18 disables TCP connections by default; enable them in postgresql.conf."
+      ],
+      "answer": 0,
+      "explain": "Each container has its own network namespace, so localhost inside the app container points back to that container. Compose creates a shared network and DNS entries for service names; connect to db:5432. Publishing the database port is for host access and does not change localhost inside the app."
+    },
+    {
+      "prompt": "You run docker run -p 8080:3000 myapp and curl localhost:8080 from the host, but the connection resets. Inside the container, curl localhost:3000 works. What is the most likely cause?",
+      "options": [
+        "The app listens on 127.0.0.1 inside the container, so it accepts only loopback traffic.",
+        "The Dockerfile is missing EXPOSE 3000, which is required for host-to-container traffic.",
+        "The port order is reversed; use -p 3000:8080 because the container port comes first.",
+        "Containers running as a non-root user cannot receive traffic from outside the container."
+      ],
+      "answer": 0,
+      "explain": "Published traffic reaches the container through its network interface, so the app must listen on 0.0.0.0 rather than the container's loopback address. EXPOSE documents a port but does not publish it. The mapping -p 8080:3000 is already in HOST:CONTAINER order."
+    },
+    {
+      "prompt": "This Dockerfile removes the .npmrc file containing a private registry token. What happens if the resulting image is published publicly?",
+      "code": "FROM node:24-slim\nWORKDIR /app\nCOPY .npmrc package*.json ./\nRUN npm ci\nRUN rm .npmrc\nCOPY . .",
+      "options": [
+        "It is safe because rm removes the file from the final image.",
+        "The token remains in the COPY layer, which anyone who pulls the image can extract.",
+        "It is safe if the image uses a non-root USER because other users cannot read root-owned files.",
+        "The token is gone; building with --no-cache will clear it from the build machine."
+      ],
+      "answer": 1,
+      "explain": "Removing .npmrc in a later layer only hides it from the final filesystem; the earlier layer containing the token is still part of the image. Use a BuildKit secret mount so the token is never written into a layer, and revoke any token that has already been published."
+    },
+    {
+      "prompt": "A Go API image is nearly 1 GB because it uses one golang stage to build and run the app. Which change would reduce the final image size most while keeping the app runnable?",
+      "options": [
+        "Add RUN rm -rf /usr/local/go after the build finishes.",
+        "Use a multi-stage build and copy only the binary into a small runtime image.",
+        "Run docker image prune after each build to remove unused layers.",
+        "Compress docker save output with gzip before pushing it to reduce the image size."
+      ],
+      "answer": 1,
+      "explain": "Removing build tools in a later layer does not remove their bytes from earlier image layers. A multi-stage build leaves the compiler in the build stage and copies only the runtime binary and required files into a small final image."
+    },
+    {
+      "prompt": "The team deploys myapp:latest to three machines. After one machine restarts, it runs a different version and the team cannot identify the previous version for rollback. What should they change?",
+      "options": [
+        "Set the pull policy to pull :latest every time you start so that every machine always gets the newest version.",
+        "Tag every build with the version or non-reusable git SHA and deploy with that tag or digest.",
+        "Use the tag :stable instead of :latest because Docker locks the stable tag so it won't be overwritten.",
+        "Delete the old image from the registry as soon as you push the new one so that no one machine pulls the wrong one."
+      ],
+      "answer": 1,
+      "explain": "A tag can be moved to point to a different image, so machines pulling it at different times may run different versions. Use a versioned, non-reused tag or an image digest for predictable deployments and rollbacks; Docker does not give tags such as :stable any special immutability."
+    },
+    {
+      "prompt": "An image built on an Apple Silicon Mac runs there but fails with “exec format error” on an x86_64 Linux server. Why?",
+      "options": [
+        "The image is built as linux/arm64 and the container runs the binary directly on the host's CPU.",
+        "The host is Ubuntu but the base image is Debian, so they cannot call each other's system calls.",
+        "Docker on the server is older than the Mac, so it doesn't understand the newer layer format.",
+        "On Mac, each container gets its own VM. On Linux, virtualization must be enabled in the BIOS first."
+      ],
+      "answer": 0,
+      "explain": "The image contains a binary for arm64, while the server expects amd64. Containers share the host kernel and do not emulate a different CPU architecture by default. Build for linux/amd64 with buildx, or publish a multi-platform image for both architectures."
+    },
+    {
+      "prompt": "The Node.js app runs with CMD [\"node\", \"server.js\"] but does not handle termination signals. During deployments, docker stop waits about 10 seconds and cuts off in-flight requests. How should the app shut down?",
+      "options": [
+        "Write SIGTERM's handler to stop accepting new requests, wait for pending requests to end, and then exit.",
+        "Use docker stop -t 0 to stop the container immediately. Deploy will be faster and won't hang.",
+        "We switched to docker kill because it sends a more direct signal to the app than docker stop.",
+        "Set restart: always so that the container will restart itself if it is closed while running."
+      ],
+      "answer": 0,
+      "explain": "If the Node process is PID 1, it may not receive the kernel’s usual default handling for SIGTERM. Docker waits 10 seconds, then sends SIGKILL, interrupting in-flight requests. Add a SIGTERM handler that stops new requests, drains pending work, and exits."
+    },
+    {
+      "prompt": "The API livenessProbe checks /health, which also checks the database. When the database was slow for a minute, all API Pods restarted repeatedly. How should the probes be changed?",
+      "options": [
+        "Increase liveness failureThreshold very high to prevent pods from being restarted again.",
+        "Let liveness check only if the process can still respond and move the database check to readiness.",
+        "Delete the probe in Kubernetes and use HEALTHCHECK in Dockerfile to take care of it instead.",
+        "Increase the number of replicas enough to have at least one pod survive the restart."
+      ],
+      "answer": 1,
+      "explain": "A liveness probe should determine whether the app process is stuck and needs restarting. If it also depends on the database, a temporary database slowdown can restart every Pod at once. Put the dependency check in readiness so an unhealthy Pod is removed from service until the database recovers."
+    },
+    {
+      "prompt": "The public image contains a .env file with a database password, even though .env is in .gitignore and the Dockerfile uses COPY . . What caused this, and what should you do?",
+      "options": [
+        "docker build doesn't read .gitignore. You have to put .env in .dockerignore and rotate the leaked password.",
+        "The public registry pulls files from the git repo itself. You need to set the repo to private and then push again.",
+        "You must enter the USER node before COPY . . because non-root will not copy files that begin with a dot.",
+        "Delete .env from the machine and build and push over the original tag without changing the password."
+      ],
+      "answer": 0,
+      "explain": "Docker uses .dockerignore to filter the build context; it does not read .gitignore. Add .env to .dockerignore and rotate the password because it has already been published. Replacing the tag cannot remove copies that others have pulled."
+    },
+    {
+      "prompt": "The image myapi defines ENTRYPOINT and CMD. A user runs docker run myapi --port 9000. What command does the container run?",
+      "code": "FROM python:3.13-slim\nWORKDIR /app\nCOPY . .\nENTRYPOINT [\"python\", \"app.py\"]\nCMD [\"--port\", \"8000\"]",
+      "options": [
+        "python app.py --port 8000 --port 9000, because docker run arguments are appended to CMD.",
+        "Only --port 9000, because docker run arguments replace both ENTRYPOINT and CMD.",
+        "python app.py --port 9000, because docker run arguments replace CMD while ENTRYPOINT remains.",
+        "python app.py --port 8000, because docker run cannot override values in the image."
+      ],
+      "answer": 2,
+      "explain": "With exec-form ENTRYPOINT and CMD, docker run arguments after the image replace CMD and are appended to ENTRYPOINT. They do not replace ENTRYPOINT; use --entrypoint when you need to change the program."
+    },
+    {
+      "prompt": "The Dockerfile adds CMD [\"--verbose\"] so server.js receives the argument, but the log does not change and docker run myapp --debug has no effect. What is the likely cause?",
+      "code": "FROM node:24-slim\nWORKDIR /app\nCOPY . .\nENTRYPOINT node server.js\nCMD [\"--verbose\"]",
+      "options": [
+        "ENTRYPOINT uses shell form, which does not pass CMD or docker run arguments as expected; use exec form.",
+        "CMD must appear before ENTRYPOINT because Docker uses the instruction order to combine them.",
+        "Node.js ignores arguments that begin with -- when it runs in a container.",
+        "CMD and ENTRYPOINT cannot be used together."
+      ],
+      "answer": 0,
+      "explain": "Shell-form ENTRYPOINT runs through /bin/sh -c and does not pass CMD or docker run arguments to the intended program in the expected way. Use exec form for ENTRYPOINT and CMD so the program receives arguments and signals correctly; their order in the Dockerfile is not the issue."
+    },
+    {
+      "prompt": "The image is built with --build-arg APP_ENV=staging, but process.env.APP_ENV is undefined at runtime. How should the Dockerfile make this value available?",
+      "code": "FROM node:24-slim\nARG APP_ENV=production\nWORKDIR /app\nCOPY . .\nCMD [\"node\", \"server.js\"]",
+      "options": [
+        "Change it to ARG APP_ENV without the default value so that Docker will pass it to the container itself.",
+        "Move the ARG before the FROM line and the value will be placed in the container environment.",
+        "Send --build-arg to docker run as well because the same ARG can be used when running.",
+        "Add ENV APP_ENV=$APP_ENV after ARG so that the value is stored in the image."
+      ],
+      "answer": 3,
+      "explain": "ARG is available during the image build but is not automatically present in the running container. Set ENV APP_ENV=$APP_ENV after declaring ARG APP_ENV to store that value in the image's runtime environment. Moving ARG before FROM does not make it a runtime variable."
+    },
+    {
+      "prompt": "The build log prints “building on python ” with no version, even though FROM uses BASE_TAG. Why is BASE_TAG unavailable in RUN?",
+      "code": "ARG BASE_TAG=3.13-slim\nFROM python:${BASE_TAG}\nRUN echo \"building on python $BASE_TAG\"",
+      "options": [
+        "RUN can use only ENV variables, not ARG variables, even when ARG is declared in the stage.",
+        "An ARG declared before FROM is outside the stage; redeclare ARG BASE_TAG inside the stage.",
+        "An ARG default can be used only by FROM, so pass --build-arg to every later command.",
+        "Use ${BASE_TAG:-} instead of $BASE_TAG in every RUN instruction."
+      ],
+      "answer": 1,
+      "explain": "An ARG declared before FROM is available to FROM but is outside the build stage. Declare ARG BASE_TAG again inside the stage to use its value in RUN; the redeclaration inherits the default, so another --build-arg is not required unless you want to override it."
+    },
+    {
+      "prompt": "The build worked last month. After adding nginx to the install command, it now fails or installs an outdated package on the same CI machine. What is the likely cause?",
+      "code": "FROM ubuntu:22.04\nRUN apt-get update\nRUN apt-get install -y --no-install-recommends curl nginx",
+      "options": [
+        "The RUN apt-get update line has not changed, so it uses the old cache. Update and install should be combined in one RUN.",
+        "apt-get update is rerun every build until it pulls up a new list of renamed packages. The update line should be removed.",
+        "Docker does not cache the RUN command that calls apt-get in all cases, so you need to add --no-cache to every build.",
+        "RUN apt-get upgrade must be added at the end to allow Docker to clear the previous layer's cache."
+      ],
+      "answer": 0,
+      "explain": "Docker reuses the unchanged RUN apt-get update layer even when the later install command changes. Combine update and install in one RUN instruction so adding a package refreshes the package index in the same layer."
+    },
+    {
+      "prompt": "A container was started with --restart always, then stopped manually for maintenance. After a machine reboot, it starts again, although the team wants it to return automatically after reboots unless someone manually stopped it. Which policy fits?",
+      "options": [
+        "--restart on-failure because it will restart only when the exit code is abnormal, so it will not turn back on when stop is commanded.",
+        "--restart no and set cron to call docker start at the desired time.",
+        "Keep always because docker stop disables the policy permanently until you command docker start yourself.",
+        "--restart unless-stopped because containers that were manually stopped will not be restarted even after a daemon restart."
+      ],
+      "answer": 3,
+      "explain": "The always policy restarts a container when the Docker daemon restarts, even after a manual stop. unless-stopped preserves a manual stop across daemon restarts while still restarting the container after an unexpected exit or machine reboot when it was not stopped manually."
+    },
+    {
+      "prompt": "The team bind-mounts . at /app during development. After docker compose up, Node reports “Cannot find module,” even though npm ci installed node_modules in the image. What is the best fix?",
+      "code": "services:\n  web:\n    build: .\n    volumes:\n      - .:/app",
+      "options": [
+        "Compose skips npm ci in the Dockerfile whenever a service has a volume, so run npm ci as the command each time.",
+        "The bind mount over /app hides node_modules from the image; mount only the source directory, such as ./src:/app/src.",
+        "Bind mounts are read-only by default, so modules cannot be read. Add :rw each time.",
+        "Always use a named volume instead; bind mounts cannot be used with Node.js."
+      ],
+      "answer": 1,
+      "explain": "Mounting the host project at /app hides the image's existing /app contents, including node_modules. Mount only the source directory (for example, ./src:/app/src) or provide a separate volume for dependencies. Bind mounts are writable by default; Compose does not skip the Dockerfile's npm ci step."
+    },
+    {
+      "prompt": "You meant to mount /srv/pgdata but ran docker run -d -v /srv/pgdta:/var/lib/postgresql ... postgres:18. The database is empty and there is no error. Why?",
+      "options": [
+        "Docker treats the missing host path as a named volume called pgdta.",
+        "A missing bind-mount source becomes an empty file, so Postgres skips initialization.",
+        "The -v syntax silently creates the missing host directory, so Postgres initializes a new database at the wrong path.",
+        "The container writes to its writable layer and Docker will sync the data back to the host later."
+      ],
+      "answer": 2,
+      "explain": "The -v bind-mount syntax silently creates a missing host path as a directory, so a typo can produce an empty directory without an error. --mount type=bind fails when the source path does not exist, making path mistakes easier to catch."
+    },
+    {
+      "prompt": "A named volume called site is mounted at /usr/share/nginx/html. After deploying mysite:2.0, the page still shows the files from mysite:1.0. Why?",
+      "options": [
+        "Docker copies image files into a volume only when it is empty; the existing volume hides the new image files.",
+        "The mysite:2.0 cache still points to the old layer, so it must be pulled again with --no-cache.",
+        "The volume syncs from the image on each start, but the browser cache is stale.",
+        "The named volume locks the image version, so the deployment must use tag 1.0."
+      ],
+      "answer": 0,
+      "explain": "Docker copies image contents into a volume only when the volume is first created and empty. An existing volume retains its data and hides files at that path in the new image. Pulling a newer image does not update the volume."
+    },
+    {
+      "prompt": "The host disk is filling up, and several container log files have grown to multiple gigabytes. What is an effective fix?",
+      "options": [
+        "Set max-file alone; Docker rotates logs daily by default.",
+        "Set max-size and max-file in daemon.json or with --log-opt, then recreate the containers.",
+        "Edit daemon.json and restart Docker; existing containers will immediately use the new limits.",
+        "Run docker logs --tail 100 regularly to make Docker delete older log data."
+      ],
+      "answer": 1,
+      "explain": "The json-file driver has no size limit by default. Configure max-size together with max-file; max-file alone does not enable rotation. Changes in daemon.json apply to newly created containers, so recreate existing containers after changing the daemon settings."
+    },
+    {
+      "prompt": "The app writes logs to /var/log/app/app.log, but docker logs api shows nothing. How can the team make the logs available through docker logs?",
+      "options": [
+        "Switch to the local driver because json-file cannot read files inside a container.",
+        "Add -t to docker logs so it reads the app’s files instead of stdout.",
+        "Mount /var/log/app as a volume because docker logs reads only files in volumes.",
+        "Configure the app to write logs to stdout/stderr, which docker logs captures."
+      ],
+      "answer": 3,
+      "explain": "docker logs reads the container's stdout and stderr streams, not files the app writes inside the container. Configure the app to log to stdout/stderr; changing the logging driver or mounting the log directory will not make docker logs read that file."
+    },
+    {
+      "prompt": "The API container running with --memory 256m disappears periodically. In the app log, there are no errors and the CPU is fine, but during a period of heavy requests, the heap grows to more than 300 MB. What is this symptom most consistent with?",
+      "options": [
+        "Docker sends SIGTERM when the limit is reached, but the app has no handler for it.",
+        "--memory is a soft limit, so the container only slows down; a failing healthcheck caused the restart.",
+        "The process exceeded the hard memory limit and was killed by the kernel’s OOM mechanism; raise the limit or reduce memory use.",
+        "--memory limits swap only, so the CPU quota caused the process to stop."
+      ],
+      "answer": 2,
+      "explain": "--memory sets a hard memory limit. If the container exceeds it, the kernel can kill a process through the OOM mechanism, which may leave no application error in its logs. Increase the limit or reduce the app's memory use; --memory-reservation is a soft limit, not a hard cap."
+    },
+    {
+      "prompt": "A CI job needs to build Docker images, so the team mounted /var/run/docker.sock into its container. Why did the security team object?",
+      "options": [
+        "The container can control the host's Docker daemon and create a container that mounts the host's / directory. This is effectively host-root access.",
+        "The socket accepts only one container at a time, so CI jobs will queue and time out.",
+        "Mounting the socket stores every built image inside the ci-image layer until it grows too large.",
+        "The socket is a TCP port that Docker exposes to the internet, so mounting it enables direct external access."
+      ],
+      "answer": 0,
+      "explain": "Mounting the Docker socket gives the container control of the host's Docker daemon. Since that daemon usually runs as root, the container can create privileged containers or mount the host filesystem, which is effectively host-root access. The socket is a local Unix socket, not an internet-facing TCP port."
+    },
+    {
+      "prompt": "You started Postgres and the app with separate docker run commands, without --network. The app cannot resolve the hostname db, although docker compose up works for the same project. Why?",
+      "options": [
+        "A container name works as a hostname only if its port is published with -p.",
+        "The default bridge does not resolve container names; create a user-defined network, as Compose does.",
+        "Postgres blocks connections from other containers until listen_addresses is set to allow them.",
+        "You must use --link because only Compose provides built-in DNS."
+      ],
+      "answer": 1,
+      "explain": "The default bridge network does not provide DNS resolution by container name. Create a user-defined network, which provides name-based discovery, or use Compose, which creates a project network automatically. Publishing ports does not affect DNS resolution."
+    },
+    {
+      "prompt": "A cloud VM runs Postgres with -p 5432:5432 so apps on that same machine can connect. An attacker later tries to guess the password from outside. How should the port be restricted?",
+      "options": [
+        "Change to -p 15432:5432 because external scanners cannot detect nonstandard ports.",
+        "Remove EXPOSE from the Postgres Dockerfile because EXPOSE opens the port to the internet.",
+        "Bind it to loopback with -p 127.0.0.1:5432:5432, or do not publish it if only another container needs access.",
+        "Set a non-root USER in the container so external users cannot reach the port."
+      ],
+      "answer": 2,
+      "explain": "Publishing a port without a host IP can expose it beyond the machine. Bind it to 127.0.0.1, for example -p 127.0.0.1:5432:5432, to limit access to the host; if only other containers need it, do not publish it. Changing the port number does not restrict who can connect, and EXPOSE is only documentation."
+    },
+    {
+      "prompt": "The API takes about 90 seconds to warm up. Its healthcheck uses --interval=10s --retries=3, so it becomes unhealthy before it is ready and dependent services using condition: service_healthy do not start. What should you change?",
+      "options": [
+        "Set --timeout=90s so each healthcheck waits for the app to be ready before deciding whether it failed.",
+        "Set --interval=1s so the app becomes healthy as soon as it is ready.",
+        "Set --retries=1 so Docker determines readiness faster on the first check.",
+        "Set --start-period=90s so failed checks during startup do not count toward retries."
+      ],
+      "answer": 3,
+      "explain": "start_period gives the app time to initialize without counting failed checks toward the retry threshold. timeout limits the duration of an individual check. Reducing the interval or retries would make Docker mark the still-starting app unhealthy sooner."
+    },
+    {
+      "prompt": "The team wants docker compose up to fail with a clear error when TAG is unset, instead of using an incomplete image name. How should the image line be written?",
+      "code": "services:\n  api:\n    image: ghcr.io/acme/api:${TAG}",
+      "options": [
+        "image: ghcr.io/acme/api:${TAG:?Set TAG before running Compose}",
+        "image: ghcr.io/acme/api:${TAG:-latest} # Use latest when TAG is unset",
+        "image: ghcr.io/acme/api:$$TAG # Escape a shell variable",
+        "image: ghcr.io/acme/api:${TAG-} # Use an empty value when TAG is unset."
+      ],
+      "answer": 0,
+      "explain": "The ${VAR:?message} interpolation form makes Compose exit with an error if the variable is unset or empty. ${TAG:-latest} substitutes a default instead, and an unset variable without a required-value form can become an empty string."
+    },
+    {
+      "prompt": "A teammate runs docker compose up, but the Adminer service does not start even though it is defined beside api and db. How can they start Adminer?",
+      "code": "services:\n  app:\n    image: myapp\n  db:\n    image: postgres:18\n    environment:\n      POSTGRES_PASSWORD: dev\n  adminer:\n    image: adminer\n    profiles: [debug]",
+      "options": [
+        "Remove the profiles line, run Compose once, and restore it because Compose remembers the service state.",
+        "Run docker compose up --build so Compose builds the Adminer image before starting it.",
+        "Run docker compose --profile debug up or set COMPOSE_PROFILES=debug.",
+        "Set restart: always so Docker starts Adminer automatically."
+      ],
+      "answer": 2,
+      "explain": "Compose does not start a service with a profile during a plain docker compose up. Enable the debug profile with docker compose --profile debug up or COMPOSE_PROFILES=debug. --build and restart policies do not select profiled services."
+    },
+    {
+      "prompt": "A Go build takes several minutes after each source edit because the build layer is invalidated and the code is recompiled. How can the team reuse the compiler cache across builds without adding it to the image?",
+      "code": "FROM golang:1.27 AS build\nWORKDIR /src\nCOPY go.mod go.sum ./\nRUN go mod download\nCOPY . .\nRUN go build -o /out/api ./cmd/api",
+      "options": [
+        "Copy /root/.cache/go-build from the previous build into the new image for reuse.",
+        "Move COPY . . before go mod download so Docker can reuse more cache.",
+        "Add --no-cache to make BuildKit create a fresh compiler cache on every build.",
+        "Use RUN --mount=type=cache,target=/root/.cache/go-build with go build; the cache stays outside the image layer."
+      ],
+      "answer": 3,
+      "explain": "A BuildKit cache mount persists the compiler cache across builds without adding it to an image layer. Mount /root/.cache/go-build for the go build step; copying the cache into the image would increase its size, while moving COPY . . earlier would invalidate more build steps."
+    },
+    {
+      "prompt": "Developers use Apple Silicon (arm64) MacBooks, but the server is amd64. How can one tag point to an image that Docker can select for each machine?",
+      "options": [
+        "Build only arm64 and tag it :amd64; Docker converts the binary when pulling.",
+        "Run buildx build --platform linux/amd64,linux/arm64 --push so the registry stores a manifest list.",
+        "Pass --platform linux/amd64 to docker run on every machine so Docker rebuilds for that CPU.",
+        "Add ARG TARGETARCH to the Dockerfile and Docker will choose the architecture when pulling."
+      ],
+      "answer": 1,
+      "explain": "Build and push a multi-platform image with buildx and both target platforms. The registry stores a manifest list under one tag, and Docker selects the matching image when each machine pulls it. Docker does not translate binaries between CPU architectures at pull or run time."
+    }
+  ],
+  "exercises": [
+    {
+      "title": "Write a multi-stage Dockerfile",
+      "level": "กลาง",
+      "tags": "multi-stage · cache · non-root · SIGTERM",
+      "lang": "dockerfile",
+      "prompt": "Write a Dockerfile that (1) separates build and runtime stages, (2) installs dependencies before copying frequently changing source so the dependency layer can be cached, (3) installs only production dependencies in the runtime stage, (4) runs as a non-root user, and (5) uses exec-form CMD so Node receives SIGTERM directly.",
+      "context": "project/\n├─ .dockerignore (already has node_modules, .git, .env)\n├─ package.json\n├─ package-lock.json\n├─ src/\n└─ (npm run build → dist/)",
+      "starter": "# เขียน Dockerfile ที่นี่\nFROM node:24-slim\n",
+      "solution": "FROM node:24-slim AS build\nWORKDIR /app\nCOPY package*.json ./\nRUN npm ci\nCOPY . .\nRUN npm run build\n\nFROM node:24-slim\nWORKDIR /app\nENV NODE_ENV=production\nCOPY package*.json ./\nRUN npm ci --omit=dev\nCOPY --from=build /app/dist ./dist\nUSER node\nEXPOSE 3000\nCMD [\"node\", \"dist/server.js\"]",
+      "hints": [
+        "Use two stages: install all dependencies and build in the first stage; keep only runtime files and production dependencies in the final stage.",
+        "Copy package.json and package-lock.json, run npm ci, then copy the source. In the runtime stage, use npm ci --omit=dev and COPY --from=build /app/dist ./dist.",
+        "The official Node image includes a node user. Set USER node before CMD, and write CMD [\"node\", \"dist/server.js\"] as a JSON array."
+      ],
+      "checks": [
+        {
+          "label": "There are at least 2 stages (FROM two or more times).",
+          "pattern": "^\\s*from\\s[\\s\\S]*^\\s*from\\s"
+        },
+        {
+          "label": "COPY package*.json and install before COPY the entire project",
+          "pattern": "copy\\s+(--\\S+\\s+)*\\[?\\s*\"?\\.?/?package[\\s\\S]*npm\\s+(ci|install|i)\\b[\\s\\S]*copy\\s+(?:--(?!from\\b)\\S+\\s+)*(?!--from)\\[?\\s*\"?(?!\\.?/?package)[^\\s\"\\]]"
+        },
+        {
+          "label": "copy results from build stage (--from)",
+          "pattern": "copy\\s+(--\\S+\\s+)*--from=\\S+"
+        },
+        {
+          "label": "runtime installs only production dependencies",
+          "pattern": "^\\s*from\\s(?!(?:(?!^\\s*from\\s)[\\s\\S])*^\\s*from\\s)[\\s\\S]*?npm\\s+(?:ci|install|i)\\b(?:[^\\n]|\\\\\\n)*(?:--omit[=\\s]+dev|--only[=\\s]+prod|--production)|^\\s*from\\s(?!(?:(?!^\\s*from\\s)[\\s\\S])*^\\s*from\\s)[\\s\\S]*?env\\s[^\\n]*\\bnode_env[=\\s]+[\"']?production[\"']?[^\\n]*\\n[\\s\\S]*?npm\\s+(?:ci|install|i)\\b|^(?=[\\s\\S]*npm\\s+(?:ci|install|i|prune)\\b(?:[^\\n]|\\\\\\n)*(?:--omit[=\\s]+dev|--only[=\\s]+prod|--production))(?=[\\s\\S]*\\s*from\\s(?!(?:(?!^\\s*from\\s)[\\s\\S])*^\\s*from\\s)[\\s\\S]*?copy\\s[^\\n]*--from=\\S+[^\\n]*node_modules)"
+        },
+        {
+          "label": "The last USER of the image is not root.",
+          "pattern": "^\\s*user\\s+(?!(root|0)(\\s|:|$))\\S+(?![\\s\\S]*^\\s*(from|user)\\s)"
+        },
+        {
+          "label": "CMD exec form (JSON array) commands node",
+          "pattern": "^\\s*(cmd|entrypoint)\\s*\\[\\s*\"[^\"]*node\""
+        }
+      ]
+    },
+    {
+      "title": "Write a docker run command for a single-host deployment",
+      "level": "ง่าย",
+      "tags": "docker run · restart policy · resource limit · read-only",
+      "lang": "shell",
+      "prompt": "Deploy ghcr.io/acme/api:2.3.1 to one VM with docker run. The command must: (1) run in the background and name the container api; (2) restart after a Docker daemon or machine restart unless manually stopped; (3) map container port 3000 to host port 8080, accessible only from the host; (4) limit memory to 512m and CPU to 1.5; (5) read environment variables from .env.production; and (6) make the root filesystem read-only while providing a writable tmpfs at /tmp.",
+      "context": "A VM has an nginx reverse proxy on the same machine at http://127.0.0.1:8080. The .env.production file is in the current directory. The app writes temporary files only to /tmp.",
+      "starter": "# เขียนคำสั่ง docker run ที่นี่\ndocker run ghcr.io/acme/api:2.3.1",
+      "solution": "docker run -d --name api \\\n  --restart unless-stopped \\\n  -p 127.0.0.1:8080:3000 \\\n  --memory 512m --cpus 1.5 \\\n  --env-file .env.production \\\n  --read-only --tmpfs /tmp \\\n  ghcr.io/acme/api:2.3.1",
+      "hints": [
+        "Use docker run flags for detached mode, a name, restart policy, published ports, resource limits, an env file, and a read-only filesystem.",
+        "Use --restart unless-stopped. To publish only on the host, prefix the host port with 127.0.0.1: -p 127.0.0.1:8080:3000.",
+        "Set --memory 512m and --cpus 1.5, use --env-file, and combine --read-only with --tmpfs /tmp."
+      ],
+      "checks": [
+        {
+          "label": "Run in the background (-d)",
+          "pattern": "\\s(-[a-z]*d[a-z]*|--detach)(\\s|=|\\\\|$)"
+        },
+        {
+          "label": "Name the container as api.",
+          "pattern": "--name(=|\\s+)[\"']?api[\"']?(\\s|\\\\|$)"
+        },
+        {
+          "label": "restart policy is unless-stopped",
+          "pattern": "--restart(=|\\s+)[\"']?unless-stopped[\"']?(\\s|\\\\|$)"
+        },
+        {
+          "label": "publish only loopback: 127.0.0.1:8080:3000",
+          "pattern": "(-p|--publish)(=|\\s+)[\"']?127\\.0\\.0\\.1:8080:3000(/tcp)?[\"']?(\\s|\\\\|$)"
+        },
+        {
+          "label": "Limited --memory 512m and --cpus 1.5",
+          "pattern": "^(?=[\\s\\S]*(^|\\s)(--memory(=|\\s+)|-m(=|\\s*))[\"']?(512(\\.0+)?(m|mb)|0?\\.50*(g|gb)|524288(k|kb)|536870912b?)[\"']?(\\s|\\\\|$))(?=[\\s\\S]*--cpus(=|\\s+)[\"']?1\\.50*[\"']?(\\s|\\\\|$))"
+        },
+        {
+          "label": "Read env from --env-file .env.production",
+          "pattern": "--env-file(=|\\s+)[\"']?(\\./)?\\.env\\.production[\"']?(\\s|\\\\|$)"
+        },
+        {
+          "label": "--read-only with --tmpfs /tmp",
+          "pattern": "^(?=[\\s\\S]*--read-only(=true)?(\\s|\\\\|$))(?=[\\s\\S]*(--tmpfs(=|\\s+)[\"']?/tmp(?![\\w/-])|type=tmpfs,[^\\s]*(target|destination|dst)=/tmp(?![\\w/-])))"
+        }
+      ]
+    },
+    {
+      "title": "Write a hardened Compose file with a debug profile",
+      "level": "ยาก",
+      "tags": "Compose · interpolation · healthcheck · profiles · hardening",
+      "lang": "yaml",
+      "prompt": "Complete the provided compose.yaml so it is ready to use: (1) read the API image and database password from API_IMAGE and POSTGRES_PASSWORD, and make Compose stop with an error if either variable is missing; (2) publish API port 3000 on host port 8080, accessible only from the host; (3) start the API only after the database is healthy; (4) add a pg_isready healthcheck to db and persist data in the named volume pgdata at /var/lib/postgresql; (5) make the API root filesystem read-only and provide tmpfs at /tmp; (6) drop all Linux capabilities from the API; and (7) add an Adminer service using image adminer, published on host port 8081, enabled only by the debug profile.",
+      "context": "A normal docker compose up should start only api and db. Start Adminer only when debugging with docker compose --profile debug up. The API connects to the database through DATABASE_URL using user app and host db. The app writes temporary files only to /tmp. The password contains only letters and numbers; characters such as /, #, or @ must be percent-encoded before they are used in DATABASE_URL.",
+      "starter": "services:\n  api:\n    image: ghcr.io/acme/api:2.3.1\n    ports:\n      - \"8080:3000\"\n    environment:\n      DATABASE_URL: postgres://app:secret@db:5432/app\n  db:\n    image: postgres:18\n    environment:\n      POSTGRES_USER: app\n      POSTGRES_PASSWORD: secret\n",
+      "solution": "services:\n  api:\n    image: ${API_IMAGE:?set API_IMAGE}\n    ports:\n      - \"127.0.0.1:8080:3000\"\n    environment:\n      DATABASE_URL: postgres://app:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}@db:5432/app\n    depends_on:\n      db:\n        condition: service_healthy\n    read_only: true\n    tmpfs:\n      - /tmp\n    cap_drop:\n      - ALL\n    security_opt:\n      - no-new-privileges:true\n  db:\n    image: postgres:18\n    environment:\n      POSTGRES_USER: app\n      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}\n    volumes:\n      - pgdata:/var/lib/postgresql\n    healthcheck:\n      test: [\"CMD-SHELL\", \"pg_isready -U app\"]\n      interval: 5s\n      timeout: 3s\n      retries: 10\n  adminer:\n    image: adminer\n    ports:\n      - \"127.0.0.1:8081:8080\"\n    profiles: [\"debug\"]\n    depends_on:\n      - db\nvolumes:\n  pgdata:\n",
+      "hints": [
+        "Define api (image, ports, depends_on, and hardening), db (healthcheck and volume), and adminer (debug profile), then declare the top-level pgdata volume.",
+        "Use ${VAR:?message} to make Compose fail when a variable is unset or empty. Use the long depends_on form with condition: service_healthy, and publish only on the host with \"127.0.0.1:8080:3000\".",
+        "For the API, set read_only: true, tmpfs: [\"/tmp\"], cap_drop: [ALL], and security_opt: [\"no-new-privileges:true\"]. Set profiles: [\"debug\"] on Adminer."
+      ],
+      "checks": [
+        {
+          "label": "image and password use ${VAR:?} to make Compose stop when not set",
+          "pattern": "^(?=[\\s\\S]*?^( +)[\"']?api[\"']?:[ ]*(?:#.*)?\\n(?=(?:(?!^(?!\\1[ \\t])[ ]*\\S)[\\s\\S])*?image:\\s*[\"']?\\$\\{api_image:?\\?))(?=[\\s\\S]*\\$\\{postgres_password:?\\?)"
+        },
+        {
+          "label": "api publish only loopback: 127.0.0.1:8080:3000",
+          "pattern": "^(?=[\\s\\S]*?^( +)[\"']?api[\"']?:[ ]*(?:#.*)?\\n(?:(?=(?:(?!^(?!\\1[ \\t])[ ]*\\S)[\\s\\S])*?[\"']?127\\.0\\.0\\.1:8080:3000(?!\\d))|(?=(?:(?!^(?!\\1[ \\t])[ ]*\\S)[\\s\\S])*?host_ip:\\s*[\"']?127\\.0\\.0\\.1)(?=(?:(?!^(?!\\1[ \\t])[ ]*\\S)[\\s\\S])*?published:\\s*[\"']?8080(?!\\d))(?=(?:(?!^(?!\\1[ \\t])[ ]*\\S)[\\s\\S])*?target:\\s*3000(?!\\d))))"
+        },
+        {
+          "label": "api wait db with condition: service_healthy",
+          "pattern": "^(?=[\\s\\S]*?^( +)[\"']?api[\"']?:[ ]*(?:#.*)?\\n(?=(?:(?!^(?!\\1[ \\t])[ ]*\\S)[\\s\\S])*?depends_on:(?:(?!^(?!\\1[ \\t])[ ]*\\S)[\\s\\S])*?[\"']?db[\"']?:(?:(?!^(?!\\1[ \\t])[ ]*\\S)[\\s\\S])*?condition:\\s*[\"']?service_healthy))"
+        },
+        {
+          "label": "The db has healthcheck with pg_isready and volume pgdata at /var/lib/postgresql",
+          "pattern": "^(?=[\\s\\S]*?^( +)[\"']?db[\"']?:[ ]*(?:#.*)?\\n(?=(?:(?!^(?!\\1[ \\t])[ ]*\\S)[\\s\\S])*?healthcheck:(?:(?!^(?!\\1[ \\t])[ ]*\\S)[\\s\\S])*?pg_isready)(?:(?=(?:(?!^(?!\\1[ \\t])[ ]*\\S)[\\s\\S])*?pgdata:/var/lib/postgresql/?(?![\\w/-]))|(?=(?:(?!^(?!\\1[ \\t])[ ]*\\S)[\\s\\S])*?type:\\s*[\"']?volume)(?=(?:(?!^(?!\\1[ \\t])[ ]*\\S)[\\s\\S])*?source:\\s*[\"']?pgdata[\"']?(\\s|$))(?=(?:(?!^(?!\\1[ \\t])[ ]*\\S)[\\s\\S])*?target:\\s*[\"']?/var/lib/postgresql/?(?![\\w/-]))))"
+        },
+        {
+          "label": "api uses read_only: true with tmpfs /tmp",
+          "pattern": "^(?=[\\s\\S]*?^( +)[\"']?api[\"']?:[ ]*(?:#.*)?\\n(?=(?:(?!^(?!\\1[ \\t])[ ]*\\S)[\\s\\S])*?read_only:\\s*[\"']?true[\"']?(\\s|$))(?:(?=(?:(?!^(?!\\1[ \\t])[ ]*\\S)[\\s\\S])*?tmpfs:(?:(?!^(?!\\1[ \\t])[ ]*\\S)[\\s\\S])*?[\"']?/tmp(?![\\w/-]))|(?=(?:(?!^(?!\\1[ \\t])[ ]*\\S)[\\s\\S])*?type:\\s*[\"']?tmpfs)(?=(?:(?!^(?!\\1[ \\t])[ ]*\\S)[\\s\\S])*?target:\\s*[\"']?/tmp(?![\\w/-]))))"
+        },
+        {
+          "label": "api drops all capabilities (cap_drop ALL) and sets no-new-privileges",
+          "pattern": "^(?=[\\s\\S]*?^( +)[\"']?api[\"']?:[ ]*(?:#.*)?\\n(?=(?:(?!^(?!\\1[ \\t])[ ]*\\S)[\\s\\S])*?cap_drop:\\s*(\\[\\s*[\"']?all[\"']?\\s*[,\\]]|\\n\\s*-\\s*[\"']?all[\"']?\\s*(#.*)?$))(?=(?:(?!^(?!\\1[ \\t])[ ]*\\S)[\\s\\S])*?security_opt:(?:(?!^(?!\\1[ \\t])[ ]*\\S)[\\s\\S])*?[\"']?no-new-privileges(?:[=:]true)?[\"']?[ \\t]*(?:#.*)?(?:,|\\]|$)))"
+        },
+        {
+          "label": "adminer is in profile debug",
+          "pattern": "^(?=[\\s\\S]*?^( +)[\"']?adminer[\"']?:[ ]*(?:#.*)?\\n(?=(?:(?!^(?!\\1[ \\t])[ ]*\\S)[\\s\\S])*?profiles:\\s*(\\[(?:[^\\]\\n]*[,\\s])?[\"']?debug[\"']?\\s*[,\\]]|(\\n[ ]*-[ ]*[\"']?\\w+[\"']?[ ]*)*\\n[ ]*-[ ]*[\"']?debug[\"']?(\\s|$))))"
+        }
+      ]
+    }
+  ],
+  "refs": [
+    {
+      "title": "Dockerfile reference",
+      "url": "https://docs.docker.com/reference/dockerfile/",
+      "note": "All instructions include ARG, ENV, ENTRYPOINT/CMD, HEALTHCHECK and RUN --mount."
+    },
+    {
+      "title": "Docker: Building best practices",
+      "url": "https://docs.docker.com/build/building/best-practices/",
+      "note": "Guidelines for writing Dockerfile such as apt-get, pin digest, multi-stage"
+    },
+    {
+      "title": "Compose file reference: services",
+      "url": "https://docs.docker.com/reference/compose-file/services/",
+      "note": "service attributes such as depends_on, healthcheck, read_only, cap_drop, profiles"
+    },
+    {
+      "title": "Compose: Variable interpolation",
+      "url": "https://docs.docker.com/compose/how-tos/environment-variables/variable-interpolation/",
+      "note": "Format ${VAR:-default} and ${VAR:?error}"
+    },
+    {
+      "title": "Docker Engine security",
+      "url": "https://docs.docker.com/engine/security/",
+      "note": "namespaces, daemon attack surface, capabilities"
+    },
+    {
+      "title": "What is Docker? (architecture)",
+      "url": "https://docs.docker.com/get-started/docker-overview/",
+      "note": "client, daemon (dockerd), registry, and Docker objects"
+    },
+    {
+      "title": "OCI Image Format Specification",
+      "url": "https://github.com/opencontainers/image-spec/blob/main/spec.md",
+      "note": "Image manifest, image index, layer and config structure"
+    }
+  ]
+}

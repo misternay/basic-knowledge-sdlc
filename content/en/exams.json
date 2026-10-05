@@ -1,0 +1,16 @@
+[
+  {
+    "id": "placement", "label": "Placement", "title": "Placement Test",
+    "desc": "1 question per topic to see where to start",
+    "pick": { "perTopic": 1 }, "minutesPerQuestion": 1, "placement": true
+  },
+  {
+    "id": "track", "label": "End of Track", "title": "End-of-Track Exam",
+    "perTrack": true, "pick": { "total": 12 }, "minutesPerQuestion": 1.25, "passPct": 70
+  },
+  {
+    "id": "final", "label": "Comprehensive", "title": "Comprehensive Exam",
+    "desc": "2 questions per topic, randomized across all topics",
+    "pick": { "perTopic": 2 }, "minutesPerQuestion": 1.25, "passPct": 70
+  }
+]

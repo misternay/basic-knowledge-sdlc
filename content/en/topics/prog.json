@@ -1,0 +1,701 @@
+{
+  "id": "prog",
+  "code": "F1",
+  "track": "foundations",
+  "title": "Programming",
+  "blurb": "Think in steps, write readable and testable code, and debug with confidence.",
+  "mustKnow": [
+    {
+      "tier": "must",
+      "title": "Data types, truthiness, and equality",
+      "body": "Values of different types behave differently. In JavaScript, `'5' + 1` produces `'51'`, while `'5' - 1` produces `4`, because the language converts types automatically. Use `===` by default to avoid hidden coercion. Conditions such as `if (x)` and fallbacks such as `x || fallback` treat every falsy value (`false`, `0`, `''`, `null`, `undefined`, and `NaN`) as false. A common trap is treating zero or an empty string as if no value were supplied. If you only mean to check for `null` or `undefined`, check explicitly or use `??`.",
+      "code": "'5' + 1    // '51'\n'5' - 1    // 4\n0 || 10    // 10  (0 เป็น falsy)\n0 ?? 10    // 0   (?? สนใจแค่ null/undefined)"
+    },
+    {
+      "tier": "must",
+      "title": "Functions, scope, and closures",
+      "body": "A good function does one thing, has a name that describes it, and uses early returns to handle special cases before they create deeply nested conditionals. `let` and `const` have block scope, while `var` has function scope, so avoid `var` in new code. A function created inside another function remembers variables from its surrounding scope; this is a closure. Closures are useful, but when combined with `var` in a loop, every callback can see the same variable.",
+      "code": "for (var i = 0; i < 3; i++) {\n  setTimeout(() => console.log(i)); // 3 3 3\n}\nfor (let j = 0; j < 3; j++) {\n  setTimeout(() => console.log(j)); // 0 1 2\n}"
+    },
+    {
+      "tier": "must",
+      "title": "Pure functions and side effects",
+      "body": "A pure function returns the same result whenever it receives the same input and does not touch anything outside itself. Side effects include reading the clock, generating random values, making network requests, writing files, or changing variables outside the function. Real programs need side effects, but keep them at the system boundaries so the core logic stays pure and can be tested without mocks. A simple technique is to pass changing values, such as the current time, in as parameters.",
+      "code": "// ทดสอบยาก: ผลขึ้นกับเวลาที่รัน\nconst isExpired = (token) => token.exp < Date.now();\n\n// ทดสอบง่าย: ส่งเวลาเข้ามาเอง\nconst isExpiredAt = (token, now) => token.exp < now;"
+    },
+    {
+      "tier": "must",
+      "title": "Choose the right data structure",
+      "body": "Arrays suit ordered data that you need to traverse, but `includes` and `find` inspect items one by one (O(n)). Use a `Map` to look up values by key, and a `Set` when you only need to know whether a value is present; both can search quickly even with large collections. Most engines use hash tables with average performance around O(1), though the specification only guarantees average access time below linear. A stack (last in, first out) suits undo and back navigation; a queue (first in, first out) suits work that must run in arrival order.",
+      "code": "// จัดกลุ่มครั้งเดียว แล้วค้นด้วย key ได้ทันที\nconst byUser = new Map();\nfor (const o of orders) {\n  if (!byUser.has(o.userId)) byUser.set(o.userId, []);\n  byUser.get(o.userId).push(o);\n}\nbyUser.get(42); // ออเดอร์ทั้งหมดของ user 42"
+    },
+    {
+      "tier": "must",
+      "title": "Error handling and reading stack traces",
+      "body": "Handle an error at the level where you can make a real decision about what to do next. If you cannot recover there, rethrow it with context. Never catch an error and do nothing: the system may continue in a broken state without anyone knowing. Throw an `Error` object rather than a string so the stack trace is preserved. To read a stack trace, start with the error message and find the highest frame in your own code; frames in `node_modules` are often just part of the call path.",
+      "code": "try {\n  await chargeCard(order);\n} catch (err) {\n  // เพิ่มบริบทแต่ยังเก็บ error ต้นทางไว้ใน cause\n  throw new Error(`charge failed: order ${order.id}`, { cause: err });\n}"
+    },
+    {
+      "tier": "must",
+      "title": "Systematic debugging with a debugger",
+      "body": "Start by making the bug reproducible with clear steps or data. If you cannot reproduce it, you cannot prove that it is fixed. Then form a hypothesis about where a value first becomes wrong, set a breakpoint, and verify it step by step with step over/into, watch, and the call stack in a debugger (for example, VS Code or Chrome DevTools via `node --inspect`). If a bug appears only on certain loop iterations, use a conditional breakpoint to stop only when the condition is true instead of pressing Continue hundreds of times."
+    },
+    {
+      "tier": "should",
+      "title": "Big-O: how work grows with data",
+      "body": "Big-O describes how the amount of work grows as the input size n increases; it is not a measurement of elapsed time. O(1) is constant, O(log n) describes binary search, O(n) is one pass, O(n log n) describes common sorting algorithms, and O(n²) often comes from nested loops over a large collection. At n = 100,000, O(n²) means about 10 billion iterations, while O(n log n) is about 1.7 million. A common trap is hidden nested work, such as calling `includes`, `find`, or `filter` inside a loop."
+    },
+    {
+      "tier": "should",
+      "title": "Values, references, and immutability",
+      "body": "Primitives such as numbers, strings, and booleans are copied by value, while objects and arrays are passed by reference. If one part of a program changes an object, every part holding the same reference sees that change. Immutability means creating a new value instead of modifying the old one, which makes it easier to track where and when state changes. Remember that `const` prevents reassignment but does not prevent changes inside an object, and `{ ...obj }` makes only a shallow copy.",
+      "code": "// ไม่แตะ state เดิม: คัดลอก array ชั้นในด้วย\nconst next = { ...state, tags: [...state.tags, 'new'] };\n\n// sort() แก้ array เดิม ส่วน toSorted() (ES2023) คืน array ใหม่\nconst cheapest = items.toSorted((a, b) => a.price - b.price);"
+    },
+    {
+      "tier": "should",
+      "title": "async/await: Promise.all and sequential waits",
+      "body": "`await` waits for one task at a time. If tasks do not depend on one another, awaiting them in sequence makes each later task start only after the previous one finishes, so the total time is roughly the sum of their durations. Start all the functions first, then pass their promises to `Promise.all` to wait concurrently; total time will be close to the slowest task. If any promise rejects, `Promise.all` rejects immediately. Use `Promise.allSettled` when you need the result of every task even if some fail. Tasks that depend on earlier results still need to be awaited in order.",
+      "code": "// ช้า: รอทีละงาน (~300 + 300 ms)\nconst user = await getUser(id);\nconst orders = await getOrders(id);\n\n// เร็วกว่า: งานไม่พึ่งกัน เรียกก่อนแล้วรอรวมกัน (~300 ms)\nconst [u, o] = await Promise.all([getUser(id), getOrders(id)]);"
+    },
+    {
+      "tier": "should",
+      "title": "Async traps: forgetting await and using forEach",
+      "body": "Calling an async function without `await` gives you a promise instead of its resolved value. An error inside it will not be caught by an outer try/catch; if nothing handles it later (for example with `.catch()` or by awaiting the promise in the caller), it becomes an unhandled rejection. `forEach` does not wait for promises returned by its callback, so code after `forEach` runs before those tasks finish. Use `for...of` with `await` for sequential work, or `await Promise.all(items.map(...))` when tasks can run concurrently."
+    },
+    {
+      "tier": "advanced",
+      "title": "Race conditions in single-threaded JavaScript",
+      "body": "JavaScript runs one piece of code at a time, but other work can run whenever execution reaches `await`. That makes a read → await → write sequence vulnerable to lost updates when two requests run concurrently. For example, both requests may read inventory as 1 and each sell the same item. Have the database check and update in one atomic operation, or use a transaction or lock.",
+      "code": "// เสี่ยง: สอง request อ่านได้ 1 พร้อมกัน แล้วขายเกิน\nconst stock = await getStock(id);\nif (stock > 0) await setStock(id, stock - 1);\n\n// ปลอดภัยกว่า: เช็กและลดในคำสั่งเดียว\n// UPDATE products SET stock = stock - 1\n// WHERE id = $1 AND stock > 0"
+    },
+    {
+      "tier": "advanced",
+      "title": "Profile before optimizing",
+      "body": "Do not optimize based on guesses: the slow part is often somewhere unexpected. Measure with a profiler, such as the Performance tab in Chrome DevTools or `node --cpu-prof`, then find which functions use the most time. Change the biggest cost and measure again to confirm the improvement. Often the most effective fix is a better algorithm or data structure, not a micro-optimization."
+    },
+    {
+      "tier": "must",
+      "title": "Recursion: base cases and stack overflows",
+      "body": "Recursion is when a function calls itself to solve a problem that can be broken into smaller problems of the same kind, such as traversing nested folders or a tree. Every recursive function needs a base case that returns without calling itself, and every recursive call must move closer to that case. Otherwise, calls keep stacking up until the call stack fills and raises `RangeError: Maximum call stack size exceeded` (Firefox says too much recursion). A common trap is checking `n === 0` when n decreases by 2 and skips zero; check `n <= 0` instead. For very deep data, use a loop and your own stack.",
+      "code": "function sumTo(n) {\n  if (n <= 0) return 0;      // base case\n  return n + sumTo(n - 1);   // ขยับเข้าใกล้ base case\n}\nsumTo(4); // 10\n// ถ้าไม่เคยไปถึง base case จะเกิด\n// RangeError: Maximum call stack size exceeded",
+      "exam": true,
+      "ref": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Errors/Too_much_recursion"
+    },
+    {
+      "tier": "must",
+      "title": "map, filter, reduce, and higher-order functions",
+      "body": "A higher-order function takes another function as an argument or returns one. Common array methods are `map` (transform each item into a new array of the same length), `filter` (keep items whose callback returns a truthy value), and `reduce` (combine an array into one value). These methods do not modify the original array, so they can be chained and are easy to test. A common trap is calling `reduce` on an empty array without an initial value, which throws a TypeError. Also, `map` passes (value, index, array) to its callback, so `['1', '2', '3'].map(parseInt)` unexpectedly returns `[1, NaN, NaN]`.",
+      "code": "const orders = [{ price: 120 }, { price: 80 }, { price: 300 }];\nconst total = orders\n  .filter((o) => o.price >= 100)\n  .map((o) => o.price)\n  .reduce((sum, p) => sum + p, 0);  // 0 = ค่าเริ่มต้น\n// total = 420\n[].reduce((a, b) => a + b);         // TypeError\n['1', '2', '3'].map(parseInt);      // [1, NaN, NaN]",
+      "ref": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/reduce"
+    },
+    {
+      "tier": "must",
+      "title": "Array.sort: string ordering and in-place changes",
+      "body": "Without a comparator, `sort()` converts items to strings and compares their UTF-16 code units, so `[10, 9, 1].sort()` produces `[1, 10, 9]`. To sort numbers, pass a comparator such as `(a, b) => a - b` (a negative value puts a first). `sort` also changes the original array and returns the same reference, which can affect other parts of your program that share it. Use `toSorted()` or copy first with `[...arr].sort()` when you need a new array.",
+      "code": "[10, 9, 1].sort();                 // [1, 10, 9]  (เทียบเป็น string)\n[10, 9, 1].sort((a, b) => a - b);  // [1, 9, 10]\n\nconst scores = [5, 3, 8];\nconst top = scores.sort((a, b) => b - a);\nconsole.log(scores === top);       // true (sort แก้ scores เอง)\nconst copy = scores.toSorted((a, b) => a - b); // array ใหม่",
+      "exam": true,
+      "ref": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/sort"
+    },
+    {
+      "tier": "must",
+      "title": "this: call sites and arrow functions",
+      "body": "For a regular function, `this` is determined by how the function is called, not where it was declared. Calling `obj.method()` sets `this` to `obj`; calling a detached method or passing it as a callback makes `this` depend on the callback caller, which is usually `undefined` (or the global object in non-strict mode). Reading `this.field` can then throw a TypeError, especially in a class, where strict mode always applies. Arrow functions have no `this` of their own and use the surrounding context's `this`. They work well as callbacks inside a method, but usually not as object methods because `this` will not refer to that object. Use `bind` or an arrow function as a class field when you need to lock `this`.",
+      "code": "class Greeter {\n  name = 'Dev';\n  greet() { return this.name; }\n}\nconst g = new Greeter();\ng.greet();                // 'Dev'\nconst fn = g.greet;\nfn();                     // TypeError (this เป็น undefined)\nsetTimeout(g.greet, 0);   // this ไม่ใช่ g (ใน Node เป็น Timeout object) ได้ undefined ไม่ใช่ 'Dev'\nsetTimeout(() => g.greet(), 0);  // ใช้ได้",
+      "exam": true,
+      "ref": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/this"
+    },
+    {
+      "tier": "must",
+      "title": "Unit tests: arrange, act, assert, and edge cases",
+      "body": "A unit test checks the behavior of a small unit, such as one function, by providing known input and comparing the result with an expected value. A common structure is arrange (prepare data), act (call the function), and assert (check the result). Tests should be independent and named for the behavior they check. Edge cases are often the most valuable: an empty array, a boundary value such as 0 or the last item, and malformed input. When you find a bug, first write a test that fails because of it, then fix the code. Node.js includes the `node:test` runner, which works with `node:assert`; run it with `node --test`.",
+      "code": "import { test } from 'node:test';\nimport assert from 'node:assert/strict';\nfunction average(nums) {\n  if (nums.length === 0) throw new RangeError('empty');\n  return nums.reduce((s, n) => s + n, 0) / nums.length;\n}\ntest('average ของ [2, 4] คือ 3', () => {\n  assert.equal(average([2, 4]), 3);\n});\ntest('array ว่างต้อง throw RangeError', () => {\n  assert.throws(() => average([]), RangeError);\n});",
+      "exam": true,
+      "ref": "https://nodejs.org/api/test.html"
+    },
+    {
+      "tier": "should",
+      "title": "Decimals, money, and large numbers: Number and BigInt",
+      "body": "JavaScript `Number` uses IEEE 754 double-precision 64-bit floating point. Decimal fractions such as 0.1 and 0.2 have no finite binary representation, so they are stored approximately; `0.1 + 0.2` becomes `0.30000000000000004`. Do not compare decimals with `===`. A common approach for money is to store an integer in the smallest unit (for example, 1999 cents instead of 19.99). `Number` represents every integer exactly only within ±(2^53 − 1); beyond that, some values are rounded. For values outside that range, such as a 64-bit ID, use `BigInt` (which cannot be mixed directly with `Number` without a TypeError) or pass the value as a string from the start.",
+      "code": "0.1 + 0.2 === 0.3                           // false\nMath.abs(0.1 + 0.2 - 0.3) < Number.EPSILON // true (ใช้กับค่าใกล้ 1)\n4.35 * 100                                 // 434.99999999999994\nMath.round(4.35 * 100)                     // 435\nNumber.MAX_SAFE_INTEGER                    // 9007199254740991\n9007199254740993n + 1n                     // 9007199254740994n\n1n + 1                                     // TypeError",
+      "ref": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Number"
+    },
+    {
+      "tier": "should",
+      "title": "Event loop: microtasks run before the next task",
+      "body": "JavaScript processes one job at a time using run-to-completion: a job finishes before another begins. A `setTimeout` callback or an I/O result waits in a queue until the call stack is empty. Microtasks, such as promise callbacks, have higher priority and are drained before the next task is taken. When a promise is already ready, its `.then` callback therefore runs before a `setTimeout(..., 0)` scheduled in the same turn. Long-running synchronous code blocks everything, including timers whose delay has elapsed.",
+      "code": "console.log('A');\nsetTimeout(() => console.log('B'), 0);\nPromise.resolve().then(() => console.log('C'));\nconsole.log('D');\n// ลำดับที่พิมพ์: A D C B",
+      "ref": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Event_loop"
+    },
+    {
+      "tier": "should",
+      "title": "Date: zero-based months and time zone traps",
+      "body": "In `new Date(y, m, d)`, months start at 0 (January = 0), and out-of-range values roll over into the next year. Thus `new Date(2025, 12, 1)` is January 1, 2026. A date-only string such as `'2025-03-01'` is interpreted as UTC, while `'2025-03-01T00:00:00'` (with a time but no offset) is interpreted as local time; in a negative UTC zone, `getDate()` may return the previous day. Store and send times as ISO 8601 with `Z` or an offset, then convert to local time for display.",
+      "code": "new Date(2025, 12, 1);        // 1 ม.ค. 2026 (ธันวาคมคือ 11)\nnew Date(2025, 11, 1);        // 1 ธ.ค. 2025\n\nconst d = new Date('2025-03-01');  // 00:00 UTC\nd.getDate();     // นิวยอร์ก (UTC-5): 28, กรุงเทพ (UTC+7): 1\nd.getUTCDate();  // 1 ทุกโซน",
+      "ref": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Date"
+    },
+    {
+      "tier": "should",
+      "title": "Binary search: fast because the data is sorted",
+      "body": "Binary search checks the middle of a range and discards half each round, so it takes O(log n), at most ⌊log₂ n + 1⌋ comparisons in the worst case. With 1,000,000 items, that is no more than 20 rounds. It only works when the array is sorted: otherwise, discarding half can remove the value you are looking for and return the wrong result. For one lookup, sorting first costs O(n log n), more than a linear scan at O(n). For frequent lookups by key, hash-based structures such as `Map` or `Set` (used by most engines) are often faster than sorting and binary searching.",
+      "code": "function binarySearch(sorted, target) {\n  let lo = 0, hi = sorted.length - 1;\n  while (lo <= hi) {\n    const mid = Math.floor((lo + hi) / 2);\n    if (sorted[mid] === target) return mid;\n    if (sorted[mid] < target) lo = mid + 1;\n    else hi = mid - 1;\n  }\n  return -1;\n}\nbinarySearch([1, 3, 5, 7, 9], 7); // 3",
+      "exam": true,
+      "ref": "https://en.wikipedia.org/wiki/Binary_search"
+    },
+    {
+      "tier": "advanced",
+      "title": "Text and Unicode: length is not the number of visible characters",
+      "body": "`str.length` counts UTF-16 code units, not the characters a user sees. A character outside the BMP, such as `'𠮷'`, or most emoji has a `.length` of 2. A Thai grapheme containing a combining mark, represented here as `'\\u0e01\\u0e47'` (U+0E01 plus U+0E47), also has a length of 2 because it consists of separate code points. `[...str]` counts code points, but still returns 2 for that grapheme. To count visible characters (grapheme clusters), use `Intl.Segmenter` with `granularity: 'grapheme'`. This is why a length limit or `slice` can split a visible character or reject text that looks short enough.",
+      "code": "'𠮷'.length;                    // 2\n'ก็'.length;                    // 2  (ก + ็)\n[...'ก็'].length;               // 2  (นับ code point)\nconst seg = new Intl.Segmenter('th', { granularity: 'grapheme' });\n[...seg.segment('ก็')].length;  // 1",
+      "ref": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/String/length"
+    },
+    {
+      "tier": "advanced",
+      "title": "ReDoS: regex backtracking that can stall a server",
+      "body": "Most regex engines use backtracking: when a match fails, they go back and try another path. With nested quantifiers such as `(a+)+$` or overlapping alternatives, a nearly matching input such as `aaaa…a!` can cause the number of paths to grow exponentially and tie up the CPU (ReDoS). Since JavaScript runs on a single thread, this stall blocks every request. Node.js documentation recommends avoiding nested quantifiers and overlapping OR clauses. Be careful when using complex regexes on user input. Tools such as safe-regex can help, but do not catch every case. Another option is an engine such as RE2 via the node-re2 module, which is not fully compatible with every regex feature.",
+      "code": "const evil = /^(a+)+$/;\nevil.test('a'.repeat(30) + '!');  // ค้างหลายวินาที (ขึ้นกับเครื่อง)\n\nconst safe = /^a+$/;\nsafe.test('a'.repeat(30) + '!');  // false ทันที",
+      "ref": "https://nodejs.org/en/learn/asynchronous-work/dont-block-the-event-loop"
+    },
+    {
+      "tier": "advanced",
+      "title": "CPU-heavy work blocks the event loop: use worker threads",
+      "body": "Our Node.js code runs on a single thread. Synchronous, CPU-heavy work, such as a loop with billions of iterations or parsing a very large JSON document, makes every other request wait. Adding `async` to a function does not help because its body still runs on the same thread. Move CPU work to a Worker thread (`node:worker_threads`) or a separate process. Node.js documentation says Workers suit CPU-intensive tasks but provide little benefit for I/O, since built-in asynchronous I/O is already more efficient.",
+      "code": "const { Worker, isMainThread, parentPort, workerData } =\n  require('node:worker_threads');\nif (isMainThread) {\n  const w = new Worker(__filename, { workerData: 35 });\n  w.on('message', (r) => console.log('fib =', r));\n} else {\n  const fib = (n) => (n < 2 ? n : fib(n - 1) + fib(n - 2));\n  parentPort.postMessage(fib(workerData)); // รันในเธรดแยก\n}",
+      "ref": "https://nodejs.org/api/worker_threads.html"
+    }
+  ],
+  "questions": [
+    {
+      "prompt": "A product page shows “quantity unknown” for an out-of-stock item (qty = 0), even though the system knows its quantity. Why?",
+      "code": "function formatStock(qty) {\n  if (!qty) return 'ไม่ทราบจำนวน';\n  return `เหลือ ${qty} ชิ้น`;\n}\nformatStock(0);",
+      "options": [
+        "qty arrived as the string '0', so the comparison fails",
+        "0 is falsy, so !qty treats it like undefined",
+        "A template literal converts 0 to an empty value before rendering",
+        "The condition only works correctly if an else follows the return"
+      ],
+      "answer": 1,
+      "explain": "`!0` is true because 0 is falsy, so the function treats zero inventory as missing data. Check `qty == null` or `qty === undefined` according to your intent. By contrast, `!\"0\"` is false, so the string case is not the cause."
+    },
+    {
+      "prompt": "A test for calculateShipping(order) passes alone but fails when run alongside other test files. The function reads config.rate, a shared app object that another test changes. What is the most direct fix?",
+      "options": [
+        "Increase the test timeout in case config loads slowly",
+        "Make the test runner run files sequentially instead of in parallel",
+        "Pass rate as a parameter so the function depends only on its input",
+        "Wrap the config.rate read in try/catch"
+      ],
+      "answer": 2,
+      "explain": "The function is impure because it depends on mutable external state. Passing rate in makes the result depend only on the input and makes the test deterministic. Running tests sequentially only hides the symptom; the shared state remains."
+    },
+    {
+      "prompt": "A script removes duplicate orders from 200,000 records using result.includes(o.id) inside a loop, and takes several minutes. How should it be improved?",
+      "options": [
+        "Replace includes with indexOf, which is faster",
+        "Sort the array first, then keep using includes",
+        "Store seen IDs in a Set and check them with has()",
+        "Replace for...of with forEach"
+      ],
+      "answer": 2,
+      "explain": "includes scans the array on every iteration, giving O(n²) total work. Set.has is close to constant time, reducing the overall work to about O(n). Sorting does not help because includes still scans, and indexOf searches the same way."
+    },
+    {
+      "prompt": "There are 20,000 users and 500,000 orders, and this code is very slow. Which change reduces the most work?",
+      "code": "const report = users.map((u) => ({\n  name: u.name,\n  orders: orders.filter((o) => o.userId === u.id),\n}));",
+      "options": [
+        "Group orders in a Map by userId once, then map over users",
+        "Replace filter with find so it stops sooner",
+        "Wrap filter in Promise.all to run it concurrently",
+        "Replace the outer map with a plain for loop"
+      ],
+      "answer": 0,
+      "explain": "filter inside map is a nested loop, doing about 20,000 × 500,000 checks. Grouping once in a Map reduces this to roughly users + orders operations. find would return only the first order and be incorrect; changing loop syntax does not change Big-O."
+    },
+    {
+      "prompt": "An API returns 500, and its log contains this stack trace. Where should you start investigating?",
+      "code": "TypeError: Cannot read properties of undefined (reading 'email')\n    at sendWelcome (/app/src/mailer.js:12:24)\n    at createUser (/app/src/users.js:40:5)\n    at Layer.handle (/app/node_modules/express/lib/router/layer.js:95:5)",
+      "options": [
+        "layer.js:95, because it is the deepest point in the trace",
+        "Check that every database user row has an email field",
+        "mailer.js:12, then trace the value passed from users.js:40",
+        "Upgrade Express because the error occurred in node_modules"
+      ],
+      "answer": 2,
+      "explain": "The message says that the object whose `.email` is being read is undefined; it does not say that email itself is missing. The highest frame in our code is mailer.js:12, and users.js:40 supplied the value. The Express frame is just part of the request path."
+    },
+    {
+      "prompt": "What happens if chargeCard fails because the card is declined?",
+      "code": "try {\n  await chargeCard(order);\n} catch (e) {}\nawait markAsPaid(order);",
+      "options": [
+        "Node.js stops the program because the error is unhandled",
+        "The order is marked paid even though the charge failed, with no log",
+        "markAsPaid is automatically skipped after the earlier error",
+        "The error is automatically printed to the console and execution continues"
+      ],
+      "answer": 1,
+      "explain": "The empty catch silently swallows the error, so execution continues to markAsPaid as if nothing happened. Nothing is automatically skipped or logged. Log the failure and return, or rethrow it so markAsPaid is not reached."
+    },
+    {
+      "prompt": "A price-calculation function loops over 10,000 products, and you know the result is wrong only for product id \"A-913\". What is the most effective debugger technique?",
+      "options": [
+        "Set a breakpoint in the loop and press Continue until A-913",
+        "Use a conditional breakpoint for item.id === \"A-913\" and inspect the values",
+        "Step over every line starting from the beginning of the function",
+        "Add console.log to every line and search the output"
+      ],
+      "answer": 1,
+      "explain": "A conditional breakpoint stops only on the iteration of interest, where you can inspect values and step through immediately. Continuing or stepping from the start takes thousands of actions; logging every line creates huge output and requires code edits."
+    },
+    {
+      "prompt": "What does the final line print?",
+      "code": "const defaults = { theme: 'light', tags: [] };\n\nfunction withTag(settings, tag) {\n  const copy = { ...settings };\n  copy.tags.push(tag);\n  return copy;\n}\n\nwithTag(defaults, 'new');\nconsole.log(defaults.tags);",
+      "options": [
+        "[]",
+        "['new']",
+        "TypeError because defaults is const",
+        "undefined"
+      ],
+      "answer": 1,
+      "explain": "Spread makes only a shallow copy, so copy.tags and defaults.tags refer to the same array. Calling push therefore changes the default too. `const` prevents reassignment, not changes to nested values. Use `{ ...settings, tags: [...settings.tags, tag] }`."
+    },
+    {
+      "prompt": "A dashboard loads three independent resources, each taking about 300 ms, but the page takes about 900 ms. How should it be fixed?",
+      "code": "const user = await getUser(id);\nconst orders = await getOrders(id);\nconst points = await getPoints(id);",
+      "options": [
+        "Remove all await keywords so the code does not have to wait",
+        "Move all three lines into a separate async function",
+        "Start all three with Promise.all and wait once for the results",
+        "Run the three functions in a for...of loop with await"
+      ],
+      "answer": 2,
+      "explain": "Call all three functions first and pass their promises to Promise.all so the work overlaps. The total time becomes close to the slowest request (~300 ms). Without await you get promises instead of data; for...of with await still waits sequentially."
+    },
+    {
+      "prompt": "The log “All records saved” appears before the records are actually saved, and sometimes there is an unhandled rejection. Why?",
+      "code": "async function saveAll(items) {\n  items.forEach(async (item) => {\n    await db.save(item);\n  });\n  console.log('บันทึกครบแล้ว');\n}",
+      "options": [
+        "forEach does not wait for promises from its callback, so saveAll continues immediately",
+        "db.save processes one record at a time, making the log appear early",
+        "await cannot be used in an arrow function, so it is skipped",
+        "console.log is asynchronous, so its order is unpredictable"
+      ],
+      "answer": 0,
+      "explain": "forEach invokes the callback and discards its promise; it neither waits nor propagates its rejection. That explains both the early log and the unhandled rejection. `await` works in async arrow functions. Use for...of with await, or `await Promise.all(items.map(...))`."
+    },
+    {
+      "prompt": "A leaderboard should sort scores numerically from low to high, but shows 1, 10, 100, 9. Why?",
+      "code": "const scores = [10, 9, 1, 100];\nscores.sort();\nconsole.log(scores); // [1, 10, 100, 9]",
+      "options": [
+        "The values were stored as strings when the array was created",
+        "sort without a comparator compares strings, so \"10\" comes before \"9\"",
+        "sort only works with strings, so values must be converted back to numbers afterward",
+        "sort compares only the ones digit once; call it again to sort tens and hundreds"
+      ],
+      "answer": 1,
+      "explain": "Without a comparator, values are converted to strings and compared lexicographically, so \"10\" < \"9\". Use `(a, b) => a - b`. The array values remain numbers; they are not stored as strings."
+    },
+    {
+      "prompt": "This menu-depth function is called as depth(5) and raises RangeError: Maximum call stack size exceeded. What should be fixed?",
+      "code": "function depth(n) {\n  if (n === 0) return 0;\n  return 1 + depth(n - 2);\n}\ndepth(5);",
+      "options": [
+        "Increase Node.js call stack size so deeper calls fit",
+        "Make depth async so recursive calls do not accumulate on the stack",
+        "Use an arrow function because each call uses less stack space",
+        "Change the base case to n <= 0 because n goes 5, 3, 1, -1 and skips 0"
+      ],
+      "answer": 3,
+      "explain": "The base case is never reached (5 → 3 → 1 → -1 …); the stack is not simply too small. Increasing it or changing the function form only delays the failure without making recursion terminate."
+    },
+    {
+      "prompt": "A cart total works when the cart has items but throws a TypeError when it is empty. What is the direct fix?",
+      "code": "const total = prices.reduce((sum, p) => sum + p);",
+      "options": [
+        "Provide an initial value as the second argument: reduce((s, p) => s + p, 0)",
+        "Use forEach instead, because reduce cannot be used with an empty array",
+        "Wrap reduce in try/catch and return 0 when it throws",
+        "Check that p is a number before adding each array item"
+      ],
+      "answer": 0,
+      "explain": "reduce without an initialValue throws on an empty array because there is no first item to use as the accumulator. Providing 0 fixes the cause. try/catch can produce the same result, but hides the issue and makes the code harder to read."
+    },
+    {
+      "prompt": "The team extracts a greet method into a standalone variable and gets TypeError: Cannot read properties of undefined (reading 'name'). Why?",
+      "code": "class Greeter {\n  name = 'Dev';\n  greet() { return `สวัสดี ${this.name}`; }\n}\nconst { greet } = new Greeter();\ngreet();",
+      "options": [
+        "name must be declared with this.name in the constructor",
+        "Template literals cannot read this; concatenate strings with + instead",
+        "The method is called without an object receiver, so this is undefined in strict mode",
+        "Destructuring the method deletes name from the original instance"
+      ],
+      "answer": 2,
+      "explain": "The value of this depends on how a function is called (and class code always runs in strict mode), not where it is declared. Calling `greet()` alone binds no object, so this is undefined. Use `bind`, an arrow function class field, or call `g.greet()`. A class field can be read through this normally."
+    },
+    {
+      "prompt": "A system converts 4.35 baht to satang with this code, but charges 434 instead of 435 satang. What is the soundest fix?",
+      "code": "const satang = Math.floor(4.35 * 100); // 434",
+      "options": [
+        "Store money as integer satang and use Math.round when converting",
+        "Use Math.ceil so every value rounds up and can never be short",
+        "Call toFixed(20) on 4.35 before multiplying for more precision",
+        "Subtract a small constant from the product, then always round down"
+      ],
+      "answer": 0,
+      "explain": "4.35 * 100 evaluates to 434.99999999999994 because 4.35 cannot be represented exactly in binary floating point. Math.floor then drops one satang. Math.ceil is also wrong: for example, 0.07 * 100 can be 7.000000000000001 and round up to 8."
+    },
+    {
+      "prompt": "In what order do these lines print?",
+      "code": "console.log('A');\nsetTimeout(() => console.log('B'), 0);\nPromise.resolve().then(() => console.log('C'));\nconsole.log('D');",
+      "options": [
+        "A, B, C, D",
+        "A, D, C, B",
+        "A, D, B, C",
+        "A, C, D, B"
+      ],
+      "answer": 1,
+      "explain": "The synchronous lines (A, D) finish first. Then the Promise microtask (C) is drained before the setTimeout task (B), even though its delay is 0 ms. `setTimeout(..., 0)` does not mean “run immediately.”"
+    },
+    {
+      "prompt": "A form creates a monthly report for December 2025, but the resulting date is in January 2026. Why?",
+      "code": "const start = new Date(2025, 12, 1);",
+      "options": [
+        "Date interprets the year as the Buddhist Era in the Thailand time zone, shifting it one year",
+        "Day 1 is interpreted as the day before the end of the month, so it rolls over",
+        "Date always converts to UTC first, moving day 1 into the next month",
+        "Months in the Date constructor start at 0, so 12 rolls over to January of the next year"
+      ],
+      "answer": 3,
+      "explain": "Months in `new Date(y, m, d)` start at 0, and out-of-range values roll into the next year. Use 11 for December. Time zones are unrelated because the y, m, d form uses local time."
+    },
+    {
+      "prompt": "Users in New York (UTC-5) see a due date of \"2025-03-01\" as Feb 28, while users in Thailand see March 1. Why?",
+      "code": "const due = new Date('2025-03-01');\ndue.getDate(); // นิวยอร์ก: 28, กรุงเทพ: 1",
+      "options": [
+        "The Thailand server clock runs several hours ahead of the New York client",
+        "YYYY-MM-DD is not a standard, so each browser interprets it differently",
+        "A date-only string is interpreted as 00:00 UTC, but getDate() reads local time and moves it to the previous day",
+        "getDate() is zero-based, which causes errors only in some time zones"
+      ],
+      "answer": 2,
+      "explain": "An ISO date-only string is interpreted as midnight UTC, which is 7 p.m. on the previous day in New York. Use `getUTCDate()` or construct the date as local time. The format is standardized and unambiguous."
+    },
+    {
+      "prompt": "binarySearch looks for IDs in records fetched from a database without ORDER BY and sometimes returns -1 even when an ID exists. What is the likely cause?",
+      "code": "function binarySearch(arr, target) {\n  let lo = 0, hi = arr.length - 1;\n  while (lo <= hi) {\n    const mid = Math.floor((lo + hi) / 2);\n    if (arr[mid] === target) return mid;\n    if (arr[mid] < target) lo = mid + 1;\n    else hi = mid - 1;\n  }\n  return -1;\n}\nbinarySearch([9, 1, 7, 3, 5], 1); // -1",
+      "options": [
+        "The data is unsorted, so binary search discards the wrong half and misses a present value",
+        "The function only fails when the array length is even",
+        "Use Math.ceil instead of Math.floor for mid to search every item",
+        "Strict equality does not work for numeric IDs; use == instead"
+      ],
+      "answer": 0,
+      "explain": "Binary search assumes sorted data when it discards half the range. On unsorted data it can discard the half containing the target (here, the first midpoint is 7, so the search drops the half containing 1; the next midpoint is 9 and it drops the rest, though 1 is at index 1). Sort first or use a Set/Map. Changing floor to ceil does not fix the ordering requirement."
+    },
+    {
+      "prompt": "A nickname field allows 3 characters with value.length <= 3. A user enters a Thai nickname that looks like 3 characters, but it is rejected. What should you understand and do?",
+      "code": "'ก็อต'.length; // 4",
+      "options": [
+        "Some Thai fonts draw letters on top of one another, so check the user font before counting",
+        "length counts code units, including combining marks separately, so use Intl.Segmenter",
+        "length counts the text’s UTF-8 bytes, which is more than the visible characters",
+        "Use [...value].length instead, because it always counts visible characters"
+      ],
+      "answer": 1,
+      "explain": "The example consists of a Thai base consonant, a combining mark, and two more letters: four code units in total. `[...value].length` counts code points and still returns 4. Use `Intl.Segmenter` to count grapheme clusters; it returns 3."
+    },
+    {
+      "prompt": "An endpoint validates product codes with this regex. After someone sends a very long, slightly invalid code, every server request becomes slow. What is the most likely cause?",
+      "code": "const SKU = /^([A-Z0-9]+-?)+$/;\nSKU.test(req.query.sku);",
+      "options": [
+        "Without the g flag, the regex caches every input result until memory fills",
+        "Node.js creates and recompiles a new RegExp on every request",
+        "Nested quantifiers cause exponential backtracking and stall the thread",
+        "test() is not async, so it needs await to avoid competing with other requests"
+      ],
+      "answer": 2,
+      "explain": "The pattern `([A-Z0-9]+-?)+` nests quantifiers over overlapping characters. A nearly matching input makes the engine explore an enormous number of paths on Node’s single thread, blocking every request. A regex literal is not recompiled on every call, and await cannot help because test() is synchronous."
+    },
+    {
+      "prompt": "The /report endpoint takes several seconds to compute, and during that time other Node.js endpoints stop responding. The team added async to the handler, but the problem remains. What should it do?",
+      "code": "app.get('/report', async (req, res) => {\n  let sum = 0;\n  for (let i = 0; i < 5e9; i++) sum += i;\n  res.json({ sum });\n});",
+      "options": [
+        "Add await inside the loop so other requests can run between iterations",
+        "Split the work and combine it with Promise.all so the parts truly run in parallel",
+        "Use forEach instead of for, because forEach is already asynchronous and non-blocking",
+        "Move the computation to a Worker thread or a separate process"
+      ],
+      "answer": 3,
+      "explain": "async/await does not create a thread. The loop still runs on the event-loop thread until it finishes, blocking other requests. Promise.all waits for tasks but does not make CPU work parallel. Move the work to a Worker thread or separate process."
+    },
+    {
+      "prompt": "The team has only two tests for paginate(items, page, size): page 1 and page 2 of 10 items with size 3. Both pass. Which tests should it add next to catch the most bugs?",
+      "code": "function paginate(items, page, size) {\n  return items.slice((page - 1) * size, page * size);\n}",
+      "options": [
+        "An empty list, a partially filled last page, and a page beyond the available range",
+        "Run paginate 10,000 times to ensure the total takes less than one second",
+        "Mock Array.prototype.slice and check that it receives the calculated arguments",
+        "Add more page 1 and page 2 cases with different data from the middle of the range"
+      ],
+      "answer": 0,
+      "explain": "Pagination bugs often occur at boundaries: the partial last page (page 4 returns [10]), an empty list, or a page past the end. More ordinary middle cases add little coverage. Mocking slice tests the implementation choice instead of the behavior."
+    },
+    {
+      "prompt": "A teammate converts ['1', '2', '3'] to numbers and gets [1, NaN, NaN]. Why?",
+      "code": "['1', '2', '3'].map(parseInt);",
+      "options": [
+        "parseInt converts only the first item because map stops at the first NaN",
+        "map passes (value, index, array), so parseInt uses the index as its radix",
+        "map calls the callback asynchronously, changing its results",
+        "parseInt cannot parse strings without a leading plus sign"
+      ],
+      "answer": 1,
+      "explain": "map always passes three arguments to its callback. parseInt therefore receives the index as its radix: parseInt('1', 0) is 1, while parseInt('2', 1) and parseInt('3', 2) are NaN. Use `.map((s) => parseInt(s, 10))` or `.map(Number)`."
+    },
+    {
+      "prompt": "You need to filter active users with an async function, but the result still includes every user, even inactive ones. Why?",
+      "code": "const active = users.filter(async (u) => {\n  return await isActive(u.id);\n});",
+      "options": [
+        "filter does not support callbacks containing await and silently skips the condition",
+        "filter waits for promises, but users.filter must also be prefixed with await",
+        "An async callback returns a promise, which is always truthy, so filter keeps every item",
+        "filter waits for each promise, but undefined is always counted as true"
+      ],
+      "answer": 2,
+      "explain": "filter checks whether the callback’s returned value is truthy. An async function returns a promise object, which is always truthy, so no item is removed. Use `const flags = await Promise.all(users.map(u => isActive(u.id)))`, then filter using those flags."
+    },
+    {
+      "prompt": "getTop3(scores) uses sort and slice, but afterward the original scores list displayed chronologically is also reordered. What is the fix?",
+      "code": "function getTop3(scores) {\n  return scores.sort((a, b) => b - a).slice(0, 3);\n}",
+      "options": [
+        "Move slice before sort, because slice changes the original array",
+        "Add a comparator, because sort mutates the original only without one",
+        "Declare the scores parameter as const to prevent sort from changing it",
+        "Sort a copy such as [...scores].sort(...), because sort changes the original array"
+      ],
+      "answer": 3,
+      "explain": "`sort` orders the original array in place and returns the same reference; `slice` returns a copy. Slicing first would change the meaning of “top 3,” and const or a function parameter does not prevent changes to the array contents."
+    },
+    {
+      "prompt": "When saving an order fails, the log shows only “Save failed,” not the cause (such as connection refused). How should this catch block be fixed?",
+      "code": "try {\n  await db.save(order);\n} catch (err) {\n  throw new Error('บันทึกไม่สำเร็จ');\n}",
+      "options": [
+        "Preserve the original error as the cause: new Error('Save failed', { cause: err })",
+        "Only call console.log(err) in catch; do not rethrow to the caller",
+        "Concatenate the message with err and discard the original error",
+        "Throw a string instead of Error to keep the stack trace short"
+      ],
+      "answer": 0,
+      "explain": "Recent Error implementations accept a `cause` option, preserving the original error and its stack while adding context. Logging and swallowing the error makes the caller think the operation succeeded. Concatenating strings loses the original stack."
+    },
+    {
+      "prompt": "getExchangeRate() is memoized for the entire process lifetime. Days later, without a server restart, customers still see the old rate. What should change?",
+      "options": [
+        "Remove all caching because memoization only works for values that never change",
+        "Give the cache a TTL or invalidate it when the source data changes",
+        "Use a Map instead of a plain object because Map removes stale entries automatically",
+        "Add more server memory so the cache refreshes faster"
+      ],
+      "answer": 1,
+      "explain": "Memoization works best for pure functions. Time-sensitive data needs a cache lifetime or an invalidation rule. Removing all caching is excessive; Map does not remove old values automatically, and more memory does not make data fresher."
+    },
+    {
+      "prompt": "A ranking is stored in an object by inserting keys in the order “b”, 2, 1, “a”, but Object.keys returns a different order. How can insertion order be preserved?",
+      "code": "const ranks = { b: 1, 2: 1, 1: 1, a: 1 };\nObject.keys(ranks);\n// ['1', '2', 'b', 'a']",
+      "options": [
+        "Use Object.entries instead of Object.keys, because it keeps insertion order",
+        "Make every key numeric, then sort Object.keys()",
+        "Use Map, which always iterates in insertion order; objects put integer-index keys first",
+        "Run JSON.stringify and JSON.parse to restore the original ordering"
+      ],
+      "answer": 2,
+      "explain": "Object key order puts array-index keys (non-negative integers no greater than 2^32 − 2) first in ascending order, followed by other keys in creation order. Object.entries and stringify/parse follow the same rule. Map always iterates in insertion order."
+    },
+    {
+      "prompt": "A partner API sends 64-bit numeric order IDs, but JavaScript parses them into a different ID and fetches the wrong order. What fixes the root cause?",
+      "code": "JSON.parse('{\"id\":9007199254740993}').id;\n// 9007199254740992",
+      "options": [
+        "Call parseFloat on the ID to recover the lost precision",
+        "Convert it to BigInt after JSON.parse, which can restore the original value",
+        "Call Number(id) before comparing so it becomes a real number",
+        "Ask the API to send the ID as a string because Number only represents integers exactly up to 2^53 − 1"
+      ],
+      "answer": 3,
+      "explain": "JSON.parse converts a numeric literal to Number, which represents every integer exactly only through 2^53 − 1. Larger values may already be rounded during parsing. Converting to BigInt or parseFloat afterward cannot recover the original digits, so the API must send a string."
+    }
+  ],
+  "exercises": [
+    {
+      "title": "Count the most frequent words",
+      "level": "ง่าย",
+      "tags": "function · Map · sort",
+      "lang": "javascript",
+      "prompt": "Write a function topWords(text, n) that returns an array of the n most frequent words with their counts, sorted from most to least frequent. Ignore case. Break ties alphabetically so the result is deterministic. Ignore empty words caused by repeated whitespace. The function must be pure: do not read or change variables outside it, and do not call console.log.",
+      "context": "topWords('a b A c b a', 2)\n// → [['a', 3], ['b', 2]]\n\ntopWords('  b a  c a b ', 3)\n// → [['a', 2], ['b', 2], ['c', 1]]",
+      "starter": "function topWords(text, n) {\n  // เขียนโค้ดที่นี่\n}\n",
+      "solution": "function topWords(text, n) {\n  const counts = new Map();\n  for (const w of text.toLowerCase().split(/\\s+/)) {\n    if (!w) continue;\n    counts.set(w, (counts.get(w) || 0) + 1);\n  }\n  return [...counts.entries()]\n    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))\n    .slice(0, n);\n}",
+      "hints": [
+        "Break the work into three steps: split into words → count → sort and take the first n.",
+        "Lowercase the text, then split with /\\s+/; skip empty words and use a Map for word → count pairs.",
+        "Use [...map.entries()], then sort with b[1] - a[1] || a[0].localeCompare(b[0]), and slice(0, n)."
+      ],
+      "checks": [
+        {
+          "label": "Convert to lowercase (toLowerCase)",
+          "pattern": "tolowercase\\s*\\(\\s*\\)|tolocalelowercase\\s*\\("
+        },
+        {
+          "label": "Split into words (split or match)",
+          "pattern": "\\.split\\s*\\(|\\.match\\s*\\(|\\.matchall\\s*\\(|\\.exec\\s*\\("
+        },
+        {
+          "label": "Count with Map, object, or reduce",
+          "pattern": "new map|=\\s*\\{\\s*\\}|object\\.create\\(null\\)|reduce\\("
+        },
+        {
+          "label": "Sort the results",
+          "pattern": "\\.sort\\s*\\(|\\.tosorted\\s*\\("
+        },
+        {
+          "label": "Break ties alphabetically",
+          "pattern": "localecompare\\s*\\(|\\[0\\]\\s*[<>]|\\b(?!\\w+\\[1\\])\\w+(\\[0\\])?\\s*[<>]=?\\s*(?!\\w+\\[1\\])\\w+(\\[0\\])?\\s*\\?\\s*-?1"
+        },
+        {
+          "label": "Keep only n words",
+          "pattern": "\\.slice\\s*\\(\\s*0\\s*,\\s*n\\s*\\)"
+        },
+        {
+          "label": "Return a value instead of calling console.log",
+          "pattern": "console\\.log",
+          "negate": true
+        }
+      ]
+    },
+    {
+      "title": "Retry with exponential backoff",
+      "level": "กลาง",
+      "tags": "async/await · try/catch · loop",
+      "lang": "javascript",
+      "prompt": "Write an async function retry(fn, attempts, delayMs) that calls fn(i), where i is the attempt number starting at 0. Return immediately on success. On failure, wait and retry, doubling the wait each time (delayMs, 2*delayMs, 4*delayMs, …). Try at most attempts times. Do not wait after the final attempt. If all attempts fail, rethrow the last error to the caller; do not swallow errors.",
+      "context": "let n = 0;\nconst flaky = async () => {\n  if (++n < 3) throw new Error('timeout ' + n);\n  return 'ok';\n};\n\nawait retry(flaky, 5, 100); // 'ok' (wait 100 ms, then 200 ms)\n\nawait retry(async () => { throw new Error('down'); }, 3, 100);\n// throws Error('down') after all 3 attempts",
+      "starter": "// เรียก fn(i) สูงสุด attempts รอบ รอก่อนลองใหม่ด้วย backoff แบบเท่าตัว\n// และ throw error ของรอบสุดท้ายเมื่อหมดโอกาส\nasync function retry(fn, attempts, delayMs) {\n  // เขียนโค้ดที่นี่\n}\n",
+      "solution": "async function retry(fn, attempts, delayMs) {\n  let lastError;\n  for (let i = 0; i < attempts; i++) {\n    try {\n      return await fn(i);\n    } catch (err) {\n      lastError = err;\n      if (i < attempts - 1) {\n        await new Promise((resolve) => setTimeout(resolve, delayMs * 2 ** i));\n      }\n    }\n  }\n  throw lastError;\n}\n",
+      "hints": [
+        "Split it into three parts: loop over attempts, try/catch once per attempt, and wait before retrying. Do not wait after the last attempt.",
+        "Await fn(...) inside try (if you only write return fn(), its error will bypass catch). Store the latest error outside the loop and wait with new Promise((resolve) => setTimeout(resolve, ms)) (or use setTimeout from node:timers/promises).",
+        "The wait for attempt i is delayMs * 2 ** i. Wait only when i < attempts - 1; after the loop, throw the variable holding the latest error."
+      ],
+      "checks": [
+        {
+          "label": "Repeat up to the allowed number of attempts (loop or recursive retry)",
+          "pattern": "(for|while)\\s*\\(|return\\s+(await\\s+)?retry\\s*\\("
+        },
+        {
+          "label": "Await fn inside try so its errors can be caught",
+          "pattern": "try\\s*\\{[\\s\\S]*?await\\s+fn\\s*\\([\\s\\S]*?\\}\\s*catch"
+        },
+        {
+          "label": "Catch the error from each attempt",
+          "pattern": "catch\\s*(\\(|\\{)"
+        },
+        {
+          "label": "Wait before retrying (setTimeout or timers/promises)",
+          "pattern": "settimeout\\s*\\(|timers/promises"
+        },
+        {
+          "label": "Double the wait each time (backoff)",
+          "pattern": "\\*\\*|math\\.pow|<<|\\*=\\s*2|\\*\\s*2\\b|\\bdelayms\\s*\\*|\\*\\s*delayms"
+        },
+        {
+          "label": "Throw the stored error instead of creating a new one",
+          "pattern": "throw\\s+(?!new\\b)\\w+"
+        },
+        {
+          "label": "Do not leave catch empty",
+          "pattern": "catch\\s*(\\([^)]*\\))?\\s*\\{\\s*\\}",
+          "negate": true
+        }
+      ]
+    },
+    {
+      "title": "LRU cache with Map",
+      "level": "ยาก",
+      "tags": "class · Map · data structure",
+      "lang": "javascript",
+      "prompt": "Write a class LRUCache(capacity) for a result cache with a limited number of entries. Its get(key) method returns the value or undefined when absent, and marks a found entry as most recently used. Its set(key, value) method adds or updates an entry and also marks it most recently used. If the cache exceeds capacity, remove the least recently used entry. Use a Map, which preserves insertion order; do not use an array with indexOf or shift because those are slow.",
+      "context": "const c = new LRUCache(2);\nc.set('a', 1);\nc.set('b', 2);\nc.get('a');      // 1 (a was just used; b is now oldest)\nc.set('c', 3);   // over capacity -> remove b\nc.get('b');      // undefined\nc.get('a');      // 1\nc.get('c');      // 3",
+      "starter": "class LRUCache {\n  constructor(capacity) {\n    this.capacity = capacity;\n    // เตรียมที่เก็บข้อมูลที่นี่\n  }\n\n  get(key) {\n    // คืนค่า และนับว่าเพิ่งถูกใช้\n  }\n\n  set(key, value) {\n    // เพิ่มหรืออัปเดต และลบรายการเก่าสุดถ้าเกิน capacity\n  }\n}\n",
+      "solution": "class LRUCache {\n  constructor(capacity) {\n    this.capacity = capacity;\n    this.map = new Map();\n  }\n\n  get(key) {\n    if (!this.map.has(key)) return undefined;\n    const value = this.map.get(key);\n    this.map.delete(key);\n    this.map.set(key, value);\n    return value;\n  }\n\n  set(key, value) {\n    if (this.map.has(key)) this.map.delete(key);\n    this.map.set(key, value);\n    if (this.map.size > this.capacity) {\n      const oldest = this.map.keys().next().value;\n      this.map.delete(oldest);\n    }\n  }\n}\n",
+      "hints": [
+        "Map iterates in insertion order, so its first entry is the least recently used if you always move the latest one to the end.",
+        "Move a key to the end of the Map by deleting and setting it again, both in get (when the key exists) and in set (when the key already exists).",
+        "After set, if this.map.size > this.capacity, get the first key with this.map.keys().next().value and delete it."
+      ],
+      "checks": [
+        {
+          "label": "Declare an LRUCache class",
+          "pattern": "class\\s+lrucache"
+        },
+        {
+          "label": "Store data in a Map",
+          "pattern": "new\\s+map\\s*\\("
+        },
+        {
+          "label": "Move an entry to the end by deleting and setting it again",
+          "pattern": "\\.delete\\s*\\("
+        },
+        {
+          "label": "Return undefined from get when the key is absent",
+          "pattern": "\\.has\\s*\\(|undefined"
+        },
+        {
+          "label": "Compare the entry count with capacity",
+          "pattern": "\\bsize\\b[^;{}]*capacity|capacity[^;{}]*\\bsize\\b"
+        },
+        {
+          "label": "Find the oldest key from Map iteration order",
+          "pattern": "\\.(keys|entries|values)\\s*\\(\\)|\\[\\s*\\.\\.\\.|for\\s*\\(.+\\s+of\\s+this\\."
+        },
+        {
+          "label": "Avoid indexOf, shift, or splice (O(n))",
+          "pattern": "indexof\\s*\\(|\\.shift\\s*\\(|\\.splice\\s*\\(",
+          "negate": true
+        }
+      ]
+    }
+  ],
+  "refs": [
+    {
+      "title": "MDN: Functions (JavaScript Guide)",
+      "url": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Functions",
+      "note": "Scope, closures, recursion, and different ways to declare functions."
+    },
+    {
+      "title": "MDN: Classes",
+      "url": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Classes",
+      "note": "Classes, this in methods, and what happens when a method is detached."
+    },
+    {
+      "title": "MDN: Error cause",
+      "url": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Error/cause",
+      "note": "Preserving the original error when rethrowing with additional context."
+    },
+    {
+      "title": "MDN: Using microtasks in JavaScript with queueMicrotask()",
+      "url": "https://developer.mozilla.org/en-US/docs/Web/API/HTML_DOM_API/Microtask_guide",
+      "note": "Microtasks and the order in which the event loop runs work."
+    },
+    {
+      "title": "MDN: Keyed collections (Map and Set)",
+      "url": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Keyed_collections",
+      "note": "Key-value collections that preserve insertion order."
+    },
+    {
+      "title": "MDN: Intl.Segmenter",
+      "url": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Intl/Segmenter",
+      "note": "Segmenting text into graphemes, words, or sentences according to language."
+    },
+    {
+      "title": "Node.js: Don’t Block the Event Loop",
+      "url": "https://nodejs.org/en/learn/asynchronous-work/dont-block-the-event-loop",
+      "note": "Work that blocks the event loop, ReDoS, and moving CPU-heavy work elsewhere."
+    }
+  ]
+}

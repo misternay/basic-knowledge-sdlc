@@ -1,0 +1,681 @@
+{
+  "id": "design",
+  "code": "F4",
+  "track": "foundations",
+  "title": "Software Design",
+  "blurb": "Design code and APIs so they are easy to change, and a change in one place does not ripple through the system.",
+  "mustKnow": [
+    {
+      "tier": "must",
+      "title": "Low coupling, high cohesion",
+      "body": "Cohesion describes how well the parts of a module work toward one purpose; coupling describes how much one module needs to know about another. Aim for high cohesion and low coupling so a change stays in one place instead of spreading across files. Common warning signs are a utils file that collects unrelated things (low cohesion) and code that follows another object’s internal fields through several levels, such as order.customer.address.zip (high coupling)."
+    },
+    {
+      "tier": "must",
+      "title": "SOLID is a thinking tool, not a rigid rule",
+      "body": "SRP: a class should have one reason to change. OCP: add new behavior without changing working code. LSP: a subclass should be usable in place of its parent without breaking callers. ISP: do not make clients depend on methods they do not use. DIP: high-level modules should depend on abstractions, not low-level details. Apply these ideas when a real problem appears, such as one file changing often for unrelated reasons. Creating an interface for every class on day one usually adds complexity without benefit."
+    },
+    {
+      "tier": "must",
+      "title": "Composition over inheritance",
+      "body": "Inheritance couples a subclass to the details of its parent; changing the parent can affect every child (the fragile base class problem). When behavior varies along several dimensions, the number of subclasses can grow multiplicatively. With composition, an object holds parts that do the work, so you can swap or combine those parts. Inheritance still fits a genuine is-a relationship with a shallow hierarchy.",
+      "code": "// แทน UrgentEmailNotifier, UrgentSmsNotifier, ...\nclass Notifier {\n  constructor(channel, formatter) {\n    this.channel = channel;     // email, sms, line\n    this.formatter = formatter; // ปกติ, ด่วน\n  }\n  send(user, msg) {\n    this.channel.deliver(user, this.formatter.format(msg));\n  }\n}"
+    },
+    {
+      "tier": "must",
+      "title": "Strategy and Factory: when to use them",
+      "body": "Strategy separates interchangeable algorithms into pieces and is useful when there are several approaches that change or grow often. In JavaScript, it may be no more than an object of functions. A Factory centralizes the choice of which object to create and helps when construction is complex or depends on configuration. For two stable cases, ordinary if/else is easier to read. A factory that only wraps `new` adds a layer without adding value.",
+      "code": "const shipping = {\n  standard: (kg) => 40 + kg * 10,\n  express:  (kg) => 90 + kg * 15,\n};\n// เพิ่มแบบใหม่ = เพิ่ม entry ไม่ต้องแก้โค้ดที่เรียกใช้\nconst cost = shipping[method](weight);"
+    },
+    {
+      "tier": "must",
+      "title": "REST: resources, methods, and idempotency",
+      "body": "A URL identifies a noun-like resource (`/orders/42`, not `/getOrder`); an HTTP method describes the action: GET reads without changing state, POST creates, PUT replaces the whole resource, PATCH changes part of it, and DELETE removes it. GET, PUT, and DELETE are idempotent: repeating the request has the same effect on the server as sending it once, so retries are safe. POST is not idempotent. For operations a client may retry, such as payment, use an idempotency key to prevent duplicate effects.",
+      "code": "GET    /orders?status=paid   200 + รายการ\nPOST   /orders               201 + Location: /orders/42\nGET    /orders/42            200 หรือ 404\nPATCH  /orders/42            200 (ส่งเฉพาะ field ที่แก้)\nDELETE /orders/42            204"
+    },
+    {
+      "tier": "must",
+      "title": "Status codes and consistent error formats",
+      "body": "2xx means success, 4xx means the client request has a problem, and 5xx means the server failed. Commonly confused pairs include 401 (not authenticated or an invalid token) versus 403 (the server understood the request but refuses it, such as an authenticated user without permission); and 409 (conflict with current state, such as a duplicate reservation) versus 400/422 (invalid data). A major trap is returning 200 with {\"success\": false}: clients, caches, and monitoring will count it as success. Use one error format across the API, such as Problem Details (RFC 9457, application/problem+json).",
+      "code": "HTTP/1.1 409 Conflict\nContent-Type: application/problem+json\n\n{\n  \"type\": \"https://example.com/probs/room-taken\",\n  \"title\": \"ห้องถูกจองแล้ว\",\n  \"status\": 409,\n  \"detail\": \"ห้อง 301 ถูกจองช่วง 12–14 ต.ค. แล้ว\"\n}"
+    },
+    {
+      "tier": "should",
+      "title": "Observer and Adapter: benefits and trade-offs",
+      "body": "Observer lets a publisher announce an event (such as order.paid) without knowing who listens, reducing coupling between modules. However, the execution order is not visible at the call site, making debugging harder, and forgotten listeners can cause memory leaks. If one recipient must always run, a direct function call is clearer. An Adapter wraps an external library or API in an interface suited to your system. For example, wrapping a provider’s SMS SDK as Notifier makes it possible to change providers in one place."
+    },
+    {
+      "tier": "should",
+      "title": "KISS and YAGNI: the cost of anticipating the future",
+      "body": "KISS means choosing the simplest solution that solves the problem. YAGNI (You Aren’t Gonna Need It) means not building a feature or abstraction for a future nobody has asked for: we often guess wrong, and speculative code still has to be read, tested, and maintained every day. A common rule of thumb is the rule of three: wait until a pattern appears for the third time before abstracting it. One exception is a costly-to-change contract, such as a public API or data schema, which deserves more forethought than internal code."
+    },
+    {
+      "tier": "should",
+      "title": "Dependency injection",
+      "body": "Instead of having a class create its own dependency (`new StripeClient()` inside it), pass the dependency through a constructor or parameter. This makes it possible to swap implementations and pass a fake during tests instead of calling a real API. Dependency injection is simply a technique for supplying dependencies; it does not always require a DI container. Many projects can construct objects themselves at startup (the composition root).",
+      "code": "class OrderService {\n  constructor(payments, orders) { // รับเข้ามา ไม่ new เอง\n    this.payments = payments;\n    this.orders = orders;\n  }\n  async checkout(order) {\n    await this.payments.charge(order.total);\n    return this.orders.save({ ...order, status: 'paid' });\n  }\n}\n// prod: new OrderService(new StripeGateway(key), new PgOrderRepo(db))\n// test: new OrderService(fakeGateway, new InMemoryOrderRepo())"
+    },
+    {
+      "tier": "should",
+      "title": "Layered, Clean, and Hexagonal architecture",
+      "body": "All three share the same idea: separate business logic from external details such as an HTTP framework, database, message queue, and UI. Layered architecture splits work into tiers, such as controller → service → repository. Hexagonal (Ports and Adapters) and Clean Architecture emphasize that dependencies point inward toward the domain: the domain defines an interface (port), and the outer layer implements it (adapter). This lets you unit-test business rules without opening a database. For a small CRUD app, though, many layers may only pass data along."
+    },
+    {
+      "tier": "advanced",
+      "title": "Domain-Driven Design basics",
+      "body": "DDD starts by having developers and domain experts use the same vocabulary (ubiquitous language) and making those terms visible in the code. A bounded context is a boundary within which a term has one meaning. For example, Sales Customer and Shipping Customer may deserve separate models instead of one class with 60 fields. An aggregate is a group of objects that must remain consistent and can be changed only through its aggregate root, such as Order and OrderLine. DDD helps with complex domains but is excessive for ordinary CRUD systems."
+    },
+    {
+      "tier": "advanced",
+      "title": "Modular monoliths and microservices",
+      "body": "A modular monolith is deployed as one unit but split internally into clear domain modules. Each module communicates through a public interface and does not access another module’s tables. Microservices enable independent deployment and scaling, and team autonomy, at the cost of fallible networks, cross-service data consistency, tracing across systems, and more operations work. Small teams or domains that are still changing often start with a modular monolith and split services only when there is a real reason. If services still share a database and must be deployed together, the result is a distributed monolith, which is worse."
+    },
+    {
+      "tier": "must",
+      "title": "DRY: duplicate knowledge, not just similar-looking code",
+      "body": "DRY, from The Pragmatic Programmer, means “Every piece of knowledge must have a single, unambiguous, authoritative representation within a system.” If the same rule, such as the minimum order for free shipping, is written in five places, changing only one creates inconsistent behavior and bugs. But two code blocks that look alike by coincidence may represent different rules; do not rush to combine them. When one rule later changes, the shared function often grows flags and conditionals. Sandi Metz calls this the wrong abstraction and writes that “duplication is far cheaper than the wrong abstraction” (see her article in the references below).",
+      "code": "// ซ้ำจริง: กฎเดียวกันอยู่หลายที่ ต้องมีที่เดียว\nconst FREE_SHIPPING_MIN = 1000;\nconst shippingFee = (total) => (total >= FREE_SHIPPING_MIN ? 0 : 50);\n\n// ซ้ำแต่คนละความรู้: อย่ารีบรวม\nconst isValidUsername = (s) => s.length >= 3 && s.length <= 20; // กฎของผลิตภัณฑ์\nconst isValidSku = (s) => s.length >= 3 && s.length <= 20;      // กฎของระบบคลัง",
+      "exam": true,
+      "ref": "https://pragprog.com/tips/"
+    },
+    {
+      "tier": "must",
+      "title": "Tell, Don’t Ask: let objects do the work",
+      "body": "Tell, Don’t Ask is a principle Fowler says is often associated with Andy Hunt and Dave Thomas (The Pragmatic Programmers). It reminds us that object-oriented design groups data with the functions that use it. If outside code pulls data out, calculates, and makes decisions, business rules spread across the codebase and are easily duplicated. Tell the object to perform the operation instead. However, Martin Fowler stresses that getters do not all need to be removed: objects sometimes collaborate appropriately by providing information, and sometimes layering matters more than combining data with behavior.",
+      "code": "// ถามแล้วคิดเองข้างนอก: กฎส่งฟรีกระจายไปทุกที่ที่ใช้\nlet total = 0;\nfor (const l of order.getLines()) total += l.price * l.qty;\nconst fee = total >= 1000 ? 0 : 50;\n\n// บอกให้ object ทำ: กฎอยู่ใน Order ที่เดียว\nconst fee2 = order.shippingFee();",
+      "ref": "https://martinfowler.com/bliki/TellDontAsk.html"
+    },
+    {
+      "tier": "must",
+      "title": "Liskov Substitution: subclasses must honor the parent’s contract",
+      "body": "Barbara Liskov and Jeannette Wing define a subtype behaviorally: anything proven for the supertype must remain true for its subtype. In practice, an overridden method must accept at least the same inputs (do not strengthen preconditions) and guarantee at least the same results (do not weaken postconditions). A classic example is Square extends Rectangle where setting width also changes height. Code that sets width and height independently and expects area to be their product then breaks. Avoid an is-a relationship that violates the contract; split the interface or use composition.",
+      "code": "class Rectangle {\n  setWidth(w) { this.w = w; }\n  setHeight(h) { this.h = h; }\n  area() { return this.w * this.h; }\n}\nclass Square extends Rectangle {\n  setWidth(w) { this.w = this.h = w; }  // ผิดสัญญา: ผู้เรียกไม่คาดว่า h เปลี่ยน\n  setHeight(h) { this.w = this.h = h; }\n}\n// ตั้ง 5 × 4: Rectangle ได้ 20, Square ได้ 16",
+      "exam": true,
+      "ref": "https://www.cs.cmu.edu/~wing/publications/LiskovWing94.pdf"
+    },
+    {
+      "tier": "must",
+      "title": "Change an API without breaking existing clients",
+      "body": "Within one version, adding something new, such as an endpoint, field, or enum value used only in requests, is usually backward compatible. Removing or renaming a field (equivalent to removing and adding it), changing its type even if the wire format is compatible, changing a default, or adding a required field to an existing request is a breaking change under Google API’s AIP-180 guidance. This matters because old clients, such as mobile apps users have not updated, will keep making requests. If a breaking change is necessary, AIP-185 (versioning, in the references) recommends a new major version such as /v2. Versions should run side by side during migration, and announce a clear deprecation period before an older version is shut down.",
+      "code": "// v1 ตอบ { \"id\": 7, \"phone\": \"0812345678\" }\n// เข้ากันได้:  เพิ่ม \"nickname\" (client เก่าเมินได้)\n// breaking:    เปลี่ยน \"phone\" เป็น \"phone_number\"\n// breaking:    เปลี่ยน \"id\" จากตัวเลขเป็น string",
+      "exam": true,
+      "ref": "https://google.aip.dev/180"
+    },
+    {
+      "tier": "must",
+      "title": "ETag and If-Match: prevent lost updates in PUT/PATCH",
+      "body": "When two users read and edit the same resource, whoever saves last can overwrite the first person’s work without knowing it (a lost update). HTTP can prevent this: the server sends an ETag with GET, and the client includes that value in the If-Match header on PUT, PATCH, or DELETE. If the current representation does not match the submitted ETag, the server does not proceed and generally returns 412 Precondition Failed, so the client can reload and decide what to do. RFC 9110 allows a 2xx response instead when the change has already been applied to the current representation. RFC 9110 requires a strong comparison for If-Match, so a weak ETag (starting with W/) cannot be used.",
+      "code": "GET /products/9\n→ 200 OK\n   ETag: \"v7\"\n\nPUT /products/9\nIf-Match: \"v7\"\n→ 412 Precondition Failed   (มีคนแก้จน ETag เป็น \"v8\" ไปแล้ว)",
+      "ref": "https://www.rfc-editor.org/rfc/rfc9110.html#name-if-match"
+    },
+    {
+      "tier": "should",
+      "title": "Pagination: offset versus cursor (page token)",
+      "body": "Offset pagination (`page=3` or LIMIT/OFFSET) is simple and lets clients jump to any page. But if rows are inserted or deleted while a client scrolls, positions shift and records can be repeated or missed; a large offset can also be slow because the database must process skipped rows first (PostgreSQL documentation says a large OFFSET might be inefficient). A cursor means “continue after this item” and is more stable. Google’s AIP-158 recommends an opaque token that the client sends back without interpreting it. Base64-encoding readable data does not adequately hide it. Add pagination from the start, since introducing it later can break existing clients.",
+      "code": "GET /orders?page_size=2\n→ { \"items\": [ … ], \"next_page_token\": \"opaque-abc\" }\n\nGET /orders?page_size=2&page_token=opaque-abc\n→ { \"items\": [ … ] }   // ไม่มี next_page_token = หมดแล้ว",
+      "exam": true,
+      "ref": "https://google.aip.dev/158"
+    },
+    {
+      "tier": "should",
+      "title": "Decorator: add behavior by wrapping, not subclassing",
+      "body": "A Decorator wraps a target object and exposes the same interface, so it can add behavior before or after forwarding a call. Multiple decorators can be composed at runtime without creating a subclass for every combination. In practice, decorators often handle cross-cutting concerns such as logging, caching, and retries. Be aware that behavior can depend on the order of wrapping, and the client must assemble the decorators.",
+      "code": "const withLogging = (repo) => ({\n  async findById(id) { console.log('findById', id); return repo.findById(id); },\n});\nconst withCache = (repo, cache = new Map()) => ({\n  async findById(id) {\n    if (!cache.has(id)) cache.set(id, await repo.findById(id));\n    return cache.get(id);\n  },\n});\n// log ทุกคำเรียก แม้ cache hit เพราะ logging อยู่ชั้นนอกสุด\nconst repo = withLogging(withCache(new PgUserRepo(db)));",
+      "exam": true,
+      "ref": "https://refactoring.guru/design-patterns/decorator"
+    },
+    {
+      "tier": "should",
+      "title": "Value objects: compare by value and keep them immutable",
+      "body": "A value object is considered equal when its properties have equal values, not only when it is the same instance. Examples include Money (amount plus currency), coordinates, and date ranges. Fowler recommends making value objects immutable to prevent aliasing bugs, where changing a shared object in one place unexpectedly affects another. Wrapping values in a value object also keeps validation rules, such as email format, in one place instead of passing raw strings throughout the system.",
+      "code": "class Email {\n  constructor(raw) {\n    const v = String(raw).trim();\n    if (!/^[^@\\s]+@[^@\\s]+$/.test(v)) throw new Error('invalid email'); // ตรวจแบบย่อ งานจริงควรยืนยันด้วยการส่งอีเมล\n    this.value = v;\n    Object.freeze(this);\n  }\n  equals(other) { return other instanceof Email && other.value === this.value; }\n}\nnew Email(' a@x.com ').equals(new Email('a@x.com')); // true",
+      "ref": "https://martinfowler.com/bliki/ValueObject.html"
+    },
+    {
+      "tier": "should",
+      "title": "Retry and circuit breakers: handle temporary service failures",
+      "body": "Retry is useful for transient faults, such as a brief network interruption or temporary service overload. Add a delay that grows between attempts, with jitter (a small random variation) so all instances do not retry simultaneously. Aggressive retries can make an overloaded service even worse. Retrying an idempotent operation is safe; repeating a non-idempotent one may duplicate side effects. A circuit breaker is a state machine that stops calls after failures exceed a threshold (Closed → Open). Requests are rejected immediately until a timeout, then the breaker enters Half-Open and allows a limited number of trial requests. Success returns it to Closed; failure returns it to Open.",
+      "code": "Closed ──(ล้มเหลวเกินเกณฑ์)──▶ Open ──(หมด timeout)──▶ Half-Open\nHalf-Open ──(คำขอทดลองผ่าน)──▶ Closed\nHalf-Open ──(คำขอทดลองล้ม)──▶ Open",
+      "ref": "https://learn.microsoft.com/en-us/azure/architecture/patterns/circuit-breaker"
+    },
+    {
+      "tier": "advanced",
+      "title": "Saga: cross-service transactions with compensating actions",
+      "body": "When each service has its own database, a normal ACID transaction covers only one database. A distributed transaction such as 2PC requires support from every participant and tightly couples services, so it is often a poor fit for microservices. A Saga divides the work into local transactions: each step updates its own database and emits an event or message to trigger the next. If a step fails, a compensating transaction reverses earlier effects, such as releasing inventory and cancelling an order. Coordination can use choreography (services listen to one another’s events) or orchestration (a coordinator directs each step). The trade-offs are that rollback is not automatic, compensations must be designed, and the lack of isolation can expose intermediate state.",
+      "ref": "https://microservices.io/patterns/data/saga.html"
+    },
+    {
+      "tier": "advanced",
+      "title": "Transactional outbox: keep events consistent with the database",
+      "body": "If a service commits to its database and then sends a broker message as a separate step, the process can crash between them and leave the data and event inconsistent (dual write). A transactional outbox solves this by writing a message to an outbox table in the same transaction as the business data update. A separate message relay reads that table and sends to the broker, by polling or tailing the transaction log. The relay may send duplicates, so consumers must be idempotent, for example by recording processed message IDs.",
+      "code": "// db.tx = helper สมมติสำหรับเปิด transaction\nawait db.tx(async (tx) => {\n  await tx.query('INSERT INTO orders (id, total) VALUES ($1, $2)', [id, total]);\n  await tx.query(\n    \"INSERT INTO outbox (id, type, payload) VALUES ($1, 'OrderCreated', $2)\",\n    [msgId, JSON.stringify({ id, total })]);\n}); // สำเร็จหรือล้มพร้อมกัน แล้ว relay ค่อยส่งไป broker",
+      "ref": "https://microservices.io/patterns/data/transactional-outbox.html"
+    },
+    {
+      "tier": "advanced",
+      "title": "CQRS: separate read and write models, but not by default",
+      "body": "CQRS uses one model to update data and another to read it. This can help when read and write workloads differ greatly or the domain is complex. It is often combined with event sourcing (storing every change as an ordered event) and eventual consistency between the two sides. Fowler warns that “for most systems CQRS adds risky complexity” and recommends applying it only to parts of a system (bounded contexts) where the benefit is real, not to the whole system. Do not start with CQRS when one model already handles reads and writes comfortably.",
+      "ref": "https://martinfowler.com/bliki/CQRS.html"
+    }
+  ],
+  "questions": [
+    {
+      "prompt": "A shipping-cost function has six if/else branches, and the business adds a new method almost every month. Each time, the existing function must change and tests for other methods often break. How should it be redesigned?",
+      "code": "function shippingCost(method, kg) {\n  if (method === 'standard') return 40 + kg * 10;\n  else if (method === 'express') return 90 + kg * 15;\n  else if (method === 'cod') return 60 + kg * 10;\n  // ... อีก 3 แบบ\n}",
+      "options": [
+        "Make ShippingCalculator a Singleton with one instance for the whole system",
+        "Put each method in a strategy map and let the main function select by method",
+        "Replace if/else with switch so it is easier to read and add cases",
+        "Use Observer so each shipping method listens for a price-calculation event"
+      ],
+      "answer": 1,
+      "explain": "Strategy makes a new method an additional entry without changing the code for other methods (Open/Closed), and each strategy can be tested separately. A switch only changes the syntax; the existing function still has to change every time."
+    },
+    {
+      "prompt": "The system supports one payment method, bank transfer, and there are no plans to add another. A teammate proposes creating a PaymentStrategy interface, PaymentFactory, and plugin system in advance. What should you say?",
+      "options": [
+        "Accept the proposal because adding a second method later would require rewriting the whole system",
+        "Build all proposed parts, but skip tests for the parts not yet in use",
+        "Write straightforward, well-separated code and add an abstraction when a second method actually arrives",
+        "Split payments into a microservice to support future methods"
+      ],
+      "answer": 2,
+      "explain": "YAGNI cautions that abstractions built before a second case exists are often based on the wrong guess and become maintenance work. If the current code has clear responsibilities and low coupling, refactoring to Strategy when needed is not a major rewrite. The claim that the whole system would need to be rebuilt is usually false."
+    },
+    {
+      "prompt": "utils.js contains 40 functions: formatDate, calculateTax, sendEmail, resizeImage, and more. Every module imports it, and changing the tax function means testing the whole system. What is the main problem?",
+      "options": [
+        "Low cohesion: unrelated concerns are grouped together, coupling every module to one file",
+        "Coupling is too low; modules should call each other directly more often",
+        "The file is too long; splitting it into utils1.js and utils2.js is enough",
+        "The functions are not in a class; wrap them in a Utils class with static methods"
+      ],
+      "answer": 0,
+      "explain": "These functions do not share one purpose (low cohesion), and because every module depends on the file, coupling is high as well. Move each function to the related module, such as tax, mail, or image. Splitting by file size or wrapping everything in a class does not fix unrelated responsibilities being grouped together."
+    },
+    {
+      "prompt": "OrderService unit tests must call the real Stripe API, so they are slow and fail when the network is down. What is the most direct fix?",
+      "code": "class OrderService {\n  async checkout(order) {\n    const stripe = new StripeClient(process.env.STRIPE_KEY);\n    await stripe.charge(order.total);\n    // ...\n  }\n}",
+      "options": [
+        "Wrap the Stripe call in try/catch and swallow errors during tests",
+        "Add an if (process.env.NODE_ENV === 'test') branch to skip Stripe",
+        "Move StripeClient to a global variable so tests can overwrite it",
+        "Inject the payment gateway through the constructor and pass a fake in tests"
+      ],
+      "answer": 3,
+      "explain": "Dependency injection lets OrderService depend only on something that has charge(), not directly on Stripe (DIP). Tests can pass a fake and production can pass the real gateway. Checking NODE_ENV adds a special branch to production code, and the test no longer exercises the real application path."
+    },
+    {
+      "prompt": "Notification has subclasses EmailNotification, SmsNotification, UrgentEmailNotification, UrgentSmsNotification, ScheduledEmailNotification, and so on. Adding LINE requires several more classes. How should it be redesigned?",
+      "options": [
+        "Separate the delivery channel and urgency behavior into objects, then compose them in a Notifier",
+        "Add another parent class, BaseUrgentNotification, to reduce duplicated code",
+        "Put everything in one class with isEmail, isSms, and isUrgent flags",
+        "Use mixins so every class inherits every channel capability in advance"
+      ],
+      "answer": 0,
+      "explain": "There are two dimensions of behavior (channel × urgency), so inheritance makes the class count grow as a product. With composition, adding LINE means adding one channel component. Another parent class deepens the hierarchy without reducing the combinations."
+    },
+    {
+      "prompt": "A mobile app calls POST /payments, times out, and retries automatically. Some customers are charged twice. How should this be fixed?",
+      "options": [
+        "Change it to GET /payments?amount=… because GET can be safely retried",
+        "Have the client send an idempotency key per request and return the previous result when the key was already seen",
+        "Turn off automatic retries and make users press Pay again when it fails",
+        "Increase the client timeout to five minutes so a retry is never needed"
+      ],
+      "answer": 1,
+      "explain": "POST is not idempotent, so retries can create duplicate payments. An idempotency key (for example, Stripe’s Idempotency-Key header) lets the server recognize a repeated request and return the original result. Disabling retries only shifts the problem to users, who can also submit twice."
+    },
+    {
+      "prompt": "A user is logged in with a valid token but is a regular member. They call DELETE /admin/users/7, which only admins can perform. Which status code should the API return?",
+      "options": [
+        "401 Unauthorized",
+        "400 Bad Request",
+        "403 Forbidden",
+        "500 Internal Server Error"
+      ],
+      "answer": 2,
+      "explain": "403 means the server knows who the caller is but does not permit the action. Use 401 when the caller is unauthenticated or the token is invalid, which can be fixed by logging in again. Logging in again will not help in this case."
+    },
+    {
+      "prompt": "The rule “orders must not exceed stock, and VIP members get a 5% discount” lives in an Express route handler alongside SQL. The team wants to unit-test the rule directly, without an HTTP server, mocks for req/res or db.query, and without coupling the rule to Express or SQL. What should it do?",
+      "options": [
+        "Write an integration test that exercises every case through HTTP and a real database",
+        "Move the rule to a stored procedure so it stays near the data and can be tested in the database",
+        "Mock req, res, and db.query, then test the existing route handler",
+        "Move the rule into a use case that depends on a repository interface, with the route and SQL as adapters"
+      ],
+      "answer": 3,
+      "explain": "This is the core of Hexagonal/Clean architecture: business rules sit at the center and depend only on ports, so they can be tested immediately with an in-memory repository. Mocking req, res, and db.query avoids starting a server, but leaves the rule inside the handler and coupled to Express and SQL. The test can still break when a query changes even though the rule did not."
+    },
+    {
+      "prompt": "The system has one Customer class with 60 fields used by Sales (membership tier, discounts), Shipping (address, delivery window), and Accounting (tax number, credit limit). Changing a field affects every team. What is the DDD approach?",
+      "options": [
+        "Use separate bounded contexts with each team’s own Customer model, linked by customer ID",
+        "Create a base Customer class and have each team subclass it with its own fields",
+        "Store Customer as one JSON document to avoid migrations when adding fields",
+        "Put a central team in charge of Customer and require approval for every change"
+      ],
+      "answer": 0,
+      "explain": "Customer means different things in each context. Separate models let each team change independently while using the ID to link them. A shared base class still couples everyone to the same parent."
+    },
+    {
+      "prompt": "A four-person startup is building a new system and does not yet know whether its boundaries will stay stable. Which architecture should it start with?",
+      "options": [
+        "Microservices from day one: separate user, product, order, and payment services",
+        "An unmodular monolith, because it will soon be rewritten as microservices anyway",
+        "A modular monolith split by domain, then separate services only when there is a real reason",
+        "Microservices that share a database to make data simpler"
+      ],
+      "answer": 2,
+      "explain": "When boundaries are still uncertain, service boundaries are easy to get wrong, and moving a boundary across a network costs much more than moving it across a module. A modular monolith provides clear boundaries without paying distributed-system costs. Microservices that share a database become a distributed monolith with the drawbacks of both approaches."
+    },
+    {
+      "prompt": "A signup flow has two similar functions. The team wants to combine them into validateLength under DRY. The username rule comes from Product, while the product-code rule comes from an inventory system that plans to change its limit to 12 characters. What should the team do?",
+      "code": "const isValidUsername = (s) => s.length >= 3 && s.length <= 20;\nconst isValidSku      = (s) => s.length >= 3 && s.length <= 20;",
+      "options": [
+        "Combine them immediately: DRY forbids similar-looking code in two places, and duplication is always technical debt",
+        "Combine them and add a type parameter that selects the rule when it changes in the future",
+        "Keep them separate because they are different rules that happen to look alike",
+        "Move both into utils.js so they are easy to find and change in one place"
+      ],
+      "answer": 2,
+      "explain": "DRY is about a single authoritative representation of one piece of knowledge, not a ban on similar-looking code. These rules have different owners and reasons to change. Combining them and later adding a flag creates the wrong abstraction. A type parameter still ties the two concerns together in one function."
+    },
+    {
+      "prompt": "This function was created to remove duplication across three screens. It has accumulated more and more parameters, and every change breaks one screen or another. What should the team do?",
+      "code": "function renderCard(item, { compact, showPrice, isAdmin, legacyLayout, forEmail }) {\n  if (forEmail && !legacyLayout) { /* ... */ }\n  else if (compact && isAdmin) { /* ... */ }\n  // ... อีกหลายสิบบรรทัด\n}",
+      "options": [
+        "Inline it back into each screen, then extract only the parts that are truly shared",
+        "Add another parameter for the new case because an abstraction that took effort should not be discarded",
+        "Add unit tests for every combination of parameters and keep the function unchanged",
+        "Turn it into a class with several subclasses while keeping the same flags in the constructor"
+      ],
+      "answer": 0,
+      "explain": "Sandi Metz writes that duplication is far cheaper than the wrong abstraction; the remedy is to inline the code and start again. Refusing to discard it because work was invested is the sunk-cost fallacy she warns about. Tests can catch regressions, but they do not reduce the burden of this function doing too much."
+    },
+    {
+      "prompt": "Three parts of a system (checkout, receipt email, and reporting) pull order lines out, total them, and repeat the same shipping-fee rule. Every change requires edits in all three places. How should this be improved using Tell, Don’t Ask?",
+      "code": "let total = 0;\nfor (const l of order.getLines()) total += l.price * l.qty;\nconst fee = total >= 1000 ? 0 : 50;",
+      "options": [
+        "Move the code to helpers.js as calcFee(order) and call it from all three places",
+        "Make getLines() a public property so the code no longer needs a verbose getter",
+        "Make Order immutable and pass copies of its lines to each caller to calculate safely",
+        "Give Order total() and shippingFee() methods, and have each caller use them"
+      ],
+      "answer": 3,
+      "explain": "Tell, Don’t Ask keeps data with the behavior that uses it, so the free-shipping rule belongs in Order once. Moving the code to helpers.js reduces duplication, but leaves the logic outside Order and callers still pull its data out to ask questions."
+    },
+    {
+      "prompt": "A team models Square as a subclass of Rectangle. resize accepts a Rectangle, sets width to 5 and height to 4, and expects area 20; with Square it gets 16. What is the problem?",
+      "code": "class Rectangle {\n  setWidth(w) { this.w = w; }\n  setHeight(h) { this.h = h; }\n  area() { return this.w * this.h; }\n}\nclass Square extends Rectangle {\n  setWidth(w) { this.w = this.h = w; }\n  setHeight(h) { this.w = this.h = h; }\n}\nfunction resize(r) { r.setWidth(5); r.setHeight(4); return r.area(); }",
+      "options": [
+        "resize is wrong; it should check instanceof Square before calling setters",
+        "Square cannot replace Rectangle without breaking callers, violating LSP; the inheritance should be removed",
+        "Square should override area() to return w * h, which will fix the result",
+        "The setters are an encapsulation issue rather than an inheritance issue"
+      ],
+      "answer": 1,
+      "explain": "Rectangle’s contract allows width and height to be set independently, but Square changes the other dimension when either one is set. Callers that rely on that contract break, which is what LSP forbids. An instanceof check patches the caller and confirms that Square is not truly substitutable. area() is already working correctly."
+    },
+    {
+      "prompt": "Storage has read(), write(), and delete(). ReadOnlyStorage implements Storage but makes write and delete throw new Error(“not supported”). Code that receives Storage and calls write gets a runtime error. What is the direct fix?",
+      "options": [
+        "Wrap every write() call in try/catch and show a warning to the user",
+        "Have write and delete in ReadOnlyStorage silently return nothing instead of throwing",
+        "Add isReadOnly() and make every caller check it before every write",
+        "Split the interface into Readable and Writable so callers request only what they need"
+      ],
+      "answer": 3,
+      "explain": "ReadOnlyStorage does not honor Storage’s contract (LSP), and clients are forced to depend on methods they do not use (ISP). Separate interfaces make the type describe its real capabilities at compile time. Silently swallowing the error would lose writes without notice, and isReadOnly() still forces every caller to know the concrete type."
+    },
+    {
+      "prompt": "A food-ordering app has many users on old mobile versions that have not been updated. Which change to the existing v1 API is most likely to break them?",
+      "options": [
+        "Rename the response field phone to phone_number",
+        "Add a nickname response field while keeping the old fields",
+        "Add a new GET /restaurants/{id}/reviews endpoint alongside existing ones",
+        "Add a new payment-method enum value, qr, used only in requests"
+      ],
+      "answer": 0,
+      "explain": "Renaming a field is equivalent to removing the old field and adding a new one, which is a breaking change under AIP-180. Older apps that read phone will get no value. Added fields, endpoints, or request-only enum values are additions that old clients can ignore."
+    },
+    {
+      "prompt": "The team must make an incompatible change to the /v1/orders response (price changes from a number to {amount, currency}) while old clients are still in use. Which approach follows versioning guidance?",
+      "options": [
+        "Change /v1/orders immediately and require every client to update this week because the change is urgent",
+        "Make the new format the default for /v1 and require old clients to send a special parameter for the old format",
+        "Add price_v2 in v1 and remove the old price field in the same deployment",
+        "Launch /v2/orders with the new format, keep /v1 running alongside it, and announce a clear shutdown date"
+      ],
+      "answer": 3,
+      "explain": "AIP-185 says incompatible changes require a new major version. Versions should run in parallel during migration, and the old version should have a clearly announced deprecation period before shutdown. Adding price_v2 is safe by itself, but removing price immediately is breaking."
+    },
+    {
+      "prompt": "Two administrators open product #9 for editing. The first saves a new name, then the second saves a new price and overwrites the whole resource with PUT. The first person’s name change disappears. How should the API prevent this?",
+      "options": [
+        "Change every PUT to POST because POST does not overwrite existing data",
+        "Have GET return an ETag and require PUT to send If-Match; if it does not match, return 412 and let the client reload",
+        "Always return 200 and keep only the latest request, since last-write-wins is required for PUT",
+        "Shorten the admins’ session timeout to reduce the chance they edit the page at the same time"
+      ],
+      "answer": 1,
+      "explain": "If-Match is designed to prevent lost updates on methods that change state (RFC 9110). If the representation has changed, the server refuses the update with 412. Switching to POST does not fix the issue if the logic still overwrites the whole resource."
+    },
+    {
+      "prompt": "A mobile app loads a 300 KB category list that rarely changes. The server already sends an ETag with every response. What should the client do to save bandwidth while still checking for fresh data?",
+      "options": [
+        "Send If-Match with the previous ETag; a 412 response means the data has not changed",
+        "Keep the response forever and never contact the server until the user clears app data",
+        "Send a conditional GET with If-None-Match set to the previous ETag, and use the cached data if the response is 304",
+        "Send HEAD every time and compare its body with the cached response"
+      ],
+      "answer": 2,
+      "explain": "304 Not Modified says the representation does not need to be sent again because the client already has a usable copy; If-None-Match is the header for a conditional GET. If-Match means the opposite: a matching ETag allows the request to proceed and return the full data, while a non-match gives 412 and means the data changed. HEAD has no body to compare."
+    },
+    {
+      "prompt": "A news feed uses GET /feed?page=2&size=20 (LIMIT 20 OFFSET 20, newest first). As new stories arrive, users see items from page 1 repeated on page 2. What causes this, and what is the best fix?",
+      "options": [
+        "New stories push existing rows down, shifting the offset; use a cursor after the last item returned",
+        "The database returns unstable results because there is no index; adding one on created_at fixes it",
+        "The page size is too small; increase it to 200 so users never need page 2",
+        "GET is cached, so switch to POST /feed to avoid caching"
+      ],
+      "answer": 0,
+      "explain": "Offset counts from the beginning. When a new row is inserted at the front, existing rows shift down and page 2 repeats an item. A cursor refers to an actual item and is not affected by inserted rows. An index may improve speed but does not fix shifting positions."
+    },
+    {
+      "prompt": "An API’s page_token is base64-encoded JSON containing offset 40. Some client developers decode it and create tokens themselves to jump to any page. The API team later wants to switch to keyset pagination but worries those clients will break. What should have been designed from the start?",
+      "options": [
+        "Base64-encode the token twice so its meaning is harder to decode",
+        "Document that the token is JSON so clients can depend on its structure correctly",
+        "Make the token opaque and require clients to return it unchanged without interpreting it",
+        "Remove page_token and have clients send offset directly so they do not have to guess"
+      ],
+      "answer": 2,
+      "explain": "AIP-158 requires page tokens to be opaque and says base64-encoding readable data does not adequately hide it. If clients interpret a token, they depend on its internal structure and prevent you from changing it later. Double base64 is only obfuscation; sending offset directly reintroduces the same coupling."
+    },
+    {
+      "prompt": "UserRepository has findById. The team must add logging and caching without changing the existing class; some environments need logging only, others need both. How should this be designed?",
+      "code": "class PgUserRepository {\n  async findById(id) { /* query DB */ }\n}",
+      "options": [
+        "Create LoggingCachedUserRepository extending PgUserRepository, plus a mixed class for every needed combination",
+        "Create two wrappers (withLogging, withCache) that expose findById and can be nested as needed",
+        "Add enableLogging and enableCache flags to PgUserRepository and check them in findById",
+        "Have findById emit an Observer event so the logger and cache can listen and change the result"
+      ],
+      "answer": 1,
+      "explain": "Decorator composes behavior at runtime without a subclass for every combination. Mixed subclasses make the number of classes grow multiplicatively. Flags change the original class and give it more responsibilities. Observer typically announces events; listeners are not designed to replace the publisher’s return value."
+    },
+    {
+      "prompt": "The team wraps a repository twice: const repo = withCache(withLogging(pgRepo)). It sees logs only on cache misses, but wants to log every call from the app. What should it do?",
+      "code": "const repo = withCache(withLogging(pgRepo));",
+      "options": [
+        "Move console.log into PgUserRepository.findById so every call is logged",
+        "Set a very short cache TTL so there are more misses and more logs",
+        "Add another withLogging wrapper around pgRepo so two loggers are nested",
+        "Swap the order to withLogging(withCache(pgRepo)), so the outer wrapper sees every call"
+      ],
+      "answer": 3,
+      "explain": "The outermost decorator receives each call first. When cache is outside, cache hits never reach the inner logger. Behavior depends on wrapper order. Moving the log into PgUserRepository does not help because cache hits never reach the inner repository, so the log would still be missing."
+    },
+    {
+      "prompt": "A cart has a bug: after calculating the total, the first product’s displayed price changes too. Why, and how should the Money class be fixed so callers are safe by default?",
+      "code": "class Money {\n  constructor(amount, currency) { this.amount = amount; this.currency = currency; }\n  add(other) { this.amount += other.amount; return this; }\n}\nconst price = new Money(10000, 'THB');\nconst total = price.add(new Money(5000, 'THB'));\nconsole.log(price.amount); // 15000",
+      "options": [
+        "Money must be compared with === instead of == because loose equality coerces values during calculation",
+        "amount is an integer and overflowed; store it as a float to support larger values",
+        "add() mutates a shared object; make Money immutable so add returns a new instance",
+        "Clone price before every call to add anywhere in the system"
+      ],
+      "answer": 2,
+      "explain": "add() changes this and returns the same instance, so price and total point to the same object. Fowler recommends immutable value objects to prevent aliasing bugs. Requiring every caller to remember to clone shifts the responsibility outward, so someone will eventually forget."
+    },
+    {
+      "prompt": "Service A calls service B, which returns 503 under heavy load. A retries immediately five times, and every instance does the same. B gets worse and cannot recover. What should change?",
+      "options": [
+        "Increase retries to 20 so one may succeed while B is down",
+        "Use increasing delays with jitter, limit attempts, and honor Retry-After",
+        "Make each request timeout very long, then never retry because it will wait until success",
+        "Retry only on 4xx because 5xx is a server problem the client cannot affect"
+      ],
+      "answer": 1,
+      "explain": "Aggressive retries without delay can make an overloaded service worse. Add increasing delays with jitter, limit the number of attempts, and follow Retry-After when provided. Under RFC 9110, 503 may include Retry-After. A 4xx usually indicates a bad request that a retry will not fix; 503 is a temporary server problem."
+    },
+    {
+      "prompt": "A circuit breaker has failureThreshold = 5 and timeout = 30 seconds. After five failures it opens (Open). What should happen to the next request after 30 seconds?",
+      "options": [
+        "Allow a limited number of trial requests (Half-Open); on success return to Closed, on failure return to Open",
+        "Switch to Closed immediately without testing because the configured wait has passed",
+        "Keep it Open until an administrator manually resets it; it cannot recover automatically",
+        "Allow all requests through during Half-Open to measure the system’s actual failure rate"
+      ],
+      "answer": 0,
+      "explain": "After the timeout, the breaker enters Half-Open and allows a limited number of trial requests. Success returns it to Closed; failure returns it to Open and starts the timeout again. Passing every request through could overwhelm a recovering service, while switching straight to Closed does not verify that it recovered."
+    },
+    {
+      "prompt": "An order system has separate Order, Inventory, and Payment services, each with its own database. The flow creates an order, reserves inventory, then charges the customer. If the charge fails after inventory was reserved, what should happen?",
+      "options": [
+        "Use a transaction in any one database and ROLLBACK to undo changes in every service",
+        "Leave the reservation in place and have an administrator release it manually at the end of each workday",
+        "Run compensating transactions for completed steps, such as releasing inventory and cancelling the order",
+        "Charge first and reserve inventory afterward so no rollback steps are ever needed"
+      ],
+      "answer": 2,
+      "explain": "When each service owns its database, one database’s ROLLBACK cannot undo another service’s work. A Saga uses planned compensating transactions to reverse each completed step. Reversing the order only moves the problem: if charging succeeds but inventory reservation fails, the customer still needs a refund."
+    },
+    {
+      "prompt": "OrderService saves an order to the database, then calls broker.publish. Sometimes the process crashes between those steps, leaving the order in the database but no event for other services. What is the fix?",
+      "code": "await db.query('INSERT INTO orders ...');\n// ถ้าล่มตรงนี้ event จะหาย\nawait broker.publish('OrderCreated', payload);",
+      "options": [
+        "Publish first and then INSERT, because events matter more than the orders table",
+        "Write the event to an outbox table in the same transaction as the order, then let a separate relay publish it",
+        "Wrap both lines in try/catch and retry publish in the same process’s memory",
+        "Set the isolation level to SERIALIZABLE so INSERT and publish become one transaction"
+      ],
+      "answer": 1,
+      "explain": "The outbox commits the business data and event in one database transaction; a separate relay publishes the event, so a process crash does not lose it. Publishing first risks an event for an order that does not exist. In-memory retry cannot help if the process dies, and database isolation does not cover the broker."
+    },
+    {
+      "prompt": "A service that emails customers consumes OrderCreated events from a broker fed by an outbox relay. Some customers receive the same email twice because the relay resent an event after a temporary error. What is the most direct fix?",
+      "options": [
+        "Stop using the outbox and publish directly from the service after saving to the database",
+        "Have the relay delete the outbox row before confirming the broker received the event",
+        "Add more retries on the consumer so the email is guaranteed to arrive in every case",
+        "Record processed message IDs and skip IDs already seen (an idempotent consumer)"
+      ],
+      "answer": 3,
+      "explain": "A relay can send duplicates, so consumers must be idempotent, for example by recording processed message IDs. Deleting before confirmation risks losing events. More retries can increase duplicates, and direct publishing returns to the original dual-write problem."
+    },
+    {
+      "prompt": "The team is building a simple internal member-management system with CRUD forms and reports for a few hundred users. Someone proposes CQRS with separate read/write databases across the whole system, plus event sourcing. What should you say?",
+      "options": [
+        "Do not start there: CQRS often adds complexity. Use one model first and separate only parts with a real need",
+        "Accept it because CQRS is standard for modern systems and should be in every project from the start to support growth",
+        "CQRS is fine, but event sourcing cannot be used with it because the two concepts conflict",
+        "Use it if the read side uses NoSQL, which is generally faster for reads than relational databases"
+      ],
+      "answer": 0,
+      "explain": "Fowler says CQRS adds risky complexity for most systems and recommends limiting it to bounded contexts where it is worthwhile. A system that handles reads and writes comfortably with one model should not start there. CQRS can be combined with event sourcing; they are often paired, but are separate concepts."
+    }
+  ],
+  "exercises": [
+    {
+      "title": "Refactor if/else into Strategy",
+      "level": "กลาง",
+      "tags": "Strategy · Open/Closed",
+      "lang": "javascript",
+      "prompt": "The code in the context calculates discounts with if/else, and new promotions are added often. Refactor it to use Strategy: store each promotion as a function in an object or Map so a new promotion can be added without changing discount. The results for the three existing promotions must stay the same, and unknown promotions must throw an error, including names that happen to match inherited object properties, such as discount('toString', 500).",
+      "context": "function discount(type, total) {\n  if (type === 'none') return 0;\n  else if (type === 'percent10') return total * 0.1;\n  else if (type === 'flat100') return total >= 1000 ? 100 : 0;\n  else throw new Error('unknown');\n}",
+      "starter": "// เขียนโค้ดใหม่ที่นี่\n",
+      "solution": "const promotions = {\n  none: () => 0,\n  percent10: (total) => total * 0.1,\n  flat100: (total) => (total >= 1000 ? 100 : 0),\n};\n\nfunction discount(type, total) {\n  const strategy = Object.hasOwn(promotions, type) ? promotions[type] : null;\n  if (!strategy) throw new Error(`unknown promotion: ${type}`);\n  return strategy(total);\n}",
+      "hints": [
+        "Create an object whose keys are promotion names and whose values are functions (total) => discount.",
+        "discount should only look up the strategy for the given type and call it; it should not need to know which promotions exist.",
+        "promotions['toString'] returns the function inherited from Object.prototype. Check with Object.hasOwn(promotions, type), or use Map with .has()/.get() instead."
+      ],
+      "checks": [
+        {
+          "label": "Store promotions in an object or Map",
+          "pattern": "(const|let|var)\\s+\\w+\\s*=\\s*(object\\.freeze\\(\\s*)?(\\{|new map|object\\.create|object\\.assign)"
+        },
+        {
+          "label": "Preserve all three existing promotions",
+          "pattern": "^(?=[\\s\\S]*\\bnone\\b)(?=[\\s\\S]*percent10)(?=[\\s\\S]*flat100)"
+        },
+        {
+          "label": "Represent each promotion as a function",
+          "pattern": "=>|:\\s*(async\\s+)?function\\b|^\\s*function\\s+(?!discount\\b)\\w+\\s*\\(|(^|[{,])\\s*(?!(if|for|while|switch|catch|function)\\b)(async\\s+)?\\w+\\s*\\([^)]*\\)\\s*\\{"
+        },
+        {
+          "label": "Look up the strategy by type",
+          "pattern": "\\w+\\s*\\[\\s*type\\s*\\]|\\.get\\(\\s*type\\s*\\)"
+        },
+        {
+          "label": "Remove type === ... or switch-case branches",
+          "pattern": "\\btype\\s*===|===\\s*type\\b|\\bcase\\s+['\"`]",
+          "negate": true
+        },
+        {
+          "label": "Guard against prototype names such as toString",
+          "pattern": "hasown|hasownproperty|new map|object\\.create\\(\\s*null|__proto__\\s*:\\s*null"
+        },
+        {
+          "label": "Still throw an error for an unknown promotion",
+          "pattern": "\\bthrow\\b"
+        }
+      ]
+    },
+    {
+      "title": "Make Money a value object",
+      "level": "ง่าย",
+      "tags": "Value Object · Immutability",
+      "lang": "javascript",
+      "prompt": "The Money class in the context has a bug: add() changes the existing object and returns this, so a price shared in multiple places changes everywhere. Fix it as a value object: (1) make it immutable, so add() returns a new Money and the original object and its fields cannot be changed after construction; (2) make add() throw when the currencies differ; (3) add equals(other) to compare both amount and currency.",
+      "context": "class Money {\n  constructor(amount, currency) {\n    this.amount = amount;      // integer in the smallest unit, such as cents\n    this.currency = currency;\n  }\n  add(other) {\n    this.amount += other.amount;\n    return this;\n  }\n}\n\nconst price = new Money(10000, 'THB');\nconst total = price.add(new Money(5000, 'THB'));\nconsole.log(price.amount); // 15000, even though price should not change",
+      "starter": "class Money {\n  constructor(amount, currency) {\n    this.amount = amount;      // จำนวนเต็มของหน่วยย่อย เช่น สตางค์\n    this.currency = currency;\n  }\n  add(other) {\n    this.amount += other.amount;\n    return this;\n  }\n}\n\nconst price = new Money(10000, 'THB');\nconst total = price.add(new Money(5000, 'THB'));\nconsole.log(price.amount); // 15000 ทั้งที่ price ไม่ควรเปลี่ยน",
+      "solution": "class Money {\n  constructor(amount, currency) {\n    this.amount = amount;\n    this.currency = currency;\n    Object.freeze(this);\n  }\n\n  add(other) {\n    if (other.currency !== this.currency) {\n      throw new Error(`currency mismatch: ${this.currency} vs ${other.currency}`);\n    }\n    return new Money(this.amount + other.amount, this.currency);\n  }\n\n  equals(other) {\n    return other instanceof Money &&\n      this.amount === other.amount &&\n      this.currency === other.currency;\n  }\n}",
+      "hints": [
+        "If add() changes this and returns this, anyone holding the original object sees it change. Consider which objects price and total refer to.",
+        "Have add() return new Money(...) instead, and prevent fields from changing after construction, for example by calling Object.freeze(this) at the end of the constructor.",
+        "Compare the currencies before adding and throw if they differ. equals should check that the other value is a Money, then compare amount and currency."
+      ],
+      "checks": [
+        {
+          "label": "Prevent fields from changing after construction (freeze, private field, or writable: false)",
+          "pattern": "object\\.freeze\\s*\\(|this\\.#\\w+|writable\\s*:\\s*false|defineproperties?"
+        },
+        {
+          "label": "Have add() return a new Money",
+          "pattern": "add\\s*(=\\s*(async\\s*)?)?\\([^)]*\\)\\s*(=>\\s*)?\\{[\\s\\S]*return\\s+new\\s+(money|this\\.constructor)\\s*\\("
+        },
+        {
+          "label": "Do not mutate this.amount in a method (no += or this.amount = this.amount ...)",
+          "pattern": "this\\.#?amount\\s*([+\\-*/]=|=\\s*this\\.#?amount)",
+          "negate": true
+        },
+        {
+          "label": "Check currencies before adding",
+          "pattern": "^(?=[\\s\\S]*[\\w.#]*currency\\s*[!=]==?\\s*[\\w.#]*currency)"
+        },
+        {
+          "label": "Throw when currencies differ",
+          "pattern": "\\bthrow\\b"
+        },
+        {
+          "label": "Provide equals() that compares amount",
+          "pattern": "^(?=[\\s\\S]*\\bequals\\s*(=\\s*)?\\()(?=[\\s\\S]*amount\\s*===?\\s*[\\w.#]*amount)"
+        }
+      ]
+    },
+    {
+      "title": "Write a circuit breaker with testable time",
+      "level": "ยาก",
+      "tags": "Circuit Breaker · Resilience",
+      "lang": "javascript",
+      "prompt": "The system calls an external payment API that can be down for minutes, and hanging requests can exhaust our resources. Write createBreaker(fn, options), which wraps async function fn as a circuit breaker. In closed state, call fn normally and count consecutive failures; after failureThreshold failures, switch to open. In open state, throw an Error immediately without calling fn until now() - openedAt reaches resetTimeoutMs. Then enter half-open and allow exactly one trial request to call fn; while it is pending, other requests must throw immediately without calling fn. On trial success, return to closed and clear the counter; on failure, return to open and restart the timer. Success in closed state clears the counter. A request that started before the breaker opened and finishes later must not change state (only the half-open trial may close or reopen it). Accept an option now, a function returning milliseconds, so tests can advance time. Return { call, getState }, where getState() returns \"closed\", \"open\", or \"half-open\".",
+      "context": "// Example usage (call() throws the original error when fn fails; try/catch is omitted here)\nlet t = 0;\nconst breaker = createBreaker(callPaymentApi, {\n  failureThreshold: 2,\n  resetTimeoutMs: 1000,\n  now: () => t,\n});\nawait breaker.call(order);   // failure 1: still closed\nawait breaker.call(order);   // failure 2: changes to open\nawait breaker.call(order);   // throws 'circuit open' immediately; does not call callPaymentApi\nt = 1000;\nbreaker.getState();          // 'half-open'",
+      "starter": "function createBreaker(fn, { failureThreshold = 3, resetTimeoutMs = 10000, now = Date.now } = {}) {\n  // TODO: เก็บสถานะ แล้วคืน { call, getState }\n}\n",
+      "solution": "function createBreaker(fn, { failureThreshold = 3, resetTimeoutMs = 10000, now = Date.now } = {}) {\n  let failures = 0;\n  let openedAt = null; // null = closed\n  let probing = false; // มีคำขอทดลองใน half-open ค้างอยู่หรือไม่\n  let epoch = 0; // เพิ่มทุกครั้งที่วงจรเปลี่ยนระหว่าง closed กับ open\n\n  function getState() {\n    if (openedAt === null) return 'closed';\n    return now() - openedAt >= resetTimeoutMs ? 'half-open' : 'open';\n  }\n\n  async function call(...args) {\n    const state = getState();\n    if (state === 'open') throw new Error('circuit open');\n    const isProbe = state === 'half-open';\n    if (isProbe) {\n      if (probing) throw new Error('circuit open');\n      probing = true;\n    }\n    const startEpoch = epoch;\n    // เฉพาะคำขอทดลอง หรือคำขอที่เริ่มในรอบ closed ปัจจุบันเท่านั้นที่เปลี่ยนสถานะได้\n    const counts = () => isProbe || (startEpoch === epoch && openedAt === null);\n    try {\n      const result = await fn(...args);\n      if (counts()) {\n        failures = 0;\n        if (openedAt !== null) {\n          openedAt = null; // คำขอทดลองสำเร็จ: กลับ closed\n          epoch += 1;\n        }\n      }\n      return result;\n    } catch (err) {\n      if (counts()) {\n        failures += 1;\n        if (isProbe || failures >= failureThreshold) {\n          openedAt = now();\n          epoch += 1;\n        }\n      }\n      throw err;\n    } finally {\n      if (isProbe) probing = false;\n    }\n  }\n\n  return { call, getState };\n}\n",
+      "hints": [
+        "Track just two things: the number of consecutive failures and when the circuit opened (null means closed). Derive the state name from those values in getState().",
+        "Before calling fn, check whether the breaker is open; if so, throw immediately. In half-open, allow only one request at a time. Use a variable such as probing to mark a pending trial, and clear it in finally.",
+        "In catch, open the breaker (openedAt = now()) when a half-open trial fails or when failures reaches failureThreshold. Rethrow the original error to the caller.",
+        "A request started in closed state may finish after the breaker has opened or entered half-open. Record the state or generation when the request starts (for example, increment a generation each time the circuit closes or opens), and let its result change state only if it still belongs to the same closed generation."
+      ],
+      "checks": [
+        {
+          "label": "Read time from the now() function provided in options",
+          "pattern": "(?<![\\w.])now\\s*\\(\\s*\\)|\\b(options|opts|config)\\.now\\s*\\(\\s*\\)|\\bnow\\s*:\\s*(?<al>\\w+)[\\s\\S]*\\b\\k<al>\\s*\\(\\s*\\)"
+        },
+        {
+          "label": "Handle all three states: closed, open, and half-open",
+          "pattern": "^(?=[\\s\\S]*closed)(?=[\\s\\S]*half-open)(?=[\\s\\S]*['\"`]open['\"`])"
+        },
+        {
+          "label": "Use failureThreshold to decide when to open",
+          "pattern": "failurethreshold[\\s\\S]*failurethreshold|failurethreshold\\s*:\\s*(?<al>\\w+)[\\s\\S]*\\b\\k<al>\\b"
+        },
+        {
+          "label": "Use resetTimeoutMs to decide when to enter half-open",
+          "pattern": "resettimeoutms[\\s\\S]*resettimeoutms|resettimeoutms\\s*:\\s*(?<al>\\w+)[\\s\\S]*\\b\\k<al>\\b"
+        },
+        {
+          "label": "Reset the failure counter on success",
+          "pattern": "(await|\\.then)[\\s\\S]*\\w+\\s*=\\s*(0|null)\\b"
+        },
+        {
+          "label": "Catch errors and rethrow them to the caller",
+          "pattern": "catch[\\s\\S]*\\bthrow\\b|\\.catch\\("
+        },
+        {
+          "label": "Allow only one half-open trial at a time (use a flag/counter to reject concurrent requests)",
+          "pattern": "^(?=[\\s\\S]*(probe|probing|trial|flight|pending|busy|lock|testing)\\w*\\s*(=[^=]|\\+\\+|\\+=))(?=[\\s\\S]*if\\s*\\(\\s*!?\\s*[\\w.#]*(probe|probing|trial|flight|pending|busy|lock|testing))|^(?=[\\s\\S]*[\\w.#]+\\s*=\\s*true\\b)(?=[\\s\\S]*[\\w.#]+\\s*=\\s*false\\b)(?=[\\s\\S]*if\\s*\\(\\s*!?\\s*[\\w.#]+\\s*\\))"
+        }
+      ]
+    }
+  ],
+  "refs": [
+    {
+      "title": "Sandi Metz: The Wrong Abstraction",
+      "url": "https://sandimetz.com/blog/2016/1/20/the-wrong-abstraction",
+      "note": "Why duplication is cheaper than the wrong abstraction, and how to back out of one."
+    },
+    {
+      "title": "Google AIP-185: API Versioning",
+      "url": "https://google.aip.dev/185",
+      "note": "Major versions in the path, stable/beta/alpha channels, and deprecation periods."
+    },
+    {
+      "title": "RFC 9457: Problem Details for HTTP APIs",
+      "url": "https://www.rfc-editor.org/rfc/rfc9457.html",
+      "note": "The standard error format for HTTP APIs."
+    },
+    {
+      "title": "RFC 9110: Idempotent Methods",
+      "url": "https://www.rfc-editor.org/rfc/rfc9110.html#name-idempotent-methods",
+      "note": "Which methods are idempotent and when clients should retry automatically."
+    },
+    {
+      "title": "PostgreSQL: LIMIT and OFFSET",
+      "url": "https://www.postgresql.org/docs/current/queries-limit.html",
+      "note": "Why large OFFSET values can be slow and why an ORDER BY is needed."
+    },
+    {
+      "title": "Azure Architecture Center: Retry pattern",
+      "url": "https://learn.microsoft.com/en-us/azure/architecture/patterns/retry",
+      "note": "Retry strategies, the risks of aggressive retries, and idempotency."
+    },
+    {
+      "title": "Azure Architecture Center: Transient fault handling",
+      "url": "https://learn.microsoft.com/en-us/azure/architecture/best-practices/transient-faults",
+      "note": "Why retries need backoff and jitter."
+    },
+    {
+      "title": "Martin Fowler: Domain-Driven Design",
+      "url": "https://martinfowler.com/bliki/DomainDrivenDesign.html",
+      "note": "Ubiquitous language and bounded contexts."
+    }
+  ]
+}

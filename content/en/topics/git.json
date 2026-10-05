@@ -1,0 +1,700 @@
+{
+  "id": "git",
+  "code": "F2",
+  "track": "foundations",
+  "title": "Git and Version Control",
+  "blurb": "Use Git confidently, collaborate without conflicts, and recover when something goes wrong.",
+  "mustKnow": [
+    {
+      "tier": "must",
+      "title": "A commit is a snapshot; staging selects its contents",
+      "body": "A commit is a snapshot of the entire project at that point, along with an author, a message, and a link to its parent commit. Commits form a history you can inspect and revisit. Before committing, changes go through the staging area (`git add`), where you choose what belongs in this commit. For example, keep a bug fix and a formatting change in separate commits. A common trap is editing a file again after adding it: those later changes are not included until you add it again.",
+      "code": "git status            # ดูว่าอะไร modified / staged\ngit add src/cart.js   # stage ทั้งไฟล์\ngit add -p            # เลือก stage ทีละส่วน\ngit diff --staged     # ดูสิ่งที่จะเข้า commit\ngit commit -m \"fix(cart): ...\""
+    },
+    {
+      "tier": "must",
+      "title": "A branch is a pointer; HEAD marks your current position",
+      "body": "A branch is just a label pointing to a commit. When you make a commit, the branch you are on moves forward to it, so creating a branch is fast and uses almost no space. HEAD shows where you are: normally it points to a branch, but checking out a hash directly puts you in detached HEAD state. A commit made there is not referenced by any branch. Use `git switch -c` to create a branch that keeps your work before switching away.",
+      "code": "git switch -c feat/search   # สร้าง branch แล้วย้ายไป\ngit log --oneline --graph --all\n# * a1b2c3d (HEAD -> feat/search) feat: add search box\n# * 9f8e7d6 (origin/main, main) fix: typo"
+    },
+    {
+      "tier": "must",
+      "title": "Pull request workflow",
+      "body": "Create a branch from the latest main, make one focused change at a time, commit, and push. Then open a PR so CI can run tests and teammates can review before merge. A small PR about one thing is faster and easier to review carefully than a large one. If reviewers request changes, add commits to the same branch and push again; the PR updates automatically.",
+      "code": "git switch main && git pull\ngit switch -c fix/cart-total\n# ...แก้โค้ด...\ngit add -p && git commit -m \"fix(cart): ...\"\ngit push -u origin fix/cart-total\n# เปิด PR แล้วรอ CI + review"
+    },
+    {
+      "tier": "must",
+      "title": "Resolve merge conflicts",
+      "body": "A conflict occurs when both sides change the same or adjacent lines and Git cannot decide how to combine them. The section between <<<<<<< and ======= is HEAD (the branch you were on when merging); the section between ======= and >>>>>>> is the incoming branch. Understand both sides’ intent and combine them correctly instead of blindly choosing one whole side. Remove every marker, run tests, then git add and commit. If you are not ready, `git merge --abort` can undo the merge.",
+      "code": "<<<<<<< HEAD\nconst TIMEOUT_MS = 3000;\nconst RETRIES = 3;\n=======\nconst TIMEOUT_MS = 5000;\n>>>>>>> main"
+    },
+    {
+      "tier": "must",
+      "title": "How revert, reset, and restore differ",
+      "body": "`git restore` discards uncommitted changes in a file (add `--staged` to remove it from the staging area only). `git reset` moves the current branch back to an earlier commit; use it for commits that have not been pushed. With `--hard`, it also discards uncommitted work. `git revert` creates a new commit that reverses an earlier one without changing history, so it is the right choice for a commit that has been pushed and pulled by others.",
+      "code": "git restore src/app.js          # ทิ้งการแก้ที่ยังไม่ add\ngit restore --staged src/app.js # ถอนจาก staging แต่การแก้ยังอยู่\ngit reset --soft HEAD~1         # ยกเลิก commit ล่าสุด เก็บการแก้ไว้ใน staging\ngit revert a1b2c3d              # ย้อน commit ที่ push แล้วด้วย commit ใหม่"
+    },
+    {
+      "tier": "must",
+      "title": ".gitignore and leaked secrets: rotate first",
+      "body": "`.gitignore` tells Git not to track files such as node_modules/, build output, and .env, but it only applies to files not already tracked. If a file was committed, also use `git rm --cached`. If a secret was pushed to a remote, treat it as compromised and revoke or rotate the key first: other people’s forks and clones may still contain the old value. Deleting the file in a later commit is not enough. Clean history (for example with git filter-repo) afterward.",
+      "code": "# .gitignore\nnode_modules/\ndist/\n.env\n.env.*\n!.env.example\n\n# เลิก track แต่ไฟล์ยังอยู่ในเครื่อง\ngit rm --cached .env"
+    },
+    {
+      "tier": "should",
+      "title": "Recover a “lost” commit with reflog",
+      "body": "The reflog records where HEAD and your branches have pointed on your local machine. After an accidental `reset --hard`, failed rebase, or deleted branch, those commits often still exist; they just have no branch pointing to them. Find their hashes in the reflog, then create a branch or reset back to them. The reflog is local only (it is not sent by push or clone). By default, entries expire after 90 days, or 30 days for entries unreachable from the current branch tip. It cannot recover work that was never committed. (Files previously added with git add may be recoverable with git fsck --lost-found.)",
+      "code": "git reflog\n# 9f8e7d6 HEAD@{0}: reset: moving to HEAD~3\n# a1b2c3d HEAD@{1}: commit: feat: add export\ngit switch -c rescue a1b2c3d   # หรือ git reset --hard a1b2c3d"
+    },
+    {
+      "tier": "should",
+      "title": "Rebase versus merge, and never rewrite shared history",
+      "body": "Merge combines two lines of work without changing their existing commits (unless it can fast-forward; otherwise it creates a merge commit). Rebase replays your commits, one by one, on a new base. The history becomes linear, but every replayed commit gets a new hash. Never rebase or reset a branch others have pulled, such as main: the team’s histories diverge and duplicate commits can appear. If you rebase your own branch after pushing it, use `--force-with-lease`, which refuses to overwrite a remote branch that changed since your last view (`origin/<branch>` locally). If you have fetched recently, first check for other people’s new work.",
+      "code": "git switch feat/search\ngit fetch origin\ngit rebase origin/main      # branch นี้เราใช้คนเดียว\ngit push --force-with-lease"
+    },
+    {
+      "tier": "should",
+      "title": "A good commit message explains why",
+      "body": "Keep the first line short (about 50 characters) and say what changed. Use the body to explain why: a diff shows what changed, but someone using git blame six months later needs the reason. Many teams use Conventional Commits (`feat:`, `fix:`, `docs:`, `refactor:`) to improve readability and generate changelogs automatically. Avoid messages such as “update” or “fix bug,” and avoid combining unrelated changes in one commit.",
+      "code": "fix(cart): ปัดเศษส่วนลดก่อนรวมยอด\n\nยอดรวมคลาดไป 0.01 บาทเมื่อมีส่วนลดหลายรายการ\nเพราะปัดเศษหลังรวม ทำให้ไม่ตรงกับใบเสร็จจาก POS\n\nCloses #482"
+    },
+    {
+      "tier": "should",
+      "title": "Trunk-based development and GitFlow",
+      "body": "In trunk-based development, everyone works in short-lived branches (hours to a day or two) and merges into main often through CI. Feature flags can hide unfinished work, keeping conflicts small and deployments frequent. GitFlow uses several long-lived branches (develop, release/*, hotfix/*) and suits software released in versions that must be maintained in parallel. In 2020, GitFlow’s creator wrote that teams practicing continuous delivery should use a simpler workflow such as GitHub flow."
+    },
+    {
+      "tier": "advanced",
+      "title": "Use interactive rebase to clean up commits before a PR",
+      "body": "`git rebase -i` lets you edit a set of commits that have not been shared. Use squash or fixup to combine small commits such as “wip” or “fix typo,” reword to edit messages, reorder commits, or drop them. The result is a PR whose commits are easier for a reviewer to understand. The same rebase rule applies: only rewrite commits nobody else uses. If something goes wrong, the reflog can help recover.",
+      "code": "git rebase -i origin/main\n# pick   a1b2c3d feat: add search API\n# fixup  b2c3d4e fix typo\n# reword c3d4e5f wip"
+    },
+    {
+      "tier": "advanced",
+      "title": "Find the commit that introduced a bug with git bisect",
+      "body": "When you know one version was good and the latest version is broken, bisect checks out a commit in the middle so you can test it, then repeatedly narrows the range by half. Even 1,000 commits take about 10 rounds. If you have a script that exits 0 when the code passes and 1 when it fails, `git bisect run` can search automatically. When finished, run `git bisect reset` to return to your original branch.",
+      "code": "git bisect start\ngit bisect bad              # commit ปัจจุบันพัง\ngit bisect good v2.3.0      # tag ที่รู้ว่ายังดี\ngit bisect run npm test     # ให้ Git ทดสอบแต่ละ commit เอง\ngit bisect reset"
+    },
+    {
+      "tier": "must",
+      "title": "How fetch and pull differ",
+      "body": "`git fetch` downloads new commits from a remote and updates remote-tracking branches such as origin/main, without changing your current branch or files. You can inspect what teammates sent first. `git pull` fetches and then immediately integrates the changes into the current branch. Current documentation says the default is fast-forward only. If the histories have diverged, Git stops and asks you to choose `--rebase` or `--no-rebase` (or configure pull.rebase / pull.ff). “Need to specify how to reconcile divergent branches” does not mean Git is broken; it means both sides have commits the other does not.",
+      "code": "git fetch origin\ngit log --oneline HEAD..origin/main   # commit ที่ remote มีแต่เรายังไม่มี\ngit merge --ff-only origin/main       # รวมเมื่อพร้อม (หรือ git rebase origin/main)\ngit pull --rebase                     # fetch + rebase commit ที่ยังไม่ push",
+      "exam": true,
+      "ref": "https://git-scm.com/docs/git-pull"
+    },
+    {
+      "tier": "must",
+      "title": "Fast-forward, merge commits, and --no-ff",
+      "body": "If the target branch has no new commits since your branch was created, `git merge` can simply move its pointer forward (fast-forward) without creating a merge commit, leaving a linear history. If both sides have new commits, Git creates a merge commit with two parents. `--no-ff` forces a merge commit even when fast-forward is possible, making the feature visible as a unit. `--ff-only` succeeds only when a fast-forward is possible. To revert a merge commit, specify which parent is the mainline with `-m <number>` because Git cannot know which side you intend to keep (see git revert documentation). Numbering starts at 1; the first parent is the branch you were on when you merged, usually main.",
+      "code": "git merge feat/search              # fast-forward ถ้า main ไม่ขยับ\ngit merge --no-ff feat/search      # สร้าง merge commit เสมอ\ngit merge --ff-only origin/main    # ไม่ยอมสร้าง merge commit\ngit revert -m 1 <merge-commit>     # ย้อนทั้ง feature ที่ merge มา",
+      "exam": true,
+      "ref": "https://git-scm.com/docs/git-merge"
+    },
+    {
+      "tier": "must",
+      "title": "Temporarily save unfinished work with git stash",
+      "body": "`git stash` temporarily saves uncommitted changes to tracked files and restores a clean working tree. It is useful when you need to switch branches to handle urgent work. By default it excludes new, untracked files; use `-u` (or `-a` to include ignored files too). Add `-m` to give the stash a name. `git stash pop` reapplies the work and removes the entry, but if a conflict occurs Git keeps the stash; resolve the conflict and run `git stash drop` yourself. `apply` restores the work without removing the entry.",
+      "code": "git stash push -u -m \"wip: report filter\"\ngit switch main                  # ...ไปแก้งานด่วน...\ngit switch feat/report\ngit stash list\ngit stash pop                    # ถ้า conflict: แก้แล้วค่อย git stash drop",
+      "exam": true,
+      "ref": "https://git-scm.com/docs/git-stash"
+    },
+    {
+      "tier": "must",
+      "title": "Tag a release with a version label",
+      "body": "A tag is a fixed name pointing to one commit, unlike a branch that moves forward as new commits are made. This makes tags useful for version labels such as v1.4.0. An annotated tag (`git tag -a`) is a full Git object that stores its creator, date, and message (and can be signed with `-s`); documentation recommends it for releases. A lightweight tag is just a name pointing to a commit and suits temporary private labels. A common trap: ordinary `git push` does not send tags to a remote (Pro Git). Use `git push origin <tag>` or `--tags`. By default, `git describe` considers only annotated tags, since the git tag documentation says some commands that name objects, such as describe, skip lightweight tags.",
+      "code": "git tag -a v1.4.0 -m \"Release 1.4.0\"\ngit push origin v1.4.0     # git push เฉย ๆ ไม่ส่ง tag\ngit describe               # เช่น v1.4.0-3-g9fceb02 (tag + จำนวน commit ที่ตามมา)\ngit tag -d v1.4.0          # ลบ tag ในเครื่อง",
+      "exam": true,
+      "ref": "https://git-scm.com/docs/git-tag"
+    },
+    {
+      "tier": "must",
+      "title": "The three reset modes: --soft, --mixed, and --hard",
+      "body": "`git reset <commit>` moves the current branch to that commit. The modes differ in how much they change the staging area and working tree. `--soft` moves only the pointer; changes remain staged. `--mixed` (the default) moves the pointer and clears the staging area, leaving the files modified but unstaged. `--hard` overwrites the working tree to match the target commit, discarding uncommitted changes, which generally cannot be recovered (except that previously staged content may be recoverable as a blob with git fsck --lost-found). Use `--soft` to combine several unpushed commits into one. `git reset -- <path>` instead removes only the specified path from staging.",
+      "code": "git reset --soft HEAD~3    # ยกเลิก 3 commit การแก้ทั้งหมดยังอยู่ใน staging\ngit commit -m \"feat(export): export CSV\"\ngit reset HEAD~1           # --mixed: ยกเลิก commit และ unstage แต่การแก้ยังอยู่ในไฟล์\ngit reset --hard HEAD~1    # ทิ้งทั้ง commit และการแก้ในไฟล์",
+      "exam": true,
+      "ref": "https://git-scm.com/docs/git-reset"
+    },
+    {
+      "tier": "should",
+      "title": "PR merge methods: merge commit, squash, and rebase",
+      "body": "GitHub offers three ways to integrate a PR. Merge commit keeps all original commits and adds a merge commit (equivalent to --no-ff). Squash and merge combines all PR commits into one new commit on the base branch with a new SHA. Rebase and merge replays commits individually in a linear history, and each gets a new SHA. One consequence of squash is that the branch’s original commits are not in main’s history, so `git branch -d` may say “not fully merged.” (`-d` compares against the upstream branch if set, otherwise HEAD; use `-D` only after confirming the PR was merged.) A branch based on that branch must also be rebased onto the new base.",
+      "code": "git branch -d feat/search\n# error: the branch 'feat/search' is not fully merged\ngit branch -D feat/search   # ลบ หลังเช็กแล้วว่า PR ถูก squash merge",
+      "ref": "https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/incorporating-changes-from-a-pull-request/about-pull-request-merges"
+    },
+    {
+      "tier": "should",
+      "title": "Cherry-pick: copy one commit to another branch",
+      "body": "`git cherry-pick <commit>` applies one commit’s changes by creating a new commit on the current branch (with a different hash). It is useful for backporting a hotfix from main to release/1.4 without bringing along other commits that are not ready. `-x` appends “(cherry picked from commit …)” to the message; documentation recommends it when picking between public branches, but not for private branches. To pick a merge commit, specify `-m <parent-number>`. If you need all the work from another branch, merge or rebase instead of cherry-picking commits one at a time.",
+      "code": "git switch release/1.4\ngit cherry-pick -x 9fceb02   # backport fix ตัวเดียว\n# ถ้า conflict: แก้ไฟล์ -> git add -> git cherry-pick --continue",
+      "ref": "https://git-scm.com/docs/git-cherry-pick"
+    },
+    {
+      "tier": "should",
+      "title": "Trace code history with blame and log -S",
+      "body": "`git blame <file>` shows which commit and author last changed each line. Use `-L` to choose a line range and `-C` to follow code moved from another file. Blame does not show lines that have been deleted. Use `git log -S\"text\"` to find commits that changed how many times a string appears (added or removed), as described in git log documentation. If a commit that only reformatted the project obscures blame, put its hash in a file such as .git-blame-ignore-revs and set blame.ignoreRevsFile to that file (or use --ignore-revs-file).",
+      "code": "git blame -L 40,60 src/pay.js\ngit log -S\"calculateTax\" --oneline -- src/   # commit ที่เพิ่มหรือลบข้อความนี้\necho <hash-ของ-commit-format> >> .git-blame-ignore-revs\ngit config blame.ignoreRevsFile .git-blame-ignore-revs",
+      "ref": "https://git-scm.com/docs/git-blame"
+    },
+    {
+      "tier": "should",
+      "title": "Git hooks: pre-commit and their limits",
+      "body": "A hook is a script Git runs at a particular point. For example, pre-commit can run lint or tests before creating a commit (a nonzero exit cancels it), and commit-msg can check the commit message. Files in .git/hooks are not copied when someone clones the repository and are not version-controlled. Teams often store hooks in the repo, for example in .githooks/, and have everyone set core.hooksPath to that directory (the files need the executable bit). Anyone can bypass pre-commit and commit-msg with --no-verify, so checks must also run in CI.",
+      "code": "#!/bin/sh\n# .githooks/pre-commit  (chmod +x ด้วย)\nnpm run lint || exit 1\n\n# เปิดใช้ ทำครั้งเดียวต่อ clone (ตั้งค่าเฉพาะ repo นี้)\ngit config core.hooksPath .githooks",
+      "ref": "https://git-scm.com/docs/githooks"
+    },
+    {
+      "tier": "advanced",
+      "title": "Git’s data model: blob, tree, and commit",
+      "body": "Git stores content in objects named by a hash of their contents. The three main types are blob (file contents, without a filename), tree (directory entries pointing to blobs or trees, with names and modes), and commit (a pointer to the root tree, plus parents, author, and message). Because names are content-based, identical file contents can share one blob even under different filenames. A commit hash includes its parents, so rebasing onto a new base creates new hashes. Pro Git describes SHA-1 as the hash used, and git init documentation says sha1 is the default; `git init --object-format=sha256` creates a SHA-256 repository (which, according to the same documentation, does not currently interoperate with SHA-1 repositories).",
+      "code": "git cat-file -t HEAD          # commit\ngit cat-file -p HEAD          # tree <hash> / parent <hash> / author ...\ngit cat-file -p 'HEAD^{tree}'  # รายการ blob และ tree ใน commit นั้น\ngit hash-object --no-filters a.txt b.txt   # เนื้อหาเหมือนกัน = hash เดียวกัน",
+      "ref": "https://git-scm.com/book/en/v2/Git-Internals-Git-Objects"
+    },
+    {
+      "tier": "advanced",
+      "title": "Use git rebase --onto to move a stacked branch",
+      "body": "Normally, `git rebase main` replays commits that exist on your branch but not on main. But if feature-b branches from feature-a and feature-a is squash-merged into main, feature-a’s original commits are not on main (only the new squash commit is). A normal rebase can replay feature-a’s commits again and often conflict. Use `--onto <new-base> <old-base> <branch>` to replay only commits after the old base onto the new base. Because the hashes change, a previously pushed branch will reject a normal push; use `--force-with-lease`, which refuses to overwrite remote work you have not seen. But once you fetch, the lease considers that new work seen, so explicitly bind it to the hash you reviewed.",
+      "code": "# main: ... S   (S = squash ของ a1+a2)\n# feature-a: a1--a2    feature-b: a1--a2--b1--b2\ngit fetch origin\ngit rebase --onto origin/main feature-a feature-b\ngit push --force-with-lease=feature-b:<hash เดิมของ origin/feature-b> origin feature-b",
+      "ref": "https://git-scm.com/docs/git-rebase"
+    },
+    {
+      "tier": "advanced",
+      "title": "Sign commits and tags with a key",
+      "body": "Git does not verify user.name or user.email at commit time; anyone can set them to any value (and `git commit --author` also allows the author to be specified). They are not proof of who wrote the code. Pro Git says Git is secure through hashing, but that is not the whole story. Signing with a key lets others verify that the commit was signed by that key; it proves identity only if the key is tied to a trusted identity (for example, registered with GitHub). `git commit -S` signs one commit; set commit.gpgsign to true to sign every commit; `git tag -s` signs a tag; and `git log --show-signature` displays verification results. Pro Git primarily teaches GPG, but git config documentation says the key type is selected with gpg.format (openpgp by default, or x509 and ssh).",
+      "code": "git config --local commit.gpgsign true\ngit commit -S -m \"fix(auth): revoke token on logout\"\ngit log --show-signature -1\ngit tag -s v1.4.0 -m \"Release 1.4.0\"",
+      "ref": "https://git-scm.com/book/en/v2/Git-Tools-Signing-Your-Work"
+    }
+  ],
+  "questions": [
+    {
+      "prompt": "You edit both a.js and b.js; both are already tracked. Then you run these commands. What will the resulting commit contain?",
+      "code": "git add a.js\n# แก้ a.js เพิ่มอีกหนึ่งบรรทัด\ngit commit -m \"feat: add filter\"",
+      "options": [
+        "Every change in a.js, including lines added after add, and b.js too",
+        "Every change in a.js, including lines added after add, but not b.js",
+        "Only the parts of a.js staged at add time, and not b.js",
+        "Nothing, because editing after add cleared the staging area"
+      ],
+      "answer": 2,
+      "explain": "`git add` stores the file contents as they were when you added them. Later edits are unstaged until you add the file again. b.js was never added, so it is not in the commit (unlike `git commit -a`, which stages all tracked files)."
+    },
+    {
+      "prompt": "You opened a PR from feat/search, and a reviewer asks for two changes. What is the best approach?",
+      "options": [
+        "Close the PR, make the changes, and open a new PR from a new branch",
+        "Make the changes on feat/search, then commit and push to the same branch",
+        "Make the changes directly on main because they are small, then merge the PR",
+        "Merge the PR first to avoid delays, then fix it in a later PR"
+      ],
+      "answer": 1,
+      "explain": "A PR follows its branch. Pushing new commits to the same branch updates the PR, reruns CI, and keeps the review discussion together. Opening another PR loses context; merging before the requested changes would put unreviewed code on main."
+    },
+    {
+      "prompt": "Commit a1b2c3d broke checkout and was pushed to main, which the whole team has pulled. How should you undo it?",
+      "options": [
+        "Run git reset --hard a1b2c3d~1, then git push --force",
+        "Run git rebase -i and drop the commit, then push --force-with-lease",
+        "Run git revert a1b2c3d, then push or open a PR as usual",
+        "Run git restore --staged . to remove the commit from main"
+      ],
+      "answer": 2,
+      "explain": "revert creates a new commit that reverses a1b2c3d without rewriting history, so everyone can continue normally. Reset or dropping the commit followed by a force push rewrites history other people already have. Their local history would diverge, and they might push the removed commit back."
+    },
+    {
+      "prompt": "You realize you committed .env with a payment gateway API key and pushed it to GitHub an hour ago. What should you do first?",
+      "options": [
+        "Delete .env in a new commit and push immediately",
+        "Revoke or rotate the key at the payment gateway",
+        "Clean history with git filter-repo and force-push",
+        "Add .env to .gitignore and push"
+      ],
+      "answer": 1,
+      "explain": "Once a secret reaches a remote, treat it as compromised: a bot may have scanned it or someone may have cloned it. Deleting the file or cleaning history does not disable the exposed key. Rotate it first, then remove the file, add it to .gitignore, and clean history."
+    },
+    {
+      "prompt": "You merge main into your branch and get this conflict. main changed the timeout to 5000 to address a slow API; your branch added RETRIES. What should you do?",
+      "code": "<<<<<<< HEAD\nconst TIMEOUT_MS = 3000;\nconst RETRIES = 3;\n=======\nconst TIMEOUT_MS = 5000;\n>>>>>>> main",
+      "options": [
+        "Choose all of HEAD because it is the branch you are working on",
+        "Choose all of main because its code has already been reviewed",
+        "Keep TIMEOUT_MS = 5000 and RETRIES = 3, remove the markers, and run tests",
+        "Delete only the ======= line and commit so Git can handle the rest"
+      ],
+      "answer": 2,
+      "explain": "Combine the intent of both sides: main’s new timeout and your retry setting. Choosing one entire side silently loses the other work, and Git does not remove remaining markers; they cause syntax errors."
+    },
+    {
+      "prompt": "You have three commits that have never been pushed and accidentally run the command shown. How can you recover the work?",
+      "code": "git reset --hard HEAD~3",
+      "options": [
+        "It cannot be recovered; --hard permanently deleted the commits",
+        "Run git pull to restore the three commits from origin",
+        "Run git revert HEAD~3 to undo the reset",
+        "Use git reflog to find the hash from before the reset, then reset --hard back to it"
+      ],
+      "answer": 3,
+      "explain": "reset moves the branch pointer; the commits remain in the repository and the reflog records where HEAD used to point. Pull cannot help because the commits never reached the remote. Revert reverses a commit’s changes, not a pointer move."
+    },
+    {
+      "prompt": "You edited config.js and api.js, but have not run git add. You want to discard only the config.js changes and restore it to the latest commit. Which command should you use?",
+      "options": [
+        "git restore config.js",
+        "git reset --hard",
+        "git revert HEAD",
+        "git restore --staged config.js"
+      ],
+      "answer": 0,
+      "explain": "`git restore <file>` restores that working-tree file from the staging area, which here matches the latest commit, and affects only that file. `reset --hard` would also discard api.js changes. `--staged` only removes a file from staging without changing its edits."
+    },
+    {
+      "prompt": "You and a teammate share the pushed feature/cart branch. You rebase it on main, and your push is rejected. What should you do?",
+      "code": "$ git rebase origin/main\n$ git push\n ! [rejected]  feature/cart -> feature/cart (non-fast-forward)",
+      "options": [
+        "Run git push --force immediately because the rebase succeeded",
+        "Run git pull and push again so Git merges the histories",
+        "Talk with your teammate first, or undo the rebase and merge main instead",
+        "Delete feature/cart on the remote and push the branch again"
+      ],
+      "answer": 2,
+      "explain": "Rebase creates new commits, so the remote history used by your teammate no longer connects to yours. A force push or deleting the branch could overwrite work they have pushed. Pulling with merge may combine the old and new commit sets and create duplicates. Agree first (and use --force-with-lease if a force push is needed), or merge main without rewriting history."
+    },
+    {
+      "prompt": "Six months from now, someone opens git blame on if (retries > 3) and wonders why the limit is 3. Which commit message would help most?",
+      "options": [
+        "fix: correct retries > 3 in payment/retry.js",
+        "refactor(payment): improve the retry code",
+        "fix(payment): limit retries to 3 because the gateway locks the account above that",
+        "update: change retry value as discussed in yesterday’s meeting"
+      ],
+      "answer": 2,
+      "explain": "The diff already shows what changed; the missing piece is why. The correct message gives the type, scope, and reason. Naming the file and condition merely repeats the diff, and “as discussed” means nothing to someone who was not in the meeting."
+    },
+    {
+      "prompt": "Your team deploys several times a day with CI/CD, but feature branches stay open for 2–3 weeks and develop large conflicts. What should change?",
+      "options": [
+        "Switch to GitFlow with separate develop and release branches",
+        "Use short-lived branches, merge into main daily, and hide unfinished work behind feature flags",
+        "Wait and merge every branch at once at the end of each sprint",
+        "Have everyone push directly to main without CI or review"
+      ],
+      "answer": 1,
+      "explain": "Conflicts grow with branch age. Frequent, small merges in trunk-based development keep conflicts small and let CI check changes quickly. GitFlow adds long-lived branches and suits versioned software better. Trunk-based development does not mean skipping CI or review."
+    },
+    {
+      "prompt": "You have unfinished edits on feat/report and want to see what teammates pushed to main without bringing their code into your current branch. What should you do?",
+      "options": [
+        "Run git fetch origin, then inspect with git log HEAD..origin/main",
+        "Run git pull now, then reset if you dislike what came from the remote",
+        "Merge origin/main, then inspect what arrived after the merge",
+        "Check out origin/main to see the teammates’ latest files"
+      ],
+      "answer": 0,
+      "explain": "fetch updates only origin/* and leaves your branch and files alone, so you can inspect before integrating. pull fetches and immediately integrates into the current branch (by merge or rebase, according to configuration). Merging without fetching may use stale data, and checking out origin/main will not fetch new data and leaves HEAD detached."
+    },
+    {
+      "prompt": "You have one unpushed commit on main, but a teammate pushes to main first. After git pull prints this message, you want linear history without losing your commit. What should you do?",
+      "code": "$ git pull\nhint: You have divergent branches and need to specify how to reconcile them.\nfatal: Need to specify how to reconcile divergent branches.",
+      "options": [
+        "Run git push --force so the remote matches your local commit",
+        "Run git pull --rebase to replay your commit after your teammate’s",
+        "Run git reset --hard origin/main and pull again to clean up history",
+        "Repeat git pull --ff-only until it eventually succeeds"
+      ],
+      "answer": 1,
+      "explain": "Rebase replays your unpushed commit after origin/main, keeping both sets of work in a linear history. A force push overwrites your teammate’s commit; reset --hard discards yours; and --ff-only will keep failing because the histories have diverged."
+    },
+    {
+      "prompt": "You have three commits on feat/search branched from main, and main has not moved since. The team wants the history to show when the feature was integrated and make it easy to revert as one unit. Which command should you run on main?",
+      "options": [
+        "git merge feat/search, because Git always creates a merge commit",
+        "git merge --ff-only feat/search to preserve the full history",
+        "git merge --no-ff feat/search to force a merge commit",
+        "git rebase main feat/search and then merge it"
+      ],
+      "answer": 2,
+      "explain": "Because main has not moved, an ordinary merge can fast-forward by moving the pointer, without a merge commit or visible feature boundary. `--no-ff` forces a merge commit even when fast-forward is possible. `--ff-only` also fast-forwards."
+    },
+    {
+      "prompt": "Your feat/search PR was squash-merged on GitHub. You pull main and try to delete the local branch, but get this message. What happened?",
+      "code": "$ git switch main && git pull\n$ git branch -d feat/search\nerror: the branch 'feat/search' is not fully merged",
+      "options": [
+        "The pull silently failed, so main does not contain the feature",
+        "The PR was merged incorrectly; open another PR to integrate the work",
+        "GitHub locked the branch, so you must delete the remote branch first",
+        "Squash created a new commit, so the original commits are not part of main’s history"
+      ],
+      "answer": 3,
+      "explain": "Squash and merge combines the PR commits into one new commit. The branch’s original commits are not ancestors of main, so `git branch -d` (which compares to upstream if set, otherwise HEAD) says they are not merged. After confirming the PR was merged, use `-D`. The feature is on main; it was not lost."
+    },
+    {
+      "prompt": "You edited tracked report.js and created a new untracked draft.md. Then you run git stash to switch to an urgent bug fix. Which result is correct?",
+      "code": "git stash\ngit status -s\n?? draft.md",
+      "options": [
+        "report.js is stashed; draft.md remains in the working tree",
+        "Both files are stashed because stash saves every working-tree file",
+        "git stash does nothing because an untracked file is present; you must add it first",
+        "report.js is stashed and draft.md is deleted from disk"
+      ],
+      "answer": 0,
+      "explain": "By default, git stash saves only tracked-file changes. The new untracked file remains in the working tree and follows you to the branch you switch to. Use `git stash -u` to include it. Stash does not refuse to run just because untracked files exist."
+    },
+    {
+      "prompt": "You run git stash pop and get a conflict with a file your teammate also changed. Git says, “The stash entry is kept in case you need it again.” After resolving the conflict and committing, what should you do?",
+      "options": [
+        "Nothing; pop removed the stash when it ran",
+        "Run git stash drop to remove the remaining entry when you no longer need it",
+        "Run git stash apply so Git removes the remaining entry",
+        "Run git reset --hard to clear all remaining stashes"
+      ],
+      "answer": 1,
+      "explain": "When pop encounters a conflict, Git keeps the entry in the stash stack in case you need it. Resolve the conflict, then drop the entry yourself. `apply` also keeps the entry, and `reset --hard` does not clear stashes; it discards working-tree changes."
+    },
+    {
+      "prompt": "You created a release tag and ran the command shown, but the pipeline triggered by v2.4.1 did not run and GitHub has no such tag. Why?",
+      "code": "git tag -a v2.4.1 -m \"Release 2.4.1\"\ngit push origin main",
+      "options": [
+        "Annotated tags cannot be pushed; use a lightweight tag instead",
+        "Wait for CI on main to finish before the tag appears remotely",
+        "git push does not send tags automatically; run git push origin v2.4.1 or --tags",
+        "Tag names cannot start with v; they must contain digits only"
+      ],
+      "answer": 2,
+      "explain": "By default, git push does not send tags; push the tag by name or use --tags. This is unrelated to the tag type, and tag names do not have to omit the letter v or wait for CI."
+    },
+    {
+      "prompt": "The team’s build script uses git describe to make a version number, but on one machine it returns this error. What is the most likely cause?",
+      "code": "$ git tag v1.0.0\n$ git describe\nfatal: No annotated tags can describe '0be2f92...'.\nHowever, there were unannotated tags: try --tags.",
+      "options": [
+        "The tag has not been fetched from the remote; run git fetch --tags first",
+        "The tag points to a commit other than HEAD, so it cannot describe HEAD",
+        "There must be at least one commit after the tag before describe works",
+        "v1.0.0 is a lightweight tag, but describe only considers annotated tags"
+      ],
+      "answer": 3,
+      "explain": "The error itself indicates that an unannotated tag already exists locally, so this is not a fetch issue. By default, git describe uses only annotated tags. Use `--tags` or create the tag with `-a`."
+    },
+    {
+      "prompt": "You made three commits on feat/export without pushing; all are named “wip.” You want one commit with a good message, without redoing file changes. Which flag should replace ??? in the command below?",
+      "code": "git reset ??? HEAD~3\ngit commit -m \"feat(export): export CSV\"",
+      "options": [
+        "--soft, because all changes remain staged for the next commit",
+        "--hard, because it reorganizes commits while keeping every file’s contents",
+        "--mixed, because you can commit immediately without running git add again",
+        "No reset mode can do this; you must use git rebase -i"
+      ],
+      "answer": 0,
+      "explain": "`--soft` moves only the pointer, leaving all three changes staged for a new commit. `--mixed` clears the staging area, so you must add the changes again (otherwise you would make an empty commit). `--hard` discards the changes. Interactive rebase can also do this, but it is not the only option."
+    },
+    {
+      "prompt": "A bug fix was committed as 9fceb02 on main. Now you need the same fix on release/1.4, but main has 40 other commits that are not ready to ship. What should you do?",
+      "code": "git switch release/1.4\ngit cherry-pick -x 9fceb02",
+      "options": [
+        "Merge main into release/1.4 to get the fix",
+        "Cherry-pick only that commit and use -x to record where it came from",
+        "Run git revert 9fceb02 on release/1.4 to apply the fix",
+        "Run git reset --hard 9fceb02 on release/1.4 to move it to that commit"
+      ],
+      "answer": 1,
+      "explain": "Cherry-pick creates a new commit with that one change, without bringing along the other commits. Merging main would bring all 40, and revert reverses the change instead of applying it."
+    },
+    {
+      "prompt": "A feature PR was merged into main with merge commit aab8fcd, but it broke the system. You run git revert aab8fcd and get this error. What should you do?",
+      "code": "$ git revert aab8fcd\nerror: commit aab8fcd is a merge but no -m option was given.",
+      "options": [
+        "Repeat git revert --no-edit aab8fcd because this error is temporary",
+        "Revert every commit from the branch one at a time; merge commits cannot be reverted",
+        "Run git revert -m 1 aab8fcd to specify parent 1 as the mainline",
+        "Run git reset --hard aab8fcd~1 and force-push to remove the merge"
+      ],
+      "answer": 2,
+      "explain": "A merge commit has two parents, and Git cannot tell which side to compare against. Specify `-m`; 1 is the mainline (here, main). Resetting and force-pushing rewrites history the team already uses, which should not be done on main."
+    },
+    {
+      "prompt": "calculateTax disappeared from src/tax.js, and someone wants to know who removed it and why. The file has 200 commits. What is the most direct command to find the commit that deleted it?",
+      "options": [
+        "git blame src/tax.js and look for the line where calculateTax used to be",
+        "git log --follow src/tax.js, then inspect every commit",
+        "git diff HEAD~200 src/tax.js and read the entire output",
+        "git log -S\"calculateTax\" --oneline -- src/tax.js"
+      ],
+      "answer": 3,
+      "explain": "`git log -S` shows commits that changed the number of occurrences of a string, including a deletion. Blame only shows lines that still exist. A diff across 200 commits gives all changes rather than identifying the one that removed it."
+    },
+    {
+      "prompt": "The team formatted the whole project in commit 5143960. Now git blame for almost every line points to that commit and no longer helps explain the original code. How can blame skip this commit without changing history?",
+      "code": "echo <full-hash> >> .git-blame-ignore-revs\ngit config blame.ignoreRevsFile .git-blame-ignore-revs",
+      "options": [
+        "Add the hash to .git-blame-ignore-revs and set blame.ignoreRevsFile",
+        "Run git rebase -i and drop the formatting commit from main’s history",
+        "Use git blame -w, which automatically skips every formatting commit in all cases without configuration",
+        "Revert that commit so blame points back to the original authors"
+      ],
+      "answer": 0,
+      "explain": "An ignore-revs file tells blame to skip the listed commits as if they never happened, without rewriting history (each machine can configure it, or use --ignore-revs-file). `-w` ignores only whitespace differences in a diff, not every formatting change or whole commits. Reverting adds another commit for blame to point to."
+    },
+    {
+      "prompt": "You wrote .git/hooks/pre-commit to run lint on your machine and told the team, “Everyone will now be linted before commit.” A week later, a teammate who just cloned the repo pushes a commit that fails lint. Why?",
+      "options": [
+        "Git disables hooks automatically when several people use the same repository",
+        "Files in .git/hooks are not cloned, so the teammate did not have the hook",
+        "pre-commit runs only during git push, so it does not affect local commits",
+        "You must set pre-commit.enabled=true for a hook to run"
+      ],
+      "answer": 1,
+      "explain": "The .git directory is not cloned and is not version-controlled. Teams store hook scripts in the repository and have everyone set core.hooksPath, then run the checks again in CI. pre-commit runs when making a commit, not on push, and there is no pre-commit.enabled setting."
+    },
+    {
+      "prompt": "The team’s pre-commit hook checks for secrets, but someone uses git commit --no-verify because the hook is slow, and an API key reaches a PR. What change will make the protection effective?",
+      "options": [
+        "Ban --no-verify in the repository README and ask everyone to read it",
+        "Move the check into .git/config so it cannot be skipped",
+        "Keep the hook for fast feedback, but also run the check in CI that must pass before merge",
+        "Change it to post-commit because that hook cannot be bypassed"
+      ],
+      "answer": 2,
+      "explain": "`--no-verify` can bypass pre-commit and commit-msg, so local hooks are only an early warning. The required gate belongs somewhere contributors cannot bypass, such as CI. post-commit runs only after the commit exists and cannot change its contents."
+    },
+    {
+      "prompt": "You fork an open-source repository and clone your fork. Two months later, your fork’s main is far behind upstream, and you want to sync before starting a new branch. What should you do?",
+      "code": "$ git remote -v\norigin  git@github.com:you/app.git (fetch)\norigin  git@github.com:you/app.git (push)",
+      "options": [
+        "Run git pull origin main because origin is the source repository you forked from",
+        "Delete the fork and create it again whenever upstream changes",
+        "Run git push origin main so GitHub will fetch upstream for you",
+        "Add an upstream remote, fetch it, and merge upstream/main into main"
+      ],
+      "answer": 3,
+      "explain": "origin points to your own fork, not the source repository, so pulling from it will not bring in upstream changes. Add another remote (commonly named upstream), fetch and merge into main, then push to your fork; the sync first updates only your local copy."
+    },
+    {
+      "prompt": "A repository contains LICENSE and docs/LICENSE.txt with identical contents. You run git hash-object on both. What will happen, and what does it mean?",
+      "code": "git hash-object --no-filters LICENSE docs/LICENSE.txt",
+      "options": [
+        "They get the same hash because a blob is named only by its contents",
+        "They get different hashes because the hash includes the filename and last-modified time",
+        "They get different hashes because the hash is tied to the file path in the tree",
+        "They get the same hash only when both files are in the same commit"
+      ],
+      "answer": 0,
+      "explain": "A blob stores only contents; the filename and mode are stored in the tree. `hash-object` therefore returns the same value for identical contents (`--no-filters` prevents path-based filters or EOL conversion from changing the bytes first), and Git stores that content only once. The result is independent of modification time, path, or commit."
+    },
+    {
+      "prompt": "feature-b branched from feature-a, which was just squash-merged into main. You run git rebase origin/main on feature-b and get conflicts in a file feature-a added, so you run git rebase --abort. What is the right approach?",
+      "code": "A---a1---a2        (feature-a)\n          \\\n           b1---b2  (feature-b)\nmain: ... S             (S = squash ของ a1+a2)",
+      "options": [
+        "Resolve feature-a’s conflict again for every commit, then force-push",
+        "Run git rebase --onto origin/main feature-a feature-b to move only b1 and b2",
+        "Merge origin/main into feature-b and cherry-pick a1 and a2 again",
+        "Delete feature-b and rewrite the work because squash merging makes stacked branches unusable"
+      ],
+      "answer": 1,
+      "explain": "A normal rebase replays a1 and a2 even though their content is already in main’s squash commit, so they conflict. `--onto` moves only the commits after feature-a onto origin/main. When pushing, use --force-with-lease. Cherry-picking a1 and a2 would duplicate content already in the squash."
+    },
+    {
+      "prompt": "A teammate runs git config user.email \"you@company.com\", makes a commit as if they were you, and pushes using their own account. What does this show, and what actually helps?",
+      "options": [
+        "Git checks user.email against the pusher’s account, so this cannot happen",
+        "Set user.useConfigOnly so Git cannot guess someone else’s email",
+        "Author fields are self-declared; sign commits with a key (-S) and verify the signature",
+        "Use git commit --reset-author to prove that the commit is genuine"
+      ],
+      "answer": 2,
+      "explain": "The author and committer values in a commit are text anyone can set; they are not checked against the identity of the person pushing. A verifiable key signature can show which key signed the commit (and is trustworthy when that key is tied to a verified identity). user.useConfigOnly only prevents Git from guessing the current machine’s name and email; --reset-author sets the author to the current user’s configured values."
+    },
+    {
+      "prompt": "Before opening a PR, you want to see commits on feat/search that are not on main. Which command is correct?",
+      "code": "main:         A---B---C\n                   \\\nfeat/search:        D---E",
+      "options": [
+        "git log feat/search..main",
+        "git log main feat/search",
+        "git diff main feat/search --stat",
+        "git log main..feat/search"
+      ],
+      "answer": 3,
+      "explain": "A..B means commits reachable from B but not from A, so `main..feat/search` lists D and E. Reversing the range lists main’s commits missing from feat/search; `git log main feat/search` shows history from both branches. `git diff` shows file changes, not a commit list."
+    }
+  ],
+  "exercises": [
+    {
+      "title": "Create a branch, commit, and undo safely",
+      "level": "ง่าย",
+      "tags": "branch · commit · push · revert",
+      "lang": "shell",
+      "prompt": "You are on main and have already edited src/auth.js. You need to (1) create a branch named feat/login-rate-limit, (2) commit src/auth.js with a Conventional Commits message, (3) push to origin and set its upstream, and (4) return to main and undo commit abc1234, which is already on main, without rewriting shared team history. Write the Git commands, one per line.",
+      "context": "$ git status\nOn branch main\nChanges not staged for commit:\n  modified:   src/auth.js\n\n$ git log --oneline -3 main\n7d9e2f1 (HEAD -> main, origin/main) docs: update README\nabc1234 feat: cache session in localStorage\n5c4b3a2 fix: trim email before login",
+      "starter": "# เขียนคำสั่ง git ทีละบรรทัด\n",
+      "solution": "git switch -c feat/login-rate-limit\ngit add src/auth.js\ngit commit -m \"feat(auth): จำกัดจำนวนครั้ง login ต่อนาที\"\ngit push -u origin feat/login-rate-limit\n\n# ย้อน commit บน main โดยไม่ rewrite ประวัติ\ngit switch main\ngit pull\ngit revert abc1234",
+      "hints": [
+        "There are two parts: send your new feature through its own branch, then undo a commit already shared on main.",
+        "Use git switch -c to create the branch, git add before committing, a message starting with feat:, and git push -u origin <branch>.",
+        "For a commit already on main, switch to main first and run git revert abc1234, not reset --hard or force push."
+      ],
+      "checks": [
+        {
+          "label": "Create the feat/login-rate-limit branch",
+          "pattern": "git (switch -c|checkout -b) feat\\/login-rate-limit"
+        },
+        {
+          "label": "Stage the file before committing",
+          "pattern": "git add\\b[^\\n]*(src\\/auth\\.js|\\s\\.(\\s|$)|\\s-a\\b|--all|\\s-u\\b|--update)|git commit\\b[^\\n]*(\\s-[a-z]*a[a-z]*(\\s|$)|--all)"
+        },
+        {
+          "label": "Use a Conventional Commits message",
+          "pattern": "git commit\\b[^\\n]*(-[a-z]*m\\s*|--message[ =]\\s*)[\"'](feat|fix|build|chore|ci|docs|style|refactor|perf|test|revert)(\\([^)]*\\))?!?: "
+        },
+        {
+          "label": "Push to origin and set upstream (-u)",
+          "pattern": "git push\\b(?=[^\\n]*\\s(-u|--set-upstream)(\\s|$))[^\\n]*\\sorigin\\b[^\\n]*(feat\\/login-rate-limit|\\shead\\b)"
+        },
+        {
+          "label": "Switch to main before reverting",
+          "pattern": "git (switch|checkout) main\\b[\\s\\S]*git revert"
+        },
+        {
+          "label": "Undo with git revert abc1234 (if using -n, commit afterward)",
+          "pattern": "git revert\\b(?![^\\n]*(\\s-[a-z]*n[a-z]*(?=\\s|$)|--no-commit))[^\\n]*\\sabc1234\\b|git revert\\b[^\\n]*(\\s-[a-z]*n[a-z]*(?=\\s|$)|--no-commit)[^\\n]*\\sabc1234\\b[\\s\\S]*git commit\\b"
+        },
+        {
+          "label": "Do not use force push or reset --hard",
+          "pattern": "push\\b.*(\\s-f\\b|--force)|reset --hard",
+          "negate": true
+        }
+      ]
+    },
+    {
+      "title": "Tag a release without losing unfinished work",
+      "level": "กลาง",
+      "tags": "stash · pull · tag · push tag",
+      "lang": "shell",
+      "prompt": "Your manager asks you to tag the latest main release as v2.4.1 and push that tag to origin. You are on feat/report with unfinished, uncommitted work in both tracked files and a new, unadded file. Do not lose the work or bring it to main, and make the tag an annotated tag with a release message. Write the Git commands in order, from saving your work through returning to feat/report and restoring it.",
+      "context": "$ git status -sb\n## feat/report...origin/feat/report\n M src/report.js\n?? notes/draft.md\n\n$ git log --oneline -2 origin/main\ne41a9c0 (origin/main) fix: handle empty cart\n2b7f3d8 feat: add export button",
+      "starter": "# เขียนคำสั่ง git ทีละบรรทัด ตามลำดับ\n",
+      "solution": "git stash push -u -m \"wip: report filter\"\ngit switch main\ngit pull --ff-only\ngit tag -a v2.4.1 -m \"Release 2.4.1\"\ngit push origin v2.4.1\ngit switch feat/report\ngit stash pop",
+      "hints": [
+        "Save the unfinished work before switching branches, and make sure main is current before tagging. Order: stash work, update main, create and push the tag, switch back, restore the work.",
+        "Plain git stash does not include new untracked files. Add -u (and optionally -m to name the stash). For an annotated tag with a message, use git tag -a <name> -m \"...\".",
+        "Ordinary git push does not send tags. Use git push origin v2.4.1, then switch back to feat/report and restore the work with git stash pop."
+      ],
+      "checks": [
+        {
+          "label": "Stash includes untracked files (-u)",
+          "pattern": "git stash( push)?\\b[^\\n]*\\s(-[a-z]*[ua][a-z]*|--include-untracked|--all)(\\s|$)"
+        },
+        {
+          "label": "Stash work before switching to main",
+          "pattern": "git stash\\b[\\s\\S]*git (switch|checkout) main\\b"
+        },
+        {
+          "label": "Update main from remote before tagging (git pull or fetch then merge)",
+          "pattern": "git (switch|checkout) main\\b[\\s\\S]*git pull\\b[\\s\\S]*git tag\\b|git fetch\\b[\\s\\S]*git (switch|checkout) main\\b[\\s\\S]*git merge\\s[\\s\\S]*git tag\\b|git (switch|checkout) main\\b[\\s\\S]*git fetch\\b[\\s\\S]*git merge\\s[\\s\\S]*git tag\\b"
+        },
+        {
+          "label": "Create annotated tag v2.4.1 with a message",
+          "pattern": "git tag\\b(?=[^\\n]*\\s(-a|-s|-m|-am|-sm|--annotate|--sign|--message)\\b)(?=[^\\n]*\\sv2\\.4\\.1\\b)"
+        },
+        {
+          "label": "Push tag v2.4.1 to origin",
+          "pattern": "git push\\b(?=[^\\n]*\\sorigin\\b)[^\\n]*(\\sv2\\.4\\.1\\b|refs\\/tags\\/v2\\.4\\.1\\b|--tags|--follow-tags)"
+        },
+        {
+          "label": "Return to feat/report and restore work with stash pop or apply",
+          "pattern": "git (switch|checkout) feat\\/report\\b[\\s\\S]*git stash (pop|apply)\\b"
+        },
+        {
+          "label": "Avoid commands that discard work (reset --hard, clean -f, stash clear, force, or dropping the stash before restoring)",
+          "pattern": "reset --hard|clean -[a-z]*f|checkout (-f|--force)|switch (-f|--force|--discard-changes)|stash clear|(?<!git stash (pop|apply)\\b[\\s\\S]*)git stash drop|push\\b[^\\n]*(\\s-f\\b|--force(?![-\\w]))",
+          "negate": true
+        }
+      ]
+    },
+    {
+      "title": "Rebase a stacked branch after a squash merge",
+      "level": "ยาก",
+      "tags": "rebase --onto · force-with-lease · log range",
+      "lang": "shell",
+      "prompt": "feature-b branched from feature-a and has already been pushed to origin. PR #1 for feature-a has now been squash-merged into main on GitHub (as commit 936dcd2). Write Git commands, one per line, to (1) fetch the latest remote state, (2) move only feature-b’s commits onto origin/main without replaying feature-a’s commits, (3) verify that feature-b differs from origin/main only by its own commits, and (4) push to origin without overwriting work someone may have pushed to feature-b, even if you fetched recently.",
+      "context": "$ git branch --show-current\nfeature-b\n\n$ git log --oneline --graph --all\n* 9835509 (HEAD -> feature-b, origin/feature-b) b2: add export button\n* d682c6c b1: add export API\n* 47870a1 (feature-a, origin/feature-a) a2: add filter UI\n* 3057afd a1: add filter API\n| * 936dcd2 (origin/main) feat: filter (#1)\n|/\n* 55ad6c4 base",
+      "starter": "# เขียนคำสั่ง git ทีละบรรทัด\n",
+      "solution": "git fetch origin\ngit rebase --onto origin/main feature-a feature-b\ngit log --oneline origin/main..feature-b\ngit push --force-with-lease=feature-b:9835509 origin feature-b",
+      "hints": [
+        "After the squash merge, main does not contain feature-a’s original commits (only a new squash commit). A regular rebase would replay a1 and a2, so tell Git the old base of feature-b.",
+        "The form is git rebase --onto <new-base> <old-base> [<branch>]. The new base is origin/main; the old base is the tip of feature-a.",
+        "Rebase changes the hashes of b1 and b2, so a regular push is rejected. Use git push --force-with-lease, not --force. Because you already fetched, a bare lease treats newly fetched work as seen. Bind the lease to the origin/feature-b hash you checked before fetching: --force-with-lease=feature-b:<hash> (9835509 in the context). Alternatively, pair a bare lease with --force-if-includes; specifying the hash makes --force-if-includes unnecessary."
+      ],
+      "checks": [
+        {
+          "label": "Fetch before rebasing",
+          "pattern": "git fetch\\b[\\s\\S]*git rebase\\b"
+        },
+        {
+          "label": "Use rebase --onto with origin/main (or hash 936dcd2) as the new base",
+          "pattern": "git rebase\\b[^\\n]*--onto[ =](origin\\/main|refs\\/remotes\\/origin\\/main|936dcd2[0-9a-f]*)(\\s|$)"
+        },
+        {
+          "label": "Set the old base to the tip of feature-a (branch name or hash 47870a1)",
+          "pattern": "--onto[ =]\\S+\\s+(feature-a|origin\\/feature-a|47870a1[0-9a-f]*)(\\s|$)"
+        },
+        {
+          "label": "Do not use plain git rebase main",
+          "pattern": "git rebase\\s+(origin\\/)?main\\b",
+          "negate": true
+        },
+        {
+          "label": "Compare the commit range against origin/main after rebasing and before pushing (for example, git log origin/main..feature-b)",
+          "pattern": "git rebase\\b[\\s\\S]*git (log|diff|range-diff|show-branch)\\b[^\\n]*(origin\\/main|936dcd2)[^\\n]*\\n[\\s\\S]*git push\\b"
+        },
+        {
+          "label": "After rebasing, push with --force-with-lease bound to hash 9835509 (or use a bare lease with --force-if-includes)",
+          "pattern": "git rebase\\b[\\s\\S]*git push\\b(?=[^\\n]*--force-with-lease)(?:(?=[^\\n]*--force-with-lease=(refs\\/heads\\/)?feature-b:9835509[0-9a-f]*(\\s|$))|(?=[^\\n]*--force-with-lease(=(refs\\/heads\\/)?feature-b)?(\\s|$))(?=[^\\n]*--force-if-includes))"
+        },
+        {
+          "label": "Do not use a force push with -f, --force, or +branch",
+          "pattern": "git push\\b[^\\n]*(\\s-f\\b|--force(?![-\\w])|\\s\\+\\S)",
+          "negate": true
+        }
+      ]
+    }
+  ],
+  "refs": [
+    {
+      "title": "Pro Git (the official Git book)",
+      "url": "https://git-scm.com/book/en/v2",
+      "note": "Read chapter by chapter, from the basics through Git internals."
+    },
+    {
+      "title": "gitworkflows: separating changes and managing branches",
+      "url": "https://git-scm.com/docs/gitworkflows",
+      "note": "The SEPARATE CHANGES, MANAGING BRANCHES, and DISTRIBUTED WORKFLOWS sections."
+    },
+    {
+      "title": "giteveryday: the minimal set of daily commands",
+      "url": "https://git-scm.com/docs/giteveryday",
+      "note": "Command sets by role, such as solo developer, contributor, and integrator."
+    },
+    {
+      "title": "gitrevisions: specifying commits and commit ranges (A..B, HEAD~, ^)",
+      "url": "https://git-scm.com/docs/gitrevisions"
+    },
+    {
+      "title": "Pro Git: Searching (git log -S, -L)",
+      "url": "https://git-scm.com/book/en/v2/Git-Tools-Searching",
+      "note": "Find which commit added or changed a string or function."
+    },
+    {
+      "title": "GitHub Docs: Syncing a fork",
+      "url": "https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/working-with-forks/syncing-a-fork",
+      "note": "Fetch from upstream, then merge."
+    },
+    {
+      "title": "git-config: gpg.format, user.signingKey, commit.gpgSign",
+      "url": "https://git-scm.com/docs/git-config#Documentation/git-config.txt-gpgformat",
+      "note": "Configure commit signing with openpgp, x509, or ssh."
+    },
+    {
+      "title": "git init: --object-format (sha1 / sha256)",
+      "url": "https://git-scm.com/docs/git-init",
+      "note": "Default hash format and limitations of SHA-256 repositories."
+    }
+  ]
+}

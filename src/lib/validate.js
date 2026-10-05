@@ -26,12 +26,16 @@ export function tierIndex(t) {
   return 0;
 }
 
-export function validateTopic(t, { strict = false, label = 'หัวข้อ' } = {}) {
+export function validateTopic(t, { strict = false, label = 'หัวข้อ', language = 'th' } = {}) {
   const errors = [];
   const warnings = [];
   const E = (where, msg) => errors.push({ where: label + (where ? ' · ' + where : ''), msg });
   const W = (where, msg) => warnings.push({ where: label + (where ? ' · ' + where : ''), msg });
-  if (!t || typeof t !== 'object' || Array.isArray(t)) { E('', 'ต้องเป็น object ของหัวข้อเดียว'); return { errors, warnings }; }
+  if (!t || typeof t !== 'object' || Array.isArray(t)) {
+    E('', language === 'en' ? 'Must be a single topic object' : 'ต้องเป็น object ของหัวข้อเดียว');
+    if (language === 'en') errors[0].where = errors[0].where.replace(/^หัวข้อ/, 'Topic');
+    return { errors, warnings };
+  }
 
   if (!t.id) E('id', 'ต้องมี id');
   else if (!/^[a-z0-9][a-z0-9-]{1,40}$/.test(t.id)) E('id', 'id “' + t.id + '” ใช้ได้เฉพาะ a-z, 0-9 และ - (2–41 ตัว)');
@@ -114,6 +118,54 @@ export function validateTopic(t, { strict = false, label = 'หัวข้อ' 
       });
     }
   }
+  if (language === 'en') {
+    const translate = (d) => {
+      const msg = d.msg
+        .replace(/^ต้องเป็น object ของหัวข้อเดียว$/, 'Must be a single topic object')
+        .replace(/^ต้องมี id$/, 'Missing id')
+        .replace(/^id “(.+)” ใช้ได้เฉพาะ a-z, 0-9 และ - \(2–41 ตัว\)$/, 'id “$1” may contain only a-z, 0-9, and - (2–41 characters)')
+        .replace(/^ต้องมี title$/, 'Missing title')
+        .replace(/^track “(.*)” ไม่ถูกต้อง ใช้ (.+)$/, 'Invalid track “$1”; use $2')
+        .replace(/^ต้องมี blurb หนึ่งประโยค$/, 'blurb must be one sentence')
+        .replace(/^ต้องมีเรื่องที่ต้องรู้อย่างน้อย 1 เรื่อง$/, 'Add at least one must-know item')
+        .replace(/^ไม่มีชื่อเรื่อง$/, 'Missing title')
+        .replace(/^ยังไม่มีคำอธิบาย$/, 'Missing description')
+        .replace(/^tier ต้องเป็น (.+)$/, 'tier must be one of: $1')
+        .replace(/^ref ต้องเป็น URL ที่ขึ้นต้นด้วย https:\/\/$/, 'ref must be an https:// URL')
+        .replace(/^exam ต้องเป็น true หรือ false$/, 'exam must be true or false')
+        .replace(/^ต้องมีอย่างน้อย 1 เรื่องที่เป็น tier "must"$/, 'Add at least one item with tier "must"')
+        .replace(/^ไม่มีตัวคำถาม$/, 'Missing question prompt')
+        .replace(/^ต้องมีตัวเลือก 2–6 ข้อ \(พบ (\d+)\)$/, 'Must have 2–6 options (found $1)')
+        .replace(/^answer ต้องเป็นเลขลำดับตัวเลือกที่ถูก เริ่มจาก 0$/, 'answer must be the zero-based index of a valid option')
+        .replace(/^มีตัวเลือกซ้ำกัน$/, 'Duplicate options')
+        .replace(/^ไม่มีคำอธิบายเฉลย ผู้เรียนจะไม่รู้ว่าทำไมถูก$/, 'Missing answer explanation')
+        .replace(/^ยังไม่มีคำถาม หัวข้อนี้จะไม่มีส่วนลองตอบ$/, 'No questions; this topic will not have a quiz section')
+        .replace(/^ควรมีอย่างน้อย 8 คำถาม \(มี (\d+)\)$/, 'Should have at least 8 questions (found $1)')
+        .replace(/^แบบฝึกหัดต้องเป็น object$/, 'Exercise must be an object')
+        .replace(/^แบบฝึกหัดต้องมีโจทย์$/, 'Exercise prompt is required')
+        .replace(/^ต้องมีชื่อแบบฝึกหัด$/, 'Exercise title is required')
+        .replace(/^ชื่อแบบฝึกหัดซ้ำกัน$/, 'Duplicate exercise title')
+        .replace(/^level ต้องเป็น (.+)$/, 'level must be one of: $1')
+        .replace(/^ต้องมีเฉลย$/, 'Solution is required')
+        .replace(/^ควรมี hint อย่างน้อย 2 ข้อ$/, 'Should have at least 2 hints')
+        .replace(/^ควรมีเกณฑ์ตรวจอย่างน้อย 3 ข้อ$/, 'Should have at least 3 checks')
+        .replace(/^ต้องมี label$/, 'label is required')
+        .replace(/^json\.op ไม่รู้จัก$/, 'Unknown json.op')
+        .replace(/^pattern ต้องเป็น regex ที่ถูกต้อง$/, 'pattern must be a valid regular expression')
+        .replace(/^เฉลยไม่ผ่านเกณฑ์ของตัวเอง: (.+)$/, 'Solution fails its own checks: $1')
+        .replace(/^โค้ดเริ่มต้นผ่านทุกเกณฑ์อยู่แล้ว เกณฑ์หลวมเกินไป$/, 'Starter passes every check; the checks are too permissive')
+        .replace(/^ยังไม่มีแบบฝึกหัด$/, 'No exercises')
+        .replace(/^refs ต้องเป็น array ของ \{title, url\}$/, 'refs must be an array of {title, url}')
+        .replace(/^ต้องมี title$/, 'title is required')
+        .replace(/^url ต้องขึ้นต้นด้วย https:\/\/$/, 'url must start with https://')
+        .replace(/^url ซ้ำกัน$/, 'Duplicate url')
+        .replace(/^บรรทัด (\d+)$/, 'Line $1')
+        .replace(/^questions\[(\d+)\]$/, 'questions[$1]');
+      return { ...d, where: d.where.replace(/^หัวข้อ/, 'Topic').replaceAll(' · บรรทัด ', ' · Line ').replace(/^บรรทัด /, 'Line ') , msg };
+    };
+    errors.splice(0, errors.length, ...errors.map(translate));
+    warnings.splice(0, warnings.length, ...warnings.map(translate));
+  }
   return { errors, warnings };
 }
 
@@ -125,16 +177,16 @@ export function parseContent(text, opts = {}) {
   const head = src.trim()[0];
   if (head === '{' || head === '[') {
     let o;
-    try { o = JSON.parse(src); } catch (e) { return { topics: [], errors: [{ where: 'JSON', msg: 'อ่าน JSON ไม่ได้: ' + e.message }], warnings: [], format: 'JSON' }; }
+    try { o = JSON.parse(src); } catch (e) { return { topics: [], errors: [{ where: 'JSON', msg: opts.language === 'en' ? 'Could not parse JSON: ' + e.message : 'อ่าน JSON ไม่ได้: ' + e.message }], warnings: [], format: 'JSON' }; }
     r = { topics: Array.isArray(o) ? o : o && Array.isArray(o.topics) ? o.topics : [o], errors: [], warnings: [], format: 'JSON' };
-  } else r = parseMarkdown(src);
+  } else r = parseMarkdown(src, opts);
   const seen = new Set();
   r.topics.forEach((t, i) => {
-    const v = validateTopic(t, { ...opts, label: opts.label || 'หัวข้อที่ ' + (i + 1) });
+    const v = validateTopic(t, { ...opts, label: opts.label || (opts.language === 'en' ? 'Topic ' : 'หัวข้อที่ ') + (i + 1) });
     r.errors.push(...v.errors);
     r.warnings.push(...v.warnings);
     if (t && t.id) {
-      if (seen.has(t.id)) r.errors.push({ where: 'หัวข้อที่ ' + (i + 1), msg: 'id “' + t.id + '” ซ้ำ' });
+      if (seen.has(t.id)) r.errors.push({ where: (opts.language === 'en' ? 'Topic ' : 'หัวข้อที่ ') + (i + 1), msg: opts.language === 'en' ? 'Duplicate id “' + t.id + '”' : 'id “' + t.id + '” ซ้ำ' });
       seen.add(t.id);
     }
   });

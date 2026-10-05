@@ -9,7 +9,7 @@
 // ## Quiz → ### คำถาม, "- [x] ถูก", "- [ ] ผิด", "> คำอธิบาย"
 // ```fenced code``` attaches to the current item or question.
 
-export function parseMarkdown(text) {
+export function parseMarkdown(text, { language = 'th' } = {}) {
   const lines = String(text || '').replace(/\r/g, '').split('\n');
   const errors = [];
   const warnings = [];
@@ -94,6 +94,23 @@ export function parseMarkdown(text) {
     qq.line = qq._line;
     delete qq._line;
     delete qq._x;
+  }
+  if (language === 'en') {
+    const localize = (d) => ({
+      ...d,
+      where: d.where.replace(/^บรรทัด /, 'Line '),
+      msg: d.msg
+        .replace('frontmatter ไม่มี --- ปิดท้าย', 'Frontmatter is missing its closing ---')
+        .replace('บล็อกโค้ดนี้ไม่อยู่ใต้หัวข้อย่อย ### จะถูกข้าม', 'This code block is not under a ### subsection and will be skipped')
+        .replace(/^ไม่รู้จักหัวข้อ “(.+)” เนื้อหาใต้หัวข้อนี้จะถูกข้าม$/, 'Unknown heading “$1”; content under it will be skipped')
+        .replace('หัวข้อย่อยนี้ไม่อยู่ใต้ ## ต้องรู้ / ## ควรรู้ / ## ขั้นสูง / ## Quiz', 'This subsection is not under ## must / ## should / ## advanced / ## Quiz')
+        .replace('ข้อความนี้ไม่อยู่ใต้คำถาม ### จะถูกข้าม', 'This text is not under a ### question and will be skipped')
+        .replace('ข้อความนี้ไม่อยู่ใต้หัวข้อย่อย ### จะถูกข้าม', 'This text is not under a ### subsection and will be skipped')
+        .replace('บล็อกโค้ด ``` ไม่ได้ปิด', 'Code fence ``` is not closed')
+        .replace(/^คำถาม “(.+)” ต้องมีคำตอบที่ถูก \[x\] 1 ข้อ \(พบ (\d+)\)$/, 'Question “$1” must have exactly one correct answer marked [x] (found $2)')
+    });
+    errors.splice(0, errors.length, ...errors.map(localize));
+    warnings.splice(0, warnings.length, ...warnings.map(localize));
   }
   return { topics: [topic], errors, warnings, format: 'Markdown' };
 }

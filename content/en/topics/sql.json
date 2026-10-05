@@ -1,0 +1,697 @@
+{
+  "id": "sql",
+  "code": "D1",
+  "track": "data",
+  "title": "Database and SQL",
+  "blurb": "Design tables, write correct queries, and understand why a query is slow.",
+  "mustKnow": [
+    {
+      "tier": "must",
+      "title": "SELECT basics and the behavior of NULL",
+      "body": "SELECT … FROM … WHERE … ORDER BY … LIMIT is the basic structure for reading data. A common trap is NULL, which means “unknown.” Any comparison with NULL (even NULL = NULL) evaluates to UNKNOWN, and WHERE keeps only rows for which the condition is TRUE. Use IS NULL, IS NOT NULL, or COALESCE instead. As a result, `status <> 'paid'` does not return rows where status is NULL; COUNT(col) excludes NULL unlike COUNT(*); and NOT IN with a list containing NULL returns no rows.",
+      "code": "-- แถวที่ status เป็น NULL จะหลุดไป\nSELECT * FROM orders WHERE status <> 'paid';\n\n-- ถ้าต้องการรวมแถว NULL ด้วย\nSELECT * FROM orders\nWHERE status <> 'paid' OR status IS NULL;\n\n-- COUNT(*) นับทุกแถว ส่วน COUNT(email) ข้าม NULL\nSELECT COUNT(*), COUNT(email) FROM customers;"
+    },
+    {
+      "tier": "must",
+      "title": "JOINs and row multiplication",
+      "body": "INNER JOIN returns only rows that match on both sides; LEFT JOIN keeps every row from the left table and fills in NULL when there is no match. A JOIN does not merely “attach data”: it creates one row for every matching pair. One customer with three orders therefore becomes three rows. Joining two one-to-many tables at once can multiply rows and inflate SUM or COUNT. Another trap is putting a condition on the right-hand table that rejects NULL (such as o.status = 'paid') in WHERE; it removes unmatched rows and makes the LEFT JOIN behave like an INNER JOIN. Move that condition to ON, except for conditions such as o.id IS NULL that intentionally find unmatched rows.",
+      "code": "-- ลูกค้าทุกคน + จำนวนออเดอร์ที่จ่ายแล้ว (คนที่ไม่มีได้ 0)\nSELECT c.name, COUNT(o.id) AS paid_orders\nFROM customers c\nLEFT JOIN orders o\n  ON o.customer_id = c.id\n AND o.status = 'paid'   -- อยู่ใน ON ไม่ใช่ WHERE\nGROUP BY c.id, c.name;"
+    },
+    {
+      "tier": "must",
+      "title": "GROUP BY, HAVING, and logical query order",
+      "body": "A database interprets a query in this logical order: FROM/JOIN → WHERE → GROUP BY → HAVING → SELECT → ORDER BY → LIMIT, regardless of the written order. WHERE filters rows before grouping, so it cannot use aggregates such as SUM(). HAVING filters groups after aggregation. An alias created in SELECT cannot be used in WHERE, but can be used in ORDER BY. Some databases allow aliases in GROUP BY or HAVING as an extension; do not rely on it. A selected column that is not aggregated must appear in GROUP BY or be functionally dependent on the grouped primary key.",
+      "code": "SELECT customer_id, SUM(total) AS spent\nFROM orders\nWHERE status = 'paid'       -- กรองแถว ก่อนจัดกลุ่ม\nGROUP BY customer_id\nHAVING SUM(total) > 10000   -- กรองกลุ่ม หลังรวมยอด\nORDER BY spent DESC;        -- ORDER BY ใช้ alias ได้"
+    },
+    {
+      "tier": "must",
+      "title": "Keys, constraints, and normalization",
+      "body": "A primary key uniquely identifies each row. A foreign key requires the referenced value to exist. UNIQUE, NOT NULL, and CHECK constraints let the database prevent invalid data instead of relying only on application code. Normalization (roughly 1NF–3NF) stores each fact in one place: for example, keep customer names in customers and let orders refer to them with customer_id rather than copying the name into every order. Otherwise, a name change may not be applied everywhere (an update anomaly). Denormalizing for faster reads can be appropriate when it is a deliberate decision. In PostgreSQL, declaring a foreign key does not automatically index the referencing column; add an index yourself if it is often joined or deleted against.",
+      "code": "CREATE TABLE orders (\n  id          BIGINT PRIMARY KEY,\n  customer_id BIGINT NOT NULL REFERENCES customers(id),\n  total       NUMERIC(12,2) NOT NULL CHECK (total >= 0),\n  created_at  TIMESTAMPTZ NOT NULL DEFAULT now()\n);\nCREATE INDEX ON orders (customer_id);"
+    },
+    {
+      "tier": "must",
+      "title": "Transactions and ACID",
+      "body": "A transaction groups several statements into one unit: after COMMIT, all of its changes persist; after ROLLBACK or a crash midway, none of them do. ACID means Atomicity (all or nothing), Consistency (constraints remain satisfied), Isolation (concurrent transactions do not see a half-finished state), and Durability (a committed transaction survives a power failure). If you do not start a transaction explicitly, most databases use autocommit and commit each statement immediately. A transfer implemented as two UPDATEs could therefore debit one account without crediting the other. Keep transactions short; do not wait on a network call or a user while one is open, because locks stay held.",
+      "code": "BEGIN;\nUPDATE accounts SET balance = balance - 500 WHERE id = 1;\nUPDATE accounts SET balance = balance + 500 WHERE id = 2;\nCOMMIT;  -- ถ้ามี error ระหว่างทางให้ ROLLBACK ทั้งชุด"
+    },
+    {
+      "tier": "must",
+      "title": "Indexes and reading EXPLAIN plans",
+      "body": "An index (usually a B-tree) stores ordered values so the database can find rows without scanning the entire table. It helps WHERE, JOIN, and ORDER BY, but most INSERT, DELETE, and UPDATE operations must also update indexes (PostgreSQL HOT updates can avoid this in some cases). Indexes consume space, so add them for queries you actually use. A multicolumn index on (a, b) works best when conditions start with the leftmost column. Wrapping a column in a function, such as LOWER(email), prevents use of a regular index on email; create an expression index instead. Use EXPLAIN to see the planner’s chosen plan and EXPLAIN ANALYZE to measure actual execution; the latter runs the query. For UPDATE or DELETE, wrap it in a transaction and ROLLBACK.",
+      "code": "CREATE INDEX idx_orders_customer_created\n  ON orders (customer_id, created_at);\n\nEXPLAIN ANALYZE\nSELECT * FROM orders\nWHERE customer_id = 42\nORDER BY created_at DESC\nLIMIT 20;\n-- บนตารางใหญ่ควรเห็น Index Scan ไม่ใช่ Seq Scan"
+    },
+    {
+      "tier": "should",
+      "title": "CTEs and window functions",
+      "body": "A CTE (`WITH name AS (…)`) gives a subquery a name, breaking a long query into steps that are easier to read and inspect. A window function such as ROW_NUMBER(), RANK(), LAG(), or SUM() OVER (PARTITION BY … ORDER BY …) calculates across rows without collapsing them like GROUP BY. It suits rankings within groups, running totals, and comparisons with the previous row. Window functions are calculated in the SELECT phase, which comes after WHERE, so wrap the query in a CTE or subquery before filtering on a window result.",
+      "code": "-- ออเดอร์ล่าสุดของลูกค้าแต่ละคน\nWITH ranked AS (\n  SELECT o.*,\n         ROW_NUMBER() OVER (\n           PARTITION BY customer_id\n           ORDER BY created_at DESC\n         ) AS rn\n  FROM orders o\n)\nSELECT * FROM ranked WHERE rn = 1;"
+    },
+    {
+      "tier": "should",
+      "title": "The N+1 query problem",
+      "body": "N+1 happens when code fetches a list once and then runs another query for every row, such as 50 articles followed by 50 separate author queries. It is often hidden by an ORM’s lazy loading: it seems fast during development with little data, but is slow in production because every query has its own round trip. Fetch related data together with a JOIN or `WHERE id IN (…)`, or use the ORM’s eager loading (such as Django’s select_related/prefetch_related or Rails’ includes). Query logs reveal it when the same-looking statement appears repeatedly.",
+      "code": "-- N+1: 1 ครั้ง + อีก 1 ครั้งต่อบทความ\nSELECT id, title, author_id FROM posts LIMIT 50;\nSELECT name FROM users WHERE id = $1;  -- x50\n\n-- แก้: ดึงผู้เขียนมาพร้อมกันในครั้งเดียว\nSELECT p.id, p.title, u.name\nFROM posts p\nJOIN users u ON u.id = p.author_id\nLIMIT 50;"
+    },
+    {
+      "tier": "should",
+      "title": "Safe migrations (expand/contract)",
+      "body": "Change schemas through migration files stored in Git and run them in a pipeline; do not edit production by hand. During a deployment, old and new code may run at the same time, so a destructive change (renaming or dropping a column) must be split into stages: expand (add something old code ignores), migrate (write to both, backfill, and move reads), then contract (remove the old column after no code uses it). Beware of commands that lock a large table for a long time. In PostgreSQL, create an index with CREATE INDEX CONCURRENTLY to avoid blocking writes (it cannot run inside a transaction block), and backfill in small batches.",
+      "code": "-- 1) expand\nALTER TABLE users ADD COLUMN full_name TEXT;\n-- 2) migrate: โค้ดเขียนทั้งสองคอลัมน์ + backfill ทีละชุด\nUPDATE users SET full_name = name\nWHERE full_name IS NULL AND id BETWEEN 1 AND 10000;\n-- 3) deploy โค้ดที่อ่าน full_name\n-- 4) contract (release ถัดไป)\nALTER TABLE users DROP COLUMN name;"
+    },
+    {
+      "tier": "should",
+      "title": "Parameterized queries prevent SQL injection",
+      "body": "Concatenating user input into SQL lets users inject commands, for example by injecting a condition that is always true. Use a parameterized query or prepared statement, which sends the SQL and its values separately so the database does not interpret a value as SQL. Escaping or filtering characters yourself is only a mitigation. Table and column names (such as a column chosen for sorting) cannot be query parameters; validate them against an allowlist instead.",
+      "code": "// อันตราย: ค่าจากผู้ใช้กลายเป็นส่วนหนึ่งของ SQL\ndb.query(\"SELECT * FROM users WHERE email = '\" + email + \"'\");\n\n// ปลอดภัย: node-postgres ใช้ $1, $2, ...\ndb.query('SELECT * FROM users WHERE email = $1', [email]);"
+    },
+    {
+      "tier": "advanced",
+      "title": "Isolation levels and lost updates",
+      "body": "An isolation level controls what changes concurrent transactions can see: Read Committed prevents dirty reads; Repeatable Read also prevents non-repeatable reads; Serializable makes the result equivalent to running transactions one at a time. Defaults differ (PostgreSQL uses Read Committed; MySQL InnoDB uses Repeatable Read), and actual behavior does not match every cell of the standard across databases. A common trap is a lost update: two requests read stock = 10 and both write 9. Prevent it with an atomic UPDATE, SELECT … FOR UPDATE, or Serializable together with retry logic for serialization failures.",
+      "code": "-- อ่านแล้วค่อยเขียน: เสี่ยง lost update\nSELECT stock FROM products WHERE id = 7;   -- ได้ 10\nUPDATE products SET stock = 9 WHERE id = 7;\n\n-- อะตอมในคำสั่งเดียว และกันสต็อกติดลบ\nUPDATE products SET stock = stock - 1\nWHERE id = 7 AND stock > 0;"
+    },
+    {
+      "tier": "advanced",
+      "title": "SQL versus NoSQL and scaling",
+      "body": "Relational databases excel at related data, ad-hoc JOIN queries, constraints, and strong transactions. NoSQL databases (document, key-value, and wide-column) are often designed around known access patterns and can make distribution across machines easier, but unplanned queries are harder. The distinction is less clear today: PostgreSQL has JSONB, and several NoSQL databases (such as MongoDB) support multi-document transactions. Choose based on access patterns and consistency needs, not trends. Before considering sharding, try indexes, read replicas (watch for replication lag, which can hide a just-written value), and caching; sharding adds significant complexity."
+    },
+    {
+      "tier": "must",
+      "title": "Subqueries, EXISTS, and semi-join filtering",
+      "body": "A subquery is a SELECT nested inside another query. If it refers to a column from the outer query, it is correlated. `EXISTS (…)` answers only whether at least one row exists, so the subquery’s selected columns generally do not matter (except in some cases, such as a subquery using INTERSECT). The database often stops as soon as it knows the answer. EXISTS fits a question such as “customers with at least one paid order” because it does not multiply rows like a JOIN. Use NOT EXISTS to find rows with no match. EXISTS returns only true or false, so NULL values inside the subquery do not make it return no rows the way NOT IN can.",
+      "code": "-- ลูกค้าที่มีออเดอร์ paid อย่างน้อย 1 รายการ (ไม่มีแถวซ้ำ)\nSELECT c.name\nFROM customers c\nWHERE EXISTS (\n  SELECT 1 FROM orders o\n  WHERE o.customer_id = c.id AND o.status = 'paid'\n);\n\n-- ลูกค้าที่ไม่เคยมีออเดอร์เลย\nSELECT c.name\nFROM customers c\nWHERE NOT EXISTS (\n  SELECT 1 FROM orders o WHERE o.customer_id = c.id\n);",
+      "exam": true,
+      "ref": "https://www.postgresql.org/docs/current/functions-subquery.html"
+    },
+    {
+      "tier": "must",
+      "title": "UNION, UNION ALL, INTERSECT, and EXCEPT",
+      "body": "Set operations combine results from two queries with the same number of columns and compatible types, matching columns by position rather than name. UNION removes duplicate rows like DISTINCT; UNION ALL keeps every row, making it suitable when you need to preserve/count all rows and avoid the cost of deduplication. INTERSECT returns rows present in both sets; EXCEPT returns rows from the first set that are not in the second. All three remove duplicates unless ALL is specified. Without parentheses, INTERSECT has higher precedence than UNION and EXCEPT. Put ORDER BY at the end to sort the combined result.",
+      "code": "-- อีเมลทั้งหมดไม่ซ้ำกัน\nSELECT email FROM newsletter_subscribers\nUNION\nSELECT email FROM app_users;\n\n-- สมาชิกจดหมายข่าวที่ยังไม่ได้ยกเลิก\nSELECT email FROM newsletter_subscribers\nEXCEPT\nSELECT email FROM unsubscribed\nORDER BY email;",
+      "exam": true,
+      "ref": "https://www.postgresql.org/docs/current/queries-union.html"
+    },
+    {
+      "tier": "must",
+      "title": "Use NUMERIC for money, not FLOAT",
+      "body": "real and double precision are approximate types: some values do not fit their internal representation exactly, so small differences can appear when reading values back or adding/subtracting repeatedly. NUMERIC(precision, scale) stores exact values and makes addition, subtraction, and multiplication exact (division that does not divide evenly still needs rounding). PostgreSQL documentation recommends it for monetary amounts and quantities that require precision. If a value has more fractional digits than scale, it is rounded; if its integer part exceeds the declared precision, an error occurs. Choose enough precision for the values you expect.",
+      "code": "SELECT 0.1::double precision + 0.2::double precision\n     = 0.3::double precision;   -- false\nSELECT 0.1::numeric + 0.2::numeric\n     = 0.3::numeric;            -- true\n\nCREATE TABLE invoices (\n  id     BIGINT PRIMARY KEY,\n  amount NUMERIC(12,2) NOT NULL  -- ปัดเหลือ 2 ตำแหน่ง\n);",
+      "ref": "https://www.postgresql.org/docs/current/datatype-numeric.html"
+    },
+    {
+      "tier": "must",
+      "title": "UPSERT: INSERT … ON CONFLICT",
+      "body": "A “update if present, otherwise insert” flow implemented as SELECT followed by INSERT or UPDATE has a race window: another request may intervene and cause a duplicate row or unique violation. PostgreSQL offers INSERT … ON CONFLICT (unique_column) DO UPDATE or DO NOTHING. Its documentation guarantees that DO UPDATE results in either an insert or update atomically, even under high concurrency. DO NOTHING skips a conflicting row. Use EXCLUDED to refer to the value that was going to be inserted and RETURNING to get the resulting row. This requires a unique constraint or unique index that matches the conflict target.",
+      "code": "INSERT INTO page_views (page_id, view_date, views)\nVALUES (42, CURRENT_DATE, 1)\nON CONFLICT (page_id, view_date)\nDO UPDATE SET views = page_views.views + EXCLUDED.views\nRETURNING views;",
+      "exam": true,
+      "ref": "https://www.postgresql.org/docs/current/sql-insert.html"
+    },
+    {
+      "tier": "must",
+      "title": "CASE and conditional aggregation",
+      "body": "CASE WHEN … THEN … ELSE … END returns the result for the first true condition. Without ELSE, if no condition is true, the result is NULL. Putting CASE inside an aggregate lets one query produce several measures, for example `SUM(CASE WHEN status = 'paid' THEN 1 ELSE 0 END)` counts only paid rows. Beware of `COUNT(CASE WHEN … THEN 1 ELSE 0 END)`: it counts every row because 0 is not NULL. Omit ELSE or use SUM instead.",
+      "code": "SELECT customer_id,\n       COUNT(*) AS orders_total,\n       SUM(CASE WHEN status = 'paid' THEN 1 ELSE 0 END) AS paid,\n       COUNT(CASE WHEN status = 'cancelled' THEN 1 END) AS cancelled\nFROM orders\nGROUP BY customer_id;",
+      "exam": true,
+      "ref": "https://www.postgresql.org/docs/current/functions-conditional.html"
+    },
+    {
+      "tier": "should",
+      "title": "Pagination: OFFSET versus keyset",
+      "body": "LIMIT … OFFSET … is simple, but needs a deterministic ORDER BY (ending with a unique column such as id); otherwise pages can repeat or skip rows. The server also has to calculate rows skipped by OFFSET, so deep pages get slow. An alternative is keyset pagination (a commonly used technique not covered on this documentation page): remember the last row’s values and continue with `WHERE (created_at, id) < (…)`. PostgreSQL compares row values column by column from left to right. An index on (created_at, id) that matches the ORDER BY can make this fast. The trade-off is that you cannot jump straight to page N, and the sort columns should not be NULL. SQL Server (2012 onward) has no LIMIT; write `ORDER BY … OFFSET n ROWS FETCH NEXT m ROWS ONLY` instead.",
+      "code": "-- หน้าแรก\nSELECT id, title, created_at FROM posts\nORDER BY created_at DESC, id DESC\nLIMIT 20;\n\n-- หน้าถัดไป: ส่งค่าแถวสุดท้ายของหน้าก่อนกลับมา\nSELECT id, title, created_at FROM posts\nWHERE (created_at, id) < ($1, $2)\nORDER BY created_at DESC, id DESC\nLIMIT 20;",
+      "exam": true,
+      "ref": "https://www.postgresql.org/docs/current/queries-limit.html"
+    },
+    {
+      "tier": "should",
+      "title": "Views and materialized views",
+      "body": "A view is a named query that you can reuse like a table. A materialized view (in PostgreSQL) stores its results in a table-like form, so reading it does not rerun an expensive query each time. Its data becomes stale until `REFRESH MATERIALIZED VIEW` runs, and you cannot edit the view’s data directly. Use one when some staleness is acceptable, such as a daily sales dashboard, and schedule an external job (such as cron) to refresh it. Other databases may have a similarly named feature with different creation and refresh behavior, or none at all; check the documentation for your database.",
+      "code": "CREATE MATERIALIZED VIEW daily_sales AS\nSELECT created_at::date AS day, SUM(total) AS revenue\nFROM orders\nWHERE status = 'paid'\nGROUP BY 1;\n\n-- ข้อมูลจะเก่าจนกว่าจะสั่ง refresh\nREFRESH MATERIALIZED VIEW daily_sales;",
+      "ref": "https://www.postgresql.org/docs/current/rules-materializedviews.html"
+    },
+    {
+      "tier": "should",
+      "title": "timestamp, timestamptz, and time zones",
+      "body": "In PostgreSQL, timestamptz (timestamp with time zone) is stored internally in UTC and converted to the session’s time zone (the TimeZone setting) when displayed. timestamp (without time zone) stores the date and time as entered and silently discards any offset in the input. PostgreSQL documentation describes this behavior. A common recommendation is to use timestamptz for actual moments in time, such as created_at or paid_at, so comparisons across time zones work correctly. Use timestamp for local wall-clock times without a time zone, such as a meeting time at a branch office. For a recurring store opening time with no date, use time. Other databases have different types and rules; consult their documentation.",
+      "code": "SET TIME ZONE 'UTC';\nSELECT TIMESTAMPTZ '2025-03-01 00:00:00+07';\n-- 2025-02-28 17:00:00+00\nSET TIME ZONE 'Asia/Bangkok';\nSELECT TIMESTAMPTZ '2025-03-01 00:00:00+07';\n-- 2025-03-01 00:00:00+07 (ค่าเดียวกัน แสดงตามโซน)\nSELECT TIMESTAMP '2025-03-01 00:00:00+07';\n-- 2025-03-01 00:00:00 (+07 ถูกตัดทิ้ง)",
+      "ref": "https://www.postgresql.org/docs/current/datatype-datetime.html"
+    },
+    {
+      "tier": "should",
+      "title": "Recursive CTEs for tree-shaped data",
+      "body": "WITH RECURSIVE consists of an initial (non-recursive) term, followed by UNION ALL and a recursive term that refers to the CTE itself. The database iterates, using rows from one round to find rows for the next, until no new rows appear. It suits tree structures with parent_id, such as product categories or an org chart. If the data contains a cycle (A is a child of B, and B is a child of A), UNION ALL will not terminate. Always add cycle detection (PostgreSQL 14 and later has a CYCLE clause) or limit the depth.",
+      "code": "WITH RECURSIVE tree AS (\n  SELECT id, name, 0 AS depth\n  FROM categories\n  WHERE parent_id IS NULL        -- จุดเริ่ม: หมวดราก\n  UNION ALL\n  SELECT c.id, c.name, t.depth + 1\n  FROM categories c\n  JOIN tree t ON c.parent_id = t.id\n  WHERE t.depth < 10             -- กันข้อมูลวนเป็นรอบ\n)\nSELECT * FROM tree ORDER BY depth, id;",
+      "ref": "https://www.postgresql.org/docs/current/queries-with.html"
+    },
+    {
+      "tier": "advanced",
+      "title": "Deadlocks and lock ordering",
+      "body": "A deadlock occurs when two transactions each hold a lock the other needs. For example, T1 updates account 1 then account 2, while T2 updates account 2 then account 1. PostgreSQL detects the deadlock and cancels one transaction (you cannot predict which one), so the application must be ready to retry the whole transaction. The documentation’s prevention advice is to have all code request multiple locks in the same order, such as sorting by ID. `SELECT … FOR UPDATE` locks rows until the transaction ends, blocking others that want to change or lock the same rows, but not ordinary SELECT queries.",
+      "code": "-- ทุก transaction แตะบัญชีที่ id น้อยกว่าก่อนเสมอ\n-- (โอนจากบัญชี 2 ไป 1 ก็ปรับลำดับ UPDATE ในโค้ดให้แตะ 1 ก่อน)\nBEGIN;\nUPDATE accounts SET balance = balance - 500 WHERE id = 1;\nUPDATE accounts SET balance = balance + 500 WHERE id = 2;\nCOMMIT;",
+      "ref": "https://www.postgresql.org/docs/current/explicit-locking.html"
+    },
+    {
+      "tier": "advanced",
+      "title": "MVCC, dead rows, and VACUUM",
+      "body": "PostgreSQL does not immediately remove old rows on UPDATE or DELETE. It keeps old versions so other transactions that still need to see them can do so (MVCC). Once no transaction needs an old version, VACUUM must reclaim it. Autovacuum is enabled by default and does this automatically. Regular VACUUM makes the space reusable without blocking normal operations, but generally does not return it to the operating system. VACUUM FULL rewrites the table and can return disk space, but requires an ACCESS EXCLUSIVE lock, so avoid it when possible.",
+      "code": "-- ตารางไหนมีแถวตายสะสมมาก\nSELECT relname, n_live_tup, n_dead_tup, last_autovacuum\nFROM pg_stat_user_tables\nORDER BY n_dead_tup DESC\nLIMIT 10;\n\nVACUUM (VERBOSE, ANALYZE) orders;",
+      "ref": "https://www.postgresql.org/docs/current/routine-vacuuming.html"
+    },
+    {
+      "tier": "advanced",
+      "title": "Partial indexes and uniqueness for selected rows",
+      "body": "A partial index includes only rows that match its WHERE predicate, making it smaller and requiring fewer updates. It suits values that make up a small part of the table, such as pending jobs or users who have not been deleted. The planner can use the index only if it can prove that the query’s condition implies the index predicate. A UNIQUE partial index can enforce uniqueness only for selected rows, such as requiring email to be unique among users who have not been soft-deleted. Documentation cautions that you must understand the data distribution and should not use partial indexes as a substitute for table partitioning.",
+      "code": "-- email ซ้ำไม่ได้ เฉพาะบัญชีที่ยังไม่ถูกลบ\nCREATE UNIQUE INDEX uq_users_email_active\n  ON users (email)\n  WHERE deleted_at IS NULL;\n\n-- index เล็ก ๆ สำหรับงานที่รอประมวลผล\nCREATE INDEX idx_jobs_pending\n  ON jobs (created_at)\n  WHERE status = 'pending';",
+      "ref": "https://www.postgresql.org/docs/current/indexes-partial.html"
+    }
+  ],
+  "questions": [
+    {
+      "prompt": "You need customers who have never placed an order, but this query returns no rows even though such customers exist (some orders.customer_id values are NULL for guest orders). Why?",
+      "code": "SELECT c.name\nFROM customers c\nWHERE c.id NOT IN (\n  SELECT customer_id FROM orders\n);",
+      "options": [
+        "A subquery in WHERE needs an alias or it returns no rows",
+        "When the list contains NULL, NOT IN is never TRUE for any customer, so WHERE keeps no rows",
+        "NOT IN works only with a literal list, not a subquery result",
+        "customer_id values in the subquery are duplicated; add DISTINCT to get the right result"
+      ],
+      "answer": 1,
+      "explain": "`x NOT IN (1, 2, NULL)` is equivalent to `x <> 1 AND x <> 2 AND x <> NULL`. The last comparison is always UNKNOWN, so the result cannot be TRUE. Use NOT EXISTS or LEFT JOIN … WHERE o.id IS NULL instead. DISTINCT does not help because NULL remains in the list."
+    },
+    {
+      "prompt": "You need every customer with the number of paid orders (show 0 for customers with none), but customers without paid orders disappear. How should you fix it?",
+      "code": "SELECT c.name, COUNT(o.id) AS paid_orders\nFROM customers c\nLEFT JOIN orders o ON o.customer_id = c.id\nWHERE o.status = 'paid'\nGROUP BY c.id, c.name;",
+      "options": [
+        "Move o.status = 'paid' into the ON condition of the LEFT JOIN",
+        "Change COUNT(o.id) to COUNT(*) so it counts NULL rows too",
+        "Change to RIGHT JOIN to keep unmatched rows",
+        "Add o.status to GROUP BY to split groups by status"
+      ],
+      "answer": 0,
+      "explain": "WHERE runs after the JOIN. A customer without a match has NULL for o.status and is filtered out, making the LEFT JOIN act like an INNER JOIN. Putting the condition in ON filters only orders while keeping every customer. COUNT(*) would still count the NULL-extended row as 1, not 0."
+    },
+    {
+      "prompt": "A report’s order total is several times too high after someone joined order_items to filter for orders with a 'book' item. What is the most likely cause?",
+      "code": "SELECT SUM(o.total) AS revenue\nFROM orders o\nJOIN order_items i ON i.order_id = o.id\nJOIN products p ON p.id = i.product_id\nWHERE p.category = 'book';",
+      "options": [
+        "SUM treats NULL in o.total as zero and adds it repeatedly",
+        "An order with several book items appears once per item, so its total is added repeatedly",
+        "INNER JOIN duplicates rows; change to LEFT JOIN to get the right total",
+        "The query lacks GROUP BY o.id, so SUM includes values from every joined table"
+      ],
+      "answer": 1,
+      "explain": "A JOIN creates one row for every matching pair. An order with three book items therefore appears three times and its total is added three times. Filter with `WHERE EXISTS (…)` instead of joining (or aggregate at the item level if you need book-only totals). LEFT JOIN does not help; row multiplication applies to every join type."
+    },
+    {
+      "prompt": "This query groups by customer_id. You need customers whose total for paid orders exceeds 10,000 baht. Where should the two conditions go?",
+      "options": [
+        "Put both status = 'paid' and SUM(total) > 10000 in WHERE",
+        "Put status = 'paid' in WHERE and SUM(total) > 10000 in HAVING",
+        "Put both status = 'paid' and SUM(total) > 10000 in HAVING",
+        "Put SUM(total) > 10000 in WHERE and status = 'paid' in HAVING"
+      ],
+      "answer": 1,
+      "explain": "WHERE filters individual rows before grouping, so it is appropriate for status; the total is not available yet. HAVING filters after aggregates are computed. Moving status to HAVING would fail because status is neither grouped nor aggregated (adding it to GROUP BY would change the grouping specified in the problem).",
+      "code": "SELECT customer_id, SUM(total) AS paid_total\nFROM orders\nGROUP BY customer_id\n-- เงื่อนไขสองข้อวางตรงไหน?"
+    },
+    {
+      "prompt": "A money-transfer API runs an UPDATE to debit account A, then another UPDATE to credit account B, without an explicit transaction (autocommit is on). What happens if the process crashes between the statements?",
+      "options": [
+        "The database rolls back the first statement automatically because both use one connection",
+        "Account A is debited but B is not credited; wrap both statements in BEGIN … COMMIT",
+        "Nothing goes wrong if the isolation level is Serializable",
+        "The first statement remains uncommitted until someone runs COMMIT"
+      ],
+      "answer": 1,
+      "explain": "With autocommit, each statement is its own transaction and commits immediately, so the first change is permanent. A transaction provides atomicity: both succeed or neither does. Isolation controls what concurrent transactions can see; it does not combine separately committed statements into one unit."
+    },
+    {
+      "prompt": "The users table has 5 million rows and an index on email, but EXPLAIN for this query still shows Seq Scan. What is the most likely reason?",
+      "code": "SELECT id, name\nFROM users\nWHERE LOWER(email) = 'somchai@example.com';",
+      "options": [
+        "A B-tree index cannot be used for equality comparisons; it only supports ranges",
+        "The index stores raw email values, but the query searches on LOWER(email), so it cannot use that index",
+        "The planner uses an index only when the query selects every column with SELECT *",
+        "An index is used only if the query also ends with ORDER BY email"
+      ],
+      "answer": 1,
+      "explain": "The index is ordered by the column’s value, not by the result of a function applied to it. Create an expression index, such as `CREATE INDEX ON users (LOWER(email))` (PostgreSQL syntax), or store email in lowercase and compare the column directly. B-tree indexes support `=` well."
+    },
+    {
+      "prompt": "The article list is slow. Query logs show one SELECT … FROM posts LIMIT 50, followed by 50 queries like SELECT … FROM users WHERE id = $1. What is the most direct fix?",
+      "options": [
+        "Add an index to users.id so each author query finds its row faster",
+        "Increase the connection pool so all 50 queries can run concurrently",
+        "Fetch all authors in one go with a JOIN, WHERE id IN (…), or eager loading",
+        "Cache each author query result by ID in Redis"
+      ],
+      "answer": 2,
+      "explain": "This is the N+1 query problem. The main cost is 50 round trips, not the speed of each query. Fetching in one go reduces it to one or two queries. users.id is already indexed as a primary key, and caching each ID still makes many requests; it only changes where they go."
+    },
+    {
+      "prompt": "You must rename users.name to full_name in production during a rolling deployment, when old and new code run together for a while, with no downtime. How should you do it?",
+      "options": [
+        "Run RENAME COLUMN in a migration, then deploy code that reads full_name in the same release",
+        "Deploy code reading full_name to every machine first, then rename the column",
+        "Add full_name, write both columns and backfill, move reads over, then drop name",
+        "Create a users_new table with the new column, copy data, then swap table names"
+      ],
+      "answer": 2,
+      "explain": "A rolling deployment runs two code versions at once. Renaming immediately breaks old code that still uses name; deploying new code first breaks because full_name does not exist yet. Expand → migrate → contract keeps a column usable by both versions at every stage. Copying and swapping tables risks losing writes made during the copy."
+    },
+    {
+      "prompt": "An inventory transaction (PostgreSQL, Read Committed) does SELECT stock, subtracts 1 in application code, then UPDATE SET stock = the new value. Two requests buy an item when stock = 10, and the final value is 9 instead of 8. Why?",
+      "options": [
+        "Read Committed allows dirty reads, so it returned the wrong value",
+        "A lost update occurred because both requests read 10 and each overwrote it with 9",
+        "The first transaction had not committed, so the database discarded its change",
+        "There is no index on stock, so UPDATE modified the wrong row"
+      ],
+      "answer": 1,
+      "explain": "Read Committed prevents dirty reads, but not the read-then-write pattern where two transactions read the same value and overwrite one another. Use an atomic UPDATE (`SET stock = stock - 1 WHERE stock > 0`), lock the row with SELECT … FOR UPDATE, or use stronger isolation with retries for serialization failures."
+    },
+    {
+      "prompt": "You need the latest order for each customer, with every column from that order. Which approach is correct?",
+      "options": [
+        "Sort orders by created_at DESC and add LIMIT 1",
+        "GROUP BY customer_id and select id alongside MAX(created_at)",
+        "Calculate ROW_NUMBER() OVER (PARTITION BY customer_id ORDER BY created_at DESC) in a CTE, then filter for rn = 1 outside",
+        "Put ROW_NUMBER() OVER (PARTITION BY customer_id ORDER BY created_at DESC) = 1 in WHERE"
+      ],
+      "answer": 2,
+      "explain": "Window functions are computed in the SELECT phase, after WHERE, so you cannot filter on one directly in WHERE. Wrap it in a CTE or subquery first. In most databases, GROUP BY with an unaggregated id is an error and would not guarantee the id came from the row with MAX anyway. LIMIT 1 returns just one order for the entire table."
+    },
+    {
+      "prompt": "An admin page needs customers who have at least one paid order, but the same customer appears in several rows, one per order. What is the most direct fix?",
+      "code": "SELECT c.name\nFROM customers c\nJOIN orders o ON o.customer_id = c.id\nWHERE o.status = 'paid';",
+      "options": [
+        "Rewrite it with WHERE EXISTS (…) to check whether the customer has a paid order",
+        "Change JOIN to LEFT JOIN so the database automatically combines each customer’s rows",
+        "Add ORDER BY c.name to combine rows with duplicate names",
+        "Move o.status = 'paid' into ON to prevent duplicate rows"
+      ],
+      "answer": 0,
+      "explain": "A JOIN creates a row for every matching pair, so a customer with three paid orders appears three times. EXISTS only asks whether a paid order exists and returns one row per customer. LEFT JOIN, ORDER BY, and moving the condition to ON do not reduce the number of matching pairs."
+    },
+    {
+      "prompt": "A sales report combines rows from two channels. The query returns 9,950 rows, but the two tables contain 10,000 rows in total. Some rows from different channels have the same (order_no, amount). What happened?",
+      "code": "SELECT order_no, amount FROM online_sales\nUNION\nSELECT order_no, amount FROM store_sales;",
+      "options": [
+        "UNION matches columns by name, so it skips rows where column names differ",
+        "UNION removes duplicate full rows; use UNION ALL to keep every row",
+        "Only UNION ALL checks data types, so UNION dropped rows with mismatched types",
+        "Each query needs its own ORDER BY or UNION drops rows"
+      ],
+      "answer": 1,
+      "explain": "UNION behaves like DISTINCT on the combined result, so rows with identical values in every column collapse into one. UNION ALL keeps every row. Columns are matched by position, not name, and ORDER BY at the end is unrelated to removing duplicates."
+    },
+    {
+      "prompt": "The payments table stores amount as DOUBLE PRECISION. Accounting sees occasional fractional-satang errors in sums of thousands of rows, and equality comparisons with invoice totals fail. What is the best fix?",
+      "options": [
+        "Wrap every query result in ROUND before comparing and leave the column type as is",
+        "Create an index on amount so SUM reads exact values from the index",
+        "Change the column to NUMERIC(12,2), which stores exact values at that scale",
+        "Change it to REAL, another floating-point type that is more precise"
+      ],
+      "answer": 2,
+      "explain": "real and double precision are approximate types, so some values cannot be represented exactly. ROUND can hide some symptoms, but the stored values can still be inaccurate. NUMERIC is designed for exact monetary values. An index does not change the stored values."
+    },
+    {
+      "prompt": "On PostgreSQL, page_views has PRIMARY KEY (page_id, view_date). The counter code works like this, but during traffic spikes it sometimes gets a unique violation or misses a count. How should it be fixed?",
+      "code": "-- 1) ตรวจว่ามีแถวของวันนี้หรือยัง\nSELECT 1 FROM page_views\nWHERE page_id = 42 AND view_date = CURRENT_DATE;\n-- 2) ถ้าไม่เจอ INSERT views = 1  ถ้าเจอ UPDATE views = views + 1",
+      "options": [
+        "Wrap the two steps in BEGIN … COMMIT; a transaction alone prevents other requests from intervening",
+        "Use SELECT … FOR SHARE first to lock a row that does not exist and stop anyone inserting it",
+        "Remove the primary key so concurrent requests cannot get a unique violation",
+        "Use one atomic INSERT … ON CONFLICT (page_id, view_date) DO UPDATE"
+      ],
+      "answer": 3,
+      "explain": "Another request can intervene between SELECT and INSERT, even inside a Read Committed transaction, because there is no existing row to lock. ON CONFLICT DO UPDATE performs insert-or-update atomically using the unique constraint. Removing the primary key would turn the error into duplicate data."
+    },
+    {
+      "prompt": "The team moved its upsert code to PostgreSQL and now gets “there is no unique or exclusion constraint matching the ON CONFLICT specification.” What is the most likely reason?",
+      "code": "INSERT INTO users (email, name)\nVALUES ('a@example.com', 'Somchai')\nON CONFLICT (email)\nDO UPDATE SET name = EXCLUDED.name;",
+      "options": [
+        "users has no unique constraint or unique index on email",
+        "ON CONFLICT supports only DO NOTHING, not DO UPDATE",
+        "Replace it with ON DUPLICATE KEY UPDATE, which is PostgreSQL syntax",
+        "Add RETURNING to the end or ON CONFLICT will not work"
+      ],
+      "answer": 0,
+      "explain": "ON CONFLICT requires a uniqueness constraint matching the specified column(s). Without it, PostgreSQL cannot tell what counts as a conflict. DO UPDATE is supported. ON DUPLICATE KEY UPDATE is MySQL syntax and also relies on a PRIMARY KEY or UNIQUE index."
+    },
+    {
+      "prompt": "This report should show each customer’s paid and cancelled order counts, but both columns equal the total order count for every customer. Why?",
+      "code": "SELECT customer_id,\n       COUNT(CASE WHEN status = 'paid' THEN 1 ELSE 0 END) AS paid,\n       COUNT(CASE WHEN status = 'cancelled' THEN 1 ELSE 0 END) AS cancelled\nFROM orders\nGROUP BY customer_id;",
+      "options": [
+        "CASE cannot be used inside an aggregate; move the conditions into WHERE and split the query",
+        "ELSE 0 is not NULL, so COUNT counts every row; omit ELSE or use SUM",
+        "COUNT only counts values greater than zero; the real problem is GROUP BY customer_id",
+        "Add DISTINCT to COUNT or it will count duplicate rows for a customer"
+      ],
+      "answer": 1,
+      "explain": "COUNT(expr) counts rows where expr is not NULL. Rows that do not match the condition return 0, not NULL, so they are counted too. Omit ELSE so CASE returns NULL, or use `SUM(CASE … THEN 1 ELSE 0 END)`. In PostgreSQL, `COUNT(*) FILTER (WHERE status = 'paid')` also works."
+    },
+    {
+      "prompt": "The product table has 2 million rows. The first page is fast, but OFFSET values near one million take several seconds, even though an index on created_at, id exists and created_at is NOT NULL. What should you do?",
+      "code": "SELECT id, name FROM products\nORDER BY created_at DESC, id DESC\nLIMIT 20 OFFSET 1000000;",
+      "options": [
+        "Increase LIMIT so the planner chooses an index instead of a full table scan",
+        "Remove ORDER BY because OFFSET cannot use an ordered index",
+        "Use keyset pagination: WHERE (created_at, id) < ($1, $2) with the same ORDER BY and LIMIT",
+        "Run VACUUM FULL before each page so OFFSET skips rows faster"
+      ],
+      "answer": 2,
+      "explain": "The server still has to calculate rows skipped by OFFSET, so larger offsets take longer. Keyset pagination can use the index to continue after the last row seen. Removing ORDER BY makes the order nondeterministic, and VACUUM FULL is unrelated to OFFSET cost."
+    },
+    {
+      "prompt": "Users report that page 2 repeats some articles from page 1 and skips others. Hundreds of imported articles share the same published_at. What is the cause?",
+      "code": "SELECT id, title FROM posts\nORDER BY published_at\nLIMIT 20 OFFSET 20;",
+      "options": [
+        "OFFSET starts counting at 1, so it always repeats the last row; use OFFSET 21 instead",
+        "LIMIT is unstable with OFFSET; use DISTINCT to prevent duplicates across pages",
+        "A hidden JOIN in the posts view causes duplicates; ORDER BY is unrelated",
+        "published_at is not unique, so tied rows can appear in different orders; add id at the end of ORDER BY"
+      ],
+      "answer": 3,
+      "explain": "If the order is not fully specified, rows tied on the sort key can be returned in different orders across queries, causing repeats or omissions between pages. In PostgreSQL OFFSET 20 skips exactly 20 rows. DISTINCT does not help because the rows themselves are not duplicates."
+    },
+    {
+      "prompt": "The team tests on SQLite locally. Inserting an order with a nonexistent customer_id succeeds even though the table declares REFERENCES customers(id); the same insert fails on PostgreSQL. Why?",
+      "code": "CREATE TABLE orders (\n  id INTEGER PRIMARY KEY,\n  customer_id INTEGER NOT NULL REFERENCES customers(id)\n);\nINSERT INTO orders (id, customer_id) VALUES (1, 999);  -- ไม่มี customer 999",
+      "options": [
+        "SQLite disables foreign-key enforcement by default; enable it on every connection with PRAGMA foreign_keys = ON",
+        "SQLite does not recognize REFERENCES and ignores it when creating the table",
+        "SQLite checks foreign keys only at COMMIT, but every test rolls back before then",
+        "SQLite requires an index on customer_id before it enforces a foreign key"
+      ],
+      "answer": 0,
+      "explain": "SQLite documentation says foreign-key enforcement is disabled by default and must be enabled separately on each connection with PRAGMA foreign_keys. The schema is still read normally. Testing on a different database engine can hide bugs; test against the same kind used in production."
+    },
+    {
+      "prompt": "A PostgreSQL dashboard uses an expensive materialized view. The team wants to refresh without blocking readers, but this command errors with “cannot refresh materialized view concurrently.” What is the correct reason?",
+      "code": "REFRESH MATERIALIZED VIEW CONCURRENTLY daily_sales;",
+      "options": [
+        "CONCURRENTLY works only for a view created WITH NO DATA that has never been populated",
+        "The view needs a UNIQUE index on plain columns that covers every row",
+        "Another ordinary REFRESH must already be running so CONCURRENTLY can queue behind it",
+        "Drop and recreate the materialized view with WITH DATA every time before using CONCURRENTLY"
+      ],
+      "answer": 1,
+      "explain": "CONCURRENTLY requires a UNIQUE index using only column names and covering all rows (no expression index and no WHERE clause). It also requires the view to have been populated, the opposite of the first option. An ordinary refresh may block readers while it runs."
+    },
+    {
+      "prompt": "On PostgreSQL, a developer expects a stored value to convert to UTC as 2025-02-28 17:00, but SELECT returns 2025-03-01 00:00:00 and comparisons with times from other countries are wrong. What is the cause?",
+      "code": "CREATE TABLE events (id INT, happened_at TIMESTAMP);\nSET TIME ZONE 'UTC';\nINSERT INTO events VALUES (1, '2025-03-01 00:00:00+07');\nSELECT happened_at FROM events;  -- 2025-03-01 00:00:00",
+      "options": [
+        "PostgreSQL converted to UTC, but psql displays the machine’s time zone, making it look unchanged",
+        "SET TIME ZONE never affects inserted values, regardless of the column type",
+        "The column is timestamp, which silently discards +07; use timestamptz",
+        "The literal must use ISO format with T between date and time for the offset to count"
+      ],
+      "answer": 2,
+      "explain": "timestamp without time zone stores the date and time as entered and silently ignores any zone offset. timestamptz converts to UTC on storage and back to the session’s zone for display. Changing the literal format does not make timestamp honor an offset."
+    },
+    {
+      "prompt": "A query tracing an employee’s managers never ends and uses all available CPU. The data has employee 7 with manager 9, and employee 9 with manager 7. What is the cause?",
+      "code": "WITH RECURSIVE chain AS (\n  SELECT id, manager_id FROM employees WHERE id = 7\n  UNION ALL\n  SELECT e.id, e.manager_id\n  FROM employees e JOIN chain c ON e.id = c.manager_id\n)\nSELECT * FROM chain;",
+      "options": [
+        "Add LIMIT 100; this is the standard production solution recommended in the documentation",
+        "The recursive part needs LEFT JOIN instead of JOIN so it stops when manager_id is NULL",
+        "Recursive CTEs cannot use UNION ALL; change to UNION to make it work",
+        "The data contains a cycle, and UNION ALL does not remove repeated rows; add cycle detection or limit depth"
+      ],
+      "answer": 3,
+      "explain": "A recursive CTE stops when an iteration finds no new rows. With a cycle 7 → 9 → 7, each iteration keeps finding rows. UNION ALL is valid (UNION stops only if the complete rows are identical, which is not a general solution when columns such as depth differ). PostgreSQL documentation says LIMIT can help during testing, but does not recommend it in production."
+    },
+    {
+      "prompt": "A money-transfer system sometimes logs “deadlock detected.” The logs show it happens when two opposite transfers run at once (1 to 2 and 2 to 1). What best addresses the cause?",
+      "code": "-- T1: โอน 1 -> 2\nUPDATE accounts SET balance = balance - 500 WHERE id = 1;\nUPDATE accounts SET balance = balance + 500 WHERE id = 2;\n-- T2: โอน 2 -> 1\nUPDATE accounts SET balance = balance - 300 WHERE id = 2;\nUPDATE accounts SET balance = balance + 300 WHERE id = 1;",
+      "options": [
+        "Have all code lock accounts in the same ID order and retry the transaction that is aborted",
+        "Set isolation to Serializable to prevent all deadlocks",
+        "Increase the lock timeout so both sides wait until the other releases its lock",
+        "Remove transactions and use autocommit so no locks are held"
+      ],
+      "answer": 0,
+      "explain": "Each transaction holds a lock on a row it changed and waits for the row held by the other, creating a cycle. Accessing rows in a consistent order prevents that cycle; retry because the database cancels one transaction. Waiting longer does not help when each side is waiting on the other. Autocommit would also make debit and credit non-atomic."
+    },
+    {
+      "prompt": "Three workers read jobs from a table, and the same job is sometimes processed more than once because each does these two steps. How should this be fixed on PostgreSQL or MySQL 8.4?",
+      "code": "SELECT id FROM jobs\nWHERE status = 'pending'\nORDER BY id LIMIT 1;\n\nUPDATE jobs SET status = 'running' WHERE id = $1;",
+      "options": [
+        "Use FOR SHARE in the first step so other workers see that the row was taken",
+        "In one transaction, use LIMIT 1 FOR UPDATE SKIP LOCKED, then update that row",
+        "Use FOR UPDATE NOWAIT so colliding workers wait in a queue automatically until they get a row",
+        "Set Serializable and skip application retries because the database will queue jobs without conflicts"
+      ],
+      "answer": 1,
+      "explain": "FOR UPDATE locks the selected row, and SKIP LOCKED lets other workers skip locked rows and take the next one. PostgreSQL and MySQL documentation say this suits queue-like tables, but not general work because it provides an incomplete view. NOWAIT does not wait; it raises an error. FOR SHARE allows multiple workers to hold the lock and does not prevent duplicates."
+    },
+    {
+      "prompt": "A PostgreSQL report runs a 10-minute SELECT. The team worries that the main application’s UPDATE orders will wait until the report finishes. Which statement is correct?",
+      "options": [
+        "UPDATE waits because SELECT holds shared row locks until its query completes",
+        "UPDATE is blocked only if SELECT has ORDER BY or GROUP BY over the whole table",
+        "It is not blocked: MVCC lets SELECT read its own snapshot without locking rows",
+        "UPDATE is not blocked, but SELECT starts seeing new values mid-query, mixing several states"
+      ],
+      "answer": 2,
+      "explain": "PostgreSQL documentation says reads do not block writes and writes do not block reads. An ordinary SELECT (without FOR UPDATE/SHARE) does not hold row locks that block the update. Under Read Committed, each statement sees a snapshot from when it started, so it does not see values committed midway through the query."
+    },
+    {
+      "prompt": "After updating every row in a 50 GB table, its file nearly doubles in size. Autovacuum has finished, but the file did not shrink. The team thinks vacuum failed. What is the best explanation?",
+      "options": [
+        "Autovacuum failed because a successful VACUUM must always shrink the file immediately",
+        "UPDATE creates new versions, and old rows can never be removed, so reload the whole table",
+        "Run ANALYZE, which immediately returns unused space to the operating system",
+        "Ordinary VACUUM makes dead-row space reusable but usually does not return it to the OS, so the file stays the same size"
+      ],
+      "answer": 3,
+      "explain": "UPDATE first keeps old row versions for MVCC. VACUUM then makes that space reusable by new rows, preventing further growth, but the file usually does not shrink. VACUUM FULL rewrites the table to return space, but holds a full lock throughout. ANALYZE updates planner statistics; it does not reclaim space."
+    },
+    {
+      "prompt": "The system uses soft deletes (sets deleted_at rather than removing rows). Email must be unique among active users, but deleted users may share the same email. How should this be enforced in PostgreSQL?",
+      "options": [
+        "CREATE UNIQUE INDEX ON users (email) WHERE deleted_at IS NULL",
+        "Declare UNIQUE (email, deleted_at), since the deletion timestamp makes each pair unique",
+        "Use a CHECK constraint that counts duplicate emails during INSERT",
+        "Declare UNIQUE (email) and have the app physically delete the old row before every new signup"
+      ],
+      "answer": 0,
+      "explain": "A partial unique index enforces uniqueness only for rows matching its predicate. UNIQUE (email, deleted_at) does not work because by default two NULL values are not considered equal; active users with NULL deleted_at could share an email. (PostgreSQL 15 and later supports NULLS NOT DISTINCT, which changes this behavior, but that is not the option shown.) CHECK constraints are designed to validate the current row, not prevent duplicates across rows."
+    },
+    {
+      "prompt": "The team created a partial index for pending jobs, but EXPLAIN still shows Seq Scan. What is the most likely cause?",
+      "code": "CREATE INDEX idx_jobs_pending ON jobs (created_at)\n  WHERE status = 'pending';\n\nEXPLAIN SELECT * FROM jobs\nWHERE created_at < now() - interval '1 hour';",
+      "options": [
+        "Partial indexes work only when UNIQUE, not for ordinary queries",
+        "The query does not include status = 'pending' to match the index predicate",
+        "Add ORDER BY created_at to match the index key so the planner will use it",
+        "Partial indexes must always be created with CONCURRENTLY or the planner will not choose them"
+      ],
+      "answer": 1,
+      "explain": "An index containing only pending rows cannot serve a query that may need rows with other statuses. It is usable only when the query condition implies the index predicate. Add `AND status = 'pending'`. CONCURRENTLY affects how the index is created without blocking writes, not whether the planner can use it."
+    },
+    {
+      "prompt": "A PostgreSQL query uses an Index Scan on (customer_id) but still visits the table to read total. The team wants an index-only scan without making total a search key. What should it do?",
+      "code": "CREATE INDEX idx_orders_customer ON orders (customer_id);\n\nSELECT customer_id, total\nFROM orders\nWHERE customer_id = 42;",
+      "options": [
+        "It is impossible because INCLUDE does not work with B-tree; add total as the second index column",
+        "Change to SELECT * because an index-only scan must read every table column",
+        "Create an index with INCLUDE (total) and vacuum regularly so the visibility map is current",
+        "Drop the index and use Seq Scan because index-only scans work only on tables without indexes"
+      ],
+      "answer": 2,
+      "explain": "An index-only scan is possible when the query needs only columns stored in the index. B-tree supports INCLUDE, which adds a payload column without making it a search key. The visibility map also needs to be maintained by VACUUM so table visits can usually be skipped. SELECT * would require columns not stored in the index."
+    },
+    {
+      "prompt": "After importing 180,000 refund rows, this query became much slower. EXPLAIN ANALYZE shows the estimate was 3 rows but the actual count was 180,000. What should be done first?",
+      "code": "-- Seq Scan on orders o  (rows=3)  (actual rows=180000 loops=1)\n-- Nested Loop  (rows=3)  (actual rows=180000 loops=1)\nEXPLAIN ANALYZE\nSELECT * FROM orders o JOIN customers c ON c.id = o.customer_id\nWHERE o.status = 'refunded';",
+      "options": [
+        "Convert cost to milliseconds because the displayed cost does not match real time",
+        "Rerun the query; the first EXPLAIN ANALYZE is inaccurate and the next will match",
+        "Add an index to every orders column so the planner has more options",
+        "Run ANALYZE orders because the planner estimated 3 rows but found 180,000, indicating stale statistics"
+      ],
+      "answer": 3,
+      "explain": "The planner chooses a plan based on row estimates from statistics. A large underestimate can make it choose a nested loop that is suitable for a tiny result. ANALYZE refreshes the statistics. Cost is a planner unit, not elapsed time, and rerunning does not change the estimate"
+    }
+  ],
+  "exercises": [
+    {
+      "title": "Top 5 customers by 2025 spend",
+      "level": "ง่าย",
+      "tags": "JOIN · GROUP BY · ORDER BY · LIMIT",
+      "lang": "sql",
+      "prompt": "The marketing team wants to send gifts to the customers who spent the most. Write a query showing name, city, and total_spent (the sum of their 2025 orders) for the top 5 customers, sorted from highest to lowest. Customer names may not be unique. Exclude customers with no orders in 2025.",
+      "context": "customers(id INT PK, name TEXT, city TEXT)\norders(id INT PK,\n       customer_id INT → customers.id,\n       total NUMERIC,\n       created_at DATE)",
+      "starter": "-- เขียน query ของคุณที่นี่\nSELECT c.name, c.city\nFROM customers c\n",
+      "solution": "SELECT c.name, c.city, SUM(o.total) AS total_spent\nFROM customers c\nJOIN orders o ON o.customer_id = c.id\nWHERE o.created_at >= '2025-01-01'\n  AND o.created_at <  '2026-01-01'\nGROUP BY c.id, c.name, c.city\nORDER BY total_spent DESC\nLIMIT 5;",
+      "hints": [
+        "Order totals are in orders; names and cities are in customers. Join the tables, then sum per customer.",
+        "Join orders o ON o.customer_id = c.id, use SUM(o.total) AS total_spent, and GROUP BY c.id (not the name, which may be duplicated).",
+        "Filter for 2025 in WHERE before grouping, for example o.created_at >= '2025-01-01' AND o.created_at < '2026-01-01'. Finish with ORDER BY total_spent DESC LIMIT 5."
+      ],
+      "checks": [
+        {
+          "label": "Join orders to customers on customer_id = id",
+          "pattern": "customer_id\\s*=\\s*\\w+\\.id\\b|\\b\\w+\\.id\\s*=\\s*(\\w+\\.)?customer_id"
+        },
+        {
+          "label": "Sum total and name the result total_spent",
+          "pattern": "sum\\s*\\(\\s*(\\w+\\.)?total\\s*\\)[^;]*\\btotal_spent\\b"
+        },
+        {
+          "label": "Filter created_at to 2025 with both lower and upper bounds",
+          "pattern": "created_at\\s*(>=\\s*(?:(?:date|timestamp(?:tz)?)\\s+)?'2025-01-01[^']*'|>\\s*(?:(?:date|timestamp(?:tz)?)\\s+)?'2024-12-31[^']*')[^;]*created_at\\s*(<\\s*(?:(?:date|timestamp(?:tz)?)\\s+)?'2026-01-01[^']*'|<=\\s*(?:(?:date|timestamp(?:tz)?)\\s+)?'2025-12-31[^']*')|created_at\\s*(<\\s*(?:(?:date|timestamp(?:tz)?)\\s+)?'2026-01-01[^']*'|<=\\s*(?:(?:date|timestamp(?:tz)?)\\s+)?'2025-12-31[^']*')[^;]*created_at\\s*(>=\\s*(?:(?:date|timestamp(?:tz)?)\\s+)?'2025-01-01[^']*'|>\\s*(?:(?:date|timestamp(?:tz)?)\\s+)?'2024-12-31[^']*')|created_at\\s+between\\s+(?:(?:date|timestamp(?:tz)?)\\s+)?'2025-01-01[^']*'\\s+and\\s+(?:(?:date|timestamp(?:tz)?)\\s+)?'2025-12-31[^']*'|(extract\\s*\\(\\s*year\\s+from\\s+(\\w+\\.)?created_at\\s*\\)|date_part\\s*\\(\\s*'year'\\s*,\\s*(\\w+\\.)?created_at\\s*\\)|year\\s*\\(\\s*(\\w+\\.)?created_at\\s*\\))(\\s*::\\s*\\w+)?\\s*=\\s*'?2025\\b|date_trunc\\s*\\(\\s*'year'\\s*,\\s*(\\w+\\.)?created_at\\s*\\)\\s*=\\s*(?:(?:date|timestamp(?:tz)?)\\s+)?'2025-01-01[^']*'|to_char\\s*\\(\\s*(\\w+\\.)?created_at\\s*,\\s*'yyyy'\\s*\\)\\s*=\\s*'2025'"
+        },
+        {
+          "label": "Group by the customer ID (names may not be unique)",
+          "pattern": "(?:from|join)\\s+customers\\s+(?:as\\s+)?(\\w+)\\b[\\s\\S]*?group\\s+by[^;]*\\b\\1\\.id\\b|group\\s+by[^;]*(\\bcustomers\\.id\\b|customer_id|(^|[\\s,(])id\\b)"
+        },
+        {
+          "label": "Sort descending (ORDER BY … DESC)",
+          "pattern": "order\\s+by\\s+[^;]*?\\bdesc\\b"
+        },
+        {
+          "label": "Limit to 5 rows",
+          "pattern": "limit\\s+5\\b|fetch\\s+(first|next)\\s+5\\b|\\btop\\s*\\(?\\s*5\\b|(row_number|rank|dense_rank)\\s*\\(\\s*\\)[^;]*(<=\\s*5\\b|<\\s*6\\b)"
+        }
+      ]
+    },
+    {
+      "title": "Top 2 products in each category",
+      "level": "กลาง",
+      "tags": "CTE · window function · ROW_NUMBER",
+      "lang": "sql",
+      "prompt": "The product team needs a “Top 2 in each category” page. Write a query showing category, name, and revenue (sales = sum of quantity * unit_price) for the two best-selling products in each category. Count only orders with status = 'paid'. Sort by category and then rank. For ties, the product with the smaller id ranks first.",
+      "context": "products(id INT PK, name TEXT, category TEXT)\norders(id INT PK, status TEXT)\norder_items(order_id INT → orders.id,\n            product_id INT → products.id,\n            quantity INT,\n            unit_price NUMERIC)",
+      "starter": "-- รวมยอดขายต่อสินค้าไว้ให้แล้ว แต่ยังไม่ได้จัดอันดับในแต่ละหมวด\nSELECT p.category, p.name,\n       SUM(i.quantity * i.unit_price) AS revenue\nFROM products p\nJOIN order_items i ON i.product_id = p.id\nGROUP BY p.category, p.name;",
+      "solution": "WITH revenue AS (\n  SELECT p.category, p.id, p.name,\n         SUM(i.quantity * i.unit_price) AS revenue\n  FROM products p\n  JOIN order_items i ON i.product_id = p.id\n  JOIN orders o ON o.id = i.order_id\n  WHERE o.status = 'paid'\n  GROUP BY p.category, p.id, p.name\n), ranked AS (\n  SELECT category, name, revenue,\n         ROW_NUMBER() OVER (\n           PARTITION BY category\n           ORDER BY revenue DESC, id\n         ) AS rn\n  FROM revenue\n)\nSELECT category, name, revenue\nFROM ranked\nWHERE rn <= 2\nORDER BY category, rn;",
+      "hints": [
+        "You need a “rank within each group” without collapsing rows. Consider a window function rather than a second GROUP BY.",
+        "First aggregate sales per product in a CTE, then use ROW_NUMBER() OVER (PARTITION BY category ORDER BY revenue DESC, id) in the next CTE.",
+        "You cannot use a window function directly in WHERE. Wrap it in a CTE or subquery, then filter on rn <= 2 outside. Remember to JOIN orders and filter status = 'paid'."
+      ],
+      "checks": [
+        {
+          "label": "Count only paid orders (reference orders)",
+          "pattern": "orders[\\s\\S]*(status\\s*=\\s*'paid'|'paid'\\s*=\\s*(\\w+\\.)?status\\b|status\\s+in\\s*\\(\\s*'paid'\\s*\\))"
+        },
+        {
+          "label": "Sum sales with SUM(quantity * unit_price)",
+          "pattern": "sum\\s*\\(\\s*\\(?\\s*(\\w+\\.)?(quantity\\s*\\*\\s*(\\w+\\.)?unit_price|unit_price\\s*\\*\\s*(\\w+\\.)?quantity)\\s*\\)?\\s*\\)"
+        },
+        {
+          "label": "Rank with a window function and PARTITION BY category",
+          "pattern": "(row_number|rank|dense_rank)\\s*\\(\\s*\\)\\s*over\\s*\\(\\s*partition\\s+by\\s+(\\w+\\.)?category\\b"
+        },
+        {
+          "label": "Order the window by descending sales, then product ID for ties",
+          "pattern": "over\\s*\\([\\s\\S]*?order\\s+by[\\s\\S]*?\\bdesc\\b\\s*,\\s*(\\w+\\.)?(id|product_id|pid)\\b"
+        },
+        {
+          "label": "Rank in a CTE or subquery, then filter outside",
+          "pattern": "\\bwith\\s+\\w+\\s*(\\([^)]*\\)\\s*)?as\\s*((not\\s+)?materialized\\s*)?\\(|from\\s*\\(\\s*select"
+        },
+        {
+          "label": "Keep only ranks 1–2 (rn <= 2)",
+          "pattern": "(<=\\s*2\\b|<\\s*3\\b|\\bin\\s*\\(\\s*1\\s*,\\s*2\\s*\\)|\\bin\\s*\\(\\s*2\\s*,\\s*1\\s*\\)|\\bbetween\\s+1\\s+and\\s+2\\b)"
+        },
+        {
+          "label": "Sort the final result by category, then rank",
+          "pattern": "order\\s+by\\s+((\\w+\\.)?category\\b|1)\\s*(asc\\s*)?,\\s*\\S"
+        }
+      ]
+    },
+    {
+      "title": "Category trees with a recursive CTE",
+      "level": "ยาก",
+      "tags": "WITH RECURSIVE · hierarchy · cycle guard",
+      "lang": "sql",
+      "prompt": "A website menu must show the Electronics category (id = 1) and all descendant categories, however deep. Write a query returning id, name, depth (root = 0), and path (names from root to the current category, separated by ' > ', for example Electronics > Phones > Android), ordered by path. Old data may accidentally contain a parent_id cycle. Your query must terminate and must not truncate deep categories.",
+      "context": "categories(id INT PK,\n           name TEXT NOT NULL,\n           parent_id INT → categories.id  -- NULL = root category)",
+      "starter": "-- เริ่มจากหมวด Electronics (id = 1) แต่ยังไม่ได้ลงไปหาหมวดลูก\nSELECT id, name, 0 AS depth, name AS path\nFROM categories\nWHERE id = 1;",
+      "solution": "WITH RECURSIVE tree AS (\n  SELECT id, name, 0 AS depth, name AS path,\n         ARRAY[id] AS visited\n  FROM categories\n  WHERE id = 1\n  UNION ALL\n  SELECT c.id, c.name, t.depth + 1,\n         t.path || ' > ' || c.name,\n         t.visited || c.id\n  FROM categories c\n  JOIN tree t ON c.parent_id = t.id\n  WHERE c.id <> ALL (t.visited)\n)\nSELECT id, name, depth, path\nFROM tree\nORDER BY path;",
+      "hints": [
+        "A tree of unknown depth needs WITH RECURSIVE: an anchor term, UNION ALL, then a recursive term that uses the previous result to find children.",
+        "The anchor is category id = 1 at depth 0. The recursive term JOINs categories c to tree t on c.parent_id = t.id, sets depth = t.depth + 1, and path = t.path || ' > ' || c.name.",
+        "Prevent cycles without truncating depth: track visited IDs in an array (for example, start visited with ARRAY[id], then append with t.visited || c.id) and skip IDs already in it with WHERE c.id <> ALL (t.visited), or use PostgreSQL’s CYCLE clause and filter out NOT is_cycle."
+      ],
+      "checks": [
+        {
+          "label": "Use WITH RECURSIVE",
+          "pattern": "with\\s+recursive\\b"
+        },
+        {
+          "label": "Join the anchor and recursive terms with UNION",
+          "pattern": "\\bunion\\b"
+        },
+        {
+          "label": "Start from Electronics (id = 1)",
+          "pattern": "where\\s+\\(?\\s*(\\w+\\.)?(id\\s*=\\s*1\\b|name\\s*=\\s*'electronics')"
+        },
+        {
+          "label": "Join each child by parent_id to the previous row’s id",
+          "pattern": "parent_id\\s*=\\s*\\w+\\.id\\b|\\b\\w+\\.id\\s*=\\s*\\w+\\.parent_id\\b"
+        },
+        {
+          "label": "Increase depth by 1",
+          "pattern": "\\bdepth\\s*\\+\\s*1\\b|\\b1\\s*\\+\\s*(\\w+\\.)?depth\\b"
+        },
+        {
+          "label": "Build path with || or concat",
+          "pattern": "\\|\\||concat(_ws)?\\s*\\("
+        },
+        {
+          "label": "Prevent cycles by tracking visited IDs (array or CYCLE), not by cutting off depth",
+          "pattern": "(<>|!=)\\s*all\\s*\\(|\\bnot\\s*\\(?[^;]*?(=\\s*any\\s*\\(|@>|&&)|\\bnot\\s+in\\s*\\(\\s*select\\s+unnest\\s*\\([^)]*\\)\\s*\\)|array_position\\s*\\([^;]*\\)\\s*is\\s+null|cycle\\s+\\w+(\\s*,\\s*\\w+)*\\s+set\\s+(\\w+)\\s+using\\s+\\w+[\\s\\S]*(not\\s+\\3\\b|\\3\\s*=\\s*false|\\3\\s*is\\s+not\\s+true|\\3\\s*<>\\s*true)"
+        }
+      ]
+    }
+  ],
+  "refs": [
+    {
+      "title": "PostgreSQL: Queries",
+      "url": "https://www.postgresql.org/docs/current/queries.html",
+      "note": "JOINs, subqueries, set operations, WITH, and LIMIT in one chapter."
+    },
+    {
+      "title": "PostgreSQL: Indexes",
+      "url": "https://www.postgresql.org/docs/current/indexes.html",
+      "note": "Index types, multicolumn indexes, partial indexes, and index-only scans."
+    },
+    {
+      "title": "PostgreSQL: Using EXPLAIN",
+      "url": "https://www.postgresql.org/docs/current/using-explain.html",
+      "note": "Plans, estimated versus actual values, and the effect of statistics."
+    },
+    {
+      "title": "PostgreSQL: Concurrency Control",
+      "url": "https://www.postgresql.org/docs/current/mvcc.html",
+      "note": "MVCC, isolation levels, and explicit locking."
+    },
+    {
+      "title": "PostgreSQL: Routine Vacuuming",
+      "url": "https://www.postgresql.org/docs/current/routine-vacuuming.html",
+      "note": "VACUUM, autovacuum, and table maintenance."
+    },
+    {
+      "title": "MySQL 8.4: Deadlocks in InnoDB",
+      "url": "https://dev.mysql.com/doc/refman/8.4/en/innodb-deadlocks.html",
+      "note": "A comparison of how MySQL handles deadlocks."
+    },
+    {
+      "title": "SQLite: Foreign Key Support",
+      "url": "https://www.sqlite.org/foreignkeys.html",
+      "note": "An example of how default behavior differs by database."
+    },
+    {
+      "title": "SQL Server: ORDER BY, OFFSET, and FETCH",
+      "url": "https://learn.microsoft.com/en-us/sql/t-sql/queries/select-order-by-clause-transact-sql",
+      "note": "T-SQL pagination syntax."
+    }
+  ]
+}
