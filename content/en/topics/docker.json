@@ -228,10 +228,10 @@
     {
       "prompt": "The team deploys myapp:latest to three machines. After one machine restarts, it runs a different version and the team cannot identify the previous version for rollback. What should they change?",
       "options": [
-        "Set the pull policy to pull :latest every time you start so that every machine always gets the newest version.",
-        "Tag every build with the version or non-reusable git SHA and deploy with that tag or digest.",
+        "Set the pull policy to pull :latest on every start so every machine always gets the newest version.",
+        "Tag each build with a version or Git SHA that is never reused, and deploy using that tag or a digest.",
         "Use the tag :stable instead of :latest because Docker locks the stable tag so it won't be overwritten.",
-        "Delete the old image from the registry as soon as you push the new one so that no one machine pulls the wrong one."
+        "Delete the old image from the registry as soon as the new one is pushed so no machine can pull the wrong one."
       ],
       "answer": 1,
       "explain": "A tag can be moved to point to a different image, so machines pulling it at different times may run different versions. Use a versioned, non-reused tag or an image digest for predictable deployments and rollbacks; Docker does not give tags such as :stable any special immutability."
@@ -240,7 +240,7 @@
       "prompt": "An image built on an Apple Silicon Mac runs there but fails with “exec format error” on an x86_64 Linux server. Why?",
       "options": [
         "The image is built as linux/arm64 and the container runs the binary directly on the host's CPU.",
-        "The host is Ubuntu but the base image is Debian, so they cannot call each other's system calls.",
+        "The host is Ubuntu but the base image is Debian, so their system calls are incompatible.",
         "Docker on the server is older than the Mac, so it doesn't understand the newer layer format.",
         "On Mac, each container gets its own VM. On Linux, virtualization must be enabled in the BIOS first."
       ],
@@ -250,10 +250,10 @@
     {
       "prompt": "The Node.js app runs with CMD [\"node\", \"server.js\"] but does not handle termination signals. During deployments, docker stop waits about 10 seconds and cuts off in-flight requests. How should the app shut down?",
       "options": [
-        "Write SIGTERM's handler to stop accepting new requests, wait for pending requests to end, and then exit.",
-        "Use docker stop -t 0 to stop the container immediately. Deploy will be faster and won't hang.",
-        "We switched to docker kill because it sends a more direct signal to the app than docker stop.",
-        "Set restart: always so that the container will restart itself if it is closed while running."
+        "Add a SIGTERM handler that stops accepting new requests, waits for in-flight requests to finish, and exits.",
+        "Use docker stop -t 0 to stop the container immediately so deployments are faster and do not hang.",
+        "Switch to docker kill because it sends signals more directly to the app than docker stop.",
+        "Set restart: always so the container restarts if it is stopped while running."
       ],
       "answer": 0,
       "explain": "If the Node process is PID 1, it may not receive the kernel’s usual default handling for SIGTERM. Docker waits 10 seconds, then sends SIGKILL, interrupting in-flight requests. Add a SIGTERM handler that stops new requests, drains pending work, and exits."
@@ -261,10 +261,10 @@
     {
       "prompt": "The API livenessProbe checks /health, which also checks the database. When the database was slow for a minute, all API Pods restarted repeatedly. How should the probes be changed?",
       "options": [
-        "Increase liveness failureThreshold very high to prevent pods from being restarted again.",
-        "Let liveness check only if the process can still respond and move the database check to readiness.",
-        "Delete the probe in Kubernetes and use HEALTHCHECK in Dockerfile to take care of it instead.",
-        "Increase the number of replicas enough to have at least one pod survive the restart."
+        "Set a very high liveness failureThreshold to prevent Pods from restarting.",
+        "Have liveness check only whether the process responds, and move the database check to readiness.",
+        "Remove the Kubernetes probe and use the Dockerfile HEALTHCHECK instead.",
+        "Increase replicas enough for at least one Pod to survive the restarts."
       ],
       "answer": 1,
       "explain": "A liveness probe should determine whether the app process is stuck and needs restarting. If it also depends on the database, a temporary database slowdown can restart every Pod at once. Put the dependency check in readiness so an unhealthy Pod is removed from service until the database recovers."
@@ -272,10 +272,10 @@
     {
       "prompt": "The public image contains a .env file with a database password, even though .env is in .gitignore and the Dockerfile uses COPY . . What caused this, and what should you do?",
       "options": [
-        "docker build doesn't read .gitignore. You have to put .env in .dockerignore and rotate the leaked password.",
-        "The public registry pulls files from the git repo itself. You need to set the repo to private and then push again.",
-        "You must enter the USER node before COPY . . because non-root will not copy files that begin with a dot.",
-        "Delete .env from the machine and build and push over the original tag without changing the password."
+        "docker build does not read .gitignore; add .env to .dockerignore and rotate the leaked password.",
+        "The public registry pulls files directly from Git; make the repository private and push again.",
+        "Set USER node before COPY . . because a non-root user will not copy dotfiles.",
+        "Delete .env locally, then rebuild and push over the original tag without changing the password."
       ],
       "answer": 0,
       "explain": "Docker uses .dockerignore to filter the build context; it does not read .gitignore. Add .env to .dockerignore and rotate the password because it has already been published. Replacing the tag cannot remove copies that others have pulled."
@@ -308,9 +308,9 @@
       "prompt": "The image is built with --build-arg APP_ENV=staging, but process.env.APP_ENV is undefined at runtime. How should the Dockerfile make this value available?",
       "code": "FROM node:24-slim\nARG APP_ENV=production\nWORKDIR /app\nCOPY . .\nCMD [\"node\", \"server.js\"]",
       "options": [
-        "Change it to ARG APP_ENV without the default value so that Docker will pass it to the container itself.",
-        "Move the ARG before the FROM line and the value will be placed in the container environment.",
-        "Send --build-arg to docker run as well because the same ARG can be used when running.",
+        "Declare ARG APP_ENV without a default so Docker automatically passes it to the container.",
+        "Move ARG before FROM so the value enters the container environment.",
+        "Pass --build-arg to docker run too, because the same ARG is available at runtime.",
         "Add ENV APP_ENV=$APP_ENV after ARG so that the value is stored in the image."
       ],
       "answer": 3,
@@ -332,9 +332,9 @@
       "prompt": "The build worked last month. After adding nginx to the install command, it now fails or installs an outdated package on the same CI machine. What is the likely cause?",
       "code": "FROM ubuntu:22.04\nRUN apt-get update\nRUN apt-get install -y --no-install-recommends curl nginx",
       "options": [
-        "The RUN apt-get update line has not changed, so it uses the old cache. Update and install should be combined in one RUN.",
-        "apt-get update is rerun every build until it pulls up a new list of renamed packages. The update line should be removed.",
-        "Docker does not cache the RUN command that calls apt-get in all cases, so you need to add --no-cache to every build.",
+        "The unchanged RUN apt-get update reuses an old cache; combine update and install in one RUN.",
+        "apt-get update runs on every build until it fetches a new list with renamed packages; remove the update line.",
+        "Docker never caches RUN commands that call apt-get; add --no-cache to every build.",
         "RUN apt-get upgrade must be added at the end to allow Docker to clear the previous layer's cache."
       ],
       "answer": 0,
@@ -343,9 +343,9 @@
     {
       "prompt": "A container was started with --restart always, then stopped manually for maintenance. After a machine reboot, it starts again, although the team wants it to return automatically after reboots unless someone manually stopped it. Which policy fits?",
       "options": [
-        "--restart on-failure because it will restart only when the exit code is abnormal, so it will not turn back on when stop is commanded.",
-        "--restart no and set cron to call docker start at the desired time.",
-        "Keep always because docker stop disables the policy permanently until you command docker start yourself.",
+        "--restart on-failure, because it restarts only after a nonzero exit and will not restart a manually stopped container.",
+        "--restart no, with cron scheduled to run docker start at the desired time.",
+        "Keep always, because docker stop permanently disables the policy until you run docker start.",
         "--restart unless-stopped because containers that were manually stopped will not be restarted even after a daemon restart."
       ],
       "answer": 3,
@@ -408,7 +408,7 @@
       "explain": "docker logs reads the container's stdout and stderr streams, not files the app writes inside the container. Configure the app to log to stdout/stderr; changing the logging driver or mounting the log directory will not make docker logs read that file."
     },
     {
-      "prompt": "The API container running with --memory 256m disappears periodically. In the app log, there are no errors and the CPU is fine, but during a period of heavy requests, the heap grows to more than 300 MB. What is this symptom most consistent with?",
+      "prompt": "An API container running with --memory 256m stops periodically. App logs show no errors and CPU usage is normal, but under heavy traffic the heap exceeds 300 MB. What is the most likely explanation?",
       "options": [
         "Docker sends SIGTERM when the limit is reached, but the app has no handler for it.",
         "--memory is a soft limit, so the container only slows down; a failing healthcheck caused the restart.",
@@ -527,27 +527,27 @@
       ],
       "checks": [
         {
-          "label": "There are at least 2 stages (FROM two or more times).",
+          "label": "Use at least two build stages (two or more FROM instructions)",
           "pattern": "^\\s*from\\s[\\s\\S]*^\\s*from\\s"
         },
         {
-          "label": "COPY package*.json and install before COPY the entire project",
+          "label": "Copy package*.json and install dependencies before copying the whole project",
           "pattern": "copy\\s+(--\\S+\\s+)*\\[?\\s*\"?\\.?/?package[\\s\\S]*npm\\s+(ci|install|i)\\b[\\s\\S]*copy\\s+(?:--(?!from\\b)\\S+\\s+)*(?!--from)\\[?\\s*\"?(?!\\.?/?package)[^\\s\"\\]]"
         },
         {
-          "label": "copy results from build stage (--from)",
+          "label": "Copy output from the build stage with --from",
           "pattern": "copy\\s+(--\\S+\\s+)*--from=\\S+"
         },
         {
-          "label": "runtime installs only production dependencies",
+          "label": "Install only production dependencies in the runtime stage",
           "pattern": "^\\s*from\\s(?!(?:(?!^\\s*from\\s)[\\s\\S])*^\\s*from\\s)[\\s\\S]*?npm\\s+(?:ci|install|i)\\b(?:[^\\n]|\\\\\\n)*(?:--omit[=\\s]+dev|--only[=\\s]+prod|--production)|^\\s*from\\s(?!(?:(?!^\\s*from\\s)[\\s\\S])*^\\s*from\\s)[\\s\\S]*?env\\s[^\\n]*\\bnode_env[=\\s]+[\"']?production[\"']?[^\\n]*\\n[\\s\\S]*?npm\\s+(?:ci|install|i)\\b|^(?=[\\s\\S]*npm\\s+(?:ci|install|i|prune)\\b(?:[^\\n]|\\\\\\n)*(?:--omit[=\\s]+dev|--only[=\\s]+prod|--production))(?=[\\s\\S]*\\s*from\\s(?!(?:(?!^\\s*from\\s)[\\s\\S])*^\\s*from\\s)[\\s\\S]*?copy\\s[^\\n]*--from=\\S+[^\\n]*node_modules)"
         },
         {
-          "label": "The last USER of the image is not root.",
+          "label": "Make the final USER non-root",
           "pattern": "^\\s*user\\s+(?!(root|0)(\\s|:|$))\\S+(?![\\s\\S]*^\\s*(from|user)\\s)"
         },
         {
-          "label": "CMD exec form (JSON array) commands node",
+          "label": "Run node with exec-form CMD (a JSON array)",
           "pattern": "^\\s*(cmd|entrypoint)\\s*\\[\\s*\"[^\"]*node\""
         }
       ]
@@ -558,7 +558,7 @@
       "tags": "docker run · restart policy · resource limit · read-only",
       "lang": "shell",
       "prompt": "Deploy ghcr.io/acme/api:2.3.1 to one VM with docker run. The command must: (1) run in the background and name the container api; (2) restart after a Docker daemon or machine restart unless manually stopped; (3) map container port 3000 to host port 8080, accessible only from the host; (4) limit memory to 512m and CPU to 1.5; (5) read environment variables from .env.production; and (6) make the root filesystem read-only while providing a writable tmpfs at /tmp.",
-      "context": "A VM has an nginx reverse proxy on the same machine at http://127.0.0.1:8080. The .env.production file is in the current directory. The app writes temporary files only to /tmp.",
+      "context": "The VM runs an nginx reverse proxy that forwards requests to http://127.0.0.1:8080 on the same machine. .env.production is in the current directory. The app writes temporary files only to /tmp.",
       "starter": "# เขียนคำสั่ง docker run ที่นี่\ndocker run ghcr.io/acme/api:2.3.1",
       "solution": "docker run -d --name api \\\n  --restart unless-stopped \\\n  -p 127.0.0.1:8080:3000 \\\n  --memory 512m --cpus 1.5 \\\n  --env-file .env.production \\\n  --read-only --tmpfs /tmp \\\n  ghcr.io/acme/api:2.3.1",
       "hints": [
@@ -572,27 +572,27 @@
           "pattern": "\\s(-[a-z]*d[a-z]*|--detach)(\\s|=|\\\\|$)"
         },
         {
-          "label": "Name the container as api.",
+          "label": "Name the container api",
           "pattern": "--name(=|\\s+)[\"']?api[\"']?(\\s|\\\\|$)"
         },
         {
-          "label": "restart policy is unless-stopped",
+          "label": "Use restart policy unless-stopped",
           "pattern": "--restart(=|\\s+)[\"']?unless-stopped[\"']?(\\s|\\\\|$)"
         },
         {
-          "label": "publish only loopback: 127.0.0.1:8080:3000",
+          "label": "Publish only on loopback: 127.0.0.1:8080:3000",
           "pattern": "(-p|--publish)(=|\\s+)[\"']?127\\.0\\.0\\.1:8080:3000(/tcp)?[\"']?(\\s|\\\\|$)"
         },
         {
-          "label": "Limited --memory 512m and --cpus 1.5",
+          "label": "Limit resources with --memory 512m and --cpus 1.5",
           "pattern": "^(?=[\\s\\S]*(^|\\s)(--memory(=|\\s+)|-m(=|\\s*))[\"']?(512(\\.0+)?(m|mb)|0?\\.50*(g|gb)|524288(k|kb)|536870912b?)[\"']?(\\s|\\\\|$))(?=[\\s\\S]*--cpus(=|\\s+)[\"']?1\\.50*[\"']?(\\s|\\\\|$))"
         },
         {
-          "label": "Read env from --env-file .env.production",
+          "label": "Read environment variables with --env-file .env.production",
           "pattern": "--env-file(=|\\s+)[\"']?(\\./)?\\.env\\.production[\"']?(\\s|\\\\|$)"
         },
         {
-          "label": "--read-only with --tmpfs /tmp",
+          "label": "Combine --read-only with --tmpfs /tmp",
           "pattern": "^(?=[\\s\\S]*--read-only(=true)?(\\s|\\\\|$))(?=[\\s\\S]*(--tmpfs(=|\\s+)[\"']?/tmp(?![\\w/-])|type=tmpfs,[^\\s]*(target|destination|dst)=/tmp(?![\\w/-])))"
         }
       ]
@@ -613,31 +613,31 @@
       ],
       "checks": [
         {
-          "label": "image and password use ${VAR:?} to make Compose stop when not set",
+          "label": "Require image and password with ${VAR:?} so Compose stops if they are unset",
           "pattern": "^(?=[\\s\\S]*?^( +)[\"']?api[\"']?:[ ]*(?:#.*)?\\n(?=(?:(?!^(?!\\1[ \\t])[ ]*\\S)[\\s\\S])*?image:\\s*[\"']?\\$\\{api_image:?\\?))(?=[\\s\\S]*\\$\\{postgres_password:?\\?)"
         },
         {
-          "label": "api publish only loopback: 127.0.0.1:8080:3000",
+          "label": "Publish api only on loopback: 127.0.0.1:8080:3000",
           "pattern": "^(?=[\\s\\S]*?^( +)[\"']?api[\"']?:[ ]*(?:#.*)?\\n(?:(?=(?:(?!^(?!\\1[ \\t])[ ]*\\S)[\\s\\S])*?[\"']?127\\.0\\.0\\.1:8080:3000(?!\\d))|(?=(?:(?!^(?!\\1[ \\t])[ ]*\\S)[\\s\\S])*?host_ip:\\s*[\"']?127\\.0\\.0\\.1)(?=(?:(?!^(?!\\1[ \\t])[ ]*\\S)[\\s\\S])*?published:\\s*[\"']?8080(?!\\d))(?=(?:(?!^(?!\\1[ \\t])[ ]*\\S)[\\s\\S])*?target:\\s*3000(?!\\d))))"
         },
         {
-          "label": "api wait db with condition: service_healthy",
+          "label": "Make api wait for db with condition: service_healthy",
           "pattern": "^(?=[\\s\\S]*?^( +)[\"']?api[\"']?:[ ]*(?:#.*)?\\n(?=(?:(?!^(?!\\1[ \\t])[ ]*\\S)[\\s\\S])*?depends_on:(?:(?!^(?!\\1[ \\t])[ ]*\\S)[\\s\\S])*?[\"']?db[\"']?:(?:(?!^(?!\\1[ \\t])[ ]*\\S)[\\s\\S])*?condition:\\s*[\"']?service_healthy))"
         },
         {
-          "label": "The db has healthcheck with pg_isready and volume pgdata at /var/lib/postgresql",
+          "label": "Add a pg_isready healthcheck to db and mount pgdata at /var/lib/postgresql",
           "pattern": "^(?=[\\s\\S]*?^( +)[\"']?db[\"']?:[ ]*(?:#.*)?\\n(?=(?:(?!^(?!\\1[ \\t])[ ]*\\S)[\\s\\S])*?healthcheck:(?:(?!^(?!\\1[ \\t])[ ]*\\S)[\\s\\S])*?pg_isready)(?:(?=(?:(?!^(?!\\1[ \\t])[ ]*\\S)[\\s\\S])*?pgdata:/var/lib/postgresql/?(?![\\w/-]))|(?=(?:(?!^(?!\\1[ \\t])[ ]*\\S)[\\s\\S])*?type:\\s*[\"']?volume)(?=(?:(?!^(?!\\1[ \\t])[ ]*\\S)[\\s\\S])*?source:\\s*[\"']?pgdata[\"']?(\\s|$))(?=(?:(?!^(?!\\1[ \\t])[ ]*\\S)[\\s\\S])*?target:\\s*[\"']?/var/lib/postgresql/?(?![\\w/-]))))"
         },
         {
-          "label": "api uses read_only: true with tmpfs /tmp",
+          "label": "Use read_only: true and tmpfs /tmp for api",
           "pattern": "^(?=[\\s\\S]*?^( +)[\"']?api[\"']?:[ ]*(?:#.*)?\\n(?=(?:(?!^(?!\\1[ \\t])[ ]*\\S)[\\s\\S])*?read_only:\\s*[\"']?true[\"']?(\\s|$))(?:(?=(?:(?!^(?!\\1[ \\t])[ ]*\\S)[\\s\\S])*?tmpfs:(?:(?!^(?!\\1[ \\t])[ ]*\\S)[\\s\\S])*?[\"']?/tmp(?![\\w/-]))|(?=(?:(?!^(?!\\1[ \\t])[ ]*\\S)[\\s\\S])*?type:\\s*[\"']?tmpfs)(?=(?:(?!^(?!\\1[ \\t])[ ]*\\S)[\\s\\S])*?target:\\s*[\"']?/tmp(?![\\w/-]))))"
         },
         {
-          "label": "api drops all capabilities (cap_drop ALL) and sets no-new-privileges",
+          "label": "Drop all api capabilities (cap_drop ALL) and set no-new-privileges",
           "pattern": "^(?=[\\s\\S]*?^( +)[\"']?api[\"']?:[ ]*(?:#.*)?\\n(?=(?:(?!^(?!\\1[ \\t])[ ]*\\S)[\\s\\S])*?cap_drop:\\s*(\\[\\s*[\"']?all[\"']?\\s*[,\\]]|\\n\\s*-\\s*[\"']?all[\"']?\\s*(#.*)?$))(?=(?:(?!^(?!\\1[ \\t])[ ]*\\S)[\\s\\S])*?security_opt:(?:(?!^(?!\\1[ \\t])[ ]*\\S)[\\s\\S])*?[\"']?no-new-privileges(?:[=:]true)?[\"']?[ \\t]*(?:#.*)?(?:,|\\]|$)))"
         },
         {
-          "label": "adminer is in profile debug",
+          "label": "Put adminer in the debug profile",
           "pattern": "^(?=[\\s\\S]*?^( +)[\"']?adminer[\"']?:[ ]*(?:#.*)?\\n(?=(?:(?!^(?!\\1[ \\t])[ ]*\\S)[\\s\\S])*?profiles:\\s*(\\[(?:[^\\]\\n]*[,\\s])?[\"']?debug[\"']?\\s*[,\\]]|(\\n[ ]*-[ ]*[\"']?\\w+[\"']?[ ]*)*\\n[ ]*-[ ]*[\"']?debug[\"']?(\\s|$))))"
         }
       ]
@@ -647,37 +647,37 @@
     {
       "title": "Dockerfile reference",
       "url": "https://docs.docker.com/reference/dockerfile/",
-      "note": "All instructions include ARG, ENV, ENTRYPOINT/CMD, HEALTHCHECK and RUN --mount."
+      "note": "All instructions, including ARG, ENV, ENTRYPOINT/CMD, HEALTHCHECK, and RUN --mount"
     },
     {
       "title": "Docker: Building best practices",
       "url": "https://docs.docker.com/build/building/best-practices/",
-      "note": "Guidelines for writing Dockerfile such as apt-get, pin digest, multi-stage"
+      "note": "Dockerfile best practices, including apt-get, digest pinning, and multi-stage builds"
     },
     {
       "title": "Compose file reference: services",
       "url": "https://docs.docker.com/reference/compose-file/services/",
-      "note": "service attributes such as depends_on, healthcheck, read_only, cap_drop, profiles"
+      "note": "Service attributes such as depends_on, healthcheck, read_only, cap_drop, and profiles"
     },
     {
       "title": "Compose: Variable interpolation",
       "url": "https://docs.docker.com/compose/how-tos/environment-variables/variable-interpolation/",
-      "note": "Format ${VAR:-default} and ${VAR:?error}"
+      "note": "Interpolation forms such as ${VAR:-default} and ${VAR:?error}"
     },
     {
       "title": "Docker Engine security",
       "url": "https://docs.docker.com/engine/security/",
-      "note": "namespaces, daemon attack surface, capabilities"
+      "note": "Namespaces, daemon attack surface, and capabilities"
     },
     {
       "title": "What is Docker? (architecture)",
       "url": "https://docs.docker.com/get-started/docker-overview/",
-      "note": "client, daemon (dockerd), registry, and Docker objects"
+      "note": "The client, daemon (dockerd), registry, and Docker objects"
     },
     {
       "title": "OCI Image Format Specification",
       "url": "https://github.com/opencontainers/image-spec/blob/main/spec.md",
-      "note": "Image manifest, image index, layer and config structure"
+      "note": "Image manifests, image indexes, layers, and configuration"
     }
   ]
 }

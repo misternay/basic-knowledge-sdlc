@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { makeItem, shuffle } from '../lib/random.js';
+import { makeItem, questionDeck, shuffle } from '../lib/random.js';
 import { Badge, Code, Progress } from './ui.jsx';
 import QuestionRunner from './QuestionRunner.jsx';
 import { useI18n } from '../i18n.jsx';
@@ -18,7 +18,12 @@ export default function Practice({ topics }) {
   const pool = chosen.length ? chosen : topics;
 
   const makeCards = () => shuffle(pool.flatMap((topic) => topic.mustKnow.map((_, mi) => ({ topicId: topic.id, mi })))).slice(0, 20);
-  const makeQuestions = () => shuffle(pool.flatMap((t) => t.questions.map((_, i) => [t, i]))).slice(0, 10).map(([t, i]) => makeItem(t, i));
+  const makeQuestions = () => {
+    const key = ([topic, qi]) => topic.id + ':' + qi;
+    const poolKey = pool.map((topic) => topic.id).join(',');
+    const picks = questionDeck.draw('practice:' + poolKey, pool.flatMap((t) => t.questions.map((_, i) => [t, i])), 10, key);
+    return picks.map(([t, i]) => makeItem(t, i));
+  };
   const toggle = (id) => setSel((s) => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
 
   if (session && mode === 'cards') return <CardsRunner key={session} topics={topics} make={makeCards} onExit={() => setSession(0)} />;

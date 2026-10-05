@@ -6,19 +6,27 @@ import { Code, Mark, Progress, Badge } from './ui.jsx';
 
 // Answer questions one at a time with immediate feedback, then a summary.
 // make(): returns a fresh list of items { topic, q, order }.
-export default function QuestionRunner({ make, topics, showTopic = false, exitHref, onExit, doneActions = [] }) {
+export default function QuestionRunner({ make, topics, showTopic = false, exitHref, onExit, doneActions = [], intro }) {
   const { t } = useI18n();
-  const [items, setItems] = useState(make);
+  const [items, setItems] = useState(null);
+  const initialized = useRef(false);
   const [i, setI] = useState(0);
   const [picked, setPicked] = useState(null);
   const [checked, setChecked] = useState(false);
   const [results, setResults] = useState([]);
   const headingRef = useRef(null);
 
-  useEffect(() => { headingRef.current?.focus(); }, [i]);
+  useEffect(() => {
+    if (!initialized.current) {
+      initialized.current = true;
+      setItems(make());
+    }
+  }, [make]);
+  useEffect(() => { headingRef.current?.focus(); }, [i, items]);
 
   const restart = () => { setItems(make()); setI(0); setPicked(null); setChecked(false); setResults([]); };
 
+  if (!items) return <section className="stack-18 narrow" aria-live="polite" />;
   if (i >= items.length) return <Summary items={items} results={results} onRestart={restart} actions={doneActions} showTopic={showTopic} topics={topics} />;
 
   const { topic, q, order } = localizeItem(items[i], topics || []);
@@ -33,6 +41,7 @@ export default function QuestionRunner({ make, topics, showTopic = false, exitHr
 
   return (
     <section className="stack-18 narrow">
+      {intro && <p className="lead">{intro}</p>}
       <div className="row-12">
         <span className="muted">{t('ข้อ', 'Question')} {i + 1} {t('จาก', 'of')} {items.length}</span>
         {showTopic && <Badge kind="soft">{topic.code} {topic.title}</Badge>}

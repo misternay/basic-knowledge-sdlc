@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { useI18n } from '../i18n.jsx';
-import { makeItem, shuffle } from '../lib/random.js';
+import { makeItem, questionDeck } from '../lib/random.js';
 import { Badge, Code } from './ui.jsx';
 import QuestionRunner from './QuestionRunner.jsx';
 import Exercise from './Exercise.jsx';
+import { TopicLearningGuide } from './LearningGuide.jsx';
 
 const TIERS = [
   ['ต้องรู้', 'พื้นฐานที่ใช้ทุกวัน'],
@@ -51,7 +52,8 @@ export default function TopicPage({ topics, id, tab }) {
         t.questions.length ? (
           <QuestionRunner
             key={t.id}
-            make={() => shuffle(t.questions.map((_, i) => i)).map((i) => makeItem(t, i))}
+            make={() => questionDeck.draw('topic-quiz:' + t.id, t.questions.map((_, i) => i), Math.min(10, t.questions.length)).map((i) => makeItem(t, i))}
+            intro={translate('สุ่ม ' + Math.min(10, t.questions.length) + ' ข้อจากคลัง ' + t.questions.length + ' ข้อ · ทำซ้ำจะได้ชุดถัดไปจนกว่าจะครบคลัง', Math.min(10, t.questions.length) + ' questions drawn from a pool of ' + t.questions.length + ' · retries move through the pool before repeating')}
             exitHref={base}
             doneActions={[
               t.exercises.length > 0 && { label: translate('ไปทำแบบฝึกหัด', 'Go to exercises'), href: base + '/exercise', primary: true },
@@ -67,16 +69,17 @@ export default function TopicPage({ topics, id, tab }) {
           <Empty title={translate('หัวข้อนี้ยังไม่มีแบบฝึกหัด', 'No exercises in this topic yet')} text={translate('แบบฝึกหัดที่ตรวจอัตโนมัติต้องเขียนเป็น JSON ที่มี exercise และ checks ดูตัวอย่างได้ที่หน้านำเข้า', 'Auto-checked exercises use JSON with exercise and checks fields. See the import page for an example.')} />
         )
       ) : (
-        <Learn t={t} base={base} next={next} />
+        <Learn t={t} topics={topics} base={base} next={next} />
       )}
     </div>
   );
 }
 
-function Learn({ t: topic, base, next }) {
+function Learn({ t: topic, topics, base, next }) {
   const { t } = useI18n();
   return (
     <div className="stack-32 narrow">
+      <TopicLearningGuide topic={topic} topics={topics} />
       {TIERS.map(([titleTh, descTh], ti) => {
         const title = t(titleTh, ['Essentials', 'Recommended', 'Advanced'][ti]);
         const desc = t(descTh, ['Foundations for everyday work', 'Build stronger judgment', 'For larger systems and teams'][ti]);
@@ -86,7 +89,7 @@ function Learn({ t: topic, base, next }) {
           <section key={title} className="stack-12">
             <div className="tier-head"><h2 className="h2">{title}</h2><span className="muted">{desc}</span></div>
             {items.map(({ m, i }) => (
-              <article key={i} className="card item">
+              <article key={i} className="card item reading-item" id={'reading-' + topic.id + '-' + i} tabIndex={-1}>
                 <div className="item-head">
                   <span className="mono muted">{String(i + 1).padStart(2, '0')}</span>
                   <h3>{m.title}</h3>
@@ -117,11 +120,11 @@ function Learn({ t: topic, base, next }) {
         <h2 className="h3">{t('เข้าใจแล้วหรือยัง?', 'Ready to check your understanding?')}</h2>
         <p className="on-dark-muted">
           {topic.questions.length
-            ? t('ลองตอบคำถาม', 'Try') + ' ' + topic.questions.length + ' ' + t('ข้อ ถ้าตอบผิดจะเห็นคำอธิบายทันทีว่าเข้าใจคลาดตรงไหน', 'questions. If you miss one, you’ll see where your understanding diverged.')
+            ? t('สุ่มตอบ 10 ข้อจากทั้งหมด ', 'Answer a random set of 10 from ') + topic.questions.length + t(' ข้อ ถ้าตอบผิดจะเห็นคำอธิบายทันทีว่าเข้าใจคลาดตรงไหน', ' questions. If you miss one, you’ll see where your understanding diverged.')
             : t('หัวข้อนี้ยังไม่มีคำถาม ไปต่อหัวข้อถัดไปได้เลย', 'No questions here yet. Continue to the next topic.')}
         </p>
         <div className="row">
-          {topic.questions.length > 0 && <a className="btn btn-accent" href={base + '/quiz'}>{t('ลองตอบ', 'Try')} {topic.questions.length} {t('ข้อ', 'questions')}</a>}
+          {topic.questions.length > 0 && <a className="btn btn-accent" href={base + '/quiz'}>{t('ลองตอบ', 'Try')} {Math.min(10, topic.questions.length)} {t('ข้อ', 'questions')}</a>}
           {next && <a className="btn btn-ghost-dark" href={'#/topic/' + next.id}>{t('หัวข้อถัดไป:', 'Next topic:')} {next.title}</a>}
         </div>
       </section>

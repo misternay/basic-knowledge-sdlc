@@ -48,7 +48,7 @@
     {
       "tier": "should",
       "title": "Values, references, and immutability",
-      "body": "Primitives such as numbers, strings, and booleans are copied by value, while objects and arrays are passed by reference. If one part of a program changes an object, every part holding the same reference sees that change. Immutability means creating a new value instead of modifying the old one, which makes it easier to track where and when state changes. Remember that `const` prevents reassignment but does not prevent changes inside an object, and `{ ...obj }` makes only a shallow copy.",
+      "body": "JavaScript passes arguments by value. For objects and arrays, that value is a reference to the original object: changing its properties is visible through other references, but assigning a new object to the parameter does not change the caller’s variable. Immutability means creating a new value instead of modifying the old one, making state changes easier to trace. Remember that `const` prevents reassignment, not changes inside an object, and `{ ...obj }` makes only a shallow copy.",
       "code": "// ไม่แตะ state เดิม: คัดลอก array ชั้นในด้วย\nconst next = { ...state, tags: [...state.tags, 'new'] };\n\n// sort() แก้ array เดิม ส่วน toSorted() (ES2023) คืน array ใหม่\nconst cheapest = items.toSorted((a, b) => a.price - b.price);"
     },
     {
@@ -129,7 +129,7 @@
     {
       "tier": "should",
       "title": "Date: zero-based months and time zone traps",
-      "body": "In `new Date(y, m, d)`, months start at 0 (January = 0), and out-of-range values roll over into the next year. Thus `new Date(2025, 12, 1)` is January 1, 2026. A date-only string such as `'2025-03-01'` is interpreted as UTC, while `'2025-03-01T00:00:00'` (with a time but no offset) is interpreted as local time; in a negative UTC zone, `getDate()` may return the previous day. Store and send times as ISO 8601 with `Z` or an offset, then convert to local time for display.",
+      "body": "In `new Date(y, m, d)`, months start at 0 (January = 0), and out-of-range values roll over into the next year. Thus `new Date(2025, 12, 1)` is January 1, 2026. A date-only string such as '2025-03-01' is interpreted as UTC, while '2025-03-01T00:00:00' (with a time but no offset) is interpreted as local time; in a time zone behind UTC, `getDate()` may return the previous day. Store and send times as ISO 8601 with `Z` or an offset, then convert to local time for display.",
       "code": "new Date(2025, 12, 1);        // 1 ม.ค. 2026 (ธันวาคมคือ 11)\nnew Date(2025, 11, 1);        // 1 ธ.ค. 2025\n\nconst d = new Date('2025-03-01');  // 00:00 UTC\nd.getDate();     // นิวยอร์ก (UTC-5): 28, กรุงเทพ (UTC+7): 1\nd.getUTCDate();  // 1 ทุกโซน",
       "ref": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Date"
     },
@@ -624,7 +624,7 @@
       "starter": "class LRUCache {\n  constructor(capacity) {\n    this.capacity = capacity;\n    // เตรียมที่เก็บข้อมูลที่นี่\n  }\n\n  get(key) {\n    // คืนค่า และนับว่าเพิ่งถูกใช้\n  }\n\n  set(key, value) {\n    // เพิ่มหรืออัปเดต และลบรายการเก่าสุดถ้าเกิน capacity\n  }\n}\n",
       "solution": "class LRUCache {\n  constructor(capacity) {\n    this.capacity = capacity;\n    this.map = new Map();\n  }\n\n  get(key) {\n    if (!this.map.has(key)) return undefined;\n    const value = this.map.get(key);\n    this.map.delete(key);\n    this.map.set(key, value);\n    return value;\n  }\n\n  set(key, value) {\n    if (this.map.has(key)) this.map.delete(key);\n    this.map.set(key, value);\n    if (this.map.size > this.capacity) {\n      const oldest = this.map.keys().next().value;\n      this.map.delete(oldest);\n    }\n  }\n}\n",
       "hints": [
-        "Map iterates in insertion order, so its first entry is the least recently used if you always move the latest one to the end.",
+        "Map iterates in insertion order, so its first entry is the least recently used if you always move the most recently used entry to the end.",
         "Move a key to the end of the Map by deleting and setting it again, both in get (when the key exists) and in set (when the key already exists).",
         "After set, if this.map.size > this.capacity, get the first key with this.map.keys().next().value and delete it."
       ],

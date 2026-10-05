@@ -618,7 +618,7 @@
       "hints": [
         "A tree of unknown depth needs WITH RECURSIVE: an anchor term, UNION ALL, then a recursive term that uses the previous result to find children.",
         "The anchor is category id = 1 at depth 0. The recursive term JOINs categories c to tree t on c.parent_id = t.id, sets depth = t.depth + 1, and path = t.path || ' > ' || c.name.",
-        "Prevent cycles without truncating depth: track visited IDs in an array (for example, start visited with ARRAY[id], then append with t.visited || c.id) and skip IDs already in it with WHERE c.id <> ALL (t.visited), or use PostgreSQL’s CYCLE clause and filter out NOT is_cycle."
+        "Prevent cycles without truncating depth: track visited IDs in an array (for example, start visited with ARRAY[id], then append with t.visited || c.id) and skip IDs already in it with WHERE c.id <> ALL (t.visited), or use PostgreSQL’s CYCLE clause and keep only non-cycle rows with WHERE NOT is_cycle."
       ],
       "checks": [
         {

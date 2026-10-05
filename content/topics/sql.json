@@ -618,7 +618,7 @@
       "hints": [
         "โครงสร้างต้นไม้ที่ไม่รู้ความลึกต้องใช้ WITH RECURSIVE: ส่วนเริ่ม UNION ALL ส่วนที่เอาผลรอบก่อนไปหาลูก",
         "ส่วนเริ่มคือหมวด id = 1 ที่ depth 0 ส่วนวนซ้ำ JOIN categories c กับ tree t ที่ c.parent_id = t.id แล้ว depth = t.depth + 1 และ path = t.path || ' > ' || c.name",
-        "กันวนโดยไม่ตัดระดับลึก: เก็บ id ที่เดินผ่านแล้วไว้ใน array (เช่น คอลัมน์ visited เริ่มด้วย ARRAY[id] แล้วต่อ t.visited || c.id) และข้ามหมวดที่อยู่ใน array นั้นด้วย WHERE c.id <> ALL (t.visited) หรือใช้ CYCLE clause ของ PostgreSQL แล้วกรอง NOT is_cycle ออก"
+        "กันวนโดยไม่ตัดระดับลึก: เก็บ id ที่เดินผ่านแล้วไว้ใน array (เช่น คอลัมน์ visited เริ่มด้วย ARRAY[id] แล้วต่อ t.visited || c.id) และข้ามหมวดที่อยู่ใน array นั้นด้วย WHERE c.id <> ALL (t.visited) หรือใช้ CYCLE clause ของ PostgreSQL แล้วเลือกเฉพาะแถวที่ไม่วนซ้ำด้วย WHERE NOT is_cycle"
       ],
       "checks": [
         {

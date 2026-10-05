@@ -26,7 +26,7 @@
     {
       "tier": "must",
       "title": "Progressive disclosure in three levels",
-      "body": "Level 1: names and descriptions for skills available to the model are loaded at startup (about 100 tokens per skill. In Claude Code, descriptions may be truncated if skills exceed the budget, and descriptions for skills with disable-model-invocation: true are not loaded at startup). Level 2: SKILL.md content loads when a skill is selected (Anthropic recommends under 5,000 tokens). Level 3: supporting files are read or run only when the task needs them. This lets you install dozens of skills with little context overhead, as long as content is placed at the right level."
+      "body": "Level 1: names and descriptions for skills available to the model are loaded at startup (about 100 tokens per skill; in Claude Code, descriptions may be truncated if skills exceed the budget, and descriptions for skills with disable-model-invocation: true are not loaded at startup). Level 2: SKILL.md content loads when a skill is selected (Anthropic recommends under 5,000 tokens). Level 3: supporting files are read or run only when the task needs them. This lets you install dozens of skills with little context overhead, as long as content is placed at the right level."
     },
     {
       "tier": "must",
@@ -127,7 +127,7 @@
     {
       "tier": "should",
       "title": "Strict mode: enforce tool calls that match the schema",
-      "body": "Without strict mode, the model may send an argument with the wrong type (such as “2” instead of 2) or omit a required field, causing your function to fail. In Claude, setting strict: true on a tool uses grammar-constrained sampling to enforce the JSON Schema, so you do not need to write your own validation-and-retry loop. OpenAI also supports strict mode (see its function-calling reference below), but its docs add requirements: every object must set additionalProperties: false, and every property must be required. Represent optional fields by including null in the type.",
+      "body": "Without strict mode, the model may send an argument with the wrong type (such as “2” instead of 2) or omit a required field, causing your function to fail. In Claude, setting strict: true on a tool uses grammar-constrained sampling to enforce the JSON Schema, so you do not need your own retry loop to correct schema mismatches. OpenAI also supports strict mode (see its function-calling reference below), but its docs add requirements: every object must set additionalProperties: false, and every property must be required. Represent optional fields by including null in the type.",
       "code": "{\n  \"name\": \"book_seat\",\n  \"description\": \"จองที่นั่ง ใช้เมื่อผู้ใช้ยืนยันเที่ยวบินแล้ว\",\n  \"strict\": true,\n  \"input_schema\": {\n    \"type\": \"object\",\n    \"properties\": { \"passengers\": { \"type\": \"integer\" } },\n    \"required\": [\"passengers\"],\n    \"additionalProperties\": false\n  }\n}",
       "ref": "https://platform.claude.com/docs/en/agents-and-tools/tool-use/strict-tool-use"
     },
@@ -320,7 +320,7 @@
     {
       "prompt": "A stock-price tool calls an external API and hits a rate limit that can be retried after 60 seconds. What should the app return in tool_result?",
       "options": [
-        "Explain what happened and what to try next, such as “Rate limit exceeded. Retry after 60 seconds.”, with is_error: true",
+        "Return is_error: true with the cause and recovery advice, such as “Rate limit exceeded. Retry after 60 seconds.”",
         "Return only “failed” with is_error: true to save tokens and hide internal details",
         "Return empty content with is_error: false and let the model decide whether to retry",
         "Do not return tool_result; throw an exception because the model cannot handle errors"
@@ -643,7 +643,7 @@
       "level": "ยาก",
       "tags": "tool_result · parallel calls · is_error",
       "lang": "javascript",
-      "prompt": "Write an async function buildToolResultMessage(content, tools) that takes content (an array of blocks from a response whose stop_reason is tool_use) and a tools object mapping tool names to async functions that accept input and return a user-role message for the model. It must (1) select only blocks with type tool_use; (2) run all calls concurrently with Promise.all; (3) on success, return tool_result content as a string (convert an object result using JSON.stringify); (4) if a function throws or the tool name is missing, do not let the main function throw—return a tool_result with is_error: true and a message explaining the cause; and (5) set tool_use_id to the block’s id and keep results in block order.",
+      "prompt": "Write an async function buildToolResultMessage(content, tools) that returns a user-role message for the model. It takes content (an array of blocks from a response whose stop_reason is tool_use) and a tools object mapping tool names to async functions that accept input. It must (1) select only blocks with type tool_use; (2) run all calls concurrently with Promise.all; (3) on success, return tool_result content as a string (convert an object result using JSON.stringify); (4) if a function throws or the tool name is missing, do not let the main function throw—return a tool_result with is_error: true and a message explaining the cause; and (5) set tool_use_id to the block’s id and keep results in block order.",
       "context": "The team’s agent has independent read-only tools get_order_status and list_refunds. The model often calls both in one turn. If the app omits a result for any tool_use or lets an exception escape, the next request is malformed and the agent stops. Example call: const msg = await buildToolResultMessage(response.content, { get_order_status: async ({ order_id }) => ({ order_id, status: \"shipped\" }) });",
       "starter": "async function buildToolResultMessage(content, tools) {\n  // TODO: เลือก block tool_use แล้วรันพร้อมกัน\n  const results = [];\n\n  return { role: \"user\", content: results };\n}",
       "solution": "async function buildToolResultMessage(content, tools) {\n  const calls = content.filter((block) => block.type === \"tool_use\");\n\n  const results = await Promise.all(\n    calls.map(async (call) => {\n      try {\n        const handler = Object.hasOwn(tools, call.name) ? tools[call.name] : undefined;\n        if (typeof handler !== \"function\") {\n          throw new Error(`Unknown tool: ${call.name}`);\n        }\n        const output = await handler(call.input);\n        return {\n          type: \"tool_result\",\n          tool_use_id: call.id,\n          content: typeof output === \"string\" ? output : (JSON.stringify(output) ?? \"\"),\n        };\n      } catch (err) {\n        return {\n          type: \"tool_result\",\n          tool_use_id: call.id,\n          content: `Error: ${err instanceof Error ? err.message : String(err)}`,\n          is_error: true,\n        };\n      }\n    })\n  );\n\n  return { role: \"user\", content: results };\n}",

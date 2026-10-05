@@ -1,0 +1,88 @@
+{
+  "route": ["prog", "git", "dev", "design", "qa", "sql", "sec", "docker", "cicd", "llm", "agents", "ctx", "skills", "workflow"],
+  "topics": {
+    "prog": {
+      "prerequisites": [], "firstRead": [0, 1, 4],
+      "readiness": {"th": "อ่านโค้ดสั้น ๆ ได้บ้างก็เริ่มได้ ไม่จำเป็นต้องเคยทำโปรเจกต์", "en": "Start if you can follow a short code example. No project experience is required."},
+      "outcomes": {"th": ["อธิบายชนิดข้อมูลและขอบเขตตัวแปรในฟังก์ชันสั้น ๆ", "แยกขั้นตอนทำซ้ำบั๊ก อ่าน error และเสนอวิธีตรวจแก้"], "en": ["Explain data types and variable scope in a short function", "Reproduce a bug, read its error, and propose a check for the fix"]}
+    },
+    "git": {
+      "prerequisites": [], "firstRead": [0, 1, 2],
+      "readiness": {"th": "สร้างและแก้ไฟล์ข้อความได้ เริ่มหัวข้อนี้คู่กับ Programming ได้", "en": "Be comfortable creating and editing text files. You can study this alongside Programming."},
+      "outcomes": {"th": ["เลือกสิ่งที่จะอยู่ใน commit และอธิบาย branch กับ HEAD", "วางขั้นตอน review และเลือกวิธีย้อนการเปลี่ยนแปลงที่เหมาะสม"], "en": ["Choose a commit’s contents and explain branches and HEAD", "Plan a review and choose an appropriate way to undo a change"]}
+    },
+    "dev": {
+      "prerequisites": ["prog", "git"], "firstRead": [1, 2, 4],
+      "readiness": {"th": "มองออกว่างานหนึ่งชิ้นเปลี่ยนพฤติกรรมอะไร และอ่าน diff ได้", "en": "Identify the behavior a change affects and read a diff."},
+      "outcomes": {"th": ["เขียน user story พร้อม acceptance criteria ที่ตรวจได้", "แบ่งงานเป็นชิ้นเล็กและกำหนด Definition of Done"], "en": ["Write a user story with observable acceptance criteria", "Split work into small slices and define Done"]}
+    },
+    "design": {
+      "prerequisites": ["prog", "dev"], "firstRead": [0, 4, 7],
+      "readiness": {"th": "เขียนฟังก์ชันพื้นฐานและระบุความต้องการของงานได้", "en": "Write basic functions and describe a task’s requirements."},
+      "outcomes": {"th": ["เสนอขอบเขตโมดูลที่ลด coupling และอธิบายเหตุผล", "ออกแบบ API พร้อมวิธีตอบข้อผิดพลาดและข้อแลกเปลี่ยน"], "en": ["Propose module boundaries that reduce coupling and explain why", "Design an API with error handling and explicit trade-offs"]}
+    },
+    "qa": {
+      "prerequisites": ["prog", "dev"], "firstRead": [1, 2, 4],
+      "readiness": {"th": "อ่านฟังก์ชันและ acceptance criteria แล้วบอกผลลัพธ์ที่คาดหวังได้", "en": "Read a function and acceptance criteria and state the expected result."},
+      "outcomes": {"th": ["เขียนกรณีทดสอบพฤติกรรมปกติ ขอบเขต และข้อผิดพลาด", "เลือกชนิดการทดสอบตามความเสี่ยงและอธิบายสิ่งที่ test ยังไม่พิสูจน์"], "en": ["Write normal, boundary, and failure test cases", "Choose tests by risk and explain what passing tests do not prove"]}
+    },
+    "sql": {
+      "prerequisites": ["prog"], "firstRead": [0, 1, 2],
+      "readiness": {"th": "เข้าใจเงื่อนไขและโครงสร้างข้อมูลพื้นฐาน ไม่ต้องมีฐานข้อมูลติดตั้งเพื่อเริ่มอ่าน", "en": "Understand conditions and basic data structures. No database installation is needed to start reading."},
+      "outcomes": {"th": ["เขียน query ที่ JOIN และสรุปข้อมูลโดยไม่เพิ่มแถวโดยไม่ตั้งใจ", "อธิบาย constraint, transaction และการส่ง parameter อย่างปลอดภัย"], "en": ["Write joins and aggregates without unintended row multiplication", "Explain constraints, transactions, and safe query parameters"]}
+    },
+    "sec": {
+      "prerequisites": ["prog", "sql", "design"], "firstRead": [1, 2, 3],
+      "readiness": {"th": "อ่าน API และ query ได้ แล้วแยกข้อมูลจากผู้ใช้ออกจากคำสั่ง", "en": "Read APIs and queries and distinguish user input from commands."},
+      "outcomes": {"th": ["ระบุขอบเขตความเชื่อถือและตรวจสิทธิ์เข้าถึงตามผู้ใช้และทรัพยากร", "เสนอการป้องกัน injection และการจัดการ secret พร้อมกรณีทดสอบ"], "en": ["Identify trust boundaries and check access for each user and resource", "Propose injection defenses and secret handling with test cases"]}
+    },
+    "docker": {
+      "prerequisites": ["prog", "git"], "firstRead": [0, 2, 4],
+      "readiness": {"th": "คุ้นกับการรันคำสั่งใน terminal และแยกไฟล์ source จากผล build ได้", "en": "Be familiar with terminal commands and distinguish source files from build output."},
+      "outcomes": {"th": ["อธิบายความต่างระหว่าง image กับ container และผลของ cache", "เสนอ Dockerfile ที่ลดไฟล์ไม่จำเป็นและไม่รันแอปเป็น root"], "en": ["Explain images, containers, and the effect of build caching", "Propose a Dockerfile that excludes unnecessary files and runs the app as non-root"]}
+    },
+    "cicd": {
+      "prerequisites": ["git", "qa", "docker", "sec"], "firstRead": [0, 1, 2],
+      "readiness": {"th": "เข้าใจ branch, test, build artifact และการจัดการ secret", "en": "Understand branches, tests, build artifacts, and secret handling."},
+      "outcomes": {"th": ["วาง pipeline ที่หยุดเมื่อ test หรือ build ล้มเหลว", "อธิบายสิทธิ์ที่ pipeline ต้องใช้และแผน rollback ที่ตรวจสอบได้"], "en": ["Plan a pipeline that stops on test or build failure", "Explain pipeline permissions and a verifiable rollback plan"]}
+    },
+    "llm": {
+      "prerequisites": [], "firstRead": [0, 1, 4],
+      "readiness": {"th": "เริ่มอ่านได้โดยไม่ต้องมี API key หรือประสบการณ์ใช้โมเดล", "en": "No API key or prior model experience is required to start reading."},
+      "outcomes": {"th": ["อธิบายข้อจำกัดของ context และเหตุที่คำตอบต้องมีหลักฐาน", "เขียน prompt ที่มีเป้าหมาย ข้อมูล และเกณฑ์ประเมินชัดเจน"], "en": ["Explain context limits and why answers need evidence", "Write a prompt with a clear goal, input, and evaluation criteria"]}
+    },
+    "agents": {
+      "prerequisites": ["llm", "prog", "sec"], "firstRead": [0, 1, 4],
+      "readiness": {"th": "เข้าใจข้อจำกัดของ LLM และแยกการเสนอคำสั่งจากการอนุญาตให้รันได้", "en": "Understand LLM limits and distinguish a requested action from permission to execute it."},
+      "outcomes": {"th": ["วาด agent loop และแยกหน้าที่โมเดลออกจาก harness", "กำหนด stop conditions และสิทธิ์ tool พร้อมวิธีตรวจผล"], "en": ["Trace an agent loop and separate model duties from harness duties", "Define stop conditions, tool permissions, and result checks"]}
+    },
+    "ctx": {
+      "prerequisites": ["llm", "agents"], "firstRead": [0, 1, 7],
+      "readiness": {"th": "อ่าน agent loop ได้ และเข้าใจว่าข้อมูลใน context ไม่ใช่หน่วยความจำถาวร", "en": "Follow an agent loop and understand that context is not permanent memory."},
+      "outcomes": {"th": ["เลือกข้อมูลที่จำเป็นต่อ task และวางวิธีบันทึกสิ่งที่ต้องรักษาไว้", "ออกแบบการทดลองเปรียบเทียบ context พร้อมเกณฑ์ประเมิน"], "en": ["Select task-relevant context and plan what to preserve in notes", "Design a comparison of context strategies with evaluation criteria"]}
+    },
+    "skills": {
+      "prerequisites": ["agents", "ctx"], "firstRead": [0, 2, 3],
+      "readiness": {"th": "เข้าใจ tool use และวิธีเลือกข้อมูลเข้า context", "en": "Understand tool use and how information enters context."},
+      "outcomes": {"th": ["เขียนคำอธิบาย skill ที่ระบุงานและเงื่อนไขใช้อย่างชัดเจน", "แบ่งคำสั่งกับ reference และเตรียมงานตัวอย่างสำหรับทดสอบ"], "en": ["Write a skill description with a clear purpose and trigger", "Separate instructions from references and prepare realistic test tasks"]}
+    },
+    "workflow": {
+      "prerequisites": ["git", "qa", "agents", "skills"], "firstRead": [0, 1, 2],
+      "readiness": {"th": "อ่าน diff, กำหนด test และเข้าใจสิทธิ์กับขอบเขตของ agent ได้", "en": "Read diffs, define tests, and understand an agent’s permissions and boundaries."},
+      "outcomes": {"th": ["เขียน task spec ที่มีขอบเขตและเกณฑ์สำเร็จที่สังเกตได้", "ตรวจ diff กับผลทดสอบ และวาง checkpoint ก่อนให้งาน agent ดำเนินต่อ"], "en": ["Write a task spec with boundaries and observable completion criteria", "Review diffs and test evidence and plan checkpoints for agent work"]}
+    }
+  },
+  "capstone": {
+    "topics": ["git", "sql", "sec", "qa", "cicd"],
+    "title": {"th": "โปรเจกต์รวม: รายงานยอดสั่งซื้อที่เข้าถึงได้ตามสิทธิ์", "en": "Capstone: an order report with access control"},
+    "brief": {"th": "ออกแบบรายงานยอดสั่งซื้อของลูกค้าใน repo ฝึกส่วนตัว ใช้ข้อมูลสมมติเท่านั้น ลูกค้าอ่านได้เฉพาะข้อมูลตัวเอง ผู้ดูแลอ่านรายงานรวมได้ ระบุเองว่าใครยืนยันตัวตนและส่งตัวตนที่เชื่อถือได้ให้แอป ไม่ใช้ customer_id จาก request เป็นหลักฐานสิทธิ์", "en": "Design an order report in a personal practice repo using synthetic data only. Customers may read only their own data; administrators may read an aggregate report. State how identity is verified and supplied to the app. A customer_id from a request is not proof of permission."},
+    "deliverables": {"th": ["README ระบุสิทธิ์ผู้ใช้ กติกายอดรวม และ acceptance criteria", "schema, query แบบส่ง parameter และตารางข้อมูลสมมติพร้อมผลลัพธ์ที่คาดหวัง", "แผนหรือโค้ดตรวจสิทธิ์ พร้อม test สำหรับผู้ใช้ถูกสิทธิ์ ผิดสิทธิ์ input ไม่ถูกต้อง และไม่มีรายการ", "diff ที่ review ได้ และ pipeline แบบ test → build พร้อมสิทธิ์ขั้นต่ำและแผน rollback"], "en": ["A README specifying access rules, total calculation, and acceptance criteria", "A schema, parameterized query, and synthetic fixtures with expected results", "An access-control design or implementation with allowed, denied, invalid-input, and empty-data tests", "A reviewable diff and a test → build pipeline with minimal permissions and a rollback plan"]},
+    "rubric": [
+      {"topic": "git", "criterion": {"th": "ตรวจย้อนที่มาของงานได้", "en": "Reviewable change history"}, "evidence": {"th": "diff แสดงเฉพาะงานนี้ commit อธิบายเหตุผล ไม่มี secret และบอกวิธีย้อนการเปลี่ยนแปลง", "en": "The diff stays in scope, commits explain why, no secrets are present, and the undo procedure is documented."}},
+      {"topic": "sql", "criterion": {"th": "ผลรายงานตรงกับข้อมูลตัวอย่าง", "en": "Correct report results"}, "evidence": {"th": "ระบุยอดที่คาดหวังของลูกค้าที่มีหลายรายการ ลูกค้าที่ไม่มีรายการ และกรณี JOIN อาจเพิ่มแถว แล้วตรวจเทียบกับผลจริงหรือไล่คำนวณให้ review ได้", "en": "State expected totals for multiple orders, no orders, and joins that could multiply rows. Compare observed results or provide a calculation a reviewer can trace."}},
+      {"topic": "sec", "criterion": {"th": "ตรวจสิทธิ์และแยกข้อมูลจากคำสั่ง", "en": "Access control and safe input"}, "evidence": {"th": "แสดงการปฏิเสธลูกค้าที่ขอข้อมูลคนอื่น ใช้ตัวตนที่เชื่อถือได้ parameterize query และไม่บันทึก secret ใน source หรือ log", "en": "Show denial of another customer’s data, trusted identity handling, query parameters, and no secrets in source or logs."}},
+      {"topic": "qa", "criterion": {"th": "ทดสอบตรงตาม acceptance criteria", "en": "Tests match acceptance criteria"}, "evidence": {"th": "แต่ละเกณฑ์มี test หรือขั้นตอนตรวจ พร้อมผลที่สังเกตได้ ระบุส่วนที่ยังไม่ได้รันอย่างชัดเจน", "en": "Each criterion has a test or review procedure with observed results. Clearly mark anything that has not been run."}},
+      {"topic": "cicd", "criterion": {"th": "pipeline เป็น gate ที่ตรวจสอบได้", "en": "A verifiable pipeline gate"}, "evidence": {"th": "workflow หยุดเมื่อ test ล้มเหลวและ build ผ่านจึงสร้าง artifact ระบุสิทธิ์กับวิธี rollback ถ้าไม่ได้รันให้ระบุว่าเป็นแผน ไม่ใช่ผลทดสอบ", "en": "The workflow stops on failing tests and produces an artifact only after a successful build. Specify permissions and rollback. If unrun, label it a plan rather than test evidence."}}
+    ]
+  }
+}

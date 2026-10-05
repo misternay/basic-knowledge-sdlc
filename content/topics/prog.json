@@ -48,7 +48,7 @@
     {
       "tier": "should",
       "title": "Value, reference และ immutability",
-      "body": "Primitive (number, string, boolean) ถูกคัดลอกตามค่า แต่ object และ array ถูกส่งต่อเป็น reference ถ้าที่หนึ่งแก้ ทุกที่ที่ถือ reference เดียวกันจะเห็นการเปลี่ยนแปลงด้วย Immutability คือสร้างค่าใหม่แทนการแก้ของเดิม ทำให้ติดตามได้ว่า state เปลี่ยนที่ไหนและเมื่อไร กับดักคือ `const` ห้ามแค่การ assign ใหม่ ไม่ได้ห้ามแก้ข้างใน และ spread `{ ...obj }` คัดลอกแค่ชั้นเดียว",
+      "body": "JavaScript ส่งอาร์กิวเมนต์ตามค่า (pass by value) เสมอ โดยค่าของ object และ array เป็น reference ที่ชี้ไปยัง object เดิม การแก้ property จึงเห็นจากทุกที่ที่ถือ reference เดียวกัน แต่การ assign parameter ให้ชี้ไป object ใหม่ไม่เปลี่ยนตัวแปรของผู้เรียก Immutability คือสร้างค่าใหม่แทนการแก้ของเดิม ทำให้ติดตามได้ว่า state เปลี่ยนที่ไหนและเมื่อไร กับดักคือ `const` ห้ามแค่การ assign ใหม่ ไม่ได้ห้ามแก้ข้างใน และ spread `{ ...obj }` คัดลอกแค่ชั้นเดียว",
       "code": "// ไม่แตะ state เดิม: คัดลอก array ชั้นในด้วย\nconst next = { ...state, tags: [...state.tags, 'new'] };\n\n// sort() แก้ array เดิม ส่วน toSorted() (ES2023) คืน array ใหม่\nconst cheapest = items.toSorted((a, b) => a.price - b.price);"
     },
     {

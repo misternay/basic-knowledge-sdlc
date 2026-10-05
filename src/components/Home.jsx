@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useI18n } from '../i18n.jsx';
 import { Badge, Check } from './ui.jsx';
+import { LearningRoute, PracticalCapstone } from './LearningGuide.jsx';
 
 export default function Home({ topics, onPlacement }) {
   const { t, tracks } = useI18n();
@@ -24,6 +25,8 @@ export default function Home({ topics, onPlacement }) {
           <button type="button" className="btn btn-ghost-dark" onClick={onPlacement}>{t('ทดสอบวัดระดับ', 'Take a placement test')}</button>
         </div>
       </section>
+
+      <LearningRoute topics={topics} />
 
       <section className="stack-20">
         <div className="section-head">
@@ -50,6 +53,7 @@ export default function Home({ topics, onPlacement }) {
           </section>
         ))}
       </section>
+      <PracticalCapstone topics={topics} />
     </div>
   );
 }

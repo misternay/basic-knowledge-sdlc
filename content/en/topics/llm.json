@@ -3,7 +3,7 @@
   "code": "A1",
   "track": "ai",
   "title": "AI Fundamentals: LLMs",
-  "blurb": "Understand how language models work, what they do well, where they fail, and how to use them effectively for quality and cost.",
+  "blurb": "Understand how language models work, what they do well, where they fail, and how to balance quality and cost when using them.",
   "mustKnow": [
     {
       "tier": "must",

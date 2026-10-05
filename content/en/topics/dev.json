@@ -146,7 +146,7 @@
     {
       "tier": "advanced",
       "title": "Hyrum’s Law: observable behavior acquires dependents",
-      "body": "Hyrum’s Law says that with enough API users, every observable system behavior will be depended on, regardless of the contract’s promises. Hyrum Wright observed it, and Titus Winters named it. This creates an implicit interface from actual usage that constrains implementation changes, such as users expecting performance levels that were never promised. Changes outside the written contract can therefore still break systems. Our practical conclusion, not a statement on the source page, is to assess consumers and communicate before changes, and not assume a PATCH version guarantees nobody will break.",
+      "body": "Hyrum’s Law says that with enough API users, every observable system behavior will be depended on, regardless of the contract’s promises. Hyrum Wright observed it, and Titus Winters named it. This creates an implicit interface from actual usage that constrains implementation changes, such as users expecting performance levels that were never promised. Changes outside the written contract can therefore still break systems. Our practical conclusion, not a statement on the source page, is to assess consumers and communicate before changes, and not assume a PATCH version guarantees nothing will break for consumers.",
       "ref": "https://www.hyrumslaw.com/"
     }
   ],
@@ -404,8 +404,8 @@
       "options": [
         "It can be released earlier; Sprint Review is not a release gate",
         "It must wait for the Review so stakeholders can authorize release",
-        "It cannot release before Sprint end because an Increment exists only then",
-        "It may release only with written Scrum Master approval"
+        "It cannot be released before Sprint end because an Increment exists only then",
+        "It may be released only with written Scrum Master approval"
       ],
       "answer": 0,
       "explain": "The Guide says an Increment may be delivered to stakeholders before Sprint end, and Sprint Review should not be a release gate. An Increment exists as soon as an item meets the DoD."
@@ -456,7 +456,7 @@
       "explain": "Parallel change separates expand, migrate, and contract. Before contract, each step can deploy while old services still work; phone is removed only when unused. A one-step RENAME requires simultaneous migration. Never removing phone skips contract and leaves old structures indefinitely."
     },
     {
-      "prompt": "A 2,400-line PR combines structural refactoring, a new feature, and a bug fix. Two reviewers approve without careful reading. What should Google eng-practices suggest?",
+      "prompt": "A 2,400-line PR combines structural refactoring, a new feature, and a bug fix. Two reviewers approve without careful reading. Under Google’s eng-practices guidance, what should the team do?",
       "options": [
         "Require reviewers to spend half a day reading the entire change",
         "Split it into several self-contained, single-purpose PRs with their own tests",

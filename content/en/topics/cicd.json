@@ -39,7 +39,7 @@
     },
     {
       "tier": "should",
-      "title": "Fast caches and feedback",
+      "title": "Caching and fast feedback",
       "body": "Slow pipelines discourage frequent integration and encourage large batches of changes, which works against CI. Aim to finish a pull-request pipeline in about 10 minutes or less. Cache dependencies using a key tied to the lockfile (setup-node can do this with cache: npm), run independent jobs in parallel, and split large test suites into shards. Do not speed things up by deleting tests or caching node_modules with a key unrelated to the lockfile: that can silently reuse stale dependencies. setup-node's npm cache stores downloaded packages; npm ci still installs from the lockfile."
     },
     {
@@ -102,7 +102,7 @@
     {
       "tier": "must",
       "title": "Branch protection and required status checks",
-      "body": "CI is only a suggestion until branch rules require checks to pass before changes can merge. Protect main with required status checks. GitHub considers successful, skipped, and neutral checks successful. Give required job names unique names across workflows; duplicate names can cause checks to be confused or block a pull request. Branch rules do not apply to repository administrators by default, so enable the administrator restriction if they must not bypass CI.",
+      "body": "CI is only a suggestion until branch rules require checks to pass before changes can merge. Protect main with required status checks. GitHub considers successful, skipped, and neutral checks successful. Give required jobs unique names across workflows; duplicate names can cause checks to be confused or block a pull request. Branch rules do not apply to repository administrators by default, so enable the administrator restriction if they must not bypass CI.",
       "ref": "https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-protected-branches/about-protected-branches"
     },
     {
@@ -507,10 +507,10 @@
     {
       "title": "Create a GitHub Actions CI workflow",
       "level": "กลาง",
-      "tags": "workflow · permissions · cache · hierarchy",
+      "tags": "workflow · permissions · cache · step order",
       "lang": "yaml",
       "prompt": "Write .github/workflows/ci.yml for the existing Node.js project. Run it on pushes to main and pull requests targeting main. Grant GITHUB_TOKEN read-only repository access. Check out the code, set up Node.js 24 with the npm cache, then run npm ci, npm run lint, and npm test in separate steps. Use actions/checkout@v7 and actions/setup-node@v7.",
-      "context": "The repository is a Node.js project that already has package-lock.json and the lint and test scripts in package.json. The team wants every PR to be published within minutes and doesn't give workflow unnecessary permissions to write to the repository.",
+      "context": "The repository is a Node.js project with package-lock.json and lint and test scripts in package.json. The team wants feedback on every PR within minutes and wants to avoid granting the workflow unnecessary write access to the repository.",
       "starter": "name: CI\n\n# เขียน workflow ต่อที่นี่\n",
       "solution": "name: CI\n\non:\n  push:\n    branches: [main]\n  pull_request:\n    branches: [main]\n\npermissions:\n  contents: read\n\njobs:\n  test:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v7\n      - uses: actions/setup-node@v7\n        with:\n          node-version: 24\n          cache: npm\n      - run: npm ci\n      - run: npm run lint\n      - run: npm test\n",
       "hints": [
@@ -520,7 +520,7 @@
       ],
       "checks": [
         {
-          "label": "trigger when push and pull_request into main",
+          "label": "Trigger on pushes and pull requests to main",
           "pattern": "^(?=[\\s\\S]*\\bpush:(?:[ \\t]*\\{[ \\t]*|[ \\t]*\\r?\\n([ \\t]+)(?:[^\\n]*\\n\\1)*?)branches:[ \\t]*(?:\\[[^\\]]*\\bmain\\b|\\r?\\n[ \\t]*-[ \\t]*['\"]?main\\b|['\"]?main\\b))(?=[\\s\\S]*\\bpull_request:(?:[ \\t]*\\{[ \\t]*|[ \\t]*\\r?\\n([ \\t]+)(?:[^\\n]*\\n\\2)*?)branches:[ \\t]*(?:\\[[^\\]]*\\bmain\\b|\\r?\\n[ \\t]*-[ \\t]*['\"]?main\\b|['\"]?main\\b))"
         },
         {
@@ -528,11 +528,11 @@
           "pattern": "^(?![\\s\\S]*(?:^|[,{])[ \\t]*(?:permissions|actions|attestations|checks|contents|deployments|discussions|id-token|issues|models|packages|pages|pull-requests|security-events|statuses):[ \\t]*['\"]?write(?:-all)?\\b)[\\s\\S]*?(?:permissions:[ \\t]*['\"]?read-all|permissions:[\\s\\S]*?contents:[ \\t]*['\"]?read)"
         },
         {
-          "label": "There are jobs and runs-on.",
+          "label": "Define jobs and runs-on",
           "pattern": "jobs:[\\s\\S]*runs-on:"
         },
         {
-          "label": "checkout code",
+          "label": "Check out the code",
           "pattern": "uses:\\s*['\"]?actions\\/checkout@"
         },
         {
@@ -540,22 +540,22 @@
           "pattern": "uses:\\s*['\"]?actions\\/setup-node@[\\s\\S]*node-version:\\s*['\"]?24"
         },
         {
-          "label": "npm's cache",
+          "label": "Enable the npm cache",
           "pattern": "cache:\\s*['\"]?npm"
         },
         {
-          "label": "npm sequence ci → lint → test",
+          "label": "Run npm ci → lint → test in order",
           "pattern": "npm ci[\\s\\S]*npm run lint[\\s\\S]*npm (run )?test"
         }
       ]
     },
     {
-      "title": "Write .gitlab-ci.yml with fast lint and safe deploy rules",
+      "title": "Write .gitlab-ci.yml with immediate lint and default-branch-only deployment",
       "level": "ง่าย",
       "tags": "GitLab CI · stages · needs · artifacts · rules",
       "lang": "yaml",
       "prompt": "Write .gitlab-ci.yml for the Node.js project using image node:24 and stages test, build, deploy. Define four jobs: lint (test stage) starts immediately, runs npm ci and npm run lint; unit-test (test stage) runs npm ci and npm test; build (build stage) runs npm ci and npm run build, and saves dist/ as an artifact that expires in one week; deploy (deploy stage) runs ./deploy.sh only in a pipeline for the default branch. Use rules, not only/except.",
-      "context": "The team moved to GitLab. The project already had package-lock.json and lint, test, build scripts in package.json. The team wanted lint to respond as quickly as possible and was prohibited from deploying from the feature branch.",
+      "context": "The team has moved to GitLab. The project already has package-lock.json and lint, test, and build scripts in package.json. Lint should provide feedback as quickly as possible, and deployments from feature branches are prohibited.",
       "starter": "# .gitlab-ci.yml\nimage: node:24\n\n# กำหนด stages และ jobs ต่อที่นี่\n",
       "solution": "image: node:24\n\nstages:\n  - test\n  - build\n  - deploy\n\nlint:\n  stage: test\n  needs: []\n  script:\n    - npm ci\n    - npm run lint\n\nunit-test:\n  stage: test\n  script:\n    - npm ci\n    - npm test\n\nbuild:\n  stage: build\n  script:\n    - npm ci\n    - npm run build\n  artifacts:\n    paths:\n      - dist/\n    expire_in: 1 week\n\ndeploy:\n  stage: deploy\n  script:\n    - ./deploy.sh\n  rules:\n    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH\n",
       "hints": [
@@ -569,27 +569,27 @@
           "pattern": "image:[\\s\\S]{0,40}node:24"
         },
         {
-          "label": "stages sort test → build → deploy",
+          "label": "Order stages as test → build → deploy",
           "pattern": "^stages:\\s*(\\[[^\\]]*\\btest\\b[^\\]]*\\bbuild\\b[^\\]]*\\bdeploy\\b|[\\s\\S]*?-\\s*['\"]?test['\"]?\\s*\\n[\\s\\S]*?-\\s*['\"]?build['\"]?\\s*\\n[\\s\\S]*?-\\s*['\"]?deploy\\b)"
         },
         {
-          "label": "lint starts now with needs: []",
+          "label": "Start lint immediately with needs: []",
           "pattern": "^lint:[ \\t]*\\r?\\n(?:[ \\t]+[^\\n]*\\n|[ \\t]*\\r?\\n)*?[ \\t]+needs:[ \\t]*\\[\\s*\\]"
         },
         {
-          "label": "build stores dist/ as artifacts and expires in 1 week.",
+          "label": "Save dist/ as a build artifact that expires in one week",
           "pattern": "^(?=[\\s\\S]*artifacts:[\\s\\S]*?paths:[\\s\\S]*?dist)(?=[\\s\\S]*expire_in:[ \\t]*['\"]?(?:1[ \\t]*(?:week|w)s?|7[ \\t]*(?:days?|d))\\b)"
         },
         {
-          "label": "deploy uses rules only for default branch",
+          "label": "Use rules to deploy only from the default branch",
           "pattern": "^deploy:[ \\t]*\\r?\\n(?:[ \\t]+[^\\n]*\\n|[ \\t]*\\r?\\n)*?[ \\t]+rules:[ \\t]*\\r?\\n(?:[ \\t]+[^\\n]*\\n)*?[ \\t]+-?[ \\t]*if:[ \\t]*['\"]?\\$ci_(?:commit_(?:branch|ref_name)['\"]?[ \\t]*==[ \\t]*['\"]?\\$ci_default_branch|default_branch['\"]?[ \\t]*==[ \\t]*['\"]?\\$ci_commit_(?:branch|ref_name))"
         },
         {
-          "label": "Complete script: npm ci, lint, test, build and ./deploy.sh",
+          "label": "Include all commands: npm ci, lint, test, build, and ./deploy.sh",
           "pattern": "^(?=[\\s\\S]*npm ci)(?=[\\s\\S]*npm run lint)(?=[\\s\\S]*npm (?:run )?test)(?=[\\s\\S]*npm run build)(?=[\\s\\S]*deploy\\.sh)"
         },
         {
-          "label": "Don't use only/except the old way.",
+          "label": "Do not use the legacy only/except syntax",
           "pattern": "^\\s*(only|except):",
           "negate": true
         }
@@ -601,7 +601,7 @@
       "tags": "needs · job outputs · artifacts · environment · concurrency",
       "lang": "yaml",
       "prompt": "Edit .github/workflows/deploy.yml while keeping the job names build and deploy. (1) In build, write the first seven characters of the commit SHA to $GITHUB_OUTPUT in a step with an id, then expose it as the job output version. (2) Upload dist/ as an artifact named dist with actions/upload-artifact@v7. (3) Make deploy depend on build, target the production environment, download dist with actions/download-artifact@v8 into the dist directory, and run ./deploy.sh dist \"$VERSION\", where VERSION comes from the build output through the step environment. (4) Use the deploy-production concurrency group to prevent overlapping deployments without canceling the deployment already in progress.",
-      "context": "Now build and deploy run in parallel. ./deploy.sh can't find the dist folder because it's in a different runner. And if there are two pushes next to each other, the two rounds of deploy production may run overlapping. Keep the job names the same: build and deploy.",
+      "context": "Currently, build and deploy run in parallel. ./deploy.sh cannot find dist/ because the jobs run on separate runners. Two pushes in quick succession may also cause production deployments to overlap. Keep the job names build and deploy.",
       "starter": "name: Deploy\n\non:\n  push:\n    branches: [main]\n\npermissions:\n  contents: read\n\njobs:\n  build:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v7\n      - uses: actions/setup-node@v7\n        with:\n          node-version: 24\n          cache: npm\n      - run: npm ci\n      - run: npm run build\n\n  deploy:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v7\n      - run: ./deploy.sh dist\n",
       "solution": "name: Deploy\n\non:\n  push:\n    branches: [main]\n\npermissions:\n  contents: read\n\nconcurrency:\n  group: deploy-production\n  cancel-in-progress: false\n\njobs:\n  build:\n    runs-on: ubuntu-latest\n    outputs:\n      version: ${{ steps.ver.outputs.version }}\n    steps:\n      - uses: actions/checkout@v7\n      - uses: actions/setup-node@v7\n        with:\n          node-version: 24\n          cache: npm\n      - run: npm ci\n      - run: npm run build\n      - id: ver\n        run: echo \"version=${GITHUB_SHA::7}\" >> \"$GITHUB_OUTPUT\"\n      - uses: actions/upload-artifact@v7\n        with:\n          name: dist\n          path: dist/\n\n  deploy:\n    needs: build\n    runs-on: ubuntu-latest\n    environment: production\n    steps:\n      - uses: actions/checkout@v7\n      - uses: actions/download-artifact@v8\n        with:\n          name: dist\n          path: dist\n      - env:\n          VERSION: ${{ needs.build.outputs.version }}\n        run: ./deploy.sh dist \"$VERSION\"\n",
       "hints": [
@@ -611,31 +611,31 @@
       ],
       "checks": [
         {
-          "label": "deploy, wait for build and read output version",
+          "label": "Make deploy wait for build and read its version output",
           "pattern": "^(?=[\\s\\S]*?^([ \\t]+)deploy:[ \\t]*\\r?\\n(?:\\1[ \\t]+[^\\n]*\\n|[ \\t]*\\r?\\n)*?\\1[ \\t]+needs:[ \\t]*(?:\\[[ \\t]*|\\r?\\n[ \\t]*-[ \\t]*)?['\"]?build['\"]?)(?=[\\s\\S]*needs\\.build\\.outputs\\.version)"
         },
         {
-          "label": "build declares output version from step with id",
+          "label": "Expose version as a build job output from a step with an id",
           "pattern": "^(?=[\\s\\S]*?outputs:[\\s\\S]{0,80}?version:[ \\t]*['\"]?\\$\\{\\{[ \\t]*steps\\.([\\w-]+)\\.outputs\\.version)(?=[\\s\\S]*\\bid:[ \\t]*['\"]?\\1['\"]?[ \\t]*(?:\\r?\\n|$))"
         },
         {
-          "label": "Write version (7 characters) into GITHUB_OUTPUT",
+          "label": "Write a seven-character version to GITHUB_OUTPUT",
           "pattern": "^(?=[\\s\\S]*version=)(?=[\\s\\S]*>>?[ \\t]*['\"]?\\$\\{?github_output)(?=[\\s\\S]*(?:::7|:0:7|cut\\s+-c\\s*1?-7|head\\s+-c\\s*7|--short=7))"
         },
         {
-          "label": "upload and download artifact named dist into dist folder",
+          "label": "Upload the dist artifact and download it into the dist directory",
           "pattern": "^(?=[\\s\\S]*upload-artifact@(?:v[4-9]|v\\d{2,}|[0-9a-f]{40})\\b(?:(?!\\n[ \\t]*-[ \\t])[\\s\\S]){0,200}?(?:name:[ \\t]*['\"]?dist['\"]?\\b(?:(?!\\n[ \\t]*-[ \\t])[\\s\\S]){0,200}?path:[ \\t]*['\"]?(?:\\./)?dist\\b|path:[ \\t]*['\"]?(?:\\./)?dist\\b(?:(?!\\n[ \\t]*-[ \\t])[\\s\\S]){0,200}?name:[ \\t]*['\"]?dist['\"]?\\b))(?=[\\s\\S]*download-artifact@(?:v[4-9]|v\\d{2,}|[0-9a-f]{40})\\b(?:(?!\\n[ \\t]*-[ \\t])[\\s\\S]){0,200}?(?:name:[ \\t]*['\"]?dist['\"]?\\b(?:(?!\\n[ \\t]*-[ \\t])[\\s\\S]){0,200}?path:[ \\t]*['\"]?(?:\\./)?dist\\b|path:[ \\t]*['\"]?(?:\\./)?dist\\b(?:(?!\\n[ \\t]*-[ \\t])[\\s\\S]){0,200}?name:[ \\t]*['\"]?dist['\"]?\\b))"
         },
         {
-          "label": "job deploy uses production environment",
+          "label": "Target the production environment in deploy",
           "pattern": "^([ \\t]+)deploy:[ \\t]*\\r?\\n(?:\\1[ \\t]+[^\\n]*\\n|[ \\t]*\\r?\\n)*?\\1[ \\t]+environment:[ \\t]*(?:['\"]?production\\b|\\r?\\n[ \\t]+name:[ \\t]*['\"]?production\\b|\\{[^}]*name:[ \\t]*['\"]?production\\b)"
         },
         {
-          "label": "concurrency group deploy-production and does not cancel the running round.",
+          "label": "Use concurrency group deploy-production without canceling the running deployment",
           "pattern": "^(?![\\s\\S]*cancel-in-progress:[ \\t]*['\"]?true)(?=[\\s\\S]*concurrency:(?:[ \\t]*['\"]?deploy-production\\b|[\\s\\S]*?group:[ \\t]*['\"]?deploy-production\\b))"
         },
         {
-          "label": "Run ./deploy.sh dist \"$VERSION\" getting the value from env.",
+          "label": "Run ./deploy.sh dist \"$VERSION\" with VERSION supplied through env",
           "pattern": "deploy\\.sh[ \\t]+['\"]?(?:\\./)?dist/?['\"]?[ \\t]+['\"]?\\$\\{?version\\}?['\"]?"
         }
       ]
@@ -645,22 +645,22 @@
     {
       "title": "GitHub Actions: Workflow syntax",
       "url": "https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax",
-      "note": "matrix, needs, outputs, concurrency, permissions and path-filter conditions"
+      "note": "Matrix, needs, outputs, concurrency, permissions, and path filters"
     },
     {
       "title": "GitHub Actions: Secure use reference",
       "url": "https://docs.github.com/en/actions/reference/security/secure-use",
-      "note": "script injection, third-party actions, untrusted code checkout"
+      "note": "Script injection, third-party actions, and checking out untrusted code"
     },
     {
       "title": "GitHub Actions: Events that trigger workflows",
       "url": "https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows",
-      "note": "pull_request, pull_request_target, workflow_run and workflows from forks"
+      "note": "pull_request, pull_request_target, workflow_run, and workflows from forks"
     },
     {
       "title": "GitLab CI/CD YAML syntax reference",
       "url": "https://docs.gitlab.com/ci/yaml/",
-      "note": "stages, needs, rules, artifacts, cache, workflow:rules"
+      "note": "stages, needs, rules, artifacts, cache, and workflow:rules"
     },
     {
       "title": "Kubernetes: Deployments",
@@ -680,7 +680,7 @@
     {
       "title": "Kubernetes: Liveness, readiness and startup probes",
       "url": "https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/",
-      "note": "readiness probe and receiving traffic through Service"
+      "note": "Readiness probes and Service traffic"
     }
   ]
 }

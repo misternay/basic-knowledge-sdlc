@@ -2,8 +2,8 @@
   "id": "sec",
   "code": "D2",
   "track": "data",
-  "title": "Security & Secured Dev",
-  "blurb": "Write secure code from the first line. Not to fix it after being drilled.",
+  "title": "Security and Secure Development",
+  "blurb": "Build security into your code from the start, before a breach exposes the gaps.",
   "mustKnow": [
     {
       "tier": "must",
@@ -13,7 +13,7 @@
     {
       "tier": "must",
       "title": "Broken access control and IDOR",
-      "body": "IDOR is where the server receives the id of an object from the client and retrieves the data for them without checking that this user has permissions to that object. This is often encountered because the code appears to work normally. Server-side permissions must be checked for every request and deny is the default. Hiding the button in the UI or changing the id to a UUID only makes it harder to guess. It's not an authorization check.",
+      "body": "IDOR occurs when a server accepts an object ID from a client and returns that object without checking the user’s permission to access it. The code can appear to work normally, which makes this easy to miss. Check authorization for every request and deny access by default. Hiding UI buttons or replacing numeric IDs with UUIDs only makes guessing harder; neither is an authorization check.",
       "code": "// เสี่ยง: ใครล็อกอินก็ขอใบไหนก็ได้\npool.query('SELECT * FROM invoices WHERE id = $1', [req.params.id]);\n\n// ปลอดภัย: ผูกเจ้าของไว้ในเงื่อนไขเดียวกัน ไม่พบก็ตอบ 404\npool.query(\n  'SELECT * FROM invoices WHERE id = $1 AND owner_id = $2',\n  [req.params.id, req.user.id]\n);"
     },
     {
@@ -24,13 +24,13 @@
     },
     {
       "tier": "must",
-      "title": "Authentication is different from Authorization.",
-      "body": "authN answers “Who are you?” (login, MFA, session) and authZ answers “Can you do this with this resource?” Successful login does not mean access to everything. You must check both on the server side with every request and do not trust roles or flags that the client sends itself. In HTTP, answer 401 when you haven't verified your identity and 403 when you know who you are but don't have permission."
+      "title": "Authentication versus authorization",
+      "body": "Authentication (authN) answers ‘Who are you?’ through login, MFA, or a session. Authorization (authZ) answers ‘Can you perform this action on this resource?’ Logging in does not grant access to everything: check both server-side on every request, and do not trust client-supplied roles or flags. Return HTTP 401 when identity has not been authenticated, and 403 when an authenticated user lacks permission."
     },
     {
       "tier": "must",
       "title": "Password hashing: argon2id, bcrypt, scrypt",
-      "body": "Passwords must be stored as a hash that is intentionally slow and salty per user, so that guessing them offline after a database leak is very expensive. OWASP recommends argon2id first (minimum memory 19 MiB, iterations 2, parallelism 1), followed by scrypt and then bcrypt on legacy systems (cost 10+ and be aware that it can only accept 72 bytes of input). Do not use MD5 or SHA-256 directly, even with salt, and do not use reversible encryption.",
+      "body": "Store passwords with a deliberately slow hash and a separate salt for each user, making offline guessing expensive after a database leak. OWASP recommends argon2id first (at least 19 MiB memory, 2 iterations, and parallelism 1), then scrypt, with bcrypt for legacy systems (cost 10 or higher and a 72-byte input limit). Do not use MD5 or SHA-256 directly, even with a salt, and do not use reversible encryption.",
       "code": "const argon2 = require('argon2');\n\nconst hash = await argon2.hash(password, {\n  type: argon2.argon2id,\n  memoryCost: 19456, // หน่วย KiB = 19 MiB\n  timeCost: 2,\n  parallelism: 1,\n});\nconst ok = await argon2.verify(hash, password);"
     },
     {
@@ -41,25 +41,25 @@
     {
       "tier": "should",
       "title": "Software supply chain: lockfile, SCA, typosquatting",
-      "body": "Most of the code in your app comes from dependencies, which OWASP 2025 lists as the third biggest risk. Commit the lockfile and use npm ci in CI to get the same version and integrity hash every time, including indirect dependencies. Scan for known vulnerabilities with SCA (such as npm audit or Dependabot). And before adding a new package, check the name correctly because there are typosquatting things like crossenv that is masquerading as cross-env, as well as package names that AI recommends but doesn't actually exist, which attackers might write down first.",
+      "body": "Dependencies supply much of an app’s code; software supply chain failures rank third in OWASP Top 10:2025. Commit the lockfile and use npm ci in CI to reproduce versions and integrity hashes, including transitive dependencies. Scan known vulnerabilities with SCA tools such as npm audit or Dependabot. Verify package names before adding them: typosquatting packages such as crossenv imitate cross-env, and attackers may register nonexistent names suggested by AI.",
       "code": "npm ci                         # ติดตั้งตาม lockfile เท่านั้น ไม่ตรงกับ package.json ก็ fail\nnpm audit --audit-level=high   # fail เมื่อพบช่องโหว่ระดับ high ขึ้นไป"
     },
     {
       "tier": "should",
       "title": "OAuth 2.0, OIDC and JWT authentication",
-      "body": "OAuth 2.0 allows apps to make API calls on behalf of users via an access token. OIDC adds authentication using an ID token, which is for clients to know who is logged in, not for the API to receive instead of an access token. New apps should use it. Authorization Code + PKCE and stop using the implicit flow according to RFC 9700. When the API receives JWT, it must check the signature with a custom algorithm (it doesn't trust alg in the header and doesn't accept none) and then checks for exp, iss and aud every time and forces the token to have exp as well (some libraries such as jsonwebtoken skip expiration date checking if the token doesn't have exp).",
+      "body": "OAuth 2.0 delegates API access through access tokens; OIDC adds authentication through an ID token that tells the client who signed in, rather than replacing an API’s access token. New applications should use Authorization Code with PKCE instead of the implicit flow, following RFC 9700. Validate JWT signatures with an explicitly configured algorithm, never by trusting the header’s alg value or accepting none. Check exp, iss, and aud, and require exp: some libraries, such as jsonwebtoken, skip expiry checks when that claim is absent.",
       "code": "const claims = jwt.verify(token, publicKey, {\n  algorithms: ['RS256'],\n  issuer: 'https://auth.example.com',\n  audience: 'orders-api',\n}); // ตรวจ signature, iss, aud และ exp (ถ้ามี) ไม่ผ่านจะ throw\nif (typeof claims.exp !== 'number') throw new Error('missing exp');\n// ห้ามใช้ jwt.decode() เพื่อยืนยันตัวตน เพราะไม่ตรวจ signature"
     },
     {
       "tier": "should",
       "title": "CSRF, CORS and security headers",
-      "body": "CSRF is another website that tricks the browser into sending a request with the user's cookie. It is protected with a SameSite cookie, CSRF token, and does not change the data with GET (SameSite=Lax still sends a cookie when the user clicks on a link). CORS is not a tool to prevent CSRF, but it is a relaxation of the same-origin policy so that other origins can read the response. Therefore, you should use allowlist and do not reflect all Origin values ​​along with credentials, supplemented with headers such as CSP, HSTS, and X-Content-Type-Options.",
+      "body": "CSRF tricks a browser into sending a request with the user’s cookies from another site. Defenses include SameSite cookies, CSRF tokens, and avoiding state changes through GET; SameSite=Lax still sends cookies for link navigation. CORS relaxes the same-origin policy so selected origins can read responses; it is not a CSRF defense. Allowlist origins rather than reflecting arbitrary Origin values with credentials, and use headers such as CSP, HSTS, and X-Content-Type-Options.",
       "code": "Set-Cookie: sid=...; Secure; HttpOnly; SameSite=Lax\nStrict-Transport-Security: max-age=31536000; includeSubDomains\nContent-Security-Policy: default-src 'self'; frame-ancestors 'none'\nX-Content-Type-Options: nosniff"
     },
     {
       "tier": "should",
       "title": "Least privilege and threat modeling",
-      "body": "Give the service account, DB role, and token user only the permissions required by the job. When was the point pierced? The damage will be limited to that right. Threat modeling is thinking from the moment of design about where data flows through. What can an attacker do? And how do we protect it? A popular tool is STRIDE (Spoofing, Tampering, Repudiation, Information disclosure, Denial of service, Elevation of privilege) which helps reduce Insecure Design problems that are difficult to solve by patching the code later."
+      "body": "Give users, service accounts, database roles, and tokens only the permissions their tasks require, limiting damage if one is compromised. Threat modeling starts during design: trace data flows, identify what an attacker could do, and decide how to prevent it. STRIDE covers Spoofing, Tampering, Repudiation, Information disclosure, Denial of service, and Elevation of privilege. It helps address insecure design that is difficult to repair later with code patches."
     },
     {
       "tier": "advanced",
@@ -69,12 +69,12 @@
     {
       "tier": "advanced",
       "title": "SAST, DAST and secret scanning in CI",
-      "body": "SAST reads the source code for malicious patterns (e.g. CodeQL or Semgrep). DAST tests live apps (e.g. ZAP) and secret scanning (e.g. gitleaks) to catch keys leaked into commits. Should be run on all pull requests and block only at critical levels. To prevent teams from getting so used to ignoring alerts, these tools are not good at catching IDOR or business logic errors, so they cannot be used as a replacement for code review and permissions testing."
+      "body": "SAST tools such as CodeQL or Semgrep inspect source code for dangerous patterns; DAST tools such as ZAP test a running application; secret scanners such as gitleaks catch keys in commits. Run them on pull requests and block serious findings without overwhelming the team with alerts it learns to ignore. These tools are weak at detecting IDOR and business-logic errors, so they do not replace code review or authorization tests."
     },
     {
       "tier": "must",
-      "title": "Input validation: allowlist and must be checked on the server side.",
-      "body": "Input validation is the process of checking that incoming data has the format and values ​​the system expects before using it. OWASP recommends an allowlist (specifying what is allowed and then denying the rest) rather than a denylist that is easily circumvented. and check both syntactic (e.g. dates) and business meaning (semantic (e.g. start date must not exceed end date)) client-side checks help UX but can be skipped. Therefore, the server must be double-checked every time. A common trap is thinking that validation can replace parameterized query or output encoding, which OWASP states should not be used as the main protection against injection and XSS (and poorly written regex risks ReDoS).",
+      "title": "Input validation: allowlists and server-side checks",
+      "body": "Validate incoming data against expected formats and values before using it. OWASP recommends allowlists over easily bypassed denylists, checking both syntax (such as a valid date) and business meaning (such as a start date not later than the end date). Client-side checks help usability but can be bypassed, so validate the data again on the server for every request. Validation does not replace parameterized queries or context-appropriate output encoding as the main defense against injection and XSS; poorly written validation regexes can also cause ReDoS.",
       "code": "// allowlist: a-z 0-9 _ ยาว 3-20 ตัว\nconst USERNAME = /^[a-z0-9_]{3,20}$/;\nif (typeof body.username !== 'string' || !USERNAME.test(body.username)) {\n  return res.status(400).json({ error: 'invalid_username' });\n}\n// semantic: ตรวจความหมายทางธุรกิจด้วย (วันที่ต้องอ่านได้ และเริ่มไม่เกินสิ้นสุด)\nconst start = Date.parse(body.start);\nconst end = Date.parse(body.end);\nif (Number.isNaN(start) || Number.isNaN(end) || start > end) {\n  return res.status(400).json({ error: 'invalid_range' });\n}",
       "exam": true,
       "ref": "https://cheatsheetseries.owasp.org/cheatsheets/Input_Validation_Cheat_Sheet.html"
@@ -82,7 +82,7 @@
     {
       "tier": "must",
       "title": "Session management: regenerate, timeout and logout",
-      "body": "The session ID must be hard to guess. OWASP specifies that it has at least 64 bits of entropy and that a new ID must be issued every time the privilege level changes, especially after logging in to prevent session fixation (attackers set an ID first and then wait for the victim to log in with that ID). There should be both idle timeout and absolute timeout and logout. The session must also be destroyed on the server side, not just deleting the cookies in the browser. Personal cookies should be set to Secure, HttpOnly, SameSite and do not send the session ID through the URL because it will get stuck in the history, log and referer.",
+      "body": "Session IDs must be difficult to guess; OWASP specifies at least 64 bits of entropy. Issue a new ID after privilege changes, especially login, to prevent session fixation, where an attacker supplies an ID before the victim signs in. Use idle and absolute timeouts, and invalidate the session server-side on logout rather than only deleting the browser cookie. Set session cookies to Secure, HttpOnly, and SameSite, and keep IDs out of URLs, where history, logs, and referrers can expose them.",
       "code": "// หลังตรวจสอบรหัสผ่านสำเร็จ: ออก session ID ใหม่ก่อนเก็บ userId\nreq.session.regenerate((err) => {\n  if (err) return next(err);\n  req.session.userId = user.id;\n  res.redirect('/');\n});\n\n// logout: ทำลาย session ที่ server แล้วค่อยลบ cookie\nreq.session.destroy(() => {\n  res.clearCookie('connect.sid').redirect('/login');\n});",
       "exam": true,
       "ref": "https://cheatsheetseries.owasp.org/cheatsheets/Session_Management_Cheat_Sheet.html"
@@ -98,7 +98,7 @@
     {
       "tier": "must",
       "title": "Error handling: fail closed and no details leaked (A10)",
-      "body": "A10:2025 Mishandling of Exceptional Conditions is the system's inability to cope with abnormal situations, resulting in crashes, unexpected behavior, or vulnerabilities. An example is displaying database errors to users. This helps attackers explore the system and transactions that fail midway without rollback (such as deducting money but not adding it to the destination). The approach is to catch errors at the point where they occur and handle them. There is a global handler as the final layer of the net. Answer the user with a general message and log the details on the server side. And if the task is not successful, reject it first. It is not a fail open, which OWASP specifies that if a transaction is stuck in the middle, the entire transaction must be rolled back and started again (called fail closed). As for authorization Deny when checked does not use the same principles as CWE-636 Not Failing Securely (Failing Open) that this section covers.",
+      "body": "A10:2025, Mishandling of Exceptional Conditions, covers abnormal situations that cause crashes, unexpected behavior, or vulnerabilities. Examples include exposing database errors and failing halfway through a transfer without rollback. Handle errors where they arise, with a global handler as a final safety net; return a generic user message and log details server-side. Fail closed: roll back incomplete transactions rather than leaving partial results, and deny authorization when permission checks cannot be completed, consistent with CWE-636.",
       "code": "// fail open: ตรวจสิทธิ์พังแต่ยังปล่อยผ่าน\ntry { await assertCanView(req.user, doc); } catch (e) { log(e); }\nnext();\n\n// fail closed: พังหรือไม่ผ่าน = ปฏิเสธ\ntry { await assertCanView(req.user, doc); }\ncatch (e) { log(e); return res.sendStatus(403); }\nnext();",
       "exam": true,
       "ref": "https://top10.owasp.org/2025/A10_2025-Mishandling_of_Exceptional_Conditions/"
@@ -112,28 +112,28 @@
     },
     {
       "tier": "should",
-      "title": "SSRF: When the server retrieves the URL that the user sent.",
-      "body": "SSRF is using an app to send requests to your local network or device. This can occur in features that receive URLs from users, such as webhook/callbacks or images from external URLs (for example in OWASP). The classic target is the cloud metadata endpoint at 169.254.169.254, which stores machine credentials. OWASP recommends allowlisting allowed endpoints, ensuring that resolveable IPs are public (preventing domains pointing to internal IPs such as DNS pinning/rebinding), disabling redirect tracking in the HTTP client, and making requests based only on verified data. Denylist of internal IP is easily circumvented Therefore it is only a last resort.",
+      "title": "SSRF: fetching user-supplied URLs",
+      "body": "SSRF uses an application to make requests to an internal network or the server itself, often through user-provided URLs for webhooks, callbacks, or remote images. A classic target is the cloud metadata endpoint at 169.254.169.254, which exposes machine credentials. OWASP recommends allowlisting destinations, verifying that resolved IPs are public, disabling HTTP redirects, and constructing requests only from validated data. Denylists of internal IPs are easily bypassed, including through DNS pinning or rebinding, so they are a last resort.",
       "code": "// เสี่ยง: ดึง URL ที่ผู้ใช้ส่งมาตรง ๆ\nconst r = await fetch(req.body.url);\n\n// ปลอดภัยกว่า: รับแค่ key แล้ว map กับปลายทางที่อนุญาต\nconst HOSTS = { github: 'https://api.github.com' };\nconst base = HOSTS[req.body.provider];\nif (!base) return res.sendStatus(400);\nconst r = await fetch(`${base}/zen`, { redirect: 'error' });",
       "ref": "https://cheatsheetseries.owasp.org/cheatsheets/Server_Side_Request_Forgery_Prevention_Cheat_Sheet.html"
     },
     {
       "tier": "should",
-      "title": "File upload: Don't trust the file name and Content-Type.",
-      "body": "Files uploaded by users are very risky input. OWASP recommends allowinglist only extensions that are actually used by the business. Don't trust Content-Type because the client can send any value. Give new file names a random value (e.g. UUID) to eliminate the risk of malicious file names (e.g. special characters ../) and overwriting of existing files. Limit their size, store them off the webroot or on separate storage, and only allow authenticated users with permission to upload them. For images, rewriting them helps destroy embedded foreign content.",
+      "title": "File uploads: distrust names and Content-Type",
+      "body": "Treat uploaded files as high-risk input. Allowlist only required file extensions, and do not trust the client-supplied Content-Type. Generate a new filename, such as a UUID, to avoid malicious paths like ../ and accidental overwrites. Limit size, store files outside the webroot or in separate storage, require authentication and upload permission, and consider rewriting images to remove embedded unwanted content.",
       "ref": "https://cheatsheetseries.owasp.org/cheatsheets/File_Upload_Cheat_Sheet.html"
     },
     {
       "tier": "should",
-      "title": "Mass assignment: Don't bind the entire request to the model.",
-      "body": "Mass assignment (or autobinding) is a framework that automatically takes parameters in a request and inserts them into an object, allowing users to add fields that the developer did not intend to allow editing, such as isAdmin=true or role=admin. OWASP specifies a solution: an allowlist of fields that can be bound, a DTO with only editable fields, or a blocklist of fields that cannot be edited. In practice, it is better to choose an allowlist or a DTO because the blocklist must always remember the names of dangerous fields. If you forget to add important fields later, they will be dropped. (This conclusion is general reasoning and does not come directly from OWASP.)",
+      "title": "Mass assignment: bind only editable fields",
+      "body": "Mass assignment, or autobinding, occurs when a framework copies request parameters into an object automatically, letting users set unintended fields such as isAdmin or role. OWASP lists field allowlists, DTOs containing only editable fields, and blocklists as defenses. Prefer an allowlist or DTO because a blocklist must name every dangerous field; a newly added sensitive field can slip through if someone forgets to block it. That preference is general reasoning rather than a direct OWASP recommendation.",
       "code": "// เสี่ยง: ถ้าผู้ใช้ส่ง {\"role\":\"admin\"} มาด้วยก็ถูกบันทึก\nawait User.update(req.user.id, req.body);\n\n// ปลอดภัย: เลือกเฉพาะ field ที่อนุญาต\nconst { displayName, bio } = req.body;\nawait User.update(req.user.id, { displayName, bio });",
       "ref": "https://cheatsheetseries.owasp.org/cheatsheets/Mass_Assignment_Cheat_Sheet.html"
     },
     {
       "tier": "should",
       "title": "Security logging and alerting (A09)",
-      "body": "A09:2025 Security Logging and Alerting Failures is when the system does not log important events or logs and no one knows about it. OWASP recommends logging authentication failures, access control failures, and input validation failures with enough context for investigation. But you should not record passwords, session IDs, access tokens, or keys directly into the log (OWASP removes the mask or hash first, for example, replacing the session ID with a hash value to be able to expunge session events, and deletes the password completely). You must also sanitize the data used to write the log (CR, LF, delimiters) to prevent log injection. You should synchronize the time on all machines to prevent the log from being altered, and set up alerts and response steps, because logs that no one can read will not help catch attacks.",
+      "body": "A09:2025, Security Logging and Alerting Failures, covers missing security events and logs that nobody monitors. Record authentication, access-control, and input-validation failures with investigation context, but remove, mask, or hash secrets rather than logging passwords, session IDs, access tokens, or keys directly. Sanitize carriage returns, line feeds, and delimiters to prevent log injection; synchronize clocks and protect logs from tampering. Set alerts and response procedures, because unread logs do little to detect attacks.",
       "ref": "https://cheatsheetseries.owasp.org/cheatsheets/Logging_Cheat_Sheet.html"
     },
     {
@@ -162,28 +162,28 @@
       "prompt": "A logged-in user changes the number in the URL from /invoices/1001 to /invoices/1002 and sees another company’s invoice. What is the correct fix?",
       "code": "app.get('/invoices/:id', requireLogin, async (req, res) => {\n  const { rows } = await pool.query(\n    'SELECT * FROM invoices WHERE id = $1', [req.params.id]);\n  res.json(rows[0]);\n});",
       "options": [
-        "Change the id to a random UUID so users can't guess the number.",
-        "Add user owner_id condition to query and answer 404 when not found.",
-        "Hide non-user invoice links from the page.",
-        "Put a rate limit on this endpoint to prevent ID chasing."
+        "Replace numeric IDs with random UUIDs so users cannot guess them.",
+        "Filter the query by the user’s owner_id and return 404 if no invoice is found.",
+        "Hide links to invoices that do not belong to the user.",
+        "Rate-limit this endpoint to slow down ID enumeration."
       ],
       "answer": 1,
       "explain": "The root cause is that the server doesn't check permissions per resource (IDOR). Tying the owner condition in the query fixes the issue. UUID or rate limit just make it harder to guess, but the id can still be leaked from logs, shared links, or other APIs."
     },
     {
-      "prompt": "The report page allows the user to select the columns used to sort. And this code has been reported as being vulnerable to SQL injection. What is the most appropriate solution?",
+      "prompt": "A report lets users choose its sort column. The following code is vulnerable to SQL injection. What is the most appropriate fix?",
       "code": "const sql = `SELECT id, name, total FROM orders\n  ORDER BY ${req.query.sort}`;\nconst { rows } = await pool.query(sql);",
       "options": [
-        "Change it to ORDER BY $1 and pass [req.query.sort] as parameter.",
-        "escape the symbols ' and ; in req.query.sort before concatenate string",
-        "Get the value as key and map with the allowlist of allowed column names.",
-        "Set WAF to block requests that contain the words SELECT or DROP."
+        "Use ORDER BY $1 and pass [req.query.sort] as the parameter.",
+        "Escape quotes and semicolons in req.query.sort before concatenating it.",
+        "Map the input key to an allowlist of permitted column names.",
+        "Configure a WAF to block requests containing SELECT or DROP."
       ],
       "answer": 2,
-      "explain": "Placeholders can only be used to represent values, not column names or keywords like ASC/DESC, so they don't sort by desired columns. You must use an allowlist instead. Escapes themselves or WAF can be avoided because the payload in ORDER BY doesn't require quotes or blocked words."
+      "explain": "Placeholders represent values, not column names or keywords such as ASC and DESC. Map the requested sort key through an allowlist instead. Hand-written escaping and WAF keyword filters can be bypassed; an ORDER BY payload need not contain quotes or those keywords."
     },
     {
-      "prompt": "The comment system displays the user's message with this code. Then someone posted <img src=x onerror=\"...\"> until the code ran in every reader's browser. How should I solve it?",
+      "prompt": "The comment system renders user text with the code below. An attacker posts <img src=x onerror=\"...\"> and the code runs in every reader’s browser. What fixes the cause?",
       "code": "const div = document.createElement('div');\ndiv.innerHTML = comment.text;\nlist.appendChild(div);",
       "options": [
         "Use div.textContent = comment.text to display as plain text.",
@@ -192,15 +192,15 @@
         "Enforce HTTPS for the entire site to prevent code injections in transit."
       ],
       "answer": 0,
-      "explain": "textContent makes the browser treat data as text, not parse it as HTML, thus fixing the root cause. Filtering <script> isn't enough because this payload doesn't have any script tags. HttpOnly just reduces the impact, so the script can still do the work for the user."
+      "explain": "textContent treats the value as text instead of parsing HTML. Filtering <script> misses this payload, which has no script tag. HttpOnly reduces cookie theft but still allows malicious scripts to act as the user."
     },
     {
       "prompt": "The old system stored passwords as SHA-256 without salt. The team proposed changing it to SHA-256 with random salt per user. Which one correctly evaluates this proposition?",
       "options": [
-        "That's enough because the salt makes the rainbow table unusable.",
-        "If that's not enough, SHA-256 is too fast. You should use argon2id or bcrypt where the cost can be set.",
-        "It should be changed to AES-256 instead so that the password can be recovered for the user.",
-        "Just hashing SHA-256 twice is equivalent to password hashing."
+        "It is enough because a salt prevents rainbow-table attacks.",
+        "It is not enough: SHA-256 is too fast; use argon2id or bcrypt with a configurable cost.",
+        "Use AES-256 instead so passwords can be recovered for users.",
+        "Hashing twice with SHA-256 is equivalent to password hashing."
       ],
       "answer": 1,
       "explain": "Salt blocks the rainbow table and causes the same password to have different hashes, but the GPU can still guess SHA-256 at an enormous rate per second. Password hashing like argon2id is intentionally slow and uses up memory. AES is reversible. If a key is leaked, the entire password is leaked."
@@ -217,12 +217,12 @@
       "explain": "It must be assumed that the key has already been leaked because there are bots scanning the public repo all the time and it may have already been cloned or forked. Deleting or overwriting the history does not make the key safe. You must revoke it first, then clear the history and prevent it from happening again."
     },
     {
-      "prompt": "The project doesn't commit package-lock.json and the CI runs npm install every time. One day, a transitive dependency releases a new version that has been inserted with token-stealing code and is immediately leaked into build. Which is the most direct protection?",
+      "prompt": "A project does not commit package-lock.json and CI runs npm install. A new transitive dependency version contains token-stealing code and enters the next build. What is the most direct prevention?",
       "options": [
-        "Specify a fixed version (no ^) for dependencies in package.json.",
-        "Switch to using npm install --force in CI to complete installation every time.",
-        "commit lockfile using npm ci in CI and scanning with SCA before merging",
-        "Move to downloading all libraries from a public CDN instead."
+        "Pin only direct dependencies in package.json without ^.",
+        "Run npm install --force in CI so installation always completes.",
+        "Commit the lockfile, use npm ci, and run SCA scans before merging.",
+        "Download all libraries from a public CDN instead."
       ],
       "answer": 2,
       "explain": "The lockfile locks the version and integrity hashes of all packages, including indirect dependencies, and npm ci installs them exactly like that. Pinning only direct dependencies also allows indirect dependencies to float according to the version range those packages declare."
@@ -240,7 +240,7 @@
       "explain": "JWT's payload is just base64url encoded. Anyone can create a new one. You must use jwt.verify and define algorithms, issuer, and audience. Exp in JWT is already seconds, so dividing Date.now() by 1000 is correct."
     },
     {
-      "prompt": "The app uses a session cookie set to SameSite=Lax and has an endpoint GET /account/delete. for deleting account The logged in user clicked on a link from another forum and their account was immediately deleted. What is the main cause?",
+      "prompt": "An app uses a SameSite=Lax session cookie and deletes accounts through GET /account/delete. A signed-in user clicks a link on another forum and their account is deleted. What is the root cause?",
       "options": [
         "CORS is set too wide. Origin must be narrowed.",
         "The cookie is not set to HttpOnly, so scripts from other websites can read the cookie.",
@@ -262,7 +262,7 @@
       "explain": "There is still no way to make the model separate data and commands 100%. Writing a system prompt or filtering words helps somewhat but is easily circumvented. Therefore, we must limit what agents can do (least privilege) and require people to confirm before taking actions that have an impact."
     },
     {
-      "prompt": "The service issues a report to PostgreSQL with a user who is the owner of all tables. Later, SQL injection is found in the endpoint of the report. What can be done first to limit the damage as much as possible?",
+      "prompt": "A reporting service connects to PostgreSQL as the owner of every table. The team finds SQL injection in a report endpoint. What most directly limits the damage?",
       "options": [
         "Set the database password to be longer and more complex than before.",
         "Turn on TLS between service and database.",
@@ -270,29 +270,29 @@
         "Move the database to a private subnet that cannot be accessed from outside."
       ],
       "answer": 2,
-      "explain": "When an attacker can execute SQL commands through an app, they have the same privileges as the user the app uses. If the role only has SELECT on required tables, they cannot delete, modify, or read other tables. Private subnets and TLS prevent outside access, but the injection comes through the app itself."
+      "explain": "Injected SQL runs with the application’s database permissions. A role with SELECT only on required tables cannot modify them or read unrelated tables. TLS and private networking limit outside access but do not stop injection arriving through the application."
     },
     {
       "prompt": "The signup form uses JavaScript to check that the username has only a-z, 0-9 and no more than 20 characters, but the server immediately records the received values ​​into the database. Later, the username is found to have strange characters in the table. How should I fix it?",
       "options": [
-        "Double-check the server with allowlist because the client-side check can be bypassed with a direct request.",
-        "Obfuscate JavaScript code and tighten client-side checks to prevent illegal values ​​from entering.",
-        "Change the website to HTTPS so that no one modifies the request along the way and sends strange values.",
-        "Add a denylist of dangerous characters like ' < > on the server side, which works in all cases."
+        "Validate the input server-side with an allowlist; direct requests bypass browser checks.",
+        "Obfuscate JavaScript and tighten browser validation to prevent invalid input.",
+        "Use HTTPS so users cannot submit unexpected characters.",
+        "Denylist dangerous characters such as quotes and angle brackets; this works in every case."
       ],
       "answer": 0,
-      "explain": "Attackers send requests directly to the API using curl or a proxy, without going through the web page. Therefore, you must check the server every time. HTTPS protects against tampering along the way but does not prevent users from sending incorrect values, and denylist is easier to avoid than allowlist."
+      "explain": "An attacker can call the API with curl or a proxy without visiting the form. Validate incoming values on the server for every request. HTTPS protects data in transit, not against invalid input supplied by a user, and denylists are easier to bypass than allowlists."
     },
     {
       "prompt": "The team said, \"We validate every field with strong regex. Therefore it is not necessary to use parameterized query\" Which one correctly evaluates this statement?",
       "options": [
-        "That's right. If the regex is strong enough, the risk of SQL injection can be completely eliminated without any additional work.",
-        "Not being validated reduces risk. But it is not the main method. You must use a parameterized query along with it.",
-        "That's right. If you validate both the client side and server side for every field, you don't need to use any other queries.",
-        "This is not correct because regex cannot be used to check the format of the data entered by the user. Therefore, it does not reduce the risk."
+        "Correct: sufficiently strong regex eliminates SQL injection without other defenses.",
+        "Incorrect: validation helps, but parameterized queries are still necessary.",
+        "Correct: validating every field on both client and server replaces parameterized queries.",
+        "Incorrect: regex cannot validate input formats, so validation offers no benefit."
       ],
       "answer": 1,
-      "explain": "OWASP states that input validation should not be the primary method of protection against SQL injection and XSS, although it can help reduce their impact. Real people's names can still contain characters like ' (like O'Brien), and complex regex misses them. Separating data from commands parameterized query is still necessary"
+      "explain": "OWASP says validation is not the primary defense against SQL injection or XSS. Legitimate names such as O’Brien can contain quotes, and regex can miss attack cases. Parameterized queries are still needed to separate data from SQL commands."
     },
     {
       "prompt": "This login code has been reported as being vulnerable to session fixation. What should I do to fix it?",
@@ -304,7 +304,7 @@
         "Change the cookie name from connect.sid to something much more difficult to guess to hide the cookie."
       ],
       "answer": 2,
-      "explain": "The fix is ​​when the attacker sets a session ID and then waits for the victim to log in with that ID. Creating a new ID after login renders the old ID useless. HttpOnly blocks cookies from being read by a script, but does not change the already assigned ID."
+      "explain": "Session fixation happens when an attacker supplies a session ID and waits for a victim to log in with it. Regenerating the ID after login makes the old ID unusable. HttpOnly prevents scripts reading the cookie but does not replace the existing ID."
     },
     {
       "prompt": "The logout button of the system is just called res.clearCookie('sid') The security team found that people who have previously obtained the old session ID can still call the API even though the user has pressed logout. How should we fix this?",
@@ -318,7 +318,7 @@
       "explain": "Deleting cookies affects only that browser. If the server still holds the session, anyone with the ID can still use it until it expires. For JWTs that don't have server-side state, it's more difficult to revoke them before they expire. It doesn't solve this problem."
     },
     {
-      "prompt": "The website has XSS fields that haven't been fixed yet. But the boss says \"The session cookie is set to HttpOnly and the attacker can't do anything.\" Which is correct?",
+      "prompt": "A website still has an unfixed XSS vulnerability. A manager says, “Our session cookie uses HttpOnly, so an attacker cannot do anything.” Which statement is correct?",
       "options": [
         "Not always. HttpOnly only prevents reading cookies. The inserted script can still fetch and the browser will attach the cookie.",
         "That's right. HttpOnly prevents browsers from attaching cookies to requests made by scripts on the page.",
@@ -341,7 +341,7 @@
       "explain": "Values ​​from Math.random are not designed to be cryptographically unpredictable. Concatenating or mixing times doesn't make it any better. Base64 is just a data format transformation. It doesn't add entropy to the token. It must be created with a CSPRNG such as crypto.randomBytes."
     },
     {
-      "prompt": "The system encrypts the card number with AES-256-GCM and stores the ciphertext in the customers table by storing the key in the encryption_key column. of the same table If the database is dumped, which is correct?",
+      "prompt": "A system encrypts card numbers with AES-256-GCM and stores the key in encryption_key in the same customers table as the ciphertext. What happens if the database is dumped?",
       "options": [
         "It's safe because AES-256 cannot be decrypted without a key in practice, even if it's all dumped.",
         "Key values ​​should be converted to Base64 before storing in the original column. So that it doesn't read directly when someone dumps the database.",
@@ -349,7 +349,7 @@
         "You should use SHA-256 instead of encryption. So you don't have to keep the key and still be able to read the card number back."
       ],
       "answer": 2,
-      "explain": "The strength of AES is meaningless if the key is next to the data. OWASP recommends storing the key in a different location than the encrypted data. so that it can only be accessed somewhere (e.g. via SQL injection) and cannot be decoded. Base64 is just a format conversion. It does not protect keys and SHA-256 is an irreversible hash. Therefore it is not suitable for data that must read back the original value."
+      "explain": "An attacker who obtains both ciphertext and key can decrypt the data. OWASP recommends storing keys separately, such as in a KMS or secret manager, so one data leak does not expose both. Base64 is encoding, not key protection, and SHA-256 cannot recover the original card number."
     },
     {
       "prompt": "On staging (Express 5), testers saw a full-page stack trace when the API crashed. The team didn't write its own error handler, and NODE_ENV wasn't set. Which is the correct explanation and solution?",
@@ -361,19 +361,19 @@
         "Express defaults to sending the stack to the client when NODE_ENV is not in production. You should write your own error handler and log it on the server."
       ],
       "answer": 3,
-      "explain": "The Express documentation states that errors without our handler will be written to the response with a stack trace, except when NODE_ENV is in production, where the trace with the internal host name provides attackers with scouting information. Disabling x-powered-by simply hides the framework name in the header."
+      "explain": "Express’s default error handler includes a stack trace unless NODE_ENV is production. Internal paths and details can help an attacker investigate the system. Write an error handler that logs details server-side and returns a generic response. Disabling x-powered-by only hides the framework header."
     },
     {
       "prompt": "When the database is down Every user can open other people's documents. What's the problem with this middleware?",
       "code": "async function requireOwner(req, res, next) {\n  try {\n    const doc = await db.getDoc(req.params.id);\n    if (doc.ownerId !== req.user.id) return res.sendStatus(403);\n  } catch (err) {\n    logger.error(err);\n  }\n  next();\n}",
       "options": [
-        "catch just logs and flows to next() causing it to pass when permission cannot be verified (fail open), should be rejected or answered 5xx",
-        "logger.error causes requests to be automatically considered authenticated after log completion.",
-        "OwnerId should be compared with == because id from two sources may be of different data types.",
-        "Error capture should be moved to the route handler instead of in this middleware because it cannot be captured."
+        "catch logs the error then reaches next(), failing open; deny access or return a 5xx response.",
+        "logger.error automatically authenticates the request after logging.",
+        "Compare ownerId with == because IDs may have different types.",
+        "Move the catch to the route because middleware cannot catch errors."
       ],
       "answer": 0,
-      "explain": "When getDoc throws error code into catch and then falls to next() without ever checking the ownerId, OWASP A10 counts fail open as a problem in this category. The principle is that when it cannot be detected, it must be rejected first (fail closed). Changing to use == is not relevant and risks the wrong comparison."
+      "explain": "If getDoc throws, execution reaches next() without checking ownership. This is fail-open behavior covered by OWASP A10. When authorization cannot be checked, fail closed rather than allowing access. Changing equality operators does not address the cause."
     },
     {
       "prompt": "The money transfer system has two separate steps: UPDATE to deduct money from the originating account, then UPDATE to add money to the destination account. One day, the second step failed because of an incorrect constraint. The code caught the error and replied to the user: Only \"An error occurred\". Which is correct?",
@@ -384,7 +384,7 @@
         "The constraint that causes the second step to fail should be turned off so that the increase can pass every time. without having to modify other parts of the code"
       ],
       "answer": 1,
-      "explain": "OWASP A10 gives an example where a transaction is interrupted without rollback, which can lead to data loss or corruption. Notifying the user does not revert a changed state, while retry does not constrain or disable constraint, creating a new problem and bypassing data rules."
+      "explain": "OWASP A10 describes interrupted transactions without rollback as a cause of data loss or corruption. A generic error message does not undo the debit. Wrap both updates in one transaction; unlimited retries or disabling constraints create further problems."
     },
     {
       "prompt": "The pentest team reports that the login below helps attackers detect which email accounts are in the system. How should I solve it?",
@@ -396,15 +396,15 @@
         "Immediately locks your account the first time you enter an incorrect password. so that the attacker cannot continue trying again."
       ],
       "answer": 2,
-      "explain": "Differences in message or status allow attackers to enumerate existing email addresses (account enumeration). OWASP responds the same in all cases. And be careful of the difference in answer times with CAPTCHA, reducing automatic firing. But different messages are still leaking."
+      "explain": "Different messages or statuses let attackers enumerate accounts. Return the same status and generic message, and avoid revealing differences through response timing. CAPTCHA can reduce automated attempts but cannot remove information leaked by distinct messages."
     },
     {
       "prompt": "A system that requires all users to have MFA turned on has a password policy that says: \"Must contain uppercase, lowercase letters, numbers, and symbols, no more than 16 characters long.\" Which is the most consistent with the OWASP guidelines?",
       "options": [
-        "Keep the policy in place because forcing composition rules always makes passwords harder to guess, as OWASP recommends.",
-        "Reduced the maximum length to 12 characters to reduce the hashing burden on the server during times of high login traffic.",
-        "Add a rule to include at least two special characters to make passwords more complex and harder to guess.",
-        "Minimum 8 characters when MFA supports at least 64 characters long. Eliminate forced composition and block code leaks."
+        "Keep composition rules because OWASP always recommends them.",
+        "Reduce the maximum to 12 characters to reduce hashing work.",
+        "Require at least two special characters for additional complexity.",
+        "Require at least 8 characters with MFA, support 64 or more, remove composition rules, and block leaked passwords."
       ],
       "answer": 3,
       "explain": "OWASP recommends a minimum length of 8 characters when MFA is available (15 characters if not), a minimum of 64 characters is supported to accept a passphrase, and there should be no composition rules limiting character types. Restricting the maximum length to a short length removes users' safe options."
@@ -422,12 +422,12 @@
       "explain": "169.254.169.254 is a cloud metadata endpoint that stores machine credentials. Denylist by name is easy to avoid. For example, a domain name that points to an internal IP or a redirect to an internal IP. OWASP therefore recommends allowlisting and checking the IP after resolving. The timeout section does not prevent access, and following redirects should be closed so as not to bypass URL checking."
     },
     {
-      "prompt": "endpoint upload profile picture just check req.file.mimetype === 'image/png' and save the file with the original name the user sent in. public/uploads What is the main problem and solution?",
+      "prompt": "A profile-image upload endpoint checks only req.file.mimetype === \"image/png\" and saves the client’s filename in public/uploads. What is the main issue and remedy?",
       "options": [
-        "Mimetypes can be faked and filenames from users are at risk of being overwritten. Allowlist extensions should be given to random names and stored outside of the webroot.",
-        "PNG is not safe by itself. It should be changed to accept only JPEG files instead, because JPEG cannot embed code.",
-        "The file is not compressed before saving. Making the file larger than necessary and wasting space on the server is a security problem.",
-        "You should check the mimetype again after saving the file. This is to ensure that it is a true PNG image before making it accessible."
+        "Clients can spoof MIME types and unsafe names can overwrite files; allowlist extensions, generate names, and store outside the webroot.",
+        "Accept only JPEG because it cannot contain embedded malicious content.",
+        "Compress files before saving; large files are the only security issue.",
+        "Check the same MIME value again after saving to prove it is a PNG."
       ],
       "answer": 0,
       "explain": "The Content-Type value is set by the client, so it's easy to fake. The second round of testing is no different than the first, and OWASP recommends naming new files at random and storing them outside of webroot. Choosing JPEG over PNG does not make the rogue files any more secure."
@@ -442,7 +442,7 @@
         "Select only allowed fields (e.g. displayName, bio) from req.body and submit to update."
       ],
       "answer": 3,
-      "explain": "This is a mass assignment. Specifying bindable fields (allowlist or DTO) fixes the root cause. Changing to PUT does not limit the fields that can be bound, and hiding them in the UI has no effect on the requester itself. Deleting the only role is the blocklist, which requires all dangerous fields to be memorized. If you add important fields later and then forget them, they're removed."
+      "explain": "This is mass assignment. Select only editable fields through an allowlist or DTO. Changing PATCH to PUT or hiding a UI field does not limit submitted fields. A blocklist that removes only role can miss newly added sensitive fields."
     },
     {
       "prompt": "The team added the log below to investigate account attacks. Is there anything that should be fixed?",
@@ -454,7 +454,7 @@
         "Encode the password with Base64 before saving it to the log. It is considered unreadable so it can be stored."
       ],
       "answer": 1,
-      "explain": "OWASP provides a log of failed authentications. This is an early sign of brute force or credential stuffing. Passwords should not be recorded in the log, so delete them. Base64 can be removed immediately. not protection Changing to debug or canceling logging completely will cause the data needed to be detected to be lost."
+      "explain": "Failed authentication logs help detect brute force and credential stuffing, but passwords must be removed. Base64 is easily decoded and provides no protection. Disabling security logs entirely loses information needed for detection."
     },
     {
       "prompt": "The company keeps failed logins for 90 days, but no one opens them. Until the customer reported that the account had been seized. A look back found thousands of failed logins per hour last week. What should I add first?",
@@ -471,10 +471,10 @@
       "prompt": "The team changed from 'unsafe-inline' uses a nonce but hardcodes the value abc123 on every page. Which is correct?",
       "code": "res.setHeader('Content-Security-Policy', \"script-src 'nonce-abc123'\");\nres.send('<script nonce=\"abc123\">init()</script>');",
       "options": [
-        "Not correct. The nonce value must be re-randomized for every response and cannot be guessed, so a fixed value can be inserted into the inserted script.",
-        "This is not a problem if the nonce is long enough and contains enough characters. Even if reused on every page",
-        "That's right, because a nonce that's the same on every page helps cache web pages better and more securely.",
-        "You should include the nonce attribute at every <img> so that the browser can load images according to the policy."
+        "Incorrect: use a fresh unpredictable nonce for each response; attackers can reuse a fixed value in injected scripts.",
+        "It is safe if the nonce is long enough, even when reused on every page.",
+        "A shared nonce improves caching and therefore security.",
+        "Add the nonce to every <img> so images satisfy the policy."
       ],
       "answer": 0,
       "explain": "The nonce works because the attacker cannot guess what value the response uses. The MDN documentation states that every response must be different and cannot be guessed. A fixed value is no different than none. Length doesn't help if the same value is used repeatedly."
@@ -489,7 +489,7 @@
         "The size of cookies should be limited to no more than approximately 4 KB to prevent large data that can be used to attack the server."
       ],
       "answer": 2,
-      "explain": "The Python docs state that pickle is not safe for untrusted data because maliciously crafted data can run code when unpickle. They recommend signing with hmac and using json OWASP A08. Check the integrity of data sent through the client with a digital signature Secure/HttpOnly. It does not prevent users from modifying their own cookies, and changing the encoding does not affect the risk."
+      "explain": "Python warns that malicious pickle data can execute code during unpickling. Use a format such as JSON with validation, and protect integrity with a signature such as HMAC. Secure and HttpOnly do not prevent a user altering their own cookie; switching encodings does not fix unsafe deserialization."
     },
     {
       "prompt": "The web page loads the script below from the CDN. One day the CDN was hacked and the lib.min.js file was modified. What was the effect on the visitor?",
@@ -501,12 +501,12 @@
         "The hash does not match. The browser rejected the file. The script is not run. Even features that rely on that script will break."
       ],
       "answer": 3,
-      "explain": "SRI allows browsers to match hash and attribute integrity. If they don't match, they will reject the file. It's not just a warning (cross-origin files must have crossorigin, which this code already has, and the CDN must also send Access-Control-Allow-Origin) and there's no need to fall back to using the old file. Features may break But it's better than running modified code."
+      "explain": "SRI compares the downloaded file’s hash with the integrity attribute and rejects a mismatch rather than merely warning. Cross-origin files also need crossorigin, already present here, and an Access-Control-Allow-Origin response from the CDN. The browser does not automatically fall back to an older file. Dependent features may break, but altered code will not run."
     }
   ],
   "exercises": [
     {
-      "title": "Fix APIs that are at risk of SQL injection, secret leaks, and oversending data.",
+      "title": "Fix SQL injection, leaked secrets, and excessive response data",
       "level": "กลาง",
       "tags": "parameterized query · secrets · data exposure",
       "lang": "javascript",
@@ -515,9 +515,9 @@
       "starter": "const pool = new Pool({\n  password: 'Sup3rS3cret!',\n});\n\napp.get('/users', async (req, res) => {\n  const sql = \"SELECT * FROM users WHERE email = '\"\n    + req.query.email + \"'\";\n  const { rows } = await pool.query(sql);\n  res.json(rows);\n});\n",
       "solution": "const pool = new Pool({\n  password: process.env.DB_PASSWORD,\n});\n\napp.get('/users', async (req, res) => {\n  const { rows } = await pool.query(\n    'SELECT id, email, name FROM users WHERE email = $1',\n    [req.query.email]\n  );\n  res.json(rows);\n});",
       "hints": [
-        "The problem is separated into three areas: user values ​​in SQL, secrets in code, and excessive data returned.",
-        "pool.query gets (text, values), write WHERE email = $1 and send the value as an array in the second argument.",
-        "Use password: process.env.DB_PASSWORD and change SELECT * to SELECT id, email, name"
+        "Address three separate issues: user input in SQL, secrets in code, and sensitive response fields.",
+        "pool.query takes (text, values). Use WHERE email = $1 and pass an array as the second argument.",
+        "Read password from process.env.DB_PASSWORD and select only id, email, and name."
       ],
       "checks": [
         {
@@ -525,37 +525,37 @@
           "pattern": "process\\.env(?:\\.|\\[\\s*[\"'`])db_password|\\{[^}]*\\bdb_password\\b[^}]*\\}\\s*=\\s*process\\.env"
         },
         {
-          "label": "There is no password string literal in the code.",
+          "label": "Do not hard-code a password string",
           "pattern": "sup3rs3cret|password[\"']?\\s*[:=]\\s*[\"'`]",
           "negate": true
         },
         {
-          "label": "Using placeholder $1 in SQL",
+          "label": "Use the $1 query placeholder",
           "pattern": "\\$1\\b"
         },
         {
-          "label": "Pass values ​​from the user as array parameters.",
+          "label": "Pass user input in the query’s values array",
           "pattern": "\\$1[\\s\\S]*?(?:,|values\\s*:)\\s*\\[\\s*[^\\]\\s]|(?:const|let|var)\\s+(\\w+)\\s*=\\s*\\[\\s*[^\\]\\s][\\s\\S]*?\\$1[\\s\\S]*?(?:,\\s*\\1\\s*\\)|values\\s*:\\s*\\1\\b)|(?:const|let|var)\\s+values\\s*=\\s*\\[\\s*[^\\]\\s][\\s\\S]*?\\$1[\\s\\S]*?\\{[^}]*\\bvalues\\s*[,}]"
         },
         {
-          "label": "Do not concatenate strings or templates with values ​​from the user.",
+          "label": "Do not interpolate or concatenate user input into SQL",
           "pattern": "\\+\\s*req\\.query|[\"'`]\\s*\\+\\s*email\\b|\\$\\{\\s*(req\\.query\\.)?email",
           "negate": true
         },
         {
-          "label": "Do not use SELECT * and do not select password_hash.",
+          "label": "Avoid SELECT * and exclude password_hash",
           "pattern": "select\\s+(?:distinct\\s+)?(?:\\w+\\.)?\\*|password_hash",
           "negate": true
         }
       ]
     },
     {
-      "title": "Error handler that doesn't leak stack trace",
+      "title": "Handle errors without exposing stack traces",
       "level": "ง่าย",
       "tags": "error handling · information leakage · Express",
       "lang": "javascript",
-      "prompt": "This API's error handler sends a message and stack trace back to the client, giving the attacker a view of the system's internal structure. It provides a server-side log of error details with console.error. The client responds with a status of 500 and a normal body without err.message or err.stack. And if the response already sends a header (res.headersSent), forwards the error to the default handler with next(err).",
-      "context": "Node.js + Express 5\nThe error handler must have 4 parameters (err, req, res, next) and is placed after all routes.\nThis question requires 500 answers in all cases to keep it simple.",
+      "prompt": "The API currently sends err.message and err.stack to the client. Replace this with console.error for server-side details and a generic status-500 response without either field. If res.headersSent is true, forward the error with next(err) instead of sending another response.",
+      "context": "Node.js + Express 5. Place the four-parameter handler (err, req, res, next) after the routes. For this exercise, return 500 whenever the handler can still send a response.",
       "starter": "app.use((err, req, res, next) => {\n  res.status(500).json({\n    message: err.message,\n    stack: err.stack,\n  });\n});\n",
       "solution": "app.use((err, req, res, next) => {\n  if (res.headersSent) {\n    return next(err);\n  }\n  console.error(err);\n  res.status(500).json({ error: 'internal_error' });\n});",
       "hints": [
@@ -565,34 +565,34 @@
       ],
       "checks": [
         {
-          "label": "The error handler has 4 parameters.",
+          "label": "Declare all four error-handler parameters",
           "pattern": "\\(\\s*\\w+\\s*,\\s*\\w+\\s*,\\s*\\w+\\s*,\\s*\\w+\\s*\\)"
         },
         {
-          "label": "log error server side",
+          "label": "Log error details server-side",
           "pattern": "console\\.error|logger\\.(error|warn)|log\\.error"
         },
         {
-          "label": "Response status 500",
+          "label": "Return HTTP 500",
           "pattern": "status\\s*\\(\\s*500\\s*\\)|statuscode\\s*=\\s*500|sendstatus\\s*\\(\\s*500\\s*\\)"
         },
         {
-          "label": "Do not send err.message or err.stack in response.",
+          "label": "Keep err.message and err.stack out of the response",
           "pattern": "\\(\\s*(\\w+)\\s*,\\s*\\w+\\s*,\\s*\\w+\\s*,\\s*\\w+\\s*\\)[\\s\\S]*?\\.(?:json|send|end)\\s*\\((?:'[^'\\n]*'|\"[^\"\\n]*\"|`(?:[^`$]|\\$(?!\\{))*`|`(?=[^`]*\\$\\{)|(?!\\)\\s*;|\\)\\s*\\n)[^'\"`])*?\\b\\1\\b(?!\\s*:)",
           "negate": true
         },
         {
-          "label": "Handle the res.headersSent case with next(err)",
+          "label": "Forward already-started responses with next(err)",
           "pattern": "headerssent[^}]*?\\bnext\\s*\\(\\s*\\w+\\s*\\)"
         }
       ]
     },
     {
-      "title": "Make PR's GitHub Actions workflow secure",
+      "title": "Secure a pull-request GitHub Actions workflow",
       "level": "ยาก",
       "tags": "CI/CD security · least privilege · script injection · supply chain",
       "lang": "yaml",
-      "prompt": "This public repo uses a workflow to check for pull requests that can accept PR from the fork. We made it safe by changing the trigger to not be pull_request_target (this trigger runs with the permissions of the main repo, and this workflow also checks out code from the PR, which GitHub has identified as dangerous). actions/checkout The new version blocks this by default, so the old workflow turned on allow-unsafe-pr-checkout . to bypass protection), limit GITHUB_TOKEN to read contents only, pin every action with a commit SHA 40 placeholder tag, pass the PR title to the shell via an environment variable instead of inserting ${{ }} into the script, and install dependencies with npm ci that follow only the lockfile, and still need to check for new titles when the user edits the PR name (event edited).",
+      "prompt": "Secure this public repository’s workflow, which accepts pull requests from forks. Use pull_request instead of pull_request_target: the latter runs with base-repository privileges, making checkout of untrusted PR code dangerous. The original workflow bypasses newer actions/checkout protection with allow-unsafe-pr-checkout. Limit GITHUB_TOKEN to contents: read, pin every action to its supplied 40-character commit SHA, pass the PR title through a step environment variable rather than interpolating it into shell code, and use npm ci. Keep the edited event so title changes are checked too.",
       "context": "GitHub Actions on public repo\nNo secrets are required for this task.\nactions/checkout v7.0.1 = 3d3c42e5aac5ba805825da76410c181273ba90b1\nactions/setup-node v7.0.0 = 820762786026740c76f36085b0efc47a31fe5020\nPR title must begin with feat or fix.",
       "starter": "name: pr-check\non:\n  pull_request_target:\n    types: [opened, synchronize, edited]\n\njobs:\n  check:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v7\n        with:\n          ref: ${{ github.event.pull_request.head.sha }}\n          allow-unsafe-pr-checkout: true\n      - uses: actions/setup-node@v7\n        with:\n          node-version: 24\n      - name: Check PR title\n        run: |\n          case \"${{ github.event.pull_request.title }}\" in\n            feat*|fix*) ;;\n            *) echo \"PR title must start with feat or fix\"; exit 1 ;;\n          esac\n      - run: npm install\n      - run: npm test\n",
       "solution": "name: pr-check\non:\n  pull_request:\n    types: [opened, synchronize, edited]\n\npermissions:\n  contents: read\n\njobs:\n  check:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1\n      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0\n        with:\n          node-version: 24\n      - name: Check PR title\n        env:\n          TITLE: ${{ github.event.pull_request.title }}\n        run: |\n          case \"$TITLE\" in\n            feat*|fix*) ;;\n            *) echo \"PR title must start with feat or fix\"; exit 1 ;;\n          esac\n      - run: npm ci\n      - run: npm test",
@@ -612,7 +612,7 @@
           "pattern": "permissions\\s*:\\s*(?:\\{\\s*(?:[\\w-]+\\s*:\\s*none\\s*,\\s*)*contents\\s*:\\s*read\\s*(?:,\\s*[\\w-]+\\s*:\\s*none\\s*)*,?\\s*\\}|\\n([ \\t]+)(?:[\\w-]+[ \\t]*:[ \\t]*none[ \\t]*\\n\\1)*contents[ \\t]*:[ \\t]*read[ \\t]*(?:\\n\\1[\\w-]+[ \\t]*:[ \\t]*none[ \\t]*)*(?!\\n(?:[ \\t]*\\n)*\\1[ \\t]*\\w))"
         },
         {
-          "label": "Pin actions/checkout with 40 commit SHA characters.",
+          "label": "Pin actions/checkout to a 40-character commit SHA",
           "pattern": "uses:\\s*actions/checkout@[0-9a-f]{40}\\b"
         },
         {
@@ -621,7 +621,7 @@
           "negate": true
         },
         {
-          "label": "Pass title through step's env",
+          "label": "Pass the PR title through the step environment",
           "pattern": "env:\\s*\\n(?:\\s*[\\w-]+:[^\\n]*\\n)*?\\s*[\\w-]+:\\s*[\"\\x27]?\\$\\{\\{\\s*github\\.event\\.pull_request\\.title\\s*\\}\\}|env:\\s*\\{[^}\\n]*?[\\w-]+:\\s*[\"\\x27]?\\$\\{\\{\\s*github\\.event\\.pull_request\\.title\\s*\\}\\}"
         },
         {
@@ -630,7 +630,7 @@
           "negate": true
         },
         {
-          "label": "Check for new title when editing PR title (types are edited)",
+          "label": "Handle the edited event to recheck changed PR titles",
           "pattern": "types\\s*:\\s*(?:\\[[^\\]]*\\bedited\\b|(?:\\n\\s*-\\s*[\\w]+[ \\t]*)*?\\n\\s*-\\s*edited\\b)"
         },
         {
@@ -649,17 +649,17 @@
     {
       "title": "OWASP Cheat Sheet Series",
       "url": "https://cheatsheetseries.owasp.org/",
-      "note": "Guidelines for each topic Short and can be used immediately"
+      "note": "Focused, practical guidance for individual security topics"
     },
     {
       "title": "OWASP Password Storage Cheat Sheet",
       "url": "https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html",
-      "note": "Recommended values ​​of argon2id, scrypt, bcrypt"
+      "note": "Recommended parameters for argon2id, scrypt, and bcrypt"
     },
     {
       "title": "OWASP Credential Stuffing Prevention Cheat Sheet",
       "url": "https://cheatsheetseries.owasp.org/cheatsheets/Credential_Stuffing_Prevention_Cheat_Sheet.html",
-      "note": "Prevent leaked code from being tested on our system."
+      "note": "Prevent attacks that reuse leaked username/password pairs"
     },
     {
       "title": "OWASP Application Security Verification Standard (ASVS)",

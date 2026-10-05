@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { EXAMS, TRACKS } from '../content.js';
 import { useI18n } from '../i18n.jsx';
-import { LETTERS, makeItem, shuffle } from '../lib/random.js';
+import { LETTERS, makeItem, shuffle, drawExamQuestions } from '../lib/random.js';
 import { Code, Mark } from './ui.jsx';
 
 // Expand content/exams.json into concrete exams for the current topics.
@@ -29,24 +29,14 @@ export function examDefs(topics, definitions = EXAMS, trackDefinitions = TRACKS,
   return defs;
 }
 
+let nextAttemptId = 0;
 export function newExam(def, topics) {
   const byId = (id) => (topics || []).find((t) => t.id === id);
-  return { def, items: [], ans: {}, flag: {}, i: 0, start: Date.now(), limit: def.minutes * 60, confirm: false, needsItems: !topics, byId };
+  return { attemptId: ++nextAttemptId, def, items: [], ans: {}, flag: {}, i: 0, start: Date.now(), limit: def.minutes * 60, confirm: false, needsItems: !topics, byId };
 }
 
 function buildItems(def, topics) {
-  const ts = def.topicIds.map((id) => topics.find((t) => t.id === id)).filter(Boolean);
-  let picks = [];
-  if (def.pick.perTopic) {
-    for (const t of ts) shuffle(t.questions.map((_, i) => i)).slice(0, def.pick.perTopic).forEach((i) => picks.push([t, i]));
-  } else {
-    const pools = ts.map((t) => shuffle(t.questions.map((_, i) => [t, i])));
-    for (let k = 0; picks.length < def.total && k < 5000; k++) {
-      const pool = pools[k % pools.length];
-      if (pool.length) picks.push(pool.shift());
-    }
-  }
-  return shuffle(picks).map(([t, i]) => makeItem(t, i));
+  return shuffle(drawExamQuestions(def, topics)).map(([t, i]) => makeItem(t, i));
 }
 
 const clock = (sec) => {
@@ -56,9 +46,13 @@ const clock = (sec) => {
 
 export default function Exams({ topics, exam, setExam, result, setResult }) {
   const { t, tracks, exams, language } = useI18n();
+  const preparedAttempts = useRef(new Set());
   // A newly started exam picks its questions from the current topics.
   useEffect(() => {
-    if (exam && exam.needsItems) setExam({ ...exam, items: buildItems(exam.def, topics), needsItems: false, start: Date.now() });
+    if (exam && exam.needsItems && !preparedAttempts.current.has(exam.attemptId)) {
+      preparedAttempts.current.add(exam.attemptId);
+      setExam({ ...exam, items: buildItems(exam.def, topics), needsItems: false, start: Date.now() });
+    }
   }, [exam, topics, setExam]);
 
   if (exam && !exam.needsItems) return <ExamRunner exam={exam} setExam={setExam} onSubmit={(auto) => { setResult(score(exam, auto)); setExam(null); }} />;

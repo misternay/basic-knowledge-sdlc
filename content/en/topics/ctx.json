@@ -18,7 +18,7 @@
     {
       "tier": "must",
       "title": "Keep system prompts at the right level of detail",
-      "body": "Two extremes fail: writing brittle if/else instructions for every case, and being so vague that the model cannot tell what is expected or is assumed to share our context. A good level of detail states the goal, decision principles, and important constraints clearly while leaving room for judgment. Start with the shortest prompt that works with a capable model, test it, then add specific instructions only for cases where it actually fails."
+      "body": "Two extremes fail: writing brittle if/else instructions for every case, and writing vague guidance that leaves the model unsure what is expected or assumes it shares our context. A good level of detail states the goal, decision principles, and important constraints clearly while leaving room for judgment. Start with the shortest prompt that works with a capable model, test it, then add specific instructions only for cases where it actually fails."
     },
     {
       "tier": "must",
@@ -39,7 +39,7 @@
     {
       "tier": "should",
       "title": "Compaction and clearing old tool results",
-      "body": "When a conversation is close to filling the window, summarize what is still needed—architecture decisions, open bugs, and implementation details—then start fresh with that summary and recently used files. Completed old tool results are the safest material to discard. When designing a summary prompt, first capture everything, then make it concise; a detail removed now may become important later."
+      "body": "When a conversation is close to filling the window, summarize what is still needed—architecture decisions, open bugs, and implementation details—then start fresh with that summary and recently used files. Old tool results that have already been used are the safest material to discard. When designing a summary prompt, first capture everything, then make it concise; a detail removed now may become important later."
     },
     {
       "tier": "should",

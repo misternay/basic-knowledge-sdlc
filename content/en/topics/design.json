@@ -72,7 +72,7 @@
     },
     {
       "tier": "must",
-      "title": "DRY: duplicate knowledge, not just similar-looking code",
+      "title": "DRY: duplicated knowledge versus similar-looking code",
       "body": "DRY, from The Pragmatic Programmer, means “Every piece of knowledge must have a single, unambiguous, authoritative representation within a system.” If the same rule, such as the minimum order for free shipping, is written in five places, changing only one creates inconsistent behavior and bugs. But two code blocks that look alike by coincidence may represent different rules; do not rush to combine them. When one rule later changes, the shared function often grows flags and conditionals. Sandi Metz calls this the wrong abstraction and writes that “duplication is far cheaper than the wrong abstraction” (see her article in the references below).",
       "code": "// ซ้ำจริง: กฎเดียวกันอยู่หลายที่ ต้องมีที่เดียว\nconst FREE_SHIPPING_MIN = 1000;\nconst shippingFee = (total) => (total >= FREE_SHIPPING_MIN ? 0 : 50);\n\n// ซ้ำแต่คนละความรู้: อย่ารีบรวม\nconst isValidUsername = (s) => s.length >= 3 && s.length <= 20; // กฎของผลิตภัณฑ์\nconst isValidSku = (s) => s.length >= 3 && s.length <= 20;      // กฎของระบบคลัง",
       "exam": true,
@@ -96,7 +96,7 @@
     {
       "tier": "must",
       "title": "Change an API without breaking existing clients",
-      "body": "Within one version, adding something new, such as an endpoint, field, or enum value used only in requests, is usually backward compatible. Removing or renaming a field (equivalent to removing and adding it), changing its type even if the wire format is compatible, changing a default, or adding a required field to an existing request is a breaking change under Google API’s AIP-180 guidance. This matters because old clients, such as mobile apps users have not updated, will keep making requests. If a breaking change is necessary, AIP-185 (versioning, in the references) recommends a new major version such as /v2. Versions should run side by side during migration, and announce a clear deprecation period before an older version is shut down.",
+      "body": "Within one version, adding something new, such as an endpoint, field, or enum value used only in requests, is usually backward compatible. Removing or renaming a field (equivalent to removing and adding it), changing its type even if the wire format is compatible, changing a default, or adding a required field to an existing request is a breaking change under Google API’s AIP-180 guidance. This matters because old clients, such as mobile apps users have not updated, will keep making requests. If a breaking change is necessary, AIP-185 (versioning, in the references) recommends a new major version such as /v2. Run versions side by side during migration and announce a clear deprecation period before shutting down an older version.",
       "code": "// v1 ตอบ { \"id\": 7, \"phone\": \"0812345678\" }\n// เข้ากันได้:  เพิ่ม \"nickname\" (client เก่าเมินได้)\n// breaking:    เปลี่ยน \"phone\" เป็น \"phone_number\"\n// breaking:    เปลี่ยน \"id\" จากตัวเลขเป็น string",
       "exam": true,
       "ref": "https://google.aip.dev/180"
