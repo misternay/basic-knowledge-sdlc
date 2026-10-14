@@ -9,8 +9,8 @@ import { parseMarkdown } from '../src/lib/markdown.js';
 const dir = new URL('../content/topics/', import.meta.url).pathname;
 const files = readdirSync(dir).filter((f) => /\.(json|md)$/.test(f));
 
-test('there are 14 topic files', () => {
-  assert.equal(files.length, 14);
+test('there are 17 topic files', () => {
+  assert.equal(files.length, 17);
 });
 
 for (const f of files) {

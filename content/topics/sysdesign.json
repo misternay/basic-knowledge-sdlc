@@ -1,0 +1,747 @@
+{
+  "id": "sysdesign",
+  "code": "O4",
+  "track": "delivery",
+  "title": "System Design Fundamentals",
+  "blurb": "คิดเรื่อง scale, cache, การแบ่งข้อมูล, queue และ consistency อย่างเป็นขั้นตอน แล้วอธิบาย trade-off ได้ด้วยเหตุผลและตัวเลขคร่าว ๆ",
+  "mustKnow": [
+    {
+      "tier": "must",
+      "title": "เริ่มจาก requirement ไม่ใช่จากกล่องในแผนภาพ",
+      "body": "โจทย์ system design มักกว้างโดยตั้งใจ ขั้นแรกจึงต้องถามให้ชัดว่าระบบต้องทำอะไร (functional เช่น ย่อ URL และ redirect) และต้องดีแค่ไหนในแบบที่วัดได้ (non-functional เช่น p99 latency, availability, ปริมาณข้อมูล, สัดส่วนอ่านต่อเขียน) แล้วจดสมมติฐานไว้ให้ผู้ฟังเห็น แนวทาง NALSD ของ Google SRE เริ่มจากโจทย์ เก็บ requirement แล้วปรับแบบให้ซับซ้อนขึ้นทีละรอบจนใช้ได้จริง พร้อมบอกว่าแต่ละรอบแลกอะไรกับอะไร กับดักที่พบบ่อยคือวาด queue, cache และ microservices ตั้งแต่นาทีแรกก่อนรู้ว่าโหลดจริงต้องการหรือไม่ (การเขียน non-functional ให้วัดได้ดูหัวข้อ dev)",
+      "exam": false,
+      "ref": "https://sre.google/workbook/non-abstract-design/"
+    },
+    {
+      "tier": "must",
+      "title": "Back-of-the-envelope: ประมาณลำดับขนาด ไม่ใช่ตัวเลขแม่น",
+      "body": "การประมาณคร่าว ๆ ช่วยตัดสินว่าเครื่องเดียวพอหรือไม่และคอขวดน่าจะอยู่ตรงไหน โดยปัดเป็นเลขกลม เช่น หนึ่งวันมี 86,400 วินาที ปัดเป็นราว 10^5 และบอกผู้ฟังทุกครั้งว่าตัวคูณช่วง peak เป็นสมมติฐาน ส่วน latency ตารางค่าประมาณที่รู้จักกันดีในบทความของ Peter Norvig ระบุว่าอ่าน main memory ราว 100 ns, disk seek ราว 8 ms และส่งแพ็กเก็ตจากสหรัฐฯ ไปยุโรปและกลับราว 150 ms ตัวเลขชุดนี้มาจาก PC ยุคที่บทความเขียน (disk ในตารางคือจานหมุน) จึงใช้ได้แค่เทียบลำดับขนาด เช่น memory เร็วกว่า disk seek หลายหมื่นเท่า ห้ามนำไปพูดเป็นค่าจริงของเครื่องปัจจุบัน",
+      "code": "10^7 ผู้ใช้ต่อวัน × 10 request = 10^8 request/วัน\n10^8 ÷ ~10^5 วินาที/วัน      ≈ 1,000 QPS (เฉลี่ย)\npeak สมมติ ×3                ≈ 3,000 QPS  <- สมมติฐาน ต้องพูดออกมา\n10^7 รายการใหม่/วัน × ~1 KB   ≈ 10 GB/วัน ≈ 3.65 TB/ปี",
+      "exam": true,
+      "ref": "https://norvig.com/21-days.html"
+    },
+    {
+      "tier": "must",
+      "title": "Latency กับ throughput และ tail latency",
+      "body": "Latency คือเวลาที่ request หนึ่งใช้ ส่วน throughput คือปริมาณงานที่ระบบทำเสร็จต่อหน่วยเวลา สองค่านี้เป็นคนละเรื่อง การเพิ่มเครื่องอาจเพิ่ม throughput ได้โดยที่ latency ของแต่ละ request ไม่ลดลงเลย ค่าเฉลี่ยยังซ่อนหางของการกระจายไว้ Google SRE ยกตัวอย่างระบบที่ request ทั่วไปใช้ราว 50 ms แต่ 5% ช้ากว่า 20 เท่า และแนะนำให้มองค่าวัดเป็นการกระจาย จึงควรตั้งเป้าและดูกราฟเป็น percentile เช่น p50 กับ p99 แทนค่าเฉลี่ย",
+      "exam": true,
+      "ref": "https://sre.google/sre-book/service-level-objectives/"
+    },
+    {
+      "tier": "must",
+      "title": "Vertical กับ horizontal scaling",
+      "body": "Vertical scaling (scale up) คือเพิ่ม CPU หรือ RAM ให้เครื่องเดิม ทำง่ายเพราะแทบไม่ต้องแก้โค้ด แต่โดยทั่วไปขยายได้ไม่เกินขนาดเครื่องใหญ่สุดที่มีและยังเป็นเครื่องเดียว ส่วน horizontal scaling (scale out) คือเพิ่มจำนวน instance แล้วกระจายโหลด ซึ่งต้องออกแบบให้ instance ใดก็รับ request ใดก็ได้ Azure Architecture Center เตือนว่า scale out ไม่ได้แก้ทุกปัญหา ถ้าคอขวดอยู่ที่ database การเพิ่ม web server ไม่ช่วย ต้องหาและแก้คอขวดก่อน และส่วนที่มี state มักเป็นคอขวด",
+      "exam": true,
+      "ref": "https://learn.microsoft.com/en-us/azure/architecture/guide/design-principles/scale-out"
+    },
+    {
+      "tier": "must",
+      "title": "Stateless service: ย้าย state ออกจาก process",
+      "body": "Twelve-Factor App กำหนดให้ process เป็น stateless และ share-nothing ข้อมูลที่ต้องอยู่ต่อต้องเก็บใน backing service เช่น database หรือ cache ภายนอก ผลคือ instance ใดก็รับ request ใดก็ได้ จึงเพิ่มลดเครื่องหรือ restart ได้โดยผู้ใช้ไม่หลุด กับดักที่พบบ่อยคือเก็บ session ไว้ใน memory ของเครื่องแล้วพึ่ง sticky session ซึ่ง Twelve-Factor ระบุตรง ๆ ว่าผิดหลักและไม่ควรพึ่ง",
+      "code": "// ไม่ดี: session อยู่ใน memory ของ instance นี้เท่านั้น\nconst sessions = new Map();\n\n// ดีกว่า: เก็บใน store ที่ทุก instance เข้าถึงได้ พร้อมอายุ\nawait redis.set(`sess:${id}`, JSON.stringify(data), { EX: 1800 });",
+      "exam": false,
+      "ref": "https://12factor.net/processes"
+    },
+    {
+      "tier": "must",
+      "title": "Load balancer แบบ Layer 4 กับ Layer 7",
+      "body": "Load balancer กระจาย request ไปยังหลาย backend แบบ Layer 4 ทำงานระดับ TCP/UDP โดยไม่อ่านเนื้อหา HTTP ส่วนแบบ Layer 7 อ่าน HTTP ได้ จึง route ตาม path, host หรือ header ได้ เอกสาร Google Cloud ระบุว่า Application Load Balancer (L7) กระจาย traffic HTTP(S) ส่วน Network Load Balancer (L4) รองรับ TCP, UDP หรือ IP protocol อื่น และแนะนำแบบ passthrough เมื่อต้องการเก็บ source IP ของ client ไว้ หลักเลือกง่าย ๆ คือต้องการ routing ตามเนื้อหา request ให้ใช้ L7 ถ้าเป็น traffic ที่ไม่ใช่ HTTP หรือต้องส่งต่อแพ็กเก็ตโดยไม่แตะเนื้อหาให้ใช้ L4",
+      "exam": true,
+      "ref": "https://cloud.google.com/load-balancing/docs/load-balancing-overview"
+    },
+    {
+      "tier": "must",
+      "title": "Health check: ส่ง traffic เฉพาะเครื่องที่พร้อม",
+      "body": "Load balancer ส่ง request ทดสอบไปยังแต่ละ backend เป็นระยะ ใน AWS ALB ถ้าล้มเหลวติดกันเกิน UnhealthyThresholdCount จะถูกถอดจากการรับ traffic และใส่กลับเมื่อผ่านติดกันเกิน HealthyThresholdCount ในทางปฏิบัติ endpoint ที่ใช้ตรวจควรบอกว่า instance นั้นรับงานได้จริง ถ้าไปผูกกับ dependency ที่ทุก instance ใช้ร่วมกัน เช่น database ตัวเดียว เมื่อ database สะดุด ทุก instance ก็อาจ unhealthy พร้อมกัน สำหรับกรณีที่ทุก target unhealthy เอกสาร ALB ระบุว่าจะ fail open คือส่ง traffic ให้ทุก target ตามอัลกอริทึมปกติ",
+      "exam": false,
+      "ref": "https://docs.aws.amazon.com/elasticloadbalancing/latest/application/target-group-health-checks.html"
+    },
+    {
+      "tier": "must",
+      "title": "Single point of failure และ redundancy",
+      "body": "Single point of failure (SPOF) คือส่วนที่ถ้าพังแล้วทั้งระบบพัง เช่น database ตัวเดียวหรือ load balancer ตัวเดียว วิธีแก้คือไล่ดูทุกจุดบนเส้นทางสำคัญว่ามีสำเนาหรือไม่ และระบบเลี่ยงตัวที่เสียได้เองหรือไม่ Azure Architecture Center ให้สูตรอุดมคติว่า ถ้ามี N ตัวที่เท่ากัน เสียแบบอิสระต่อกัน และไม่มี state ที่หายไปพร้อมตัวที่เสีย โดยแต่ละตัวมี availability A ระบบรวมจะเป็น 1 - (1 - A)^N สูตรนี้ใช้ได้เฉพาะเมื่อเงื่อนไขครบ ถ้าทุกสำเนาอยู่ใน data center เดียวกันก็เสียพร้อมกันได้ จึงมีการกระจายข้าม availability zone หรือ region ซึ่งแลกกับต้นทุนและความซับซ้อน",
+      "exam": false,
+      "ref": "https://learn.microsoft.com/en-us/azure/architecture/guide/design-principles/redundancy"
+    },
+    {
+      "tier": "must",
+      "title": "Cache-aside, TTL และลำดับการ invalidate",
+      "body": "Cache-aside (lazy loading) คือแอปอ่าน cache ก่อน ถ้าไม่พบ (cache miss) จึงอ่านจาก database แล้วเขียนลง cache ไว้ให้ครั้งถัดไป ตอนแก้ข้อมูลให้ update database ก่อนแล้วจึงลบ key ใน cache เพราะถ้าลบก่อน อาจมี request อ่านค่าเก่าจาก database แล้วใส่กลับเข้า cache ก่อนที่ update จะเสร็จ TTL ต้องเข้ากับรูปแบบการใช้ข้อมูล สั้นเกินไปทำให้ไปถาม database บ่อยจน cache แทบไม่ช่วย ยาวเกินไปทำให้ผู้ใช้เห็นข้อมูลเก่า",
+      "code": "async function getProduct(id) {\n  const key = `product:${id}`;\n  const hit = await cache.get(key);\n  if (hit) return JSON.parse(hit);\n  const row = await db.findProduct(id);\n  await cache.set(key, JSON.stringify(row), { EX: 300 }); // TTL 5 นาที\n  return row;\n}\n\nasync function updateProduct(id, data) {\n  await db.updateProduct(id, data);  // 1. เขียน database ก่อน\n  await cache.del(`product:${id}`);  // 2. แล้วจึงลบ key\n}",
+      "exam": true,
+      "ref": "https://learn.microsoft.com/en-us/azure/architecture/patterns/cache-aside"
+    },
+    {
+      "tier": "must",
+      "title": "Read replica และ replication lag",
+      "body": "Read replica รับ query อ่านแทน primary จึงช่วยระบบที่อ่านมากกว่าเขียน แต่ streaming replication ของ PostgreSQL เป็นแบบ asynchronous โดยค่าเริ่มต้น replica จึงตามหลัง primary ได้ ผู้ใช้ที่เพิ่งบันทึกแล้วอ่านจาก replica อาจไม่เห็นข้อมูลของตัวเอง และถ้า primary ล่มก่อนส่งข้อมูลไป transaction ที่ commit แล้วบางส่วนอาจหาย ทางเลือกคืออ่านจาก primary ในช่วงหลังเขียน หรือเปิด synchronous replication ซึ่งแลกกับเวลา commit ที่นานขึ้น ก่อนเพิ่ม replica ควรดู query และ index ก่อนเสมอ (ดูหัวข้อ sql)",
+      "exam": false,
+      "ref": "https://www.postgresql.org/docs/current/warm-standby.html"
+    },
+    {
+      "tier": "must",
+      "title": "Availability เป็นเลขเก้า และ error budget",
+      "body": "Availability มักบอกเป็นจำนวนเลขเก้า และเก้าที่เพิ่มแต่ละตัวคือ downtime ที่ยอมได้ลดลงราวสิบเท่า Google SRE ยกตัวอย่างว่าเป้า 99.99% ยอมให้ล่มได้ราว 52.56 นาทีต่อปี ส่วนที่เหลือจาก SLO คือ error budget ถ้ายังเหลือก็ปล่อย release ต่อได้ ถ้าใช้หมดก็ชะลอ release แล้วลงแรงกับความเสถียร (SLO เบื้องต้นดูหัวข้อ dev) ส่วนการคิดแบบอนุกรมเป็นหลักความน่าจะเป็นพื้นฐาน: ถ้า request ต้องผ่านหลายส่วนที่ต้องทำงานทั้งหมด และแต่ละส่วนเสียแบบอิสระต่อกัน availability รวมคือผลคูณ จึงไม่มีทางสูงกว่าส่วนที่แย่ที่สุด",
+      "code": "99.9%   -> ล่มได้ราว 0.1% × 8,760 ชม. ≈ 8.76 ชม./ปี\n99.99%  -> ราว 52.56 นาที/ปี\nคิดเลขเอง: สองส่วนที่ต้องทำงานคู่กัน 99.9% × 99.9% ≈ 99.8%",
+      "exam": false,
+      "ref": "https://sre.google/sre-book/embracing-risk/"
+    },
+    {
+      "tier": "should",
+      "title": "Write-through: cache สดกว่า แต่ใหญ่และแพงขึ้น",
+      "body": "Write-through คือเมื่อเขียน database แล้วอัปเดต cache ทันที cache จึงตรงกับ database มากกว่าและมีโอกาส hit สูงขึ้น ข้อเสียคือข้อมูลที่แทบไม่มีคนอ่านก็ถูกเขียนลง cache ด้วย ทำให้ cache ใหญ่และแพงขึ้น เอกสารของ AWS ระบุว่า write-through แทบทุกครั้งใช้คู่กับ lazy loading (cache-aside) เพราะเมื่อข้อมูลไม่อยู่ใน cache หรือหมดอายุ ก็ยังต้องโหลดใหม่ตอน miss อยู่ดี",
+      "exam": false,
+      "ref": "https://docs.aws.amazon.com/whitepapers/latest/database-caching-strategies-using-redis/caching-patterns.html"
+    },
+    {
+      "tier": "should",
+      "title": "Cache stampede: key ร้อนหมดอายุพร้อมกัน",
+      "body": "Cache stampede คือ cascading failure แบบหนึ่ง เกิดเมื่อ key ที่ถูกอ่านหนักหมดอายุ แล้ว request จำนวนมากพบ miss พร้อมกันจึงคำนวณหรือ query ค่าเดิมซ้ำพร้อมกันจน backend รับไม่ไหว วิธีบรรเทาที่รู้จักมีสามแบบ: ล็อกต่อ key ให้มีผู้คำนวณใหม่เพียงรายเดียว, ให้ process ภายนอกคำนวณค่าใหม่ไว้ก่อนหมดอายุ และ probabilistic early expiration ที่แต่ละ process สุ่มตัดสินใจคำนวณใหม่ก่อนหมดอายุ โดยโอกาสสูงขึ้นเมื่อใกล้เวลาหมดอายุ การเพิ่ม TTL ให้ยาวขึ้นเฉย ๆ แค่เลื่อนเวลาที่ stampede จะเกิด",
+      "exam": false,
+      "ref": "https://en.wikipedia.org/wiki/Cache_stampede"
+    },
+    {
+      "tier": "should",
+      "title": "CDN และ Cache-Control สำหรับ shared cache",
+      "body": "CDN เป็น shared cache ที่อยู่ระหว่างผู้ใช้กับ origin ควบคุมด้วย header Cache-Control: s-maxage กำหนดอายุใน shared cache โดยเฉพาะและแทนค่า max-age สำหรับ shared cache, private บอกว่าเก็บได้เฉพาะ private cache เช่น browser และ immutable บอกว่าเนื้อหาจะไม่เปลี่ยนตลอดช่วงที่ยังสด ไฟล์ static ที่ใส่ hash ไว้ในชื่อไฟล์จึงตั้ง max-age ยาวคู่กับ immutable ได้ เพราะเมื่อเนื้อหาเปลี่ยน URL ก็เปลี่ยนตาม กับดักที่อันตรายคือหน้าที่มีข้อมูลส่วนตัวถูกตั้งเป็น public จน CDN ส่งข้อมูลของคนหนึ่งให้อีกคน",
+      "code": "# ไฟล์ static ที่มี hash ในชื่อ เช่น app.3f9a1c.js\nCache-Control: public, max-age=31536000, immutable\n# หน้า product ที่ทุกคนเห็นเหมือนกัน: CDN เก็บ 60 วินาที\nCache-Control: public, s-maxage=60, max-age=0\n# หน้าบัญชีผู้ใช้\nCache-Control: private, no-store",
+      "exam": false,
+      "ref": "https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Cache-Control"
+    },
+    {
+      "tier": "should",
+      "title": "Sharding: เลือก shard key และระวัง hot key",
+      "body": "Sharding คือแบ่งข้อมูลตาม shard key ไปไว้หลายฐานข้อมูล เมื่อข้อมูลหรือโหลดเกินที่เครื่องเดียวรับได้ Azure อธิบายกลยุทธ์หลัก เช่น range (ทำ range query ง่าย แต่โหลดมักกระจุกที่ key ติดกัน เช่น ข้อมูลล่าสุด), hash (กระจายสม่ำเสมอกว่า แต่ rebalance ยากถ้าไม่ใช้ consistent hashing เช่น hash(key) mod N ทำให้ key ส่วนใหญ่ต้องย้ายเมื่อเปลี่ยนจำนวน shard) และ lookup (มีตาราง mapping ปรับย้ายได้ยืดหยุ่นแต่ต้องค้นตำแหน่งเพิ่ม) ควรเลือก shard key ให้ query หลักจบใน shard เดียว และระวัง hot key เช่น tenant ใหญ่รายเดียวที่รับโหลดมากจน shard ของตัวเองรับไม่ไหว",
+      "exam": true,
+      "ref": "https://learn.microsoft.com/en-us/azure/architecture/patterns/sharding"
+    },
+    {
+      "tier": "should",
+      "title": "Message queue เป็น buffer รับ peak",
+      "body": "Queue ที่คั่นระหว่างผู้ส่งงานกับ service ปลายทางทำหน้าที่เป็น buffer ช่วยให้ช่วง peak ไม่ถล่ม service โดยตรง service ดึงงานไปทำตามอัตราที่ตัวเองรับไหว และผู้ส่งไม่ต้องรอผล จึงเหมาะกับงานอย่างส่งอีเมลหรือสร้างรายงาน Azure ระบุว่ารูปแบบนี้ไม่เหมาะเมื่อผู้เรียกต้องการคำตอบแบบ latency ต่ำ และถ้าอัตราเข้าเฉลี่ยสูงกว่าอัตราที่ consumer ทำได้ queue จะยาวขึ้นและ latency เพิ่มขึ้นเรื่อย ๆ queue จึงไม่ได้เพิ่มความสามารถของ service ต้องเฝ้าดูความยาวและอายุของงานในคิวด้วย",
+      "exam": false,
+      "ref": "https://learn.microsoft.com/en-us/azure/architecture/patterns/queue-based-load-leveling"
+    },
+    {
+      "tier": "should",
+      "title": "At-least-once delivery ต้องคู่กับ idempotent consumer",
+      "body": "เอกสาร Kafka แยก delivery semantics เป็น at-most-once (อาจหายแต่ไม่ซ้ำ), at-least-once (ไม่หายแต่อาจซ้ำ) และ exactly-once ฝั่ง consumer ถ้า commit ตำแหน่งก่อนประมวลผลแล้ว crash ข้อความจะหาย ถ้าประมวลผลก่อนแล้วค่อย commit ข้อความอาจถูกทำซ้ำ และค่าเริ่มต้นของ Kafka คือ at-least-once จึงต้องทำ consumer ให้ idempotent เช่น บันทึก event id ด้วย unique constraint หรือ upsert ตาม primary key exactly-once ของ Kafka ครอบคลุมงานที่อ่านและเขียนระหว่าง topic ของ Kafka ส่วนระบบปลายทางอื่น เช่น การส่งอีเมล ต้องอาศัยความร่วมมือจากระบบนั้นเอง",
+      "code": "// ประมวลผลก่อน แล้วค่อย commit offset (at-least-once)\nawait db.query(\n  `INSERT INTO payments (event_id, order_id, amount)\n   VALUES ($1, $2, $3)\n   ON CONFLICT (event_id) DO NOTHING`,  // ข้อความซ้ำไม่สร้างแถวซ้ำ\n  [evt.id, evt.orderId, evt.amount]\n);\nawait consumer.commit(msg.offset);",
+      "exam": true,
+      "ref": "https://kafka.apache.org/43/design/design/"
+    },
+    {
+      "tier": "should",
+      "title": "ลำดับของข้อความรับประกันเฉพาะใน partition",
+      "body": "Kafka เขียน event ที่มี key เดียวกัน (เช่น customer id) ลง partition เดียวกัน และรับประกันว่า consumer ของ partition นั้นอ่านได้ตามลำดับที่เขียน แต่ข้าม partition ไม่มีลำดับรวม จึงต้องเลือก key ตามสิ่งที่ต้องเรียงจริง เช่น event ของ order เดียวกันใช้ order id เป็น key ถ้าไม่ใส่ key หรือใช้ key แบบสุ่ม event ของ order เดียวกันอาจไปคนละ partition แล้วถูกประมวลผลสลับลำดับ ส่วน key ที่มีค่าเป็นไปได้ไม่กี่แบบ เช่น ประเทศ มักทำให้บาง partition รับโหลดมากเกินไป (หลักเดียวกับ shard key ที่ควรมีค่าหลากหลาย)",
+      "exam": false,
+      "ref": "https://kafka.apache.org/43/getting-started/introduction/"
+    },
+    {
+      "tier": "should",
+      "title": "Rate limiting: token bucket และ sliding window",
+      "body": "Token bucket ให้แต่ละผู้ใช้มี bucket ที่ถูกเติม token อย่างสม่ำเสมอ ทุก request หยิบหนึ่ง token และถ้า bucket ว่างก็ปฏิเสธ ขนาด bucket จึงกำหนดว่า burst ได้มากสุดเท่าไร Stripe ใช้อัลกอริทึมนี้โดยเก็บ bucket ไว้ใน Redis ส่วน sliding window counter ที่ Cloudflare อธิบาย ประมาณอัตราจาก counter ของหน้าต่างก่อนหน้าถ่วงตามสัดส่วนที่ยังคาบเกี่ยว บวกกับ counter ของหน้าต่างปัจจุบัน ช่วยลดปัญหา traffic พุ่งที่ขอบหน้าต่างของ fixed window เมื่อเกินลิมิตให้ตอบ 429 Too Many Requests และอาจใส่ Retry-After ตาม RFC 6585",
+      "code": "// sliding window counter, ลิมิต 50 ครั้ง/นาที\n// นาทีก่อนมี 42 ครั้ง, นาทีนี้ผ่านไป 15 วินาทีมี 18 ครั้ง\nrate = 42 * ((60 - 15) / 60) + 18   // = 49.5\n// request ถัดไปทำให้เกิน 50 -> ตอบ 429",
+      "exam": true,
+      "ref": "https://stripe.com/blog/rate-limiters"
+    },
+    {
+      "tier": "advanced",
+      "title": "CAP แบบพูดให้ถูก",
+      "body": "CAP ในฐานะทฤษฎีบทใช้นิยามแคบ: C หมายถึง linearizability คือทุก operation ดูเหมือนเกิดบนสำเนาเดียวเรียงตามเวลา (ไม่ใช่ C ใน ACID) และ A หมายถึงทุก node ที่ยังไม่เสียต้องตอบ request ได้โดยไม่ error ข้อจำกัดเกิดเฉพาะตอนมี network partition ซึ่งระบบต้องเลือกว่าจะยอมเสีย linearizability หรือเสีย availability แบบนั้น Kleppmann ชี้ว่าแม้ Brewer ผู้ตั้ง CAP ก็ยอมรับว่า CAP ทำให้เข้าใจผิดและง่ายเกินไป (ในบทความ CAP Twelve Years Later Brewer เขียนว่าการพูดแบบเลือก 2 ใน 3 ทำให้เข้าใจผิด และ CAP ห้ามแค่การได้ C กับ A ครบถ้วนขณะมี partition ซึ่งเกิดไม่บ่อย) Kleppmann จึงเสนอให้เลิกแปะป้าย CP หรือ AP ให้ฐานข้อมูล แล้วอธิบายพฤติกรรมจริงเมื่อเกิด partition แทน",
+      "exam": true,
+      "ref": "https://martin.kleppmann.com/2015/05/11/please-stop-calling-databases-cp-or-ap.html"
+    },
+    {
+      "tier": "advanced",
+      "title": "PACELC: แม้ไม่มี partition ก็ยังต้องเลือก",
+      "body": "Abadi ขยาย CAP เป็น PACELC: ถ้ามี partition (P) ระบบเลือกระหว่าง availability กับ consistency (A/C) มิฉะนั้น (E) ในเวลาปกติ ระบบที่ replicate ข้อมูลต้องเลือกระหว่าง latency กับ consistency (L/C) เพราะการรอให้ replica ยืนยันใช้เวลา ตัวอย่างในบทความ ซึ่งพูดถึงการตั้งค่าตั้งต้นของระบบในยุคนั้น คือ Dynamo, Cassandra และ Riak เป็น PA/EL ส่วน VoltDB/H-Store และ Megastore เป็น PC/EC ระบบกลุ่มแรกปรับให้ R + W มากขึ้นเพื่อแลก latency กับ consistency ได้ แต่ Abadi ระบุว่าแม้ R + W > N ก็ยังไม่ได้ consistency เต็มตามนิยามของ CAP ข้อคิดสำคัญคือ trade-off ระหว่าง latency กับ consistency เกิดทุกวัน ไม่ใช่เฉพาะตอนเครือข่ายขาด",
+      "exam": false,
+      "ref": "https://www.cs.umd.edu/~abadi/papers/abadi-pacelc.pdf"
+    },
+    {
+      "tier": "advanced",
+      "title": "Consistent hashing และ quorum แบบ Dynamo",
+      "body": "Dynamo กระจายข้อมูลด้วย consistent hashing ซึ่งข้อดีหลักคือเมื่อมี node เข้าหรือออก จะกระทบเฉพาะ node ข้างเคียง ต่างจาก hash(key) mod N ที่ key ส่วนใหญ่ต้องย้าย และใช้ virtual node ให้เครื่องหนึ่งดูแลหลายช่วง เมื่อเครื่องหนึ่งเสียโหลดจึงกระจายไปยังเครื่องที่เหลือ สำหรับข้อมูลที่มี N สำเนา ถ้ากำหนดจำนวน replica ที่ต้องตอบตอนอ่าน (R) และตอนเขียน (W) ให้ R + W > N จะได้ระบบแบบ quorum ที่ชุดอ่านกับชุดเขียนทับกันอย่างน้อยหนึ่งตัว แต่ quorum แบบนี้ยังไม่ได้ consistency ในความหมายของ CAP (ดูเรื่อง PACELC ด้านบน)",
+      "code": "N = 3, W = 2, R = 2  -> R + W = 4 > 3  (quorum-like)\nN = 3, W = 1, R = 1  -> latency ต่ำ แต่อาจอ่านไม่เจอค่าที่เพิ่งเขียน",
+      "exam": false,
+      "ref": "https://www.allthingsdistributed.com/files/amazon-dynamo-sosp2007.pdf"
+    },
+    {
+      "tier": "advanced",
+      "title": "Backpressure, load shedding และ retry ที่ขยายโหลด",
+      "body": "เมื่อโหลดเกินความสามารถ queue ภายใน server จะยาวขึ้น latency และหน่วยความจำเพิ่ม จนอาจล่มต่อกันเป็นทอด ๆ (cascading failure) ระบบจึงควรส่งแรงต้านกลับไปยังผู้ส่ง (backpressure) เช่น จำกัดความยาว queue แล้วปฏิเสธงานใหม่ หรือทำ load shedding คือทิ้ง traffic บางส่วนเมื่อใกล้ overload เพื่อให้งานที่รับไว้ยังเสร็จทัน Google SRE เตือนว่า retry ที่ไม่มีขอบเขตเพิ่มโหลดให้ backend ที่กำลังแย่อยู่แล้ว และแนะนำ retry budget เช่น จำกัดจำนวน retry ต่อนาทีของทั้ง process (retry กับ circuit breaker ดูหัวข้อ design)",
+      "exam": false,
+      "ref": "https://sre.google/sre-book/addressing-cascading-failures/"
+    },
+    {
+      "tier": "advanced",
+      "title": "Observability: golden signals และ distributed tracing",
+      "body": "Google SRE เสนอ four golden signals สำหรับเฝ้าดู service คือ latency, traffic, errors และ saturation (ระบบเต็มแค่ไหน) และย้ำให้แยก latency ของ request ที่สำเร็จกับที่ล้มเหลว เพราะ error ที่ตอบกลับเร็วทำให้ latency รวมดูดีเกินจริง ในระบบที่ request วิ่งผ่านหลาย service ต้องมี distributed tracing ที่ส่ง trace context ต่อไปทุก hop จึงจะต่อ span ของแต่ละ service เป็นเส้นทางเดียวและเห็นว่าช่วงไหนช้า เอกสาร OpenTelemetry เรียกกลไกนี้ว่า context propagation และถือเป็นแกนหลักของ distributed tracing",
+      "exam": false,
+      "ref": "https://sre.google/sre-book/monitoring-distributed-systems/"
+    }
+  ],
+  "questions": [
+    {
+      "prompt": "ในการสัมภาษณ์ คุณได้โจทย์ว่า “ออกแบบระบบย่อ URL” โดยไม่มีรายละเอียดอื่น สิ่งแรกที่ควรทำคืออะไร?",
+      "options": [
+        "วาดแผนภาพที่มี load balancer, Kafka และ Redis ไว้ก่อน แล้วค่อยปรับทีหลัง",
+        "ถามว่าต้องมีฟีเจอร์อะไร ปริมาณ redirect ต่อวันเท่าไร และต้องการ latency แค่ไหน",
+        "เลือกฐานข้อมูล NoSQL ทันที เพราะข้อมูลของระบบย่อ URL เป็นแบบ key-value อยู่แล้ว",
+        "เริ่มเขียนโค้ดฟังก์ชันสร้าง short code เพื่อแสดงว่าทำได้จริง"
+      ],
+      "answer": 1,
+      "explain": "โจทย์กว้างโดยตั้งใจเพื่อดูว่าผู้สมัครเก็บ requirement ทั้ง functional และ non-functional ก่อนตัดสินใจหรือไม่ การวาด component ก่อนรู้โหลดทำให้ไม่มีเหตุผลรองรับว่าทำไมต้องมีของเหล่านั้น"
+    },
+    {
+      "prompt": "ระบบได้ request ราว 200 ล้านครั้งต่อวัน ถ้าปัดหนึ่งวันเป็นราว 10^5 วินาที QPS เฉลี่ยอยู่ในลำดับขนาดใด?",
+      "code": "2 × 10^8 request/วัน\n1 วัน = 86,400 วินาที ≈ 10^5",
+      "options": [
+        "ราว 200 QPS",
+        "ราว 20,000 QPS",
+        "ราว 2,000 QPS",
+        "ราว 200,000 QPS"
+      ],
+      "answer": 2,
+      "explain": "2 × 10^8 ÷ 10^5 = 2 × 10^3 หรือราว 2,000 QPS (ค่าจริงประมาณ 2,300) ซึ่งเป็นค่าเฉลี่ย ช่วง peak ต้องคูณเพิ่มตามสมมติฐานที่บอกผู้ฟัง ตัวเลือก 20,000 คือหารด้วย 10^4 ผิดหลักไปหนึ่งหลัก"
+    },
+    {
+      "prompt": "Dashboard แสดง latency เฉลี่ยของ API อยู่ที่ 80 ms คงที่ทั้งวัน แต่ผู้ใช้จำนวนหนึ่งร้องเรียนว่าบางครั้งรอหลายวินาที ควรทำอะไรก่อน?",
+      "options": [
+        "ดู latency เป็น percentile เช่น p99 เพราะค่าเฉลี่ยซ่อน request ที่ช้ามากไว้ได้",
+        "สรุปว่าปัญหาอยู่ที่เครือข่ายของผู้ใช้ เพราะค่าเฉลี่ยฝั่ง server ยังปกติดี",
+        "เพิ่ม instance อีกเท่าตัว เพราะค่าเฉลี่ย 80 ms แปลว่าระบบใกล้เต็มแล้ว",
+        "เปลี่ยนไปวัด throughput แทน latency เพราะ throughput สะท้อนประสบการณ์ของผู้ใช้ได้ดีกว่า"
+      ],
+      "answer": 0,
+      "explain": "ค่าเฉลี่ยอาจดูปกติได้แม้มีหางของการกระจายที่ช้ามาก ต้องดู percentile สูงเช่น p99 ก่อนสรุป การสรุปว่าเป็นเครือข่ายผู้ใช้จากค่าเฉลี่ยจึงยังไม่มีหลักฐาน"
+    },
+    {
+      "prompt": "Web server 6 เครื่องใช้ CPU ราว 20% แต่ database ตัวเดียวใช้ CPU 95% และ query ช้าลงเรื่อย ๆ ทีมเสนอให้เพิ่ม web server เป็น 12 เครื่อง ควรตอบอย่างไร?",
+      "options": [
+        "เห็นด้วย เพราะ horizontal scaling เพิ่ม throughput ของทั้งระบบได้เสมอ",
+        "เห็นด้วย แต่ให้เปิด sticky session ไว้เพื่อให้ cache ในเครื่องได้ผลมากขึ้น",
+        "ไม่ช่วย ควรย้าย web server ไปเครื่องที่ CPU ใหญ่กว่าแทน",
+        "ไม่ช่วย คอขวดคือ database ควรดู query และ index ก่อน"
+      ],
+      "answer": 3,
+      "explain": "เพิ่ม web server ไม่ช่วยเมื่อคอขวดอยู่ที่ database และอาจยิ่งเพิ่ม connection ไปกด database หนักขึ้น ต้องหาและแก้คอขวดก่อน การ scale out ช่วยได้เฉพาะชั้นที่เป็นคอขวดจริง"
+    },
+    {
+      "prompt": "หลังเปิด autoscaling ผู้ใช้หลายคนถูก logout กลางคันแบบสุ่ม ทั้งที่ token ยังไม่หมดอายุ สาเหตุที่น่าจะเป็นที่สุดคืออะไร?",
+      "code": "// session middleware ปัจจุบัน\nconst sessions = new Map();\napp.use((req, res, next) => {\n  req.session = sessions.get(req.cookies.sid);\n  next();\n});",
+      "options": [
+        "load balancer ใช้ Layer 4 จึงอ่าน cookie ของผู้ใช้ไม่ได้",
+        "session อยู่ใน memory ของแต่ละ instance เมื่อ request ไปเครื่องอื่นจึงไม่พบ",
+        "cookie sid ไม่มี HttpOnly ทำให้ browser ลบทิ้งเองเป็นระยะ",
+        "autoscaling ทำให้นาฬิกาของแต่ละเครื่องเหลื่อมกันมาก จน token หมดอายุก่อนกำหนดจริง"
+      ],
+      "answer": 1,
+      "explain": "Map ใน memory ทำให้ service มี state เมื่อ request ไปเครื่องใหม่หรือเครื่องเดิมถูกลบ session ก็หาย ควรเก็บ session ใน store ภายนอกที่ทุก instance เข้าถึงได้ ส่วน HttpOnly เกี่ยวกับการกัน JavaScript อ่าน cookie ไม่ได้ทำให้ cookie หาย"
+    },
+    {
+      "prompt": "ต้องการให้ request ที่ path /api/* ไปกลุ่ม service A และ /images/* ไปกลุ่ม service B ผ่าน hostname เดียวกัน ควรใช้ load balancer แบบใด?",
+      "options": [
+        "Layer 7 เพราะต้องอ่าน path ของ HTTP request เพื่อเลือกปลายทาง",
+        "Layer 4 แบบ passthrough เพราะส่งต่อแพ็กเก็ตได้เร็วกว่า",
+        "Layer 4 โดยแยก port ของ /api กับ /images ออกจากกัน",
+        "DNS round robin เพราะกระจายโหลดตาม path ได้โดยไม่ต้องมี proxy"
+      ],
+      "answer": 0,
+      "explain": "การ route ตาม path ต้องอ่านเนื้อหา HTTP ซึ่งเป็นงานของ L7 load balancer L4 เห็นแค่ระดับ TCP/UDP จึงแยก path ไม่ได้ และ DNS ไม่เห็น path ของ request เลย"
+    },
+    {
+      "prompt": "Game server ใช้ UDP และต้องเห็น IP จริงของผู้เล่นเพื่อกันการโกง ควรเลือก load balancer แบบใดบน Google Cloud?",
+      "options": [
+        "Application Load Balancer เพราะรองรับ header X-Forwarded-For",
+        "Application Load Balancer แบบ internal เพราะ latency ต่ำกว่าแบบ external",
+        "Proxy Network Load Balancer เพราะทำ TLS offloading ให้ได้",
+        "Passthrough Network Load Balancer เพราะรองรับ UDP และเก็บ source IP ไว้"
+      ],
+      "answer": 3,
+      "explain": "Google Cloud แนะนำ passthrough Network Load Balancer เมื่อต้องการเก็บ source IP ของ client และรองรับ protocol อย่าง UDP ส่วน Application Load Balancer เป็น L7 สำหรับ HTTP(S) จึงไม่เหมาะกับ traffic UDP ของเกม"
+    },
+    {
+      "prompt": "Target group ของ AWS ALB มี 4 target และทั้ง 4 ตัวไม่ผ่าน health check พร้อมกันเพราะ endpoint ตรวจ database ร่วมที่สะดุดชั่วครู่ ALB จะทำอย่างไร?",
+      "code": "HealthCheckPath: /healthz      # เช็ก database ด้วย\nHealthCheckIntervalSeconds: 10\nUnhealthyThresholdCount: 2\nHealthyThresholdCount: 3",
+      "options": [
+        "หยุดส่ง traffic ทั้งหมดและตอบ 503 จนกว่าจะมี target ผ่าน health check",
+        "ส่ง traffic ไปที่ target ที่ล้มเหลวล่าสุดเพียงตัวเดียว",
+        "fail open: ส่ง traffic ไปทุก target ตามปกติ",
+        "ย้าย traffic ไป region อื่นโดยอัตโนมัติ"
+      ],
+      "answer": 2,
+      "explain": "เอกสาร AWS ระบุว่าถ้า target group มีแต่ target ที่ unhealthy ALB จะ fail open และส่ง traffic ให้ทุก target อย่างไรก็ดี health check ที่ผูกกับ dependency ร่วมแบบนี้แยกเครื่องที่เสียออกจากเครื่องที่ดีไม่ได้ จึงควรให้ตรวจความพร้อมของตัว instance เอง"
+    },
+    {
+      "prompt": "ระบบมี app server 3 เครื่องหลัง load balancer ตัวเดียว ทุกเครื่องเขียน PostgreSQL ตัวเดียว และเก็บไฟล์อัปโหลดบนดิสก์ของ app server เครื่องแรก ข้อใดระบุ single point of failure ได้ครบที่สุด?",
+      "options": [
+        "load balancer, database และดิสก์ที่เก็บไฟล์อัปโหลด",
+        "app server เครื่องแรกเท่านั้น เพราะมีไฟล์อัปโหลด",
+        "database เท่านั้น เพราะ app server มีสำรองอยู่แล้ว",
+        "ไม่มี เพราะ app server มีสามเครื่องแล้ว"
+      ],
+      "answer": 0,
+      "explain": "SPOF คือทุกส่วนบนเส้นทางสำคัญที่มีอยู่ตัวเดียว ทั้ง load balancer, database และดิสก์ของเครื่องแรกที่เก็บไฟล์ไว้ การมี app server หลายเครื่องจึงยังไม่ทำให้ระบบรอดเมื่อส่วนอื่นเสีย"
+    },
+    {
+      "prompt": "Instance สองตัวที่เหมือนกันทุกอย่าง แต่ละตัว availability 99% เสียแบบอิสระต่อกันและไม่มี state ถ้าระบบใช้งานได้เมื่อมีอย่างน้อยหนึ่งตัวทำงาน availability ตามสูตรอุดมคติเป็นเท่าไร?",
+      "code": "A = 0.99, N = 2\navailability = 1 - (1 - A)^N",
+      "options": [
+        "99.5%",
+        "98.01%",
+        "99.9%",
+        "99.99%"
+      ],
+      "answer": 3,
+      "explain": "1 - (0.01)^2 = 1 - 0.0001 = 99.99% ส่วน 98.01% คือ 0.99 × 0.99 ซึ่งใช้กับกรณีที่ต้องทำงานทั้งสองตัว สูตรนี้ใช้ได้เฉพาะเมื่อเสียแบบอิสระต่อกันจริง"
+    },
+    {
+      "prompt": "SLO ของ service คือ availability 99.9% ต่อเดือน (30 วัน) ทีมจะมี downtime ที่ยอมได้ (error budget) ราวเท่าไรในเดือนนั้น?",
+      "code": "30 วัน × 24 ชม. × 60 นาที = 43,200 นาที",
+      "options": [
+        "ราว 4.3 นาที",
+        "ราว 43 นาที",
+        "ราว 7.2 ชั่วโมง",
+        "ราว 8.8 ชั่วโมง"
+      ],
+      "answer": 1,
+      "explain": "0.1% ของ 43,200 นาทีคือ 43.2 นาที ส่วน 7.2 ชั่วโมงคือ budget ของ 99% ต่อเดือน และ 8.76 ชั่วโมงคือ 99.9% ต่อปี"
+    },
+    {
+      "prompt": "ผ่านไปครึ่งไตรมาส service ใช้ error budget หมดแล้วจาก incident สองครั้ง ตามแนวคิดของ Google SRE ทีมควรทำอย่างไร?",
+      "options": [
+        "ปล่อย release ตามแผนเดิม เพราะ error budget นับใหม่ทุกไตรมาสอยู่แล้ว",
+        "ลดเป้า SLO ลงทันทีเพื่อให้กลับมามี budget เหลือ",
+        "ชะลอ release ใหม่และลงแรงกับความเสถียรจนกว่าจะกลับมาอยู่ในเป้า",
+        "ปิด monitoring ชั่วคราวเพื่อไม่ให้ incident นับซ้ำ"
+      ],
+      "answer": 2,
+      "explain": "Error budget เป็นกลไกควบคุมความเร็วของ release: เหลือ budget ก็ปล่อยต่อได้ ใช้หมดก็ชะลอ release แล้วลงแรงกับความเสถียร การลดเป้า SLO เพื่อให้มี budget ทันทีทำให้ตัวชี้วัดหมดความหมาย"
+    },
+    {
+      "prompt": "บางครั้งผู้ใช้เห็นราคาสินค้าเก่าค้างใน cache จนกว่า TTL จะหมด แม้ระบบลบ key ทุกครั้งที่แก้ราคา จากโค้ดนี้ควรแก้อย่างไร?",
+      "code": "async function updatePrice(id, price) {\n  await cache.del(`product:${id}`);\n  await db.updatePrice(id, price);\n}",
+      "options": [
+        "ลด TTL ลงเหลือ 1 วินาทีเพื่อให้ค่าเก่าหายเร็วขึ้น",
+        "ย้ายไปใช้ cache ในหน่วยความจำของแต่ละ instance แทน",
+        "เรียก cache.del ซ้ำสองครั้งเพื่อให้แน่ใจว่าลบแล้ว",
+        "update database ก่อน แล้วจึงลบ key ใน cache"
+      ],
+      "answer": 3,
+      "explain": "ถ้าลบ key ก่อน อาจมี request ที่ miss แล้วอ่านราคาเก่าจาก database ใส่กลับเข้า cache ก่อน update เสร็จ การ update database ก่อนแล้วจึงลบ key ปิดช่องนี้ ส่วน TTL สั้นมากแค่ลดเวลาที่ค่าเก่าค้างแต่เพิ่มโหลด database"
+    },
+    {
+      "prompt": "ข้อมูลหมวดหมู่สินค้าแก้ไขเดือนละไม่กี่ครั้ง แต่ถูกอ่านหลายพันครั้งต่อวินาที ตอนนี้ตั้ง TTL ไว้ 1 วินาทีและ database ยังรับโหลดหนัก ควรปรับอย่างไร?",
+      "options": [
+        "ปิด cache ไปเลย เพราะ TTL สั้นแปลว่า cache ไม่ช่วย",
+        "เพิ่ม TTL ให้ยาวขึ้นมาก และลบ key ทันทีเมื่อมีการแก้หมวดหมู่",
+        "คง TTL 1 วินาทีไว้ แล้วเพิ่ม read replica อีกสองตัว",
+        "ย้าย cache ไปไว้ใน memory ของแต่ละ instance แล้วคง TTL 1 วินาทีไว้เหมือนเดิม"
+      ],
+      "answer": 1,
+      "explain": "TTL สั้นเกินไปทำให้ข้อมูลหมดอายุแล้วต้องไปถาม database บ่อยจน cache แทบไม่ช่วย ข้อมูลที่แทบไม่เปลี่ยนจึงควรมี TTL ยาวคู่กับการ invalidate เมื่อแก้ การเพิ่ม replica หรือย้าย cache ไปไว้ในแต่ละ instance โดยคง TTL 1 วินาทีไม่ได้แก้ต้นเหตุ"
+    },
+    {
+      "prompt": "ทุก 10 นาที database กระโดดขึ้นไป CPU 100% ราว 5 วินาที ตรงกับเวลาที่ key หน้าแรกซึ่งถูกอ่านหนักมากหมดอายุ และ query สร้างหน้าแรกใช้เวลา 2 วินาที วิธีใดตรงปัญหาที่สุด?",
+      "options": [
+        "ให้มีผู้สร้างค่าใหม่รายเดียวต่อ key (lock) หรือคำนวณใหม่ล่วงหน้าก่อนหมดอายุ",
+        "เพิ่ม TTL เป็น 20 นาที เพื่อให้ database ได้พักนานขึ้นระหว่างรอบการหมดอายุ",
+        "เพิ่ม connection pool ของแอปเพื่อให้รอ query ได้มากขึ้น",
+        "ย้ายหน้าแรกไปเก็บใน cache ของแต่ละ instance แทน cache กลาง"
+      ],
+      "answer": 0,
+      "explain": "อาการนี้คือ cache stampede: request จำนวนมาก miss พร้อมกันแล้วสร้างค่าเดิมซ้ำ การล็อกต่อ key หรือคำนวณใหม่ก่อนหมดอายุทำให้มีการสร้างค่าเพียงครั้งเดียว ส่วน TTL ยาวขึ้นแค่เลื่อนจังหวะที่ stampede เกิด"
+    },
+    {
+      "prompt": "หลังเปิด CDN ผู้ใช้คนหนึ่งเห็นที่อยู่และคำสั่งซื้อของคนอื่นในหน้า /account header ของหน้านั้นเป็นแบบนี้ ควรแก้อย่างไร?",
+      "code": "GET /account\nCache-Control: public, max-age=3600",
+      "options": [
+        "เปลี่ยนเป็น public, max-age=60 เพื่อให้ข้อมูลเก่าอยู่ใน CDN สั้นลง",
+        "คง public ไว้แต่เพิ่ม must-revalidate ให้ CDN ตรวจกับ origin เมื่อหมดอายุ",
+        "เปลี่ยนเป็น private, no-store ให้ shared cache ไม่เก็บ",
+        "เพิ่ม immutable เพื่อไม่ให้ CDN ไปถาม origin ซ้ำ"
+      ],
+      "answer": 2,
+      "explain": "public อนุญาตให้ shared cache อย่าง CDN เก็บ response แล้วส่งให้ผู้ใช้คนอื่น หน้าที่มีข้อมูลส่วนตัวต้องเป็น private หรือ no-store การลด max-age แค่ลดเวลาที่ข้อมูลรั่ว และ must-revalidate มีผลเฉพาะหลังหมดอายุ ระหว่างที่ยังสด CDN ก็ยังส่งหน้านี้ให้คนอื่นได้"
+    },
+    {
+      "prompt": "ผู้ใช้แก้ชื่อในโปรไฟล์แล้วหน้าเว็บโหลดใหม่ทันที แต่ยังเห็นชื่อเก่าอยู่ 1–2 วินาที ระบบเขียนที่ primary และอ่านจาก read replica แบบ asynchronous ควรแก้อย่างไรโดยกระทบระบบน้อยที่สุด?",
+      "options": [
+        "เพิ่ม read replica อีกหลายตัว เพื่อให้ข้อมูลไปถึง replica ได้เร็วขึ้นกว่าเดิม",
+        "ให้ผู้ที่เพิ่งเขียนอ่านข้อมูลตัวเองจาก primary ช่วงสั้น ๆ",
+        "เปลี่ยนทุก query ให้อ่านจาก primary และเลิกใช้ replica",
+        "เพิ่ม TTL ของ cache หน้าโปรไฟล์เพื่อซ่อน replication lag"
+      ],
+      "answer": 1,
+      "explain": "นี่คือปัญหา read-your-writes จาก replication lag การส่งเฉพาะการอ่านข้อมูลของผู้ที่เพิ่งเขียนไป primary แก้ตรงจุดโดยยังใช้ replica กับ query อื่น การเพิ่ม replica ไม่ได้ลด lag และการเลิกใช้ replica ทั้งหมดเสียประโยชน์ที่มีอยู่"
+    },
+    {
+      "prompt": "ทีมเปลี่ยน PostgreSQL ให้ใช้ synchronous replication ตามค่านี้ ผลที่ควรคาดคืออะไร?",
+      "code": "synchronous_standby_names = 'FIRST 1 (s1, s2)'\nsynchronous_commit = on",
+      "options": [
+        "commit ช้าลง เพราะต้องรอ standby ยืนยัน แต่โอกาสข้อมูลหายตอน failover ลดลง",
+        "commit เร็วขึ้น เพราะงานเขียนถูกแบ่งไปทำที่ standby ด้วย",
+        "replica ทุกตัวอ่านได้ข้อมูลล่าสุดเสมอ จึงไม่ต้องกังวลเรื่อง replication lag อีกต่อไป",
+        "ไม่มีผลต่อ latency เพราะ replication เกิดหลัง commit อยู่แล้ว"
+      ],
+      "answer": 0,
+      "explain": "เอกสาร PostgreSQL ระบุว่า synchronous replication ให้ commit รอการยืนยันจาก standby จึงเพิ่มความทนทานของข้อมูลแต่เพิ่ม response time ส่วนข้อ “replica อ่านล่าสุดเสมอ” ไม่ถูก เพราะ synchronous_commit = on รอแค่ให้ standby ที่เป็น synchronous เขียน WAL ลงดิสก์ ยังไม่ได้รอให้ replay จน query เห็นข้อมูล (ต้องใช้ remote_apply) และ standby อีกตัวยังตามหลังได้"
+    },
+    {
+      "prompt": "ระบบ log แบ่ง shard ตามช่วงวันที่ (range) และพบว่า shard ของวันนี้รับงานเขียนเกือบทั้งหมด ขณะที่ shard อื่นว่าง ควรพิจารณาอย่างไร?",
+      "options": [
+        "เพิ่ม CPU ให้เฉพาะ shard ของวันนี้ทุกวัน",
+        "เพิ่มจำนวน shard แบบ range ให้แต่ละช่วงแคบลงเป็นรายชั่วโมงแทนรายวัน",
+        "ย้ายไปใช้ lookup table แต่คง key เป็นวันที่ไว้เหมือนเดิม",
+        "ใช้ hash ของ key ที่กระจายดี เช่น device id"
+      ],
+      "answer": 3,
+      "explain": "Range sharding ทำให้โหลดกระจุกเมื่อกิจกรรมอยู่ที่ key ติดกัน เช่น เวลาล่าสุด hash ของ key ที่กระจายดีช่วยให้งานเขียนสม่ำเสมอกว่า การทำช่วงให้แคบลงยังส่งงานใหม่ทั้งหมดไปที่ shard ล่าสุดเหมือนเดิม"
+    },
+    {
+      "prompt": "Cache cluster ใช้ shard = hash(key) % N เมื่อเพิ่มเครื่องจาก 4 เป็น 5 cache hit rate ตกฮวบและ database รับโหลดหนัก สาเหตุและทางแก้คืออะไร?",
+      "code": "function nodeFor(key) {\n  return nodes[hash(key) % nodes.length];\n}",
+      "options": [
+        "เครื่องใหม่ยังไม่มีข้อมูล ให้รอสักพักแล้ว hit rate จะกลับมาเองโดยไม่ต้องแก้",
+        "เมื่อ N เปลี่ยน key ส่วนใหญ่ย้ายเครื่อง ควรใช้ consistent hashing",
+        "hash function กระจายไม่ดีพอ ควรเปลี่ยนไปใช้ hash ที่ให้ค่ายาวขึ้นกว่าเดิม",
+        "ควรลด TTL ลงเพื่อให้ cache เติมข้อมูลใหม่เร็วขึ้น"
+      ],
+      "answer": 1,
+      "explain": "hash(key) mod N ทำให้ key ส่วนใหญ่เปลี่ยนเครื่องเมื่อ N เปลี่ยน ทั้ง cluster จึง miss พร้อมกัน consistent hashing ทำให้การเพิ่มหรือลด node กระทบเฉพาะช่วงข้างเคียง การเปลี่ยน hash function ไม่แก้ปัญหาของ mod N"
+    },
+    {
+      "prompt": "ระบบส่งอีเมลยืนยันคำสั่งซื้อรับได้ 200 ฉบับต่อวินาที แต่ช่วง flash sale มีคำสั่งซื้อเข้ามาพร้อมกัน 2,000 รายการต่อวินาทีเป็นเวลา 1 นาที แล้วกลับสู่ระดับปกติ ข้อใดอธิบายบทบาทของ queue ได้ถูกต้อง?",
+      "options": [
+        "queue ทำให้ email service ส่งได้เร็วขึ้นเป็น 2,000 ฉบับต่อวินาที",
+        "queue ไม่เหมาะ เพราะอีเมลจะหายถ้า consumer ทำงานไม่ทัน",
+        "queue รับงานไว้ก่อน แล้ว email service ทยอยส่งตามอัตราที่รับไหว",
+        "queue ใช้ได้เฉพาะเมื่อผู้ใช้ต้องได้รับอีเมลภายในไม่กี่มิลลิวินาที"
+      ],
+      "answer": 2,
+      "explain": "Queue-based load leveling ใช้ queue เป็น buffer ให้ peak ไม่ถล่ม service แต่ไม่ได้เพิ่มความเร็วของ service อีเมลบางฉบับจะช้าลงชั่วคราว ซึ่งยอมรับได้เพราะผู้เรียกไม่ต้องการคำตอบแบบ latency ต่ำ"
+    },
+    {
+      "prompt": "Consumer ประมวลผล event ตัดเงินก่อนแล้วจึง commit offset วันหนึ่ง process ถูก kill ระหว่างสองบรรทัดนี้ หลัง restart จะเกิดอะไร และควรป้องกันอย่างไร?",
+      "code": "for await (const msg of consumer) {\n  await chargeCard(msg.value);   // ตัดเงิน\n  await consumer.commit(msg.offset);\n}",
+      "options": [
+        "event นั้นหายไปเลย ควรสลับให้ commit ก่อนตัดเงิน",
+        "Kafka รู้ว่าข้อความนี้ประมวลผลไปแล้วจึงไม่ส่งซ้ำ ไม่ต้องทำอะไรเพิ่มเติม",
+        "event อาจถูกส่งซ้ำ ควรทำให้การตัดเงิน idempotent ด้วย event id",
+        "เปิด exactly-once ของ Kafka แล้วการตัดเงินในระบบภายนอกจะไม่ซ้ำเอง"
+      ],
+      "answer": 2,
+      "explain": "ประมวลผลก่อน commit คือ at-least-once: ถ้าตายก่อน commit ข้อความจะถูกส่งซ้ำ จึงต้องทำ consumer ให้ idempotent เช่น บันทึก event id แบบ unique การสลับให้ commit ก่อนเปลี่ยนเป็น at-most-once ซึ่งเสี่ยงตัดเงินไม่ครบแทน และ exactly-once ของ Kafka ครอบคลุมการอ่านเขียนระหว่าง topic ไม่ได้ครอบคลุมระบบตัดเงินภายนอกเอง"
+    },
+    {
+      "prompt": "Topic order-events มี 12 partitions และ producer ไม่ได้ใส่ key ทีมพบว่าบางครั้ง event “ยกเลิก” ถูกประมวลผลก่อน “สร้าง” ของ order เดียวกัน ควรแก้อย่างไร?",
+      "options": [
+        "ลดเหลือ 1 partition เพื่อให้ทุก event เรียงกันทั้ง topic",
+        "ใช้ order id เป็น key ให้ event ของ order เดียวกันอยู่ partition เดียวกัน",
+        "เพิ่ม consumer ให้เท่ากับจำนวน partition เพื่อให้อ่านทันกัน",
+        "ใส่ timestamp ในทุก event แล้วให้ consumer รอและเรียงตามเวลาเองก่อนประมวลผล"
+      ],
+      "answer": 1,
+      "explain": "Kafka รับประกันลำดับเฉพาะภายใน partition และ event ที่มี key เดียวกันจะไป partition เดียวกัน การใช้ order id เป็น key จึงรักษาลำดับต่อ order โดยยังกระจายโหลดได้ การลดเหลือ partition เดียวได้ลำดับแต่เสีย parallelism ทั้งหมด"
+    },
+    {
+      "prompt": "Rate limiter แบบ token bucket ตั้งค่าตามนี้ client ไม่ได้ส่ง request มาหนึ่งนาที แล้วยิง 15 request พร้อมกันในวินาทีเดียว ผลที่คาดได้คืออะไร?",
+      "code": "capacity    = 10   // token สูงสุดใน bucket\nrefill_rate = 1    // token ต่อวินาที\n// ใช้ 1 token ต่อ request",
+      "options": [
+        "ผ่านทั้ง 15 request เพราะสะสม token ได้ 60 ตัวระหว่างที่ว่าง",
+        "ผ่านเพียง 1 request เพราะอัตราเติมคือ 1 token ต่อวินาที",
+        "ถูกปฏิเสธทั้ง 15 request เพราะเกินอัตราเฉลี่ยที่กำหนด",
+        "ผ่าน 10 request แรก อีก 5 ถูกปฏิเสธเพราะ bucket ว่าง"
+      ],
+      "answer": 3,
+      "explain": "Token สะสมได้ไม่เกิน capacity จึงมีอยู่ 10 ตัวหลังว่างหนึ่งนาที burst ผ่านได้ 10 request ที่เหลือถูกปฏิเสธจน token ถูกเติม ขนาด bucket คือตัวกำหนด burst สูงสุด ไม่ใช่เวลาที่ว่าง"
+    },
+    {
+      "prompt": "Rate limiter แบบ sliding window counter ตั้งลิมิต 50 request ต่อนาที นาทีก่อนมี 40 request และนาทีปัจจุบันผ่านไป 30 วินาทีมี 20 request request ถัดไปควรเป็นอย่างไร?",
+      "code": "rate = prev * ((60 - elapsed) / 60) + current",
+      "options": [
+        "ปฏิเสธ เพราะ 40 + 20 = 60 เกิน 50",
+        "ผ่าน เพราะอัตราโดยประมาณคือ 40 × 0.5 + 20 = 40",
+        "ปฏิเสธ เพราะนาทีปัจจุบันใช้ไปเกินครึ่งของลิมิตแล้ว",
+        "ผ่าน เพราะ sliding window นับเฉพาะนาทีปัจจุบัน"
+      ],
+      "answer": 1,
+      "explain": "Sliding window counter ถ่วงน้ำหนัก counter ของนาทีก่อนตามสัดส่วนที่ยังคาบเกี่ยว (30 จาก 60 วินาที) ได้ 40 × 0.5 + 20 = 40 จึงยังไม่ถึง 50 การบวกสองนาทีตรง ๆ คือการนับแบบผิดที่ไม่ถ่วงน้ำหนัก"
+    },
+    {
+      "prompt": "ในการรีวิวสถาปัตยกรรม มีคนสรุปว่า “ระบบเราต้องเลือกได้แค่ 2 ใน 3 ของ CAP ตลอดเวลา เลยเลือก AP ไปเลย” ข้อใดอธิบาย CAP ได้แม่นยำกว่า?",
+      "options": [
+        "ระบบกระจายต้องสละ partition tolerance เสมอเพื่อให้ได้ C และ A",
+        "CAP บอกว่าระบบที่มี replica ต้องเลือก consistency หรือ latency อยู่ตลอดเวลาแม้ไม่มีปัญหา",
+        "ระบบเลือก CA ได้เสมอถ้าใช้ database ที่รองรับ ACID",
+        "การเลือกเกิดเมื่อมี network partition: ยอมเสีย linearizability หรือ availability"
+      ],
+      "answer": 3,
+      "explain": "CAP จำกัดเฉพาะตอนมี partition ซึ่งต้องเลือกระหว่าง linearizability กับการให้ทุก node ที่ไม่เสียตอบได้ Brewer เองบอกว่าการพูดว่า 2 ใน 3 ทำให้เข้าใจผิด ส่วน trade-off ระหว่าง consistency กับ latency ในเวลาปกติคือส่วน ELC ของ PACELC ไม่ใช่ CAP"
+    },
+    {
+      "prompt": "Key-value store แบบ Dynamo ตั้ง N = 3 ทีมต้องการให้การอ่านมีโอกาสเจอค่าที่เพิ่งเขียนสูงขึ้น โดยยอมให้ latency เพิ่มได้บ้าง ควรปรับ R และ W อย่างไร?",
+      "code": "ปัจจุบัน: N = 3, W = 1, R = 1",
+      "options": [
+        "ตั้ง W = 2, R = 2 ให้ R + W > N ชุดอ่านกับชุดเขียนจึงทับกัน",
+        "ตั้ง W = 1, R = 2 เพราะการอ่านสำคัญกว่าการเขียนในระบบนี้",
+        "ตั้ง N = 1 เพื่อให้มีสำเนาเดียวและอ่านได้ค่าล่าสุดเสมอ",
+        "คง R = W = 1 แล้วเพิ่มจำนวน virtual node ให้มากขึ้นกว่าเดิม"
+      ],
+      "answer": 0,
+      "explain": "R + W > N ทำให้ replica ที่ตอบการอ่านทับกับที่ตอบการเขียนอย่างน้อยหนึ่งตัว แลกกับการรอ replica มากขึ้น W = 1, R = 2 ได้ R + W = 3 ซึ่งไม่เกิน N จึงยังไม่ทับกันแน่นอน ส่วน virtual node เกี่ยวกับการกระจายโหลด ไม่ใช่ consistency"
+    },
+    {
+      "prompt": "Backend เริ่ม overload และตอบ error บางส่วน client ทุกตัวตั้งให้ retry ทันที 3 ครั้งทุกครั้งที่ error สถานการณ์จะเป็นอย่างไร และควรแก้แบบใด?",
+      "options": [
+        "ดีขึ้นเอง เพราะ retry ช่วยให้ request ที่ล้มเหลวสำเร็จในที่สุด",
+        "แย่ลง เพราะ retry ขยายโหลด ควรมี retry budget, backoff และ load shedding",
+        "ไม่เปลี่ยน เพราะ request ที่ retry ไม่ถูกนับเป็นโหลดใหม่",
+        "แย่ลง ควรเพิ่มจำนวน retry เป็น 10 ครั้งเพื่อให้แต่ละ request มีโอกาสสำเร็จมากขึ้น"
+      ],
+      "answer": 1,
+      "explain": "Retry ที่ไม่มีขอบเขตทำให้ backend ที่กำลังแย่ได้รับ request เพิ่มหลายเท่าจนล่มเป็นทอด ๆ Google SRE แนะนำให้จำกัด retry ด้วย budget และให้ server ทิ้งโหลดบางส่วนเมื่อใกล้ overload"
+    },
+    {
+      "prompt": "หลัง deploy ใหม่ latency เฉลี่ยลดจาก 120 ms เหลือ 60 ms ทีมกำลังจะฉลอง แต่ error rate เพิ่มจาก 0.1% เป็น 30% ควรตีความอย่างไร?",
+      "options": [
+        "ระบบเร็วขึ้นจริง ส่วน error ที่เพิ่มขึ้นเป็นเพราะผู้ใช้ส่ง request ที่ผิดรูปแบบมากขึ้น",
+        "ควรดูเฉพาะ latency เพราะเป็น golden signal ที่สำคัญที่สุด",
+        "error ที่ตอบเร็วดึงค่าเฉลี่ยลง ต้องแยก latency ของ request ที่สำเร็จกับที่ล้มเหลว",
+        "ควรเปลี่ยนไปดู throughput แทน เพราะ latency กับ error ไม่เกี่ยวกัน"
+      ],
+      "answer": 2,
+      "explain": "Google SRE ย้ำให้แยก latency ของ request ที่สำเร็จกับที่ล้มเหลว เพราะ error ที่ตอบกลับทันทีทำให้ latency รวมดูดีเกินจริง ต้องดู golden signals ทั้งสี่ประกอบกัน"
+    },
+    {
+      "prompt": "Request หนึ่งวิ่งผ่าน 5 service และช้าราว 3 วินาที แต่ log ของแต่ละ service ไม่มีอะไรเชื่อมกันจึงหาไม่ได้ว่าช่วงไหนช้า ควรเพิ่มอะไรก่อน?",
+      "options": [
+        "เพิ่มระดับ log เป็น debug ในทุก service",
+        "เพิ่ม CPU ให้ทุก service แล้วรอดูว่า latency รวมลดลงหรือไม่",
+        "ตั้ง alert เมื่อ latency เฉลี่ยของแต่ละ service เกิน 1 วินาที",
+        "ทำ distributed tracing และส่ง trace context ต่อไปทุก hop"
+      ],
+      "answer": 3,
+      "explain": "Context propagation ทำให้ span ของทุก service ผูกอยู่ใน trace เดียว จึงเห็นได้ว่าช่วงใดกินเวลา การเพิ่ม log ระดับ debug ได้ข้อมูลมากขึ้นแต่ยังเชื่อมข้าม service ไม่ได้"
+    }
+  ],
+  "exercises": [
+    {
+      "title": "ประมาณโหลดและพื้นที่ของระบบย่อ URL",
+      "level": "ง่าย",
+      "tags": "Back-of-the-envelope · QPS · Storage",
+      "lang": "markdown",
+      "prompt": "ทีมกำลังจะเลือก infrastructure ของระบบย่อ URL และขอตัวเลขคร่าว ๆ จากคุณก่อนประชุม ใช้ข้อมูลในบริบทเขียนบันทึกสั้น ๆ ที่มี: (1) read QPS เฉลี่ย (2) write QPS เฉลี่ย (3) read QPS ช่วง peak โดยบอกตัวคูณที่สมมติ (4) อัตราส่วน read ต่อ write (5) พื้นที่เก็บข้อมูลรวม 5 ปี ให้ปัดตัวเลขเป็นลำดับขนาด และเขียนให้เห็นว่าใช้จำนวนวินาทีต่อวันเท่าไร",
+      "context": "- redirect (อ่าน) ราว 50 ล้านครั้งต่อวัน\n- สร้าง URL ใหม่ (เขียน) ราว 1 ล้านรายการต่อวัน\n- แต่ละรายการเก็บราว 500 bytes (short code, URL ปลายทาง, เวลา, เจ้าของ)\n- เก็บข้อมูลไว้ 5 ปี ยังไม่ต้องคิด replica และ index\n- ยังไม่มีข้อมูล traffic ช่วง peak จริง",
+      "starter": "# ประมาณโหลดระบบย่อ URL\n\n- read QPS เฉลี่ย: ?\n- write QPS เฉลี่ย: ?\n- read QPS ช่วง peak: ?\n- read:write = ?\n- storage 5 ปี: ?\n",
+      "solution": "# ประมาณโหลดระบบย่อ URL\n\nสมมติฐาน: 1 วัน = 86,400 วินาที ปัดเป็น ~10^5\n\n- read QPS เฉลี่ย (redirect): 5 × 10^7 ÷ 10^5 ≈ 500 QPS (ค่าจริงราว 579)\n- write QPS เฉลี่ย (สร้าง URL ใหม่): 10^6 ÷ 10^5 ≈ 10 QPS\n- read QPS ช่วง peak: สมมติ peak สูงกว่าค่าเฉลี่ย 3 เท่า ≈ 1,500 QPS (ต้องยืนยันกับข้อมูลจริงภายหลัง)\n- read:write = 50:1 เป็นระบบอ่านหนัก จึงคุ้มที่จะมี cache\n- storage: 10^6 × 500 B = 500 MB/วัน ≈ 182.5 GB/ปี → 5 ปี ≈ 0.9 TB (ยังไม่รวม replica และ index)\n",
+      "hints": [
+        "เริ่มจากแปลงทุกอย่างเป็นเลขยกกำลังสิบ แล้วหารด้วยจำนวนวินาทีต่อวันที่ปัดแล้ว",
+        "หนึ่งวันมี 86,400 วินาที ปัดเป็นราว 10^5 ดังนั้น 5 × 10^7 ต่อวันคือราวห้าร้อยต่อวินาที",
+        "peak ยังไม่มีข้อมูลจริง ให้เขียนว่าสมมติกี่เท่าของค่าเฉลี่ย ส่วน storage คือจำนวนรายการต่อวัน × ขนาด × 365 × 5"
+      ],
+      "checks": [
+        {
+          "label": "read QPS เฉลี่ยอยู่ราว 500–600",
+          "pattern": "(read|อ่าน|redirect)[^\\n]*?(?<![0-9.,])(5[0-9]{2}|600)(\\.[0-9]+)?(?![0-9,])"
+        },
+        {
+          "label": "write QPS เฉลี่ยอยู่ราว 10–12",
+          "pattern": "(write|เขียน|สร้าง)[^\\n]*?(?<![0-9.,^])(1[0-2])(\\.[0-9]+)?(?![0-9,^])\\s*(qps|rps|req|request|ครั้ง|/\\s*s|ต่อวินาที|per\\s*sec|writes?|\\(|$)"
+        },
+        {
+          "label": "ระบุตัวคูณหรือสมมติฐานของช่วง peak",
+          "pattern": "(peak|พีค|ช่วงสูงสุด)[^\\n]*(สมมติ|assum|[×x*]\\s*[0-9]|[0-9]\\s*(เท่า|x|times))"
+        },
+        {
+          "label": "อัตราส่วน read:write ราว 50:1",
+          "pattern": "(?<![0-9])50\\s*(:|ต่อ|to)\\s*1(?![0-9])|(?<![0-9])50\\s*(เท่า|x|×|times)|(?<![0-9])1\\s*(:|ต่อ|to)\\s*50(?![0-9])"
+        },
+        {
+          "label": "storage 5 ปีราว 0.9–1 TB",
+          "pattern": "(?<![0-9.])(0\\.9[0-9]*|~?1(\\.0+)?)\\s*tb|(?<![0-9.,])(9[0-9]{2}|1[,.]?000)(\\.[0-9]+)?\\s*gb"
+        },
+        {
+          "label": "แสดงจำนวนวินาทีต่อวันที่ใช้ (86,400 หรือ ~10^5)",
+          "pattern": "86[,.]?400|10\\^\\s*5|1e5|100[,.]?000\\s*(วินาที|s|sec)"
+        }
+      ]
+    },
+    {
+      "title": "ตั้ง Cache-Control ให้ CDN ไม่รั่วข้อมูลส่วนตัว",
+      "level": "กลาง",
+      "tags": "CDN · Cache-Control · s-maxage",
+      "lang": "json",
+      "prompt": "ไฟล์ JSON ในบริบทคือ config ที่ edge proxy ของทีมใช้ใส่ header Cache-Control ตามกลุ่ม route หลังเปิด CDN พบว่าหน้า account ของผู้ใช้หนึ่งไปโผล่ให้อีกคนเห็น ส่วนไฟล์ static ถูกโหลดใหม่บ่อยเกินจำเป็น แก้ค่า cacheControl ให้: (1) staticAssets ถูก cache ได้ 1 ปี (31536000 วินาที) และบอกว่าไม่ต้อง revalidate เพราะชื่อไฟล์มี hash (2) productPage ให้ CDN เก็บได้ 60 วินาที (3) accountPage และ apiCart ห้ามถูกเก็บใน shared cache เด็ดขาด คงโครงสร้างและ key เดิมไว้",
+      "context": "{\n  \"staticAssets\": { \"match\": \"/assets/*\", \"note\": \"ไฟล์มี hash ในชื่อ เช่น app.3f9a1c.js\", \"cacheControl\": \"public, max-age=3600\" },\n  \"productPage\": { \"match\": \"/products/*\", \"note\": \"ทุกคนเห็นเหมือนกัน ยอมให้เก่าได้ 60 วินาที\", \"cacheControl\": \"no-store\" },\n  \"accountPage\": { \"match\": \"/account/*\", \"note\": \"ข้อมูลส่วนตัวของผู้ใช้\", \"cacheControl\": \"public, max-age=600\" },\n  \"apiCart\": { \"match\": \"/api/cart\", \"note\": \"ตะกร้าของผู้ใช้แต่ละคน\", \"cacheControl\": \"public, s-maxage=30\" }\n}",
+      "starter": "{\n  \"staticAssets\": { \"match\": \"/assets/*\", \"cacheControl\": \"public, max-age=3600\" },\n  \"productPage\": { \"match\": \"/products/*\", \"cacheControl\": \"no-store\" },\n  \"accountPage\": { \"match\": \"/account/*\", \"cacheControl\": \"public, max-age=600\" },\n  \"apiCart\": { \"match\": \"/api/cart\", \"cacheControl\": \"public, s-maxage=30\" }\n}",
+      "solution": "{\n  \"staticAssets\": { \"match\": \"/assets/*\", \"cacheControl\": \"public, max-age=31536000, immutable\" },\n  \"productPage\": { \"match\": \"/products/*\", \"cacheControl\": \"public, s-maxage=60, max-age=0\" },\n  \"accountPage\": { \"match\": \"/account/*\", \"cacheControl\": \"private, no-store\" },\n  \"apiCart\": { \"match\": \"/api/cart\", \"cacheControl\": \"private, no-store\" }\n}",
+      "hints": [
+        "แยกให้ออกว่า header ไหนมีผลกับ shared cache อย่าง CDN และอันไหนมีผลกับ browser",
+        "s-maxage กำหนดอายุใน shared cache โดยเฉพาะ ส่วน immutable บอกว่าเนื้อหาไม่เปลี่ยนตลอดช่วงที่ยังสด",
+        "หน้าที่มีข้อมูลเฉพาะคนต้องไม่มี public และไม่มี s-maxage ใช้ private หรือ no-store แทน"
+      ],
+      "checks": [
+        {
+          "label": "staticAssets มี max-age=31536000",
+          "json": {
+            "path": "staticAssets.cacheControl",
+            "op": "matches",
+            "value": "max-age=31536000(?![0-9])"
+          }
+        },
+        {
+          "label": "staticAssets มี immutable",
+          "json": {
+            "path": "staticAssets.cacheControl",
+            "op": "matches",
+            "value": "immutable"
+          }
+        },
+        {
+          "label": "productPage ให้ CDN เก็บได้ 60 วินาที (s-maxage=60 หรือ max-age=60)",
+          "json": {
+            "path": "productPage.cacheControl",
+            "op": "matches",
+            "value": "s-maxage=60(?![0-9])|^(?!.*s-maxage).*max-age=60(?![0-9])"
+          }
+        },
+        {
+          "label": "productPage ไม่ได้ห้าม cache (ไม่มี private หรือ no-store)",
+          "json": {
+            "path": "productPage.cacheControl",
+            "op": "matches",
+            "value": "private|no-store"
+          },
+          "negate": true
+        },
+        {
+          "label": "accountPage เป็น private หรือ no-store",
+          "json": {
+            "path": "accountPage.cacheControl",
+            "op": "matches",
+            "value": "private|no-store"
+          }
+        },
+        {
+          "label": "accountPage ไม่มี public หรือ s-maxage",
+          "json": {
+            "path": "accountPage.cacheControl",
+            "op": "matches",
+            "value": "public|s-maxage"
+          },
+          "negate": true
+        },
+        {
+          "label": "apiCart เป็น private หรือ no-store และไม่มี public",
+          "json": {
+            "path": "apiCart.cacheControl",
+            "op": "matches",
+            "value": "^(?!.*(public|s-maxage)).*(private|no-store)"
+          }
+        }
+      ]
+    },
+    {
+      "title": "Design doc: รับคำสั่งซื้อช่วง flash sale",
+      "level": "ยาก",
+      "tags": "Queue · Idempotency · Ordering · Rate limiting",
+      "lang": "markdown",
+      "prompt": "เขียน design doc สั้น ๆ (ภาษาไทยหรืออังกฤษก็ได้) สำหรับระบบรับคำสั่งซื้อช่วง flash sale ตามบริบท ให้มี: (1) non-functional requirement ที่วัดได้อย่างน้อยหนึ่งข้อ (2) ตัวเลขคร่าว ๆ ว่างานจะค้างสะสมเท่าไรระหว่าง peak (3) ใช้ queue เป็น buffer ระหว่างหน้ารับคำสั่งซื้อกับ payment/inventory (4) วิธีกันตัดเงินซ้ำเมื่อ consumer ได้ข้อความซ้ำ (5) วิธีรักษาลำดับ event ของคำสั่งซื้อเดียวกัน (6) การจำกัดอัตรา request ต่อผู้ใช้และ status code ที่ตอบ (7) trade-off อย่างน้อยหนึ่งข้อที่ยอมรับ",
+      "context": "- flash sale 10 นาที คาดว่ามีคำสั่งซื้อเข้ามาราว 5,000 รายการต่อวินาทีตลอดช่วงนั้น\n- payment และ inventory service รวมกันรับได้ราว 500 รายการต่อวินาที\n- broker ที่มีให้ใช้ส่งข้อความแบบ at-least-once และรับประกันลำดับเฉพาะใน partition เดียวกัน\n- event ของคำสั่งซื้อหนึ่ง (created, paid, cancelled) ต้องถูกประมวลผลตามลำดับ\n- ต้องจำกัดผู้ใช้แต่ละคนไม่เกิน 5 request ต่อวินาที\n- ผู้ใช้ยอมรับได้ถ้าได้อีเมลยืนยันช้าลงไม่กี่นาที แต่ห้ามถูกตัดเงินซ้ำ",
+      "starter": "# Flash sale: ออกแบบระบบรับคำสั่งซื้อ\n\n## 1. Requirements\n- \n\n## 2. ตัวเลขคร่าว ๆ\n- \n\n## 3. สถาปัตยกรรม\n- \n\n## 4. ความเสี่ยงและทางเลือก\n- \n",
+      "solution": "# Flash sale: ออกแบบระบบรับคำสั่งซื้อ\n\n## 1. Requirements\n- Functional: รับคำสั่งซื้อ, ตัดเงิน, ตัดสต็อก, ส่งอีเมลยืนยัน\n- Non-functional: หน้ารับคำสั่งซื้อตอบภายใน p99 < 300 ms ระหว่าง flash sale และห้ามตัดเงินซ้ำ\n\n## 2. ตัวเลขคร่าว ๆ\n- เข้ามา 5,000/วินาที แต่ประมวลผลได้ 500/วินาที คือเกินราว 10 เท่า\n- ค้างสะสม (5,000 - 500) × 600 วินาที ≈ 2.7 ล้านข้อความ ต้องใช้เวลาเคลียร์ราว 2.7 ล้าน ÷ 500 ≈ 90 นาที หลังจบ sale\n\n## 3. สถาปัตยกรรม\n- API รับคำสั่งซื้อแล้วเขียนลง queue (Kafka) ทันทีและตอบ 202 Accepted queue ทำหน้าที่ buffer ให้ peak ไม่ถล่ม payment\n- Consumer เป็น idempotent: ตาราง payments มี unique constraint ที่ event_id และใช้ INSERT ... ON CONFLICT DO NOTHING ข้อความซ้ำจึงไม่ตัดเงินซ้ำ\n- ใช้ order_id เป็น partition key ให้ event ของคำสั่งซื้อเดียวกันอยู่ partition เดียวกันและเรียงลำดับ\n- Rate limit แบบ token bucket ต่อ user_id 5 request/วินาที เกินแล้วตอบ 429 Too Many Requests พร้อม Retry-After\n\n## 4. ความเสี่ยงและทางเลือก\n- Trade-off: ยอมให้ยืนยันคำสั่งซื้อและอีเมลช้าลงหลายนาที แลกกับการที่ payment ไม่ล่มและไม่ต้องขยายให้รับ 5,000/วินาที\n- ต้องเฝ้าดูความยาวและอายุของงานในคิว ถ้าเคลียร์ไม่ทันต้องเพิ่ม consumer หรือหยุดรับคำสั่งซื้อ\n",
+      "hints": [
+        "เริ่มจากเทียบอัตราเข้า (5,000/วินาที) กับอัตราที่ปลายทางรับไหว (500/วินาที) ส่วนต่างคูณระยะเวลาคือขนาดงานค้าง",
+        "at-least-once แปลว่าข้อความซ้ำได้ ให้คิดว่าจะใช้อะไรเป็นตัวระบุเพื่อกันการตัดเงินซ้ำ และลำดับรับประกันเฉพาะใน partition จึงต้องเลือก key ให้ดี",
+        "ตัวอย่างคำตอบ: queue เป็น buffer, unique constraint ที่ event_id (idempotent consumer), partition key เป็น order_id, token bucket ต่อผู้ใช้ตอบ 429 และบอก trade-off ว่ายอมให้ยืนยันช้าลง"
+      ],
+      "checks": [
+        {
+          "label": "ระบุ non-functional requirement",
+          "pattern": "non-?functional|\\bnfr\\b|ความต้องการด้านคุณภาพ|ความต้องการที่ไม่ใช่ฟังก์ชัน|\\bp9[059]\\b"
+        },
+        {
+          "label": "ประมาณงานค้างหรือส่วนต่างของอัตรา (ราว 2.7 ล้าน หรือ 10 เท่า)",
+          "pattern": "2[.,]?7\\s*(ล้าน|m\\b|million)|2[,.]?700[,.]?000|(?<![0-9])10\\s*(เท่า|x|×|times)|4[,.]?500\\s*[×x*]\\s*600"
+        },
+        {
+          "label": "ใช้ queue เป็น buffer รับ peak",
+          "pattern": "^(?=[\\s\\S]*(queue|คิว|kafka|sqs|rabbitmq|pub/?sub))(?=[\\s\\S]*(buffer|บัฟเฟอร์|load.?level|peak|พีค|ทยอย))"
+        },
+        {
+          "label": "กันตัดเงินซ้ำด้วย idempotent consumer หรือ unique key",
+          "pattern": "idempoten|ไอเดมโพเทน|dedup|upsert|idempotency.?key|on\\s+conflict|unique\\s*(constraint|key|index|\\()"
+        },
+        {
+          "label": "ใช้ order id เป็น partition key เพื่อรักษาลำดับ",
+          "pattern": "(order[_ -]?id|รหัสคำสั่งซื้อ|เลขที่?คำสั่งซื้อ)[^\\n]{0,60}(partition|key|คีย์|พาร์ทิชัน)|(partition|key|คีย์|พาร์ทิชัน)[^\\n]{0,60}(order[_ -]?id|รหัสคำสั่งซื้อ|เลขที่?คำสั่งซื้อ)"
+        },
+        {
+          "label": "จำกัดอัตรา request และตอบ 429",
+          "pattern": "^(?=[\\s\\S]*(rate.?limit|token.?bucket|sliding.?window|throttl|\\blimit|จำกัด))(?=[\\s\\S]*429)"
+        },
+        {
+          "label": "บอก trade-off ที่ยอมรับ",
+          "pattern": "trade-?off|แลกกับ|ยอมแลก|ยอมรับ|ข้อเสีย|downside|at the cost of|\\baccept(s|ing)?\\b"
+        }
+      ]
+    }
+  ],
+  "refs": [
+    {
+      "title": "Google SRE Workbook: Non-Abstract Large System Design",
+      "url": "https://sre.google/workbook/non-abstract-design/",
+      "note": "ขั้นตอนจาก requirement ไปสู่แบบที่ประเมินทรัพยากรได้จริง"
+    },
+    {
+      "title": "Google SRE Book: Availability Table",
+      "url": "https://sre.google/sre-book/availability-table/",
+      "note": "ตาราง downtime ที่ยอมได้ของแต่ละระดับ availability"
+    },
+    {
+      "title": "Eric Brewer: CAP Twelve Years Later",
+      "url": "https://www.infoq.com/articles/cap-twelve-years-later-how-the-rules-have-changed/",
+      "note": "ผู้ตั้ง CAP อธิบายเองว่าทำไม “2 ใน 3” ทำให้เข้าใจผิด"
+    },
+    {
+      "title": "Daniel Abadi: Consistency Tradeoffs in Modern Distributed Database System Design (PACELC)",
+      "url": "https://www.cs.umd.edu/~abadi/papers/abadi-pacelc.pdf",
+      "note": "trade-off ระหว่าง latency กับ consistency ในเวลาปกติ"
+    },
+    {
+      "title": "Apache Kafka: Message Delivery Semantics",
+      "url": "https://kafka.apache.org/43/design/design/",
+      "note": "at-most-once, at-least-once, exactly-once และขอบเขตของแต่ละแบบ"
+    },
+    {
+      "title": "Cloudflare: How we built rate limiting capable of scaling to millions of domains",
+      "url": "https://blog.cloudflare.com/counting-things-a-lot-of-different-things/",
+      "note": "sliding window counter และเหตุผลที่ดีกว่า fixed window"
+    },
+    {
+      "title": "RFC 6585: 429 Too Many Requests",
+      "url": "https://www.rfc-editor.org/rfc/rfc6585.html",
+      "note": "status code สำหรับ rate limiting และ Retry-After"
+    },
+    {
+      "title": "OpenTelemetry: Traces",
+      "url": "https://opentelemetry.io/docs/concepts/signals/traces/",
+      "note": "span, trace และ context propagation"
+    }
+  ],
+  "cheatsheet": [
+    "เริ่มทุกโจทย์ด้วย requirement: functional และ non-functional ที่วัดได้ แล้วจดสมมติฐานให้ผู้ฟังเห็น",
+    "ประมาณแบบลำดับขนาด: 1 วัน ≈ 10^5 วินาที ตัวคูณ peak เป็นสมมติฐาน ตาราง latency ของ Norvig ใช้เทียบลำดับขนาดเท่านั้น",
+    "ดู latency เป็น percentile (p50, p99) ไม่ใช่ค่าเฉลี่ย และแยก latency ของ request ที่สำเร็จกับที่ error",
+    "Scale out ต้องมี stateless service; หาคอขวดก่อน เพราะเพิ่ม web server ไม่ช่วยเมื่อ database คือคอขวด",
+    "L7 route ตาม path/host/header ของ HTTP; L4 สำหรับ TCP/UDP หรือเมื่อต้องเก็บ source IP แบบ passthrough",
+    "Cache-aside: miss แล้วโหลดจาก DB ใส่ cache; ตอนแก้ให้เขียน DB ก่อนแล้วจึงลบ key; TTL ต้องเข้ากับการใช้ข้อมูล",
+    "Replica แบบ async มี lag: ผู้ที่เพิ่งเขียนอาจอ่านไม่เห็นของตัวเอง; synchronous ลดการหายแต่ commit ช้าลง",
+    "Shard key ต้องกระจายโหลดและให้ query หลักจบใน shard เดียว; hash mod N ย้าย key ส่วนใหญ่เมื่อ N เปลี่ยน",
+    "Queue รองรับ peak แต่ไม่เพิ่มความเร็ว; at-least-once ต้องมี idempotent consumer; ลำดับรับประกันเฉพาะใน partition",
+    "CAP: เลือกระหว่าง linearizability กับ availability เฉพาะตอนมี partition; PACELC: เวลาปกติแลก latency กับ consistency"
+  ]
+}

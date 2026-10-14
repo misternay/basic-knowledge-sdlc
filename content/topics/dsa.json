@@ -1,0 +1,672 @@
+{
+  "id": "dsa",
+  "code": "F5",
+  "track": "foundations",
+  "title": "Data Structures & Algorithms",
+  "blurb": "เลือกโครงสร้างข้อมูลและอัลกอริทึมจากรูปแบบของปัญหา และอธิบายได้ว่าทำไมวิธีหนึ่งจึงโตช้ากว่าอีกวิธีเมื่อข้อมูลใหญ่ขึ้น",
+  "mustKnow": [
+    {
+      "tier": "must",
+      "exam": true,
+      "title": "Big-O คือขอบบนของการเติบโต ทั้งเวลาและหน่วยความจำ",
+      "body": "Big-O บอกขอบบนของอัตราที่เวลาหรือหน่วยความจำโตตามขนาดข้อมูล n โดยตัดค่าคงที่และพจน์ที่โตช้ากว่าทิ้ง 3n² + 50n + 7 จึงเขียนเป็น O(n²) และ space complexity ก็ใช้สัญกรณ์เดียวกัน เช่นสร้าง Map ขนาด n ใช้หน่วยความจำ O(n) เวลาพูดถึง complexity ต้องบอกด้วยว่าหมายถึงกรณีไหน (worst, average หรือ best) เพราะอัลกอริทึมเดียวกันอาจต่างกันมาก เช่น quicksort เฉลี่ย O(n log n) แต่แย่สุด O(n²) (ภาพรวมเรื่องลูปซ้อนอยู่ในหัวข้อ Programming)",
+      "ref": "https://en.wikipedia.org/wiki/Big_O_notation"
+    },
+    {
+      "tier": "must",
+      "title": "Amortized O(1): ทำไม push ท้าย array จึงเร็ว",
+      "body": "Dynamic array จองที่เผื่อไว้ เมื่อเต็มจะขยายเป็นสัดส่วน (เช่นสองเท่า) แล้วคัดลอกของเดิมไปที่ใหม่ ครั้งที่ต้องขยายใช้เวลา O(n) แต่เกิดห่างขึ้นเรื่อย ๆ ตามลำดับเรขาคณิต การเพิ่ม n ตัวจึงใช้เวลารวม O(n) หรือเฉลี่ย O(1) ต่อครั้งแบบ amortized นี่ไม่ใช่การรับประกันว่าทุกครั้งเร็ว ครั้งที่ต้องขยายยังช้ากว่าครั้งอื่นอยู่ดี และหัวใจของผลนี้คือการขยายเป็น “สัดส่วน” คงที่ (เช่น 1.5 หรือ 2 เท่า) ไม่ใช่เพิ่มทีละไม่กี่ช่อง",
+      "ref": "https://en.wikipedia.org/wiki/Dynamic_array"
+    },
+    {
+      "tier": "must",
+      "exam": true,
+      "title": "Array กับ linked list: random access และ cache",
+      "body": "Array เข้าถึงตำแหน่งที่ i ได้ทันที O(1) เพราะข้อมูลเรียงติดกันในหน่วยความจำ ส่วน linked list ต้องเดินจากหัวทีละโหนดจึงเป็น O(n) ข้อดีของ linked list คือแทรกหรือลบได้ O(1) เมื่อถือโหนดตรงตำแหน่งนั้นอยู่แล้ว แต่ถ้าต้องค้นหาตำแหน่งก่อนก็ยังเป็น O(n) อยู่ดี ในทางปฏิบัติการวนอ่าน array ทั้งก้อนมักเร็วกว่า linked list มากแม้ Big-O เท่ากัน เพราะ array มี locality ดีและใช้ cache ของ CPU ได้คุ้มกว่า",
+      "ref": "https://en.wikipedia.org/wiki/Linked_list"
+    },
+    {
+      "tier": "must",
+      "title": "Stack, queue, deque และกับดัก shift()",
+      "body": "Stack คือเข้าหลังออกก่อน (push/pop ท้าย), queue คือเข้าก่อนออกก่อน และ deque เพิ่มหรือเอาออกได้ทั้งสองปลาย ใน JavaScript การใช้ array เป็น queue ด้วย push กับ shift ดูง่าย แต่ shift ต้องเลื่อนค่าที่เหลือทุกตัวไปทางซ้าย จึงควรถือว่าเป็นงาน O(n) ต่อครั้ง และ BFS บนกราฟใหญ่จะช้าลงแบบ O(n²) ทางแก้ที่ง่ายคือเก็บ index หัวคิวไว้แล้วเลื่อน index แทนการ shift หรือใช้โครงสร้าง deque/ring buffer",
+      "code": "// คิวแบบเลื่อน index ไม่ต้อง shift ทุกครั้ง\nconst queue = [start];\nconst visited = new Set([start]);\nlet head = 0;\nwhile (head < queue.length) {\n  const node = queue[head++];\n  for (const next of graph.get(node) ?? []) {\n    if (!visited.has(next)) {\n      visited.add(next);\n      queue.push(next);\n    }\n  }\n}",
+      "ref": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/shift"
+    },
+    {
+      "tier": "must",
+      "exam": true,
+      "title": "Hash table: collision, load factor และ worst case O(n)",
+      "body": "Hash table แปลง key เป็นตำแหน่งด้วย hash function จึงค้น เพิ่ม และลบได้เฉลี่ย O(1) แต่ key ต่างกันอาจได้ตำแหน่งเดียวกัน (collision) ซึ่งแก้ด้วย separate chaining หรือ open addressing ตัวชี้วัดสำคัญคือ load factor = จำนวนรายการ / จำนวนช่อง ถ้าสูงเกินไประบบจะ resize แล้ว rehash ทั้งตาราง (open addressing มักตั้งเพดานไว้ราว 0.6–0.75) และ worst case ของการค้นยังเป็น O(n) เมื่อ key จำนวนมากตกช่องเดียวกัน",
+      "ref": "https://en.wikipedia.org/wiki/Hash_table"
+    },
+    {
+      "tier": "must",
+      "exam": true,
+      "title": "Heap และ priority queue: เอาตัวน้อยสุดออกเร็ว",
+      "body": "Binary heap เป็นต้นไม้ที่พ่อแม่ไม่มากกว่าลูกเสมอ (min-heap) จึงดูค่าน้อยสุดได้ O(1) และ insert หรือดึงค่าน้อยสุดออกได้ O(log n) ใช้ทำ priority queue เช่นคิวงานตามความสำคัญหรือ Dijkstra heap ไม่ได้เรียงทั้งก้อน การหา “ค่ามากสุด” ใน min-heap หรือค้นค่าใด ๆ ยังเป็น O(n) งานหา top-k จากข้อมูล n ตัวใช้ heap ที่จำกัดขนาดไว้ k ตัวได้ ทุกค่าที่อ่านเข้ามาเสียแค่ O(log k) รวมเป็น O(n log k) ซึ่งถูกกว่า sort ทั้งหมดเมื่อ k เล็กกว่า n มาก และการสร้าง heap จาก array ทีเดียวทำได้ O(n)",
+      "ref": "https://en.wikipedia.org/wiki/Binary_heap"
+    },
+    {
+      "tier": "must",
+      "title": "BST: เร็วเมื่อสมดุล ช้าเท่า list เมื่อเอียง",
+      "body": "Binary search tree เก็บค่าที่น้อยกว่าไว้ซ้ายและมากกว่าไว้ขวา การค้น เพิ่ม และลบใช้เวลาตามความสูงของต้นไม้ ซึ่งเฉลี่ยเป็น O(log n) แต่ถ้าใส่ข้อมูลที่เรียงอยู่แล้วตามลำดับ ต้นไม้จะเอียงเป็นเส้นตรงและแย่ลงเป็น O(n) เหมือน linked list self-balancing tree อย่าง AVL หรือ red-black tree หมุนโหนดเพื่อคุมความสูงให้อยู่ในระดับ O(log n) เสมอ",
+      "ref": "https://en.wikipedia.org/wiki/Binary_search_tree"
+    },
+    {
+      "tier": "must",
+      "title": "การท่อง tree: pre, in, post-order และ level-order",
+      "body": "Depth-first มีสามแบบตามจังหวะที่ “เยี่ยม” โหนด: pre-order (โหนดก่อนลูก เช่นพิมพ์โครงสร้างโฟลเดอร์จากบนลงล่าง), in-order (ซ้าย โหนด ขวา) และ post-order (ลูกก่อนโหนด เหมาะกับลบหรือคำนวณขนาดโฟลเดอร์จากล่างขึ้นบน) ส่วน level-order ไล่ทีละชั้นด้วย queue จุดที่ควรจำคือ in-order ของ BST ได้ค่าเรียงจากน้อยไปมาก จึงใช้ตรวจว่าต้นไม้เป็น BST ที่ถูกต้องหรือไม่ได้",
+      "code": "function inOrder(node, out = []) {\n  if (!node) return out;\n  inOrder(node.left, out);\n  out.push(node.value); // BST: ได้ค่าเรียงจากน้อยไปมาก\n  inOrder(node.right, out);\n  return out;\n}",
+      "ref": "https://en.wikipedia.org/wiki/Tree_traversal"
+    },
+    {
+      "tier": "must",
+      "title": "Graph: adjacency list กับ adjacency matrix",
+      "body": "Adjacency list เก็บรายชื่อเพื่อนบ้านของแต่ละโหนด ใช้หน่วยความจำตามจำนวนโหนดบวกจำนวนเส้น O(V + E) เหมาะกับกราฟเบาบาง (sparse) ซึ่งเป็นกราฟส่วนใหญ่ในงานจริง เช่นผู้ติดตามหรือ dependency ของ package ส่วน adjacency matrix ใช้ O(V²) เสมอ แต่ตอบได้ทันทีว่าโหนดสองตัวเชื่อมกันไหม เหมาะกับกราฟหนาแน่น ใน JavaScript adjacency list มักเขียนเป็น Map ของ array",
+      "code": "const graph = new Map();\nfor (const [from, to] of edges) {\n  if (!graph.has(from)) graph.set(from, []);\n  graph.get(from).push(to);\n}",
+      "ref": "https://en.wikipedia.org/wiki/Adjacency_list"
+    },
+    {
+      "tier": "must",
+      "exam": true,
+      "title": "BFS กับ DFS: เลือกตามคำถามที่ต้องตอบ",
+      "body": "BFS ใช้ queue ไล่ทีละชั้น จึงเจอโหนดปลายทางด้วยจำนวนเส้นน้อยที่สุดเสมอในกราฟที่ไม่มีน้ำหนัก เช่นหาว่าเป็นเพื่อนกันห่างกี่ขั้น ส่วน DFS ลงลึกไปก่อนแล้วค่อยถอยกลับ (ใช้ stack หรือ recursion) เหมาะกับหา cycle, ไล่ทุกเส้นทาง หรือ topological sort ทั้งสองแบบใช้เวลา O(V + E) และต้องมีเซต visited เสมอ ไม่อย่างนั้นกราฟที่มี cycle จะวนไม่จบ ควรทำเครื่องหมาย visited ตอนใส่เข้า queue ไม่ใช่ตอนดึงออก เพื่อไม่ให้โหนดเดียวเข้าคิวซ้ำหลายครั้ง",
+      "ref": "https://en.wikipedia.org/wiki/Breadth-first_search"
+    },
+    {
+      "tier": "must",
+      "title": "Stable sort และการเรียงหลาย key",
+      "body": "Sort ที่ stable จะคงลำดับเดิมของรายการที่เทียบแล้วเท่ากัน ตั้งแต่ ECMAScript 2019 สเปกกำหนดให้ Array.prototype.sort ต้อง stable ผลที่ใช้ได้จริงคือเรียงหลาย key ได้ด้วยการ sort ตาม key รองก่อนแล้วค่อย sort ตาม key หลัก หรือเขียน comparator เทียบ key หลักแล้วตกไปเทียบ key รองเมื่อเท่ากัน อย่าคิดว่าทุกภาษาหรือทุกอัลกอริทึมเป็นแบบนี้ เช่น quicksort แบบ in-place ทั่วไปไม่ stable (เรื่อง comparator และการเรียงเป็น string อยู่ในหัวข้อ Programming)",
+      "code": "orders.sort((a, b) =>\n  a.status.localeCompare(b.status) || // key หลัก\n  b.total - a.total                   // เท่ากันแล้วเทียบ key รอง\n);",
+      "ref": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/sort"
+    },
+    {
+      "tier": "should",
+      "title": "Binary search แบบหาขอบ: lower bound และ off-by-one",
+      "body": "งานจริงมักไม่ได้ถามว่า “มีค่านี้ไหม” แต่ถามว่า “ตำแหน่งแรกที่ ≥ x อยู่ไหน” (lower bound) ซึ่งใช้ได้แม้มีค่าซ้ำหรือไม่มีค่านั้นเลย วิธีที่พลาดน้อยคือกำหนดช่วงครึ่งเปิด [lo, hi) วน while (lo < hi) ถ้า a[mid] < x ให้ lo = mid + 1 ไม่อย่างนั้น hi = mid เมื่อจบ lo คือคำตอบ (อาจเท่ากับความยาว array ถ้าทุกตัวน้อยกว่า x) บั๊กที่พบบ่อยคือผสมสองแบบ เช่นใช้ while (lo <= hi) คู่กับ hi = mid ซึ่งวนไม่จบ",
+      "code": "function lowerBound(a, x) {\n  let lo = 0, hi = a.length;      // ช่วง [lo, hi)\n  while (lo < hi) {\n    const mid = Math.floor((lo + hi) / 2);\n    if (a[mid] < x) lo = mid + 1;\n    else hi = mid;\n  }\n  return lo; // ตำแหน่งแรกที่ a[i] >= x\n}",
+      "ref": "https://en.wikipedia.org/wiki/Binary_search"
+    },
+    {
+      "tier": "should",
+      "exam": true,
+      "title": "Dijkstra: เส้นทางสั้นสุดเมื่อน้ำหนักไม่ติดลบ",
+      "body": "เมื่อแต่ละเส้นมีน้ำหนัก (ระยะทาง เวลา ค่าใช้จ่าย) BFS ใช้ไม่ได้แล้ว Dijkstra ดึงโหนดที่ระยะสะสมน้อยสุดออกจาก priority queue แล้วผ่อนคลาย (relax) เส้นที่ออกจากโหนดนั้น ใช้ binary heap ได้เวลา O((V + E) log V) เงื่อนไขสำคัญคือน้ำหนักทุกเส้นต้องไม่ติดลบ เพราะอัลกอริทึมถือว่าโหนดที่ดึงออกมาแล้วได้ระยะสั้นสุดแน่นอน ถ้ามีเส้นติดลบ (เช่นส่วนลดหรือเครดิตคืน) ให้ใช้ Bellman–Ford ซึ่งยังตรวจ negative cycle ได้ด้วย",
+      "ref": "https://en.wikipedia.org/wiki/Dijkstra%27s_algorithm"
+    },
+    {
+      "tier": "should",
+      "title": "Topological sort: ลำดับงานตาม dependency และการตรวจ cycle",
+      "body": "Topological sort เรียงโหนดของ directed acyclic graph (DAG) ให้ทุกเส้น u → v มี u มาก่อน v ใช้จัดลำดับ build, migration หรือ task ที่พึ่งกัน Kahn’s algorithm เริ่มจากโหนดที่ไม่มีเส้นเข้า (in-degree 0) ดึงออกทีละตัวแล้วลด in-degree ของเพื่อนบ้าน ถ้าจบแล้วยังได้โหนดไม่ครบแปลว่ากราฟมี cycle และไม่มีลำดับที่ถูกต้อง ลำดับที่ได้ไม่จำเป็นต้องมีแบบเดียว จึงไม่ควรเขียน test ที่ผูกกับลำดับใดลำดับหนึ่งถ้าโจทย์ไม่ได้กำหนด",
+      "ref": "https://en.wikipedia.org/wiki/Topological_sorting"
+    },
+    {
+      "tier": "should",
+      "title": "ขอบล่าง n log n ของ comparison sort",
+      "body": "Sort ที่ตัดสินด้วยการเทียบสองค่าทีละคู่ต้องใช้การเทียบอย่างน้อยราว log₂(n!) ครั้ง ซึ่งโตแบบ n log n จึงไม่มี comparison sort ใดเร็วกว่า O(n log n) ในกรณีทั่วไป merge sort และ heapsort จึงถือว่าดีที่สุดในแง่จำนวนการเทียบแล้ว ทางเดียวที่จะเร็วกว่าคือไม่เทียบกันตรง ๆ เช่น counting sort ที่ใช้เวลาเชิงเส้น O(n + k) เมื่อ key เป็นจำนวนเต็มในช่วงแคบ k (เช่นอายุ 0–150) แต่ถ้าช่วงกว้างมาก k จะทำให้ช้าและเปลืองหน่วยความจำแทน",
+      "ref": "https://en.wikipedia.org/wiki/Comparison_sort"
+    },
+    {
+      "tier": "should",
+      "exam": true,
+      "title": "Quicksort กับ merge sort: worst case, หน่วยความจำ, stability",
+      "body": "Quicksort เฉลี่ย O(n log n) และใช้หน่วยความจำเพิ่มน้อย (ราว O(log n) สำหรับ recursion เมื่อเรียกซ้ำฝั่งที่เล็กกว่าก่อน) แต่ถ้าเลือก pivot ไม่ดี เช่นใช้ตัวแรกเสมอกับข้อมูลที่เรียงอยู่แล้ว จะแย่ลงเป็น O(n²) จึงมักสุ่ม pivot หรือใช้ median-of-three Merge sort รับประกัน O(n log n) ทุกกรณีและเป็น stable แต่บน array ต้องใช้หน่วยความจำเสริม O(n) การเลือกจึงขึ้นกับว่าอะไรสำคัญกว่า: worst case ที่คาดเดาได้และ stability หรือหน่วยความจำที่ประหยัด",
+      "ref": "https://en.wikipedia.org/wiki/Quicksort"
+    },
+    {
+      "tier": "should",
+      "exam": true,
+      "title": "Memoization และ dynamic programming",
+      "body": "Dynamic programming ใช้ได้เมื่อปัญหามี optimal substructure (คำตอบใหญ่ประกอบจากคำตอบที่ดีที่สุดของปัญหาย่อย) และ overlapping subproblems (ปัญหาย่อยเดิมถูกคำนวณซ้ำ) memoization คือแบบ top-down ที่จำผลของแต่ละ input ไว้ใน Map ส่วน tabulation คือแบบ bottom-up ที่เติมตารางจากปัญหาเล็กขึ้นไป fib(n) แบบ recursive ตรง ๆ ใช้เวลาแบบ exponential แต่เมื่อ memoize แล้วเหลือ O(n) โดยแลกกับหน่วยความจำ O(n) ถ้าปัญหาย่อยไม่ซ้ำกันเลย (เช่น merge sort) นั่นคือ divide and conquer ไม่ใช่ DP",
+      "code": "function fib(n, memo = new Map()) {\n  if (n <= 1) return n;\n  if (memo.has(n)) return memo.get(n);\n  const v = fib(n - 1, memo) + fib(n - 2, memo);\n  memo.set(n, v);\n  return v;\n}",
+      "ref": "https://en.wikipedia.org/wiki/Dynamic_programming"
+    },
+    {
+      "tier": "should",
+      "title": "Two pointers และ sliding window",
+      "body": "แทนที่จะลองทุกคู่หรือทุกช่วงด้วย loop ซ้อน O(n²) ให้ใช้ตัวชี้สองตัวที่ขยับไปทางเดียวเท่านั้น เมื่อแต่ละตัวขยับรวมไม่เกิน n ครั้ง งานทั้งหมดจึงเป็น O(n) ตัวอย่างคือหาช่วงต่อเนื่องที่ผลรวมเท่ากับ x หรือหาคู่ที่รวมกันได้เป้าหมายใน array ที่เรียงแล้ว กับดักคือเงื่อนไขเบื้องหลัง: การขยายหน้าต่างแล้วผลรวมเพิ่มเสมอจริงเฉพาะเมื่อทุกค่าเป็นบวก ถ้ามีค่าติดลบต้องเปลี่ยนวิธี เช่นใช้ prefix sum กับ Map",
+      "ref": "https://cses.fi/book/book.pdf#page=87"
+    },
+    {
+      "tier": "should",
+      "title": "อธิบาย complexity ตอนสัมภาษณ์",
+      "body": "เริ่มจากบอกวิธีตรงไปตรงมา (brute force) พร้อม time และ space complexity ก่อน แล้วค่อยหาว่ามีงานที่คำนวณซ้ำหรือโครงสร้างข้อมูลไหนช่วยลดงานได้ เมื่อผู้สัมภาษณ์ถามว่า “ทำให้ดีกว่านี้ได้ไหม” ให้ประเมินขอบล่างที่เป็นไปได้ เช่นต้องอ่านข้อมูลทุกตัวอย่างน้อยหนึ่งครั้งจึงต่ำกว่า O(n) ไม่ได้ เวลาบอก complexity ให้นิยามตัวแปรชัดเจน (n คืออะไร, ถ้ามีสองชุดใช้ O(n + m)) และพูดถึง space ที่ใช้เพิ่มรวม call stack ของ recursion ด้วย",
+      "ref": "https://www.techinterviewhandbook.org/coding-interview-techniques/"
+    },
+    {
+      "tier": "advanced",
+      "title": "ค่าคงที่ก็สำคัญ: insertion sort ใน sort แบบผสม",
+      "body": "Big-O ตัดค่าคงที่ทิ้ง แต่บนข้อมูลจริงที่ n เล็กหรือขนาดปานกลาง ค่าคงที่และการใช้ cache อาจสำคัญกว่า insertion sort เป็น O(n²) แต่เป็นหนึ่งในวิธีที่เร็วที่สุดกับ array ขนาดเล็กมาก และเร็วกับข้อมูลที่เกือบเรียงแล้ว quicksort ที่เขียนดีจึงสลับไปใช้ insertion sort เมื่อช่วงข้อมูลเล็กกว่าเกณฑ์ บทเรียนคือเลือกอัลกอริทึมจาก Big-O ก่อน แล้ววัดเวลาจริงเมื่อ Big-O เท่ากันหรือ n ไม่ใหญ่",
+      "ref": "https://en.wikipedia.org/wiki/Insertion_sort"
+    },
+    {
+      "tier": "advanced",
+      "title": "Hash flooding: worst case ที่ผู้โจมตีเลือกได้",
+      "body": "O(1) เฉลี่ยของ hash table อาศัยสมมติฐานว่า key กระจายดี ถ้าผู้โจมตีรู้ hash function ก็ส่ง key จำนวนมากที่ชนกันทั้งหมดได้ ทำให้การสร้าง dictionary จากข้อมูล n ตัวกลายเป็น O(n²) และ CPU ของเซิร์ฟเวอร์เต็ม Python จึงสุ่ม salt ของ hash ของ str และ bytes ทุกครั้งที่เริ่มโปรเซส (hash randomization) เพื่อป้องกัน denial-of-service แบบนี้ บทเรียนสำหรับ endpoint ที่รับ JSON หรือ query string จำนวน key ไม่จำกัดคือควรจำกัดขนาดและจำนวน key ด้วย",
+      "ref": "https://docs.python.org/3/using/cmdline.html#cmdoption-R"
+    },
+    {
+      "tier": "advanced",
+      "title": "Binary search กับ >> 1 ใน JavaScript",
+      "body": "บั๊ก (low + high) / 2 ล้นค่า int เคยซ่อนอยู่ใน binary search ของ JDK หลายปี ใน JavaScript ตัวเลขเป็น double จึงบวกกันได้ปลอดภัยถึง 2^53 แต่การหาค่ากลางด้วย (lo + hi) >> 1 ทำให้เกิดปัญหาคล้ายกัน เพราะ >> แปลงค่าเป็นจำนวนเต็ม 32 บิตแบบมีเครื่องหมายก่อน เมื่อ lo + hi เกิน 2^31 − 1 ผลจะกลายเป็นค่าติดลบ เรื่องนี้เกิดจริงเมื่อทำ binary search บนช่วงคำตอบที่เป็นตัวเลขใหญ่ เช่นเวลาเป็น millisecond หรือยอดเงิน ใช้ Math.floor((lo + hi) / 2) หรือ lo + Math.floor((hi - lo) / 2) แทน",
+      "code": "(2 ** 31 + 2) >> 1;            // -1073741823 (ผิด)\nMath.floor((2 ** 31 + 2) / 2); // 1073741825",
+      "ref": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/Right_shift"
+    },
+    {
+      "tier": "advanced",
+      "title": "Union-Find: รวมกลุ่มและถามว่าอยู่กลุ่มเดียวกันไหม",
+      "body": "Disjoint-set (union-find) เก็บว่าแต่ละสมาชิกอยู่กลุ่มไหน รองรับ union (รวมสองกลุ่ม) และ find (หาตัวแทนกลุ่ม) ใช้กับงานอย่างรวมบัญชีที่ใช้อีเมลหรือเบอร์เดียวกัน หาส่วนเชื่อมต่อของกราฟ หรือ Kruskal’s algorithm ถ้าเขียนแบบตรง ๆ ต้นไม้อาจสูง O(n) แต่เมื่อใช้ path compression คู่กับ union by rank หรือ by size เวลาต่อคำสั่งแบบ amortized เป็น O(α(n)) ซึ่ง α เป็น inverse Ackermann ที่โตช้ามากจนแทบเป็นค่าคงที่",
+      "ref": "https://en.wikipedia.org/wiki/Disjoint-set_data_structure"
+    },
+    {
+      "tier": "advanced",
+      "title": "NP-hard: รู้ว่าเมื่อไรไม่ควรหาคำตอบที่ดีที่สุดแบบตรง ๆ",
+      "body": "ปัญหาบางอย่าง เช่น travelling salesman (หาเส้นทางวนผ่านทุกจุดที่ถูกที่สุด) เป็น NP-hard ซึ่งยังไม่มีใครรู้อัลกอริทึมเวลาแบบ polynomial และถ้า P ≠ NP ก็ไม่มีอยู่จริง ลองทุกลำดับของ 20 จุดคือ 20! แบบซึ่งมากเกินจะรันได้ เมื่อเจอโจทย์จัดเส้นทางส่งของหรือจัดตารางที่มีลักษณะนี้ ควรยอมรับคำตอบที่ “ดีพอ” ด้วย heuristic หรือ approximation หรือจำกัดขนาดข้อมูล แทนการไล่หาคำตอบที่ดีที่สุดทุกกรณี",
+      "ref": "https://en.wikipedia.org/wiki/NP-hardness"
+    }
+  ],
+  "refs": [
+    {
+      "title": "MIT OpenCourseWare 6.006: Introduction to Algorithms (Spring 2020)",
+      "url": "https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/",
+      "note": "วิชาอัลกอริทึมเบื้องต้นฉบับเต็ม มีโมเดลการคำนวณ โครงสร้างข้อมูล และการวิเคราะห์ประสิทธิภาพ"
+    },
+    {
+      "title": "Competitive Programmer’s Handbook (Antti Laaksonen)",
+      "url": "https://cses.fi/book/book.pdf",
+      "note": "หนังสือฟรี อธิบาย complexity, amortized analysis, two pointers, graph และ DP แบบกระชับ"
+    },
+    {
+      "title": "Tech Interview Handbook: Coding interview techniques",
+      "url": "https://www.techinterviewhandbook.org/coding-interview-techniques/",
+      "note": "วิธีคิดเมื่อเจอโจทย์สัมภาษณ์ และการลด time/space complexity ทีละขั้น"
+    },
+    {
+      "title": "Google Research: Nearly All Binary Searches and Mergesorts are Broken",
+      "url": "https://research.google/blog/extra-extra-read-all-about-it-nearly-all-binary-searches-and-mergesorts-are-broken/",
+      "note": "บทความต้นเรื่องบั๊กการหาค่ากลางใน binary search ของ JDK"
+    },
+    {
+      "title": "MDN: Array.prototype.sort()",
+      "url": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/sort",
+      "note": "comparator และการรับประกัน stable sort ตั้งแต่ ES2019"
+    },
+    {
+      "title": "Wikipedia: Hash table",
+      "url": "https://en.wikipedia.org/wiki/Hash_table",
+      "note": "collision, load factor และ complexity ทั้งกรณีเฉลี่ยและแย่สุด"
+    }
+  ],
+  "questions": [
+    {
+      "prompt": "service หา “เพื่อนของเพื่อน” ด้วย BFS ทำงานเร็วในกราฟทดสอบ แต่พอรันกับกราฟจริง 200,000 โหนด เวลาพุ่งขึ้นแบบเกินสัดส่วนมาก ทั้งที่แต่ละโหนดมีเพื่อนไม่กี่คน สาเหตุที่น่าจะเป็นที่สุดคืออะไร?",
+      "code": "const queue = [start];\nconst visited = new Set([start]);\nwhile (queue.length > 0) {\n  const node = queue.shift();\n  for (const next of graph.get(node)) {\n    if (!visited.has(next)) {\n      visited.add(next);\n      queue.push(next);\n    }\n  }\n}",
+      "options": [
+        "Set.has ใช้เวลา O(n) เมื่อ Set ใหญ่ขึ้น จึงทำให้การตรวจ visited ช้าลงเรื่อย ๆ",
+        "shift ต้องเลื่อนค่าที่เหลือทั้งคิวทุกครั้ง งานรวมจึงเข้าใกล้ O(n²) เมื่อคิวยาว",
+        "BFS มี complexity เป็น O(V²) อยู่แล้ว ต้องเปลี่ยนไปใช้ DFS ถึงจะได้ O(V + E)",
+        "ควรทำเครื่องหมาย visited ตอนดึงออกจากคิว ไม่ใช่ตอนใส่ ไม่อย่างนั้นโหนดจะถูกข้าม"
+      ],
+      "answer": 1,
+      "explain": "shift ลบตัวแรกแล้วเลื่อนทุกตัวที่เหลือไปทางซ้าย เมื่อคิวยาวหลายหมื่นตัวงานต่อครั้งจึงเป็น O(n) ให้เก็บ index หัวคิวแทน ส่วน BFS เองเป็น O(V + E) และการ mark ตอนใส่คิวคือวิธีที่ถูกอยู่แล้ว"
+    },
+    {
+      "prompt": "endpoint รับ JSON ที่มี key ได้ไม่จำกัดแล้วเก็บลง hash map หลังมีคนส่ง payload ที่ key หลายแสนตัวถูกออกแบบให้ hash ชนกัน CPU ของเซิร์ฟเวอร์เต็มนานหลายวินาที เหตุการณ์นี้อธิบายได้ด้วยอะไร?",
+      "options": [
+        "hash map ย้ายข้อมูลไปเก็บบน disk เมื่อเกินหน่วยความจำ จึงเกิด I/O สูงมาก",
+        "JSON.parse ใช้เวลา O(n³) เมื่อ object มี key จำนวนมากและซ้อนกันหลายชั้น",
+        "load factor ต่ำเกินไปจึงต้อง resize ตารางใหม่ทุกครั้งที่มีการเพิ่ม key",
+        "key ที่ชนกันทำให้ hash table เป็น O(n) ต่อครั้ง รวมเป็น O(n²)"
+      ],
+      "answer": 3,
+      "explain": "O(1) ของ hash table เป็นค่าเฉลี่ยที่อาศัย key กระจายดี ถ้าผู้โจมตีทำให้ key ตกช่องเดียวกัน การเพิ่มแต่ละครั้งต้องไล่รายการที่ชนกันทั้งหมด จึงควรจำกัดจำนวน key และใช้ hash ที่สุ่ม seed ส่วน resize เกิดเมื่อ load factor สูง ไม่ใช่ต่ำ"
+    },
+    {
+      "prompt": "ระบบเกมต้องหา 10 คะแนนสูงสุดจากคะแนน 5 ล้านรายการที่ไหลเข้ามาเรื่อย ๆ และมีหน่วยความจำจำกัด วิธีใดเหมาะที่สุด?",
+      "options": [
+        "ใช้ min-heap ขนาด 10 แทนที่ตัวน้อยสุดเมื่อเจอคะแนนที่สูงกว่า ได้ O(n log 10)",
+        "เก็บคะแนนทั้งหมดใน array แล้ว sort จากมากไปน้อยใหม่ทุกครั้งที่มีคะแนนใหม่เข้ามา",
+        "ใส่คะแนนทั้งหมดลง max-heap ขนาด 5 ล้าน แล้วดึงออก 10 ครั้งตอนจบ",
+        "เก็บคะแนนใน Set แล้วใช้ Math.max กับ Set สิบครั้งโดยลบค่าที่เจอแล้วออก"
+      ],
+      "answer": 0,
+      "explain": "min-heap ขนาด k เก็บเฉพาะ 10 อันดับปัจจุบัน และรู้ทันทีว่าตัวที่อ่อนสุดคือใคร งานต่อคะแนนจึงเป็น O(log k) และใช้หน่วยความจำ O(k) ส่วน max-heap ทั้งก้อนได้คำตอบถูกแต่ต้องเก็บข้อมูลทั้ง 5 ล้านรายการ"
+    },
+    {
+      "prompt": "ทีมสร้าง BST เองเพื่อค้นสินค้าด้วย id โดย insert ตามลำดับที่อ่านจากตาราง ซึ่งเรียงตาม id อยู่แล้ว การค้นหาช้าพอ ๆ กับการวน array เพราะอะไร?",
+      "code": "for (const p of productsSortedById) {\n  tree.insert(p.id, p); // BST ธรรมดา ไม่มีการปรับสมดุล\n}\ntree.find(999_999);",
+      "options": [
+        "BST ค้นได้เร็วเฉพาะ key ที่เป็น string ส่วน key ตัวเลขต้องใช้ hash table",
+        "การค้นใน BST เป็น O(n log n) เสมอ จึงช้ากว่า array ที่ค้นได้ O(n)",
+        "ข้อมูลที่เรียงแล้วทำให้ต้นไม้เอียงเป็นเส้นตรงสูง n การค้นจึงเป็น O(n)",
+        "insert ต่อเนื่องหลายครั้งทำให้ต้นไม้ต้อง rebalance ใหม่ทุกรอบจนช้า"
+      ],
+      "answer": 2,
+      "explain": "เวลาค้นของ BST ขึ้นกับความสูง ถ้า insert แบบเรียงลำดับ ทุกโหนดใหม่จะไปทางขวาเสมอจนกลายเป็น linked list ต้องใช้ self-balancing tree (AVL, red-black) หรือสุ่มลำดับก่อน ส่วน BST ธรรมดาไม่มีการ rebalance เลยจึงไม่ใช่สาเหตุ"
+    },
+    {
+      "prompt": "โซเชียลแอปมีผู้ใช้ 1 ล้านคน แต่ละคนติดตามคนอื่นเฉลี่ย 200 คน ควรเก็บกราฟการติดตามในหน่วยความจำแบบใด?",
+      "options": [
+        "adjacency matrix ขนาด 1 ล้าน × 1 ล้าน เพราะตรวจว่าใครติดตามใครได้ O(1)",
+        "array ของเส้นทั้งหมดแล้ววนหาเพื่อนบ้านทุกครั้งที่ต้องใช้",
+        "adjacency list เพราะใช้ที่ตาม V + E ซึ่งเหมาะกับกราฟเบาบางแบบนี้",
+        "adjacency matrix แต่บีบอัดด้วย JSON.stringify ก่อนเก็บเพื่อลดขนาด"
+      ],
+      "answer": 2,
+      "explain": "มีเส้นราว 200 ล้านเส้น ขณะที่ matrix ต้องมี 10¹² ช่องไม่ว่าจะมีเส้นจริงกี่เส้น กราฟเบาบางจึงควรใช้ adjacency list ซึ่งใช้ O(V + E) ข้อดีเรื่องตรวจ O(1) ของ matrix ไม่คุ้มกับหน่วยความจำที่เสีย"
+    },
+    {
+      "prompt": "ฟีเจอร์ “คุณกับคนนี้รู้จักกันผ่านกี่ทอด” ต้องคืนจำนวนขั้นที่น้อยที่สุดระหว่างผู้ใช้สองคน (ทุกความสัมพันธ์ถือว่าระยะเท่ากัน) ควรใช้อัลกอริทึมใด?",
+      "options": [
+        "BFS จากต้นทาง เพราะไล่ทีละชั้นจึงเจอปลายทางด้วยจำนวนขั้นน้อยสุด",
+        "DFS จากผู้ใช้ต้นทาง เพราะลงลึกได้เร็วกว่าจึงเจอปลายทางเร็วกว่าเสมอ",
+        "Dijkstra เพราะเป็นวิธีเดียวที่รับประกันเส้นทางสั้นสุดในทุกกราฟ",
+        "Topological sort ของกราฟเพื่อน แล้วนับระยะห่างตามลำดับที่ได้"
+      ],
+      "answer": 0,
+      "explain": "ในกราฟที่ไม่มีน้ำหนัก BFS เจอทุกโหนดในระยะ k ก่อนระยะ k + 1 จึงได้จำนวนขั้นน้อยสุด DFS อาจเจอปลายทางผ่านทางอ้อมก่อน ส่วน Dijkstra ใช้ได้แต่เกินจำเป็นและช้ากว่า และกราฟเพื่อนมี cycle จึง topological sort ไม่ได้"
+    },
+    {
+      "prompt": "ระบบขนส่งคำนวณเส้นทางด้วย BFS แล้วได้เส้นทาง A → D ตรง ๆ ค่าส่ง 50 บาท ทั้งที่มี A → B → C → D ค่าส่งรวม 18 บาท ข้อใดอธิบายและแก้ได้ถูกต้อง?",
+      "options": [
+        "BFS ต้องเริ่มจากปลายทางย้อนกลับมาจึงจะได้เส้นทางที่ถูกที่สุด",
+        "ต้องเพิ่มเซต visited เพราะ BFS ที่ไม่มี visited จะเลือกเส้นที่สั้นกว่าเสมอ",
+        "ควรเปลี่ยนเป็น DFS แล้วหยุดทันทีที่เจอปลายทางครั้งแรก",
+        "BFS นับจำนวนเส้นไม่ใช่ค่าส่ง เมื่อเส้นมีน้ำหนักต่างกันต้องใช้ Dijkstra"
+      ],
+      "answer": 3,
+      "explain": "BFS ให้คำตอบที่ผ่านเส้นน้อยที่สุด ซึ่งเท่ากับเส้นทางถูกที่สุดก็ต่อเมื่อทุกเส้นราคาเท่ากัน เมื่อมีน้ำหนัก (ไม่ติดลบ) ต้องใช้ Dijkstra ที่ดึงจุดที่ค่าสะสมน้อยสุดออกก่อน DFS ที่หยุดตอนเจอครั้งแรกไม่รับประกันอะไรเลย"
+    },
+    {
+      "prompt": "ทีมเพิ่ม “เส้นทางโปรโมชัน” ที่มีค่าส่งติดลบ (ได้เงินคืน) ลงในกราฟ แล้วพบว่า Dijkstra คืนเส้นทางที่ไม่ใช่ถูกที่สุด ควรทำอย่างไร?",
+      "options": [
+        "บวกค่าคงที่เท่ากันให้ทุกเส้นจนไม่มีค่าติดลบแล้วรัน Dijkstra ต่อ",
+        "ใช้ Bellman–Ford ที่รองรับน้ำหนักติดลบและตรวจ negative cycle ได้",
+        "เปลี่ยน priority queue เป็น max-heap เพื่อให้เส้นติดลบถูกดึงออกก่อน",
+        "รัน Dijkstra สองรอบ รอบแรกจากต้นทางและรอบสองจากปลายทาง"
+      ],
+      "answer": 1,
+      "explain": "Dijkstra ถือว่าโหนดที่ดึงออกแล้วได้ระยะสั้นสุดแน่นอน ซึ่งไม่จริงเมื่อมีเส้นติดลบ Bellman–Ford แก้ปัญหานี้และบอกได้ว่ามี negative cycle ที่ทำให้ไม่มีคำตอบ การบวกค่าคงที่ทุกเส้นดูน่าลอง แต่ลงโทษเส้นทางที่มีหลายเส้นมากกว่า จึงเปลี่ยนว่าเส้นทางไหนถูกที่สุด"
+    },
+    {
+      "prompt": "ฟังก์ชันเรียงลำดับ migration ด้วย Kahn’s algorithm คืน order ที่มี 7 รายการ ทั้งที่มี migration 9 รายการ และไม่มี error ใด ๆ ข้อสรุปที่ถูกต้องคืออะไร?",
+      "code": "// next: Map ของงานที่ต้องรอ, inDegree: Map จำนวน dependency ที่ยังค้าง\nconst queue = tasks.filter((t) => inDegree.get(t) === 0);\nconst order = [];\nlet head = 0;\nwhile (head < queue.length) {\n  const task = queue[head++];\n  order.push(task);\n  for (const n of next.get(task)) {\n    inDegree.set(n, inDegree.get(n) - 1);\n    if (inDegree.get(n) === 0) queue.push(n);\n  }\n}\nconsole.log(order.length, tasks.length); // 7 9",
+      "options": [
+        "มี dependency ที่วนกันเป็น cycle ทำให้สองงานไม่เคยมี in-degree เป็น 0",
+        "มีสอง migration ที่ไม่มี dependency เลยจึงถูกข้าม ต้องเพิ่มเองตอนท้าย",
+        "queue ต้องเป็น priority queue ไม่อย่างนั้นบางงานจะหลุดหาย",
+        "Kahn’s algorithm คืนผลไม่ครบได้เป็นปกติเมื่อกราฟมีหลายลำดับที่ถูกต้อง"
+      ],
+      "answer": 0,
+      "explain": "งานใน cycle รอกันเองจน in-degree ไม่เคยลดถึง 0 จึงไม่ถูกใส่ queue เมื่อ order สั้นกว่าจำนวนงานแปลว่ามี cycle และต้อง throw error แทนการรันต่อ ส่วนงานที่ไม่มี dependency มี in-degree 0 ตั้งแต่ต้นจึงถูกใส่คิวแน่นอน"
+    },
+    {
+      "prompt": "ต้องการแสดงออเดอร์เรียงตาม status และภายใน status เดียวกันให้เรียงตามวันที่ วิธีใดให้ผลถูกต้องใน JavaScript ปัจจุบัน?",
+      "code": "// ข้อมูลเดิมเรียงตามลำดับที่ดึงมา ไม่ได้เรียงตามอะไร\nconst rows = [\n  { id: 1, status: 'paid', date: new Date('2026-03-02') },\n  { id: 2, status: 'new', date: new Date('2026-03-01') },\n  { id: 3, status: 'paid', date: new Date('2026-02-27') },\n];\n// ต้องการ: new ก่อน paid และใน status เดียวกันเรียงตามวันที่",
+      "options": [
+        "sort ตาม status ก่อนแล้วค่อย sort ตามวันที่ เพราะรอบหลังจะคงลำดับ status ไว้",
+        "sort ตามวันที่ก่อนแล้วค่อย sort ตาม status เพราะ sort เป็น stable จึงคงลำดับวันที่ไว้",
+        "ต้องเขียน merge sort เอง เพราะ Array.prototype.sort ไม่รับประกันว่า stable",
+        "sort รอบเดียวด้วย comparator ที่คืน a.date - b.date เฉพาะเมื่อ status ของสองแถวต่างกัน"
+      ],
+      "answer": 1,
+      "explain": "ตั้งแต่ ES2019 Array.prototype.sort ต้อง stable การ sort ตาม key รองก่อนแล้วตาม key หลักจึงได้ผลถูก (หรือเขียน comparator เทียบ status แล้วตกไปเทียบวันที่เมื่อเท่ากัน) ถ้า sort ตาม status ก่อนแล้วค่อยตามวันที่ จะได้ผลเรียงตามวันที่ล้วน ๆ เพราะ sort รอบหลังเป็นตัวกำหนดลำดับหลัก"
+    },
+    {
+      "prompt": "เพื่อนบอกว่าเรียงอายุลูกค้า 10 ล้านคน (เป็นจำนวนเต็ม 0–150) ได้เร็วกว่า O(n log n) ซึ่งขัดกับที่เรียนว่า sort ทำได้ดีที่สุด n log n ข้อใดถูกต้อง?",
+      "options": [
+        "เป็นไปไม่ได้ ไม่มีวิธีเรียงข้อมูลใดที่ใช้เวลาต่ำกว่า O(n log n)",
+        "เป็นไปได้ด้วย counting sort ที่ไม่เทียบค่าทีละคู่ ใช้ O(n + k) เมื่อช่วงค่า k แคบ",
+        "เป็นไปได้เฉพาะเมื่อใช้ quicksort ที่เลือก pivot เป็น median ของข้อมูลจริงทุกครั้ง",
+        "เป็นไปได้เพราะ JavaScript sort ตัวเลขด้วย hash table ภายใน engine"
+      ],
+      "answer": 1,
+      "explain": "ขอบล่าง n log n ใช้กับ comparison sort ที่ตัดสินด้วยการเทียบสองค่า counting sort นับจำนวนของแต่ละค่าแทนการเทียบ จึงได้ O(n + k) เมื่อ k คือช่วงของ key ส่วน quicksort ไม่ว่าเลือก pivot อย่างไรก็ยังเป็น comparison sort"
+    },
+    {
+      "prompt": "ทีมเขียน quicksort เองโดยเลือกตัวแรกเป็น pivot ทุกครั้ง ทดสอบกับข้อมูลสุ่มเร็วดี แต่ job กลางคืนที่เรียงข้อมูลซึ่ง “เกือบเรียงอยู่แล้ว” ใช้เวลานานผิดปกติ สาเหตุคืออะไร?",
+      "options": [
+        "ข้อมูลที่เรียงแล้วทำให้ quicksort ต้องใช้หน่วยความจำ O(n²)",
+        "quicksort เร็วเฉพาะกับข้อมูลที่ไม่มีค่าซ้ำ ข้อมูลกลางคืนที่มีค่าซ้ำจึงช้ามาก",
+        "quicksort เป็น stable sort จึงต้องทำงานเพิ่มกับข้อมูลที่เรียงแล้ว",
+        "pivot เกือบเป็นค่าน้อยสุดทุกครั้ง แต่ละรอบตัดได้ตัวเดียว จึงเป็น O(n²)"
+      ],
+      "answer": 3,
+      "explain": "เมื่อ pivot เป็นตัวแรกของข้อมูลที่เรียงแล้ว การแบ่งแต่ละรอบตัดออกได้แค่ตัวเดียว รวมเป็น O(n²) แก้ด้วย pivot แบบสุ่มหรือ median-of-three ปัญหาคือเวลา ไม่ใช่หน่วยความจำ O(n²) และ quicksort แบบ in-place ทั่วไปไม่ stable"
+    },
+    {
+      "prompt": "ระบบ billing ต้องเรียงรายการขนาดใหญ่ที่ต้องรับประกันเวลาแย่สุด และรายการที่เทียบเท่ากันต้องคงลำดับเดิม (stable) ทีมยอมจ่ายหน่วยความจำเพิ่มได้ ควรเลือกอะไรและต้องแลกกับอะไร?",
+      "options": [
+        "quicksort แบบสุ่ม pivot ซึ่งเป็น stable sort และไม่ต้องจองหน่วยความจำเพิ่ม",
+        "heapsort ซึ่งเป็น stable sort และใช้หน่วยความจำเสริมเพียง O(1) เท่านั้น",
+        "insertion sort ซึ่งรับประกัน O(n log n) ในทุกกรณีแม้ข้อมูลจะใหญ่มาก",
+        "merge sort ได้ O(n log n) ทุกกรณีและ stable แต่ต้องใช้ที่เสริม O(n)"
+      ],
+      "answer": 3,
+      "explain": "merge sort รับประกัน O(n log n) และเป็น stable ราคาที่จ่ายคือ array ชั่วคราว O(n) quicksort แบบสุ่มยังมี worst case O(n²) และไม่ stable ส่วน heapsort ไม่ stable และ insertion sort เป็น O(n²)"
+    },
+    {
+      "prompt": "ฟังก์ชันหาตำแหน่งแรกที่ค่า ≥ x นี้ค้าง (วนไม่จบ) ทุกครั้งที่เรียก เพราะอะไร?",
+      "code": "function lowerBound(a, x) {\n  let lo = 0, hi = a.length;\n  while (lo <= hi) {\n    const mid = Math.floor((lo + hi) / 2);\n    if (a[mid] < x) lo = mid + 1;\n    else hi = mid;\n  }\n  return lo;\n}",
+      "options": [
+        "ใช้ <= กับ hi = mid เมื่อ lo === hi จะได้ mid เดิมและช่วงไม่แคบลง",
+        "Math.floor ปัดค่าลงทำให้ mid ไม่เคยถึงตัวสุดท้ายของ array",
+        "ต้องเริ่ม hi = a.length - 1 ไม่อย่างนั้น a[mid] จะ throw error",
+        "lowerBound ใช้ไม่ได้กับ array ที่มีค่าซ้ำ จึงวนไม่จบเมื่อเจอค่าซ้ำ"
+      ],
+      "answer": 0,
+      "explain": "ช่วงครึ่งเปิด [lo, hi) ต้องคู่กับ while (lo < hi) เมื่อใช้ <= แล้ว lo กับ hi เท่ากัน mid จะเท่ากับทั้งสองค่า และ a[mid] ตรงนั้นเป็น undefined หรือ ≥ x เสมอ จึงตก else hi = mid ทุกครั้ง ช่วงไม่แคบลงอีกเลย การอ่าน a[a.length] ใน JavaScript ได้ undefined ไม่ได้ throw และ lower bound ออกแบบมาเพื่อรองรับค่าซ้ำ"
+    },
+    {
+      "prompt": "โค้ด binary search หาเวลาที่เร็วที่สุด (หน่วย millisecond) ที่งานเสร็จทัน ค้นในช่วง 0 ถึง 4,000,000,000 แล้วบางครั้งได้ mid ติดลบ เพราะอะไร?",
+      "code": "let lo = 0, hi = 4_000_000_000;\nwhile (lo < hi) {\n  const mid = (lo + hi) >> 1;\n  if (canFinish(mid)) hi = mid;\n  else lo = mid + 1;\n}",
+      "options": [
+        "Number ใน JavaScript เก็บได้ไม่เกิน 2^31 − 1 จึงล้นเมื่อบวกกัน",
+        "ผลรวม lo + hi เกินขีดของ Number.MAX_SAFE_INTEGER จึงเพี้ยนกลายเป็นค่าติดลบ",
+        ">> แปลงเป็น int32 แบบมีเครื่องหมาย ค่าที่เกิน 2^31 − 1 จึงกลายเป็นลบ",
+        "while (lo < hi) ทำให้ mid ไม่เคยเท่ากับ hi และไหลลงไปติดลบ"
+      ],
+      "answer": 2,
+      "explain": "Number เป็น double บวกกันได้แม่นถึง 2^53 การบวกจึงไม่มีปัญหา แต่ >> ตัดเป็น int32 ก่อนเลื่อนบิต ค่าราว 4 พันล้านจึงกลายเป็นลบ ให้ใช้ Math.floor((lo + hi) / 2) แทน ค่า MAX_SAFE_INTEGER คือ 2^53 − 1 ซึ่งไกลจาก 4 พันล้านมาก"
+    },
+    {
+      "prompt": "fib แบบ memoize นี้ถูกเรียกด้วย n = 1,000 ครั้งแรก time และ space complexity คือเท่าไร?",
+      "code": "const memo = new Map();\nfunction fib(n) {\n  if (n <= 1) return n;\n  if (memo.has(n)) return memo.get(n);\n  const v = fib(n - 1) + fib(n - 2);\n  memo.set(n, v);\n  return v;\n}",
+      "options": [
+        "time O(2ⁿ) เพราะยังเรียกตัวเองสองครั้งต่อรอบ และ space O(1)",
+        "time O(n) และ space O(n) จาก memo และความลึกของ call stack",
+        "time O(n log n) เพราะ Map ค้นได้ O(log n) ต่อครั้ง และ space O(n)",
+        "time O(n) และ space O(1) เพราะ memo แค่ช่วยลดการคำนวณ"
+      ],
+      "answer": 1,
+      "explain": "แต่ละค่า n ถูกคำนวณจริงครั้งเดียว ครั้งต่อไปอ่านจาก memo เวลาจึงเป็น O(n) แลกกับ memo ขนาด O(n) และ call stack ลึก O(n) ถ้าต้องการ space O(1) ให้เขียนแบบ bottom-up ที่จำแค่สองค่าล่าสุด"
+    },
+    {
+      "prompt": "ปัญหาใดต่อไปนี้ได้ประโยชน์จาก dynamic programming มากที่สุด?",
+      "options": [
+        "นับวิธีขึ้นบันได n ขั้น (ก้าวละ 1 หรือ 2) ซึ่งใช้คำตอบของ n − 1 และ n − 2 ซ้ำ",
+        "เรียงข้อมูลด้วย merge sort ซึ่งแบ่งข้อมูลเป็นสองครึ่งที่ไม่ซ้อนทับกันแล้วค่อยรวมกลับ",
+        "หาค่ามากที่สุดใน array ยาวหลายล้านตัวด้วยการวนอ่านเพียงครั้งเดียว",
+        "ค้นค่าใน array ที่เรียงแล้วด้วย binary search ที่ตัดช่วงทิ้งทีละครึ่ง"
+      ],
+      "answer": 0,
+      "explain": "DP คุ้มเมื่อปัญหาย่อยซ้อนทับกัน จำนวนวิธีขึ้นบันได n ขั้นเท่ากับ ways(n − 1) + ways(n − 2) และปัญหาย่อยเดิมถูกเรียกซ้ำมาก merge sort แบ่งเป็นปัญหาย่อยที่ไม่ซ้อนกันจึงเป็น divide and conquer ส่วนสองข้อที่เหลือไม่มีปัญหาย่อยซ้ำให้จำ"
+    },
+    {
+      "prompt": "โค้ดหาช่วงต่อเนื่องที่ผลรวมเท่ากับ target ด้วย sliding window ทำงานถูกกับยอดขาย แต่ผิดเมื่อนำไปใช้กับ “กำไรสุทธิรายวัน” ที่บางวันติดลบ เพราะอะไร?",
+      "options": [
+        "sliding window ใช้ได้กับ array ที่เรียงแล้วเท่านั้น จึงต้อง sort กำไรรายวันก่อนเสมอ",
+        "ค่าติดลบทำให้ JavaScript บวกเลขผิดพลาดจาก floating point",
+        "หน้าต่างต้องมีขนาดคงที่เสมอ ใช้กับกำไรที่ช่วงยาวไม่เท่ากันไม่ได้",
+        "การขยายหน้าต่างไม่ได้ทำให้ผลรวมเพิ่มเสมออีกต่อไป การตัดสินใจหดหรือขยายจึงผิด"
+      ],
+      "answer": 3,
+      "explain": "two pointers แบบนี้อาศัยว่าค่าทุกตัวเป็นบวก ขยายแล้วผลรวมเพิ่ม หดแล้วลด ถ้ามีค่าติดลบ คุณสมบัตินี้หายไปและอาจข้ามคำตอบ ให้ใช้ prefix sum กับ Map แทน การ sort จะทำลายความต่อเนื่องของช่วงซึ่งเป็นสิ่งที่โจทย์ต้องการ"
+    },
+    {
+      "prompt": "array ราคาสินค้าเรียงจากน้อยไปมากแล้ว ต้องหาว่ามีสินค้าสองชิ้นที่ราคารวมเท่ากับงบพอดีหรือไม่ วิธีใดใช้เวลาน้อยที่สุดและไม่ต้องใช้หน่วยความจำเพิ่ม?",
+      "options": [
+        "loop ซ้อนลองทุกคู่ เพราะข้อมูลเรียงแล้วจึงหยุดได้เร็ว",
+        "sort ใหม่จากมากไปน้อยก่อน แล้ว binary search ทุกตัว",
+        "ตัวชี้หัวและท้าย ผลรวมน้อยไปเลื่อนตัวหัว มากไปเลื่อนตัวท้าย ได้ O(n)",
+        "ใส่ทุกราคาลง Map แล้วตรวจ budget − price ได้ O(n) และ space O(1)"
+      ],
+      "answer": 2,
+      "explain": "เพราะข้อมูลเรียงแล้ว ถ้าผลรวมน้อยไปการขยับตัวชี้ซ้ายเป็นทางเดียวที่ช่วยเพิ่มผลรวม แต่ละตัวชี้ขยับรวมไม่เกิน n ครั้งจึงเป็น O(n) และ space O(1) วิธี Map ก็เป็น O(n) แต่ใช้หน่วยความจำ O(n) ไม่ใช่ O(1)"
+    },
+    {
+      "prompt": "ในการสัมภาษณ์ ฟังก์ชันวน users (n คน) หนึ่งรอบเพื่อสร้าง Map แล้ววน orders (m รายการ) อีกหนึ่งรอบเพื่อจับคู่ ควรตอบ time complexity อย่างไร?",
+      "options": [
+        "O(n) เพราะ Big-O ตัดตัวแปรที่เล็กกว่าทิ้งได้เสมอ",
+        "O(n + m) เพราะข้อมูลสองชุดมีขนาดอิสระต่อกัน",
+        "O(n × m) เพราะมี loop สองตัวในฟังก์ชันเดียวกัน",
+        "O(1) เพราะ Map ค้นหาได้ในเวลาคงที่ทุกครั้ง"
+      ],
+      "answer": 1,
+      "explain": "loop สองตัวที่ต่อกันไม่ได้ซ้อนกัน งานจึงเป็นผลบวก และเมื่อขนาดสองชุดไม่สัมพันธ์กันต้องเขียนเป็น O(n + m) จะตัดตัวใดทิ้งได้ต่อเมื่อรู้ว่าอีกตัวโตเร็วกว่าเสมอ ส่วน O(n × m) คือกรณีที่วน orders ซ้ำทุกคนใน users"
+    },
+    {
+      "prompt": "ใน benchmark การ push ข้อมูล 10 ล้านตัวลง array ส่วนใหญ่แต่ละครั้งเร็วมาก แต่มีบางครั้งที่ช้ากว่าปกติชัดเจน ข้อใดอธิบายได้ดีที่สุด?",
+      "options": [
+        "garbage collector ลบข้อมูลเก่าออกจาก array ทุกครั้งระหว่างที่ push",
+        "push เป็น O(log n) จึงช้าลงเรื่อย ๆ ตามขนาด array ที่โตขึ้นทุกครั้ง",
+        "ความจุเต็มต้องขยายและคัดลอกทั้งก้อน ครั้งนั้นช้า แต่เฉลี่ย O(1)",
+        "engine จะ sort array ใหม่ทุกครั้งที่ขนาดเป็นเลขยกกำลังสองของจำนวนเต็ม"
+      ],
+      "answer": 2,
+      "explain": "dynamic array ขยายเป็นสัดส่วน ครั้งที่ต้องขยายจึงเป็น O(n) แต่เกิดห่างขึ้นเรื่อย ๆ เวลารวมของ n ครั้งเป็น O(n) หรือ amortized O(1) ต่อครั้ง push ไม่ได้ช้าลงตามขนาดแบบ O(log n)"
+    },
+    {
+      "prompt": "ระบบ playlist ต้องแทรกเพลงตรงตำแหน่งที่ผู้ใช้กด (รู้แค่ index) ใน playlist ยาวมาก เพื่อนเสนอให้เปลี่ยนจาก array เป็น linked list “เพราะแทรกได้ O(1)” ข้อใดถูกต้อง?",
+      "options": [
+        "ถูก linked list แทรกที่ index ใด ๆ ได้ O(1) เสมอ เพราะไม่ต้องขยับข้อมูล",
+        "ต้องเดินไปถึง index นั้นก่อน ซึ่งเป็น O(n) งานรวมจึงไม่ได้ดีขึ้น",
+        "ผิด เพราะ linked list ใช้หน่วยความจำ O(n²) จากตัวชี้ที่เก็บในทุกโหนด",
+        "ถูก และการวนอ่านทั้ง playlist ตั้งแต่ต้นจนจบก็เร็วกว่า array ด้วย"
+      ],
+      "answer": 1,
+      "explain": "linked list แทรกได้ O(1) เมื่อถือโหนดตรงตำแหน่งนั้นอยู่แล้ว แต่ถ้ารู้แค่ index ต้องเดินจากหัว O(n) ก่อน ส่วนการวนอ่านทั้งรายการมักช้ากว่า array เพราะโหนดกระจายในหน่วยความจำและใช้ cache ได้ไม่ดี"
+    },
+    {
+      "prompt": "ฟังก์ชันนี้นับจำนวนโหนดของ tree ด้วย recursion ถ้า tree เอียงข้างเดียวเป็นเส้นตรงยาว n โหนด space complexity คือเท่าไร?",
+      "code": "function count(node) {\n  if (!node) return 0;\n  return 1 + count(node.left) + count(node.right);\n}",
+      "options": [
+        "O(1) เพราะฟังก์ชันไม่ได้สร้าง array หรือ Map ใหม่ระหว่างทำงานเลย",
+        "O(log n) เพราะ tree มีความสูงแค่ log n เสมอไม่ว่ารูปร่างแบบใดก็ตาม",
+        "O(n) จาก call stack ที่ลึกเท่าความสูงของ tree ซึ่งเท่ากับ n",
+        "O(n²) เพราะเรียกตัวเองสองครั้งในแต่ละโหนดของ tree ที่เอียงมาก"
+      ],
+      "answer": 2,
+      "explain": "การเรียกซ้ำแต่ละชั้นค้างอยู่บน call stack จน child กลับมา space จึงเท่ากับความสูง O(h) ซึ่งเป็น n เมื่อ tree เอียง และอาจถึงขั้น stack overflow ความสูง log n จริงเฉพาะ tree ที่สมดุล ส่วนการเรียกสองครั้งเพิ่มเวลา ไม่ได้เพิ่ม stack พร้อมกัน"
+    },
+    {
+      "prompt": "ต้องตรวจว่า tree ที่ได้จาก API เป็น BST ที่ถูกต้องหรือไม่ วิธีใดตรงไปตรงมาและได้ O(n)?",
+      "options": [
+        "ตรวจเฉพาะว่าลูกซ้ายน้อยกว่าพ่อและลูกขวามากกว่าพ่อในทุกโหนด",
+        "ท่องแบบ level-order แล้วดูว่าค่าแต่ละชั้นเรียงจากน้อยไปมากไหม",
+        "ท่องแบบ pre-order แล้วดูว่าผลเรียงจากน้อยไปมากไหม",
+        "ท่องแบบ in-order แล้วตรวจว่าผลเรียงจากน้อยไปมากหรือไม่"
+      ],
+      "answer": 3,
+      "explain": "in-order ของ BST ต้องได้ค่าเรียงจากน้อยไปมาก จึงตรวจได้ในการท่องรอบเดียว การเทียบแค่ลูกกับพ่อพลาดกรณีหลานฝั่งซ้ายที่มากกว่าปู่ ส่วน pre-order และ level-order ไม่ได้ให้ค่าเรียงแม้ tree จะถูกต้อง"
+    },
+    {
+      "prompt": "ระบบลูกค้าพบว่าหลายบัญชีเป็นคนเดียวกันถ้าใช้อีเมลหรือเบอร์ร่วมกัน (ต่อกันเป็นทอดได้) ต้องรวมบัญชีหลายล้านคู่ความสัมพันธ์ให้เร็ว โครงสร้างใดเหมาะที่สุด?",
+      "options": [
+        "union-find ที่ union ทุกคู่บัญชีที่เชื่อมกัน แล้ว find หาตัวแทน",
+        "sort บัญชีตามอีเมลแล้วรวมเฉพาะบัญชีที่อยู่ติดกันในลิสต์",
+        "heap ของบัญชีเรียงตามวันที่สร้าง แล้วดึงออกมาทีละตัวเพื่อรวมกลุ่ม",
+        "BST ที่ใช้อีเมลเป็น key แล้วรวมบัญชีที่อยู่ใน subtree เดียวกันทั้งหมด"
+      ],
+      "answer": 0,
+      "explain": "union-find ออกแบบมาเพื่อรวมกลุ่มและถามว่าอยู่กลุ่มเดียวกันไหม เมื่อใช้ path compression กับ union by rank แต่ละคำสั่งเกือบคงที่แบบ amortized การ sort ตามอีเมลจับได้แค่บัญชีที่ใช้อีเมลซ้ำกันตรง ๆ แต่พลาดการเชื่อมต่อเป็นทอดผ่านเบอร์โทร"
+    },
+    {
+      "prompt": "โปรแกรมจัดเส้นทางรถส่งของต้องผ่านลูกค้า 40 จุดแล้วกลับคลัง ทีมเขียนให้ลองทุกลำดับเพื่อหาเส้นทางที่สั้นที่สุด แล้วพบว่ารันไม่จบ ข้อใดเป็นแนวทางที่สมเหตุสมผล?",
+      "options": [
+        "ย้ายไปรันบนเครื่องที่เร็วกว่า 100 เท่า ก็จะรันจบได้ในไม่กี่นาที",
+        "เปลี่ยนจาก array เป็น Map เพื่อให้การลองแต่ละลำดับเป็น O(1)",
+        "ใช้ Dijkstra ซึ่งให้เส้นทางวนผ่านทุกจุดที่สั้นที่สุดในเวลา polynomial",
+        "นี่คือปัญหา NP-hard ควรใช้ heuristic หรือ approximation ที่ได้คำตอบดีพอ"
+      ],
+      "answer": 3,
+      "explain": "travelling salesman เป็น NP-hard จำนวนลำดับของ 40 จุดคือ 40! ซึ่งเครื่องเร็วขึ้น 100 เท่าก็ไม่ช่วย จึงควรใช้ heuristic หรือ approximation Dijkstra หาเส้นทางสั้นสุดระหว่างสองจุด ไม่ได้หาเส้นทางวนผ่านทุกจุด"
+    },
+    {
+      "prompt": "hash table แบบ open addressing ที่ทีมเขียนเองช้าลงอย่างรวดเร็วเมื่อใส่ข้อมูลไปเรื่อย ๆ โดยไม่เคยขยาย ตรวจพบว่ามี 980 รายการในตาราง 1,000 ช่อง ควรแก้อย่างไร?",
+      "options": [
+        "เปลี่ยน hash function ให้คืนตัวเลขที่ยาวขึ้น โดยไม่ต้องเปลี่ยนขนาดตาราง",
+        "ลบรายการที่เก่าที่สุดครึ่งหนึ่งทิ้งทุกครั้งที่ตารางเริ่มเต็ม",
+        "resize เมื่อ load factor เกิน 0.75 แล้ว rehash ทุกรายการลงตารางใหม่",
+        "เรียงข้อมูลในตารางทุกครั้งที่ insert เพื่อให้ค้นด้วย binary search ได้"
+      ],
+      "answer": 2,
+      "explain": "load factor 0.98 ทำให้แทบทุกการ insert หรือค้นต้อง probe ยาวมาก open addressing จึงควร resize ก่อนเข้าใกล้ 1 (ทั่วไปราว 0.6–0.75) แล้ว rehash เพราะตำแหน่งขึ้นกับขนาดตาราง hash ที่ยาวขึ้นแต่ตารางขนาดเดิมก็ยังต้องลงช่องเพียง 1,000 ช่องอยู่ดี"
+    },
+    {
+      "prompt": "นักพัฒนาใช้ min-heap ทำคิวงานตามความสำคัญ แล้ว log array ภายในออกมาดู พบว่าไม่ได้เรียงลำดับ จึงคิดว่า heap มีบั๊ก ข้อใดถูกต้อง?",
+      "code": "for (const p of [3, 1, 2, 5, 4]) heap.push(p);\nconsole.log(heap.items); // [1, 3, 2, 5, 4]\nconsole.log(heap.pop());  // 1",
+      "options": [
+        "ถูก heap ต้องเก็บ array เรียงเสมอ ไม่อย่างนั้น pop จะได้ค่าผิด",
+        "heap รับประกันแค่พ่อแม่ไม่มากกว่าลูก array ภายในจึงไม่จำเป็นต้องเรียง",
+        "heap ต้อง sort ตัวเองหลัง push ทุกครั้ง จึงควรเรียก sort เพิ่ม",
+        "array ภายในเรียงจากมากไปน้อยเสมอ เพราะ pop ดึงจากท้าย array"
+      ],
+      "answer": 1,
+      "explain": "heap property บอกเพียงว่าพ่อแม่ไม่มากกว่าลูก ตัวน้อยสุดจึงอยู่บนยอดเสมอ แต่ลำดับระหว่างพี่น้องหรือข้ามกิ่งไม่ได้เรียง นี่คือเหตุผลที่ push และ pop เป็น O(log n) ได้ การ sort หลัง push ทุกครั้งทำให้เสียข้อดีนี้ไป"
+    },
+    {
+      "prompt": "library sort ที่ใช้กันแพร่หลายหลายตัวสลับไปใช้ insertion sort ซึ่งเป็น O(n²) เมื่อช่วงข้อมูลสั้น ทั้งที่มี merge sort ที่เป็น O(n log n) อยู่แล้ว เหตุผลคืออะไร?",
+      "options": [
+        "insertion sort เป็นอัลกอริทึมเดียวที่ stable จึงต้องใช้กับช่วงสั้น ๆ",
+        "Big-O ของ insertion sort กลายเป็น O(1) เมื่อช่วงข้อมูล n น้อยกว่า 64 ตัว",
+        "merge sort ทำงานไม่ได้เลยกับช่วงข้อมูลที่มีน้อยกว่า 64 ตัวในหน่วยความจำ",
+        "เมื่อ n เล็ก ค่าคงที่และ overhead มีผลมากกว่า จึงเร็วกว่าจริง"
+      ],
+      "answer": 3,
+      "explain": "Big-O บอกแนวโน้มเมื่อ n โต แต่บน array เล็กมาก insertion sort เป็นหนึ่งในวิธีที่เร็วที่สุดเพราะค่าคงที่ต่ำ implementation ที่ดีจึงสลับไปใช้เมื่อช่วงข้อมูลเล็กกว่าเกณฑ์ ส่วน merge sort เองก็ stable และทำงานได้กับข้อมูลทุกขนาด"
+    },
+    {
+      "prompt": "BFS นี้ให้ผลถูก แต่บนกราฟที่เชื่อมกันหนาแน่นกลับใช้หน่วยความจำสูงมาก เพราะบางโหนดถูกใส่เข้าคิวซ้ำหลายครั้ง ควรแก้อย่างไร?",
+      "code": "const queue = [start];\nconst visited = new Set();\nlet head = 0;\nwhile (head < queue.length) {\n  const node = queue[head++];\n  if (visited.has(node)) continue;\n  visited.add(node);\n  process(node);\n  for (const next of graph.get(node)) queue.push(next);\n}",
+      "options": [
+        "mark visited ตอนใส่เข้าคิวและเช็กก่อน push โหนดจึงเข้าคิวได้ครั้งเดียว",
+        "เปลี่ยน queue เป็น stack เพื่อให้ใช้หน่วยความจำน้อยลง",
+        "ย้าย visited.add(node) ไปไว้หลัง process(node) เพื่อไม่ให้ข้ามโหนด",
+        "เปลี่ยน Set เป็น array เพราะ Set ใช้หน่วยความจำมากกว่า"
+      ],
+      "answer": 0,
+      "explain": "โค้ดนี้ push เพื่อนบ้านทุกตัวโดยไม่ดูว่าเคยเจอแล้วหรือยัง โหนดเดียวจึงเข้าคิวได้หลายครั้งตามจำนวนเส้นเข้า การ mark ตอนใส่คิวทำให้คิวมีแต่ละโหนดครั้งเดียว ส่วนการเปลี่ยนเป็น stack จะได้ DFS ซึ่งไม่ได้ลำดับแบบ BFS อีกต่อไป"
+    }
+  ],
+  "exercises": [
+    {
+      "title": "ยอดขายรวมสูงสุดในช่วง k วันติดกัน",
+      "level": "ง่าย",
+      "tags": "sliding window · O(n) · edge case",
+      "lang": "javascript",
+      "prompt": "ทีมการตลาดต้องการรู้ว่าช่วง k วันติดกันไหนมียอดขายรวมสูงสุด ข้อมูล sales เป็นยอดต่อวันย้อนหลังหลายแสนวัน และหน้า dashboard เรียกฟังก์ชันนี้บ่อย โค้ดเดิมถูกต้องแต่ช้าเพราะรวมยอดใหม่ทั้งช่วงทุกครั้ง เขียน maxWindowSum(sales, k) ใหม่ให้ทำงาน O(n) โดยไม่มี loop ซ้อน และถ้า k <= 0 หรือ k มากกว่าจำนวนวันที่มี ให้คืน null",
+      "context": "// sales: number[] ยอดขายต่อวัน (เป็น 0 หรือบวก)\n// maxWindowSum([3, 1, 4, 1, 5, 9, 2], 3) -> 16  (5 + 9 + 2)\n// maxWindowSum([3, 1], 5) -> null",
+      "starter": "// ถูกต้องแต่ช้า: คำนวณผลรวมใหม่ทั้งหน้าต่างทุกครั้ง O(n * k)\nfunction maxWindowSum(sales, k) {\n  let best = -Infinity;\n  for (let i = 0; i + k <= sales.length; i++) {\n    let sum = 0;\n    for (let j = i; j < i + k; j++) {\n      sum += sales[j];\n    }\n    best = Math.max(best, sum);\n  }\n  return best;\n}",
+      "solution": "function maxWindowSum(sales, k) {\n  if (k <= 0 || k > sales.length) return null;\n\n  // ผลรวมของหน้าต่างแรก k วัน\n  let sum = 0;\n  for (let i = 0; i < k; i++) sum += sales[i];\n\n  let best = sum;\n  // เลื่อนหน้าต่างทีละวัน: บวกวันที่เข้า ลบวันที่หลุดออก\n  for (let i = k; i < sales.length; i++) {\n    sum += sales[i] - sales[i - k];\n    best = Math.max(best, sum);\n  }\n  return best;\n}",
+      "hints": [
+        "หน้าต่างที่ติดกันสองช่วงต่างกันแค่สองค่า คือค่าที่เพิ่งเข้ามากับค่าที่เพิ่งหลุดออกไป",
+        "คำนวณผลรวมของ k วันแรกครั้งเดียว แล้ววนต่อจากวันที่ k โดยบวก sales[i] และลบ sales[i - k]",
+        "ตรวจ k <= 0 และ k > sales.length ก่อนเริ่ม แล้วเก็บค่าสูงสุดด้วย Math.max ระหว่างเลื่อนหน้าต่าง"
+      ],
+      "checks": [
+        {
+          "label": "คืน null เมื่อ k ไม่เกินศูนย์",
+          "pattern": "(\\bk\\s*<=\\s*0|\\bk\\s*<\\s*1\\b|0\\s*>=\\s*k\\b|!\\s*\\(\\s*k\\s*>\\s*0\\s*\\))[\\s\\S]*?return\\s+null|return\\s+null[\\s\\S]*?(\\bk\\s*<=\\s*0|\\bk\\s*<\\s*1\\b)|\\bk\\s*(>\\s*0|>=\\s*1)\\b[\\s\\S]*?return\\s+null"
+        },
+        {
+          "label": "คืน null เมื่อ k มากกว่าจำนวนวัน",
+          "pattern": "\\bk\\s*>\\s*(\\w+\\.length|n|len|length|size|days|count)\\b|\\b(\\w+\\.length|n|len|length|size|days|count)\\s*<\\s*k\\b|\\bk\\s*>\\s*0\\s*&&\\s*k\\s*<=\\s*(\\w+\\.length|n|len|length|size|days|count)\\b"
+        },
+        {
+          "label": "เลื่อนหน้าต่างโดยลบค่าที่หลุดออก (เช่น sales[i - k])",
+          "pattern": "-=?\\s*\\w+(\\[\\s*[^\\]]+\\]|\\.at\\([^)]*\\))|\\w+\\[\\s*\\w+\\s*-\\s*k\\s*\\]"
+        },
+        {
+          "label": "เก็บค่าสูงสุดระหว่างเลื่อนหน้าต่าง",
+          "pattern": "math\\.max\\(|if\\s*\\(\\s*\\w+\\s*>=?\\s*\\w+\\s*\\)|\\w+\\s*>=?\\s*\\w+\\s*\\?"
+        },
+        {
+          "label": "ไม่มี loop ซ้อนหรือรวมยอดใหม่ทั้งช่วงในแต่ละรอบ",
+          "pattern": "(for|while)\\s*\\([^)]*\\)\\s*\\{[^{}]*((for|while)\\s*\\(|\\.slice\\(|\\.reduce\\()",
+          "negate": true
+        }
+      ]
+    },
+    {
+      "title": "ลำดับรัน migration ตาม dependency",
+      "level": "กลาง",
+      "tags": "topological sort · Kahn · cycle detection",
+      "lang": "javascript",
+      "prompt": "ระบบ deploy ต้องรัน migration ตามลำดับที่ไม่ละเมิด dependency โดย deps เป็นคู่ [before, after] แปลว่า before ต้องรันก่อน after เขียน buildOrder(tasks, deps) ด้วย Kahn’s algorithm (นับ in-degree แล้วเริ่มจากงานที่ in-degree เป็น 0) ให้คืน array ของทุกงานตามลำดับที่รันได้ ใช้เวลา O(V + E) และถ้า dependency วนกันจนเรียงไม่ได้ ให้ throw Error แทนการคืนลำดับที่ไม่ครบ",
+      "context": "// tasks: string[]  deps: Array<[before, after]>\n// buildOrder(['users', 'orders', 'payments'],\n//            [['users', 'orders'], ['orders', 'payments']])\n//   -> ['users', 'orders', 'payments']\n// buildOrder(['a', 'b'], [['a', 'b'], ['b', 'a']]) -> throw Error",
+      "starter": "// เรียงตามจำนวน dependency ที่แต่ละงานมี: ดูเหมือนถูกกับกรณีง่าย\n// แต่ผิดเมื่อสายพึ่งพายาว และไม่เคยตรวจ cycle\nfunction buildOrder(tasks, deps) {\n  const count = new Map(tasks.map((t) => [t, 0]));\n  for (const [, after] of deps) count.set(after, count.get(after) + 1);\n  return [...tasks].sort((a, b) => count.get(a) - count.get(b));\n}",
+      "solution": "function buildOrder(tasks, deps) {\n  const next = new Map(tasks.map((t) => [t, []]));\n  const inDegree = new Map(tasks.map((t) => [t, 0]));\n  for (const [before, after] of deps) {\n    next.get(before).push(after);\n    inDegree.set(after, inDegree.get(after) + 1);\n  }\n\n  // เริ่มจากงานที่ไม่ต้องรอใคร\n  const queue = tasks.filter((t) => inDegree.get(t) === 0);\n  const order = [];\n  let head = 0;\n  while (head < queue.length) {\n    const task = queue[head++];\n    order.push(task);\n    for (const n of next.get(task)) {\n      inDegree.set(n, inDegree.get(n) - 1);\n      if (inDegree.get(n) === 0) queue.push(n);\n    }\n  }\n\n  if (order.length !== tasks.length) {\n    throw new Error('dependency มี cycle เรียงลำดับไม่ได้');\n  }\n  return order;\n}",
+      "hints": [
+        "งานที่รันได้ก่อนคืองานที่ไม่มีใครต้องรันก่อนมัน (ไม่มีเส้นเข้า) ลองนับจำนวนเส้นเข้าของแต่ละงานเก็บไว้",
+        "ใส่งานที่ in-degree เป็น 0 ลง queue ทุกครั้งที่ดึงงานออก ให้ลด in-degree ของงานที่ตามมา ถ้าลดจนเป็น 0 ก็ใส่ queue",
+        "เมื่อ queue หมดแล้วยังได้ลำดับไม่ครบทุกงาน แปลว่ามี cycle ให้เทียบ order.length กับ tasks.length แล้ว throw new Error(...)"
+      ],
+      "checks": [
+        {
+          "label": "เก็บ in-degree ของแต่ละงาน",
+          "pattern": "in_?deg|incoming|indeg|count|needs|pending|remaining|prereq|waiting|blocked"
+        },
+        {
+          "label": "เริ่มจากงานที่ in-degree เป็น 0",
+          "pattern": "(===?|<=)\\s*0\\b|!\\s*\\w+(\\.get\\(|\\[)"
+        },
+        {
+          "label": "ลด in-degree เมื่อดึงงานก่อนหน้าออก",
+          "pattern": "-\\s*1\\b|--|-=\\s*1\\b"
+        },
+        {
+          "label": "ตรวจว่าเรียงได้ครบทุกงาน",
+          "pattern": "\\.(length|size)\\s*(!==?|<)\\s*[a-z_]\\w*|\\b[a-z_]\\w*(\\.(length|size))?\\s*(!==?|>)\\s*\\w+\\.(length|size)\\b|\\w+\\.(length|size)\\s*===?\\s*\\w+\\.(length|size)\\b"
+        },
+        {
+          "label": "throw Error เมื่อมี cycle",
+          "pattern": "throw\\s+(new\\s+)?\\w*error\\s*\\("
+        }
+      ]
+    },
+    {
+      "title": "เส้นทางขนส่งที่ถูกที่สุดด้วย Dijkstra",
+      "level": "ยาก",
+      "tags": "Dijkstra · priority queue · weighted graph",
+      "lang": "javascript",
+      "prompt": "ระบบจัดส่งต้องเลือกเส้นทางระหว่างคลังสินค้าที่ค่าขนส่งรวมถูกที่สุด โค้ดเดิมใช้ BFS จึงได้เส้นทางที่ผ่านจุดน้อยที่สุดแต่ค่าส่งแพงกว่า เขียน cheapestRoute(graph, start, goal) ใหม่ด้วย Dijkstra โดยใช้ MinHeap ที่ทีมมีอยู่แล้ว ให้คืน { cost, path } ถ้าไปไม่ถึงให้คืน null และถ้าพบ cost ติดลบในกราฟให้ throw Error เพราะ Dijkstra ให้ผลผิดกับน้ำหนักติดลบ",
+      "context": "// graph: Map<string, Array<{ to: string, cost: number }>>\n// ตัวอย่าง: new Map([\n//   ['A', [{ to: 'B', cost: 4 }, { to: 'C', cost: 1 }]],\n//   ['C', [{ to: 'B', cost: 2 }]],\n//   ['B', []],\n// ])\n// cheapestRoute(graph, 'A', 'B') -> { cost: 3, path: ['A', 'C', 'B'] }\n\n// MinHeap ที่ทีมมีอยู่แล้ว (ใช้ได้เลย):\n//   const heap = new MinHeap();\n//   heap.push(item, priority);   // O(log n)\n//   heap.pop();                  // -> { item, priority } ที่ priority น้อยสุด, O(log n)\n//   heap.size                    // จำนวนสมาชิก",
+      "starter": "// ใช้ BFS: ได้เส้นทางที่ผ่านจุดน้อยที่สุด ไม่ใช่เส้นทางที่ถูกที่สุด\nfunction cheapestRoute(graph, start, goal) {\n  const queue = [[start]];\n  const seen = new Set([start]);\n  while (queue.length > 0) {\n    const path = queue.shift();\n    const node = path[path.length - 1];\n    if (node === goal) {\n      let cost = 0;\n      for (let i = 1; i < path.length; i++) {\n        cost += graph.get(path[i - 1]).find((e) => e.to === path[i]).cost;\n      }\n      return { cost, path };\n    }\n    for (const { to } of graph.get(node) ?? []) {\n      if (!seen.has(to)) {\n        seen.add(to);\n        queue.push([...path, to]);\n      }\n    }\n  }\n  return null;\n}",
+      "solution": "function cheapestRoute(graph, start, goal) {\n  for (const edges of graph.values()) {\n    for (const e of edges) {\n      if (e.cost < 0) throw new Error('Dijkstra ใช้กับ cost ติดลบไม่ได้');\n    }\n  }\n\n  const dist = new Map([[start, 0]]);\n  const prev = new Map();\n  const heap = new MinHeap();\n  heap.push(start, 0);\n\n  while (heap.size > 0) {\n    const { item: node, priority: d } = heap.pop();\n    if (d > dist.get(node)) continue; // ค่าเก่าที่ค้างใน heap\n    if (node === goal) break;\n    for (const { to, cost } of graph.get(node) ?? []) {\n      const nd = d + cost;\n      if (nd < (dist.get(to) ?? Infinity)) {\n        dist.set(to, nd);\n        prev.set(to, node);\n        heap.push(to, nd);\n      }\n    }\n  }\n\n  if (!dist.has(goal)) return null;\n  const path = [goal];\n  while (path[0] !== start) path.unshift(prev.get(path[0]));\n  return { cost: dist.get(goal), path };\n}",
+      "hints": [
+        "BFS ถือว่าทุกเส้นมีราคาเท่ากัน ต้องเปลี่ยนเป็นการดึงจุดที่ค่าสะสมน้อยที่สุดออกมาก่อนเสมอ ซึ่งคืองานของ priority queue",
+        "เก็บ dist (ค่าที่ดีที่สุดที่รู้ตอนนี้) และ prev (มาจากจุดไหน) เป็น Map เมื่อเจอค่าใหม่ที่น้อยกว่า dist เดิม ให้อัปเดตทั้งสองแล้ว push ลง heap",
+        "heap อาจมีค่าเก่าของจุดเดิมค้างอยู่ ถ้า priority ที่ pop ได้มากกว่า dist ปัจจุบันให้ continue และตรวจ cost < 0 ทุกเส้นก่อนเริ่ม แล้วสร้าง path ย้อนจาก goal ด้วย prev"
+      ],
+      "checks": [
+        {
+          "label": "ใช้ MinHeap เป็น priority queue",
+          "pattern": "new\\s+minheap\\s*\\("
+        },
+        {
+          "label": "throw Error เมื่อพบ cost ติดลบ",
+          "pattern": "(<\\s*0|0\\s*>)\\s*\\)+\\s*\\{?\\s*throw\\s+(new\\s+)?\\w*error"
+        },
+        {
+          "label": "ข้ามค่าเก่าที่ค้างใน heap หรือจุดที่ประมวลผลแล้ว",
+          "pattern": "(\\w+\\s*(>|!==?)\\s*\\w+(\\.get\\(\\s*\\w+\\s*\\)|\\[\\s*\\w+\\s*\\])|\\w+\\.has\\(\\s*\\w+\\s*\\))\\s*\\)\\s*\\{?\\s*continue"
+        },
+        {
+          "label": "relax: อัปเดตเมื่อค่าใหม่น้อยกว่าค่าเดิม",
+          "pattern": "<\\s*\\(?\\s*\\w+(\\.get\\(\\s*[\\w.]+\\s*\\)|\\[\\s*[\\w.]+\\s*\\])|\\w+(\\.get\\(\\s*[\\w.]+\\s*\\)|\\[\\s*[\\w.]+\\s*\\])\\s*>\\s*\\w+"
+        },
+        {
+          "label": "จำจุดก่อนหน้าเพื่อสร้างเส้นทาง",
+          "pattern": "\\b(prev|previous|pred|predecessor|parent|parents|camefrom|from|via|before|back)\\w*\\s*(\\.set\\(|\\[[^\\]]+\\]\\s*=[^=])"
+        },
+        {
+          "label": "คืน null เมื่อไปไม่ถึง",
+          "pattern": "return\\s+null"
+        }
+      ]
+    }
+  ],
+  "cheatsheet": [
+    "Big-O คือขอบบนของการเติบโตเมื่อ n โต ตัดค่าคงที่และพจน์ย่อยทิ้ง และต้องบอกว่าหมายถึง worst, average หรือ best case",
+    "push ท้าย dynamic array เป็น amortized O(1) เพราะขยายเป็นสัดส่วน ส่วน shift ต้องเลื่อนทุกตัวจึงไม่ควรใช้ทำคิวยาว",
+    "Array เข้าถึง index ได้ O(1) และใช้ cache ได้ดี linked list แทรกได้ O(1) เฉพาะเมื่อถือโหนดตรงนั้นอยู่แล้ว",
+    "Hash table เฉลี่ย O(1) แต่ worst case O(n) เมื่อ key ชนกัน ต้อง resize ตาม load factor และระวัง hash flooding",
+    "Heap: ดูค่าน้อยสุด O(1), insert/pop O(log n), สร้างจาก array O(n), top-k ใช้ heap ขนาด k ได้ O(n log k)",
+    "BST เฉลี่ย O(log n) แต่เอียงเป็น O(n) เมื่อใส่ข้อมูลเรียง in-order ของ BST ได้ค่าเรียงจากน้อยไปมาก",
+    "Graph เบาบางใช้ adjacency list O(V + E) / BFS ได้ทางที่ผ่านเส้นน้อยสุด / Dijkstra ใช้เมื่อน้ำหนักไม่ติดลบ ถ้าติดลบใช้ Bellman–Ford",
+    "Comparison sort เร็วสุด O(n log n) / quicksort แย่สุด O(n²) / merge sort O(n log n) เสมอ stable แต่ใช้ที่เพิ่ม O(n)",
+    "Binary search แบบ [lo, hi) คู่กับ while (lo < hi) และใน JavaScript อย่าหาค่ากลางด้วย >> 1 เมื่อค่าเกิน 2^31 − 1",
+    "DP ใช้เมื่อมี optimal substructure และปัญหาย่อยซ้ำ / sliding window แบบขยาย-หดอาศัยว่าทุกค่าเป็นบวก"
+  ]
+}

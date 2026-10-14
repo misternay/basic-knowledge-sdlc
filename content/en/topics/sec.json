@@ -118,7 +118,7 @@
     {
       "tier": "must",
       "title": "MFA, brute force and credential stuffing",
-      "body": "Brute force tries many passwords against one account. Credential stuffing tries username and password pairs leaked from other sites, and it works because people reuse passwords. OWASP considers MFA the best defense and cites Microsoft's analysis that it would stop 99.9% of account compromises; also block known leaked passwords, login throttling or lockout, and CAPTCHA. Login error messages must be identical in every case, such as “Incorrect email or password,” so nobody can tell which accounts exist. OWASP's password policy: at least 8 characters when MFA is on (15 without), support for at least 64 characters, and no composition rules.",
+      "body": "Brute force tries many passwords against one account. Credential stuffing tries username and password pairs leaked from other sites, and it works because people reuse passwords. OWASP considers MFA the best defense and cites Microsoft's analysis that it would stop 99.9% of account compromises, supplemented by blocking known leaked passwords, enforcing login throttling or lockout, and using CAPTCHA. Login error messages must be identical in every case, such as “Incorrect email or password,” so nobody can tell which accounts exist. OWASP's password policy: at least 8 characters when MFA is on (15 without), support for at least 64 characters, and no composition rules.",
       "exam": true,
       "ref": "https://cheatsheetseries.owasp.org/cheatsheets/Authentication_Cheat_Sheet.html"
     },
@@ -243,7 +243,7 @@
       "prompt": "This middleware checks the access token an API receives. What is the most serious problem?",
       "code": "const jwt = require('jsonwebtoken');\n\nfunction auth(req, res, next) {\n  const token = req.headers.authorization?.slice(7);\n  const claims = jwt.decode(token);\n  if (!claims || claims.exp < Date.now() / 1000) return res.sendStatus(401);\n  req.user = claims;\n  next();\n}",
       "options": [
-        "jwt.decode does not verify the signature, so anyone can forge a role.",
+        "jwt.decode does not verify the signature, so anyone can forge a token with any role.",
         "exp is compared in the wrong unit, because a JWT stores exp in milliseconds.",
         "The token should be moved into a cookie instead of the Authorization header.",
         "The payload is still plain text and must be encrypted before it is secure."
@@ -332,7 +332,7 @@
     {
       "prompt": "A site has an XSS bug that is not fixed yet, but the manager says, “Our session cookie is HttpOnly, so an attacker cannot do anything.” Which statement is correct?",
       "options": [
-        "Not necessarily: HttpOnly only blocks reading the cookie; injected script can still call fetch.",
+        "Not necessarily: HttpOnly only blocks reading the cookie; an injected script can still call fetch.",
         "Correct: HttpOnly stops the browser attaching the cookie to requests made by scripts on the page.",
         "Correct: HttpOnly blocks every inline script injected into the page, which prevents XSS entirely.",
         "Incorrect: HttpOnly only works for cookies that are not also marked Secure, so it is rarely useful."
@@ -370,7 +370,7 @@
         "Express always hides stack traces; testers must have enabled debug mode locally, so the code is not the issue.",
         "Call app.disable('x-powered-by') and Express will automatically strip stack traces from every response.",
         "You must set res.statusCode to 500 yourself before Express will hide the stack trace from the users.",
-        "The default handler sends the stack unless NODE_ENV is production; write your own and log server-side."
+        "The default handler sends the stack unless NODE_ENV is production; write your own error handler."
       ],
       "answer": 3,
       "explain": "The Express docs state that an error with no handler of your own is written to the response with its stack trace unless NODE_ENV is production, and a trace containing an internal hostname is reconnaissance material for an attacker. Write an error handler that logs details on the server and returns a generic response; disabling x-powered-by only hides the framework name in a header."
@@ -436,7 +436,7 @@
     {
       "prompt": "A profile-picture upload endpoint checks only req.file.mimetype === 'image/png' and saves the file under the name the user sent, in public/uploads. What is the main problem, and what is the fix?",
       "options": [
-        "mimetype can be spoofed; allowlist extensions, use random names, and store files outside the webroot.",
+        "mimetype can be spoofed and original filenames can overwrite existing files; allowlist extensions, use random names, and store files outside the webroot.",
         "PNG is unsafe as a format on its own; accept only JPEG files instead, because JPEG cannot embed any code.",
         "Files are not compressed before saving, so they waste server space, and that is the security problem.",
         "Check mimetype again after saving the file to make sure it really is a PNG before the file is exposed to users."
@@ -642,7 +642,7 @@
           "negate": true
         },
         {
-          "label": "Re-check the title when it is edited (types includes edited)",
+          "label": "Re-check the title when it is edited (types include edited)",
           "pattern": "types\\s*:\\s*(?:\\[[^\\]]*\\bedited\\b|(?:\\n\\s*-\\s*[\\w]+[ \\t]*)*?\\n\\s*-\\s*edited\\b)"
         },
         {

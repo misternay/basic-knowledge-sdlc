@@ -309,7 +309,7 @@
         "Switch to a larger context window, which ensures the model will no longer miss any position."
       ],
       "answer": 0,
-      "explain": "Research (on 2023 models) found better performance when information was near the beginning or end, and worse performance in the middle. Order and reduce chunks. A larger window is not a guaranteed fix; reranking is practical advice consistent with the finding, not a technique directly tested by that paper."
+      "explain": "Research (on 2023 models) found better performance when information was near the beginning or end, and worse performance in the middle. Order and reduce chunks. A larger window is not a guaranteed fix because research found this degradation even in models designed specifically for long context; reranking to select fewer chunks is practical advice consistent with the finding, not a technique directly tested by that paper."
     },
     {
       "prompt": "A monorepo’s CLAUDE.md is nearly 900 lines. The team splits it into smaller files and uses @import, expecting Claude Code to load only relevant files, but startup context is just as large. Why, and what should change?",
@@ -317,7 +317,7 @@
       "options": [
         "Imported files are reread on every tool call, so remove imports and merge everything into one file.",
         "Imported files load only after running /memory, so invoke it manually at the start of every new session.",
-        "Imports still load at startup. Shorten the guidance and move path-specific rules to scoped rules.",
+        "Imports still load at startup. Shorten the guidance and move path-specific rules to path-scoped rules.",
         "Claude Code drops CLAUDE.md content after line 200, so the excess is unused and costs no context."
       ],
       "answer": 2,
@@ -341,7 +341,7 @@
         "Make rules verifiable: “Use 2-space indentation,” “Run npm test before committing,” “Put API handlers in src/api/handlers/.”",
         "Expand each line into a paragraph on the team’s coding philosophy so the model understands intent more deeply and interprets it better.",
         "Translate every line into English only because models always follow English instructions more accurately in every case.",
-        "Add dozens of general guidelines to cover everything, because more rules always means more compliance with each of them."
+        "Add dozens of general guidelines to cover everything, because more rules always mean more compliance with each of them."
       ],
       "answer": 0,
       "explain": "The docs recommend instructions specific enough to verify and warn that longer files consume context and reduce adherence. Adding dozens of rules goes against that guidance."
@@ -381,7 +381,7 @@
       "explain": "The spec provides design guidance rather than mandating an interaction model. In that model, users invoke prompts, apps select resources to attach, and models decide to call tools. Posting a comment has side effects and is called by the model, so it is a tool. App-selected file content is a resource, and a user-selected template is a prompt."
     },
     {
-      "prompt": "An MCP flight-booking tool returns the result shown when a user supplies a date in the past. The agent retries several times with the same value instead of correcting the date. How should the server report the error so the model can recover?",
+      "prompt": "An MCP flight-booking tool returns the result shown when a user supplies a date in the past. The agent retries several times with the same value instead of correcting the date. Under the MCP specification, how should the server report the error so the model can recover?",
       "code": "{\n  \"jsonrpc\": \"2.0\",\n  \"id\": 4,\n  \"error\": { \"code\": -32602, \"message\": \"Invalid params\" }\n}",
       "options": [
         "Return isError: true in the tool result, explaining that the travel date must not be in the past.",
@@ -440,7 +440,7 @@
     {
       "prompt": "A team estimates an agent prompt fits the context window by counting words and multiplying by 1.3. After switching to a new model, cost and limit errors differ from the estimate. What should they do?",
       "options": [
-        "Count again using the intended model ID; token counts are estimates and tokenizers vary by model.",
+        "Call the token counting API with the model ID you will actually use and measure again; token counts are estimates and tokenizers vary by model.",
         "Keep the formula because tokens per word are fixed by language, not by the model being used.",
         "Continue counting with the old model and always add 10%; all generations use the same tokenizer.",
         "Wait for a real request to fail with “prompt is too long”; there is no way to count tokens in advance."
@@ -536,11 +536,11 @@
         },
         {
           "label": "Include a constraint",
-          "pattern": "ห้าม|do not|don't|never"
+          "pattern": "ห้าม|do not|don't|never|must not|cannot"
         },
         {
           "label": "Hand off issues beyond the agent’s authority to staff",
-          "pattern": "ส่งต่อ|เจ้าหน้าที่|escalat|hand ?off|human agent"
+          "pattern": "ส่งต่อ|เจ้าหน้าที่|escalat|hand ?off|human agent|staff|transfer|forward|refer"
         },
         {
           "label": "Include an example",
@@ -673,7 +673,7 @@
         },
         {
           "label": "If overwriting .content with =, do it on a copy (structuredClone or {...block}), not the original object",
-          "pattern": "(?<![\\s\\S])(?![\\s\\S]*\\.content\\s*=[^=])|structuredclone\\s*\\(|json\\.parse\\s*\\(\\s*json\\.stringify|\\{\\s*\\.\\.\\.\\s*\\w+(\\.\\w+)*\\s*\\}"
+          "pattern": "(?<![\\s\\S])(?![\\s\\S]*\\.content\\s*=[^=])|structuredclone\\s*\\(|object\\.assign\\s*\\(|json\\.parse\\s*\\(\\s*json\\.stringify|\\{\\s*\\.\\.\\.\\s*\\w+(\\.\\w+)*\\s*\\}"
         }
       ]
     }

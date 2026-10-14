@@ -1,0 +1,743 @@
+{
+  "id": "net",
+  "code": "F6",
+  "track": "foundations",
+  "title": "Networking & HTTP",
+  "blurb": "Understand how requests travel through DNS, TCP, TLS, and HTTP, interpret status codes and headers correctly, and debug networking issues using curl and DevTools.",
+  "mustKnow": [
+    {
+      "tier": "must",
+      "title": "Request lifecycle: DNS → TCP → TLS → HTTP",
+      "body": "When a client requests https://api.example.com/orders, it goes through several sequential steps: resolving the IP via DNS, establishing a TCP connection, completing the TLS handshake, sending the HTTP request, and waiting for the first byte of the response. The Timing breakdown in Chrome DevTools Network tab separates these stages into DNS Lookup, Initial connection (TCP handshake and SSL/TLS negotiation), Waiting (TTFB), and Content Download. Knowing which step is slow pinpoints the bottleneck; for instance, TTFB includes one round-trip latency plus server processing time, so high TTFB with fast earlier stages indicates server-side latency, while high Initial connection on every request suggests connections are not being reused.",
+      "ref": "https://developer.chrome.com/docs/devtools/network/reference#timing-explanation"
+    },
+    {
+      "tier": "must",
+      "title": "DNS: resolvers, caching, and TTL",
+      "body": "DNS translates domain names into IP addresses. Devices typically run a stub resolver that forwards queries to a recursive resolver to perform full hierarchical lookups. Every resource record has a TTL (Time to Live) in seconds, indicating how long resolvers may cache the record before fetching it again. A common pitfall occurs when migrating servers to a new IP: some clients continue routing to the old IP until cached records expire, so TTL should be lowered well in advance. Negative answers such as NXDOMAIN are also cached (negative caching per RFC 2308).",
+      "code": "$ dig +noall +answer api.example.com\napi.example.com.  300  IN  A  203.0.113.10\n# The second column is the TTL in seconds",
+      "exam": true,
+      "ref": "https://www.rfc-editor.org/rfc/rfc1034.html#section-3.6"
+    },
+    {
+      "tier": "must",
+      "title": "TCP vs UDP and ports",
+      "body": "TCP provides a reliable, in-order byte-stream service, establishing connections via a three-way handshake (SYN, SYN-ACK, ACK) before data transmission. In contrast, UDP sends discrete datagrams without delivery or deduplication guarantees (RFC 768); protocols requiring reliability over UDP (like QUIC) must implement reliability mechanisms at the application layer. Port numbers specify the target process on a host; when omitted from a URL, default ports are TCP 80 for HTTP and TCP 443 for HTTPS (RFC 9110).",
+      "exam": true,
+      "ref": "https://www.rfc-editor.org/rfc/rfc9293.html#name-establishing-a-connection"
+    },
+    {
+      "tier": "must",
+      "title": "What HTTPS/TLS protects and what it does not",
+      "body": "TLS provides three core security properties: server authentication (client authentication is optional), confidentiality between endpoints, and data integrity verification in transit. Authentication is only effective if the client verifies that the certificate is trusted and matches the requested hostname (RFC 9525); disabling verification, such as with curl -k or --insecure, reduces HTTPS to unauthenticated encryption with an untrusted party. TLS does not hide transfer size or destination IP from network observers, nor does it protect against server-side vulnerabilities after decryption, such as injection.",
+      "exam": true,
+      "ref": "https://www.rfc-editor.org/rfc/rfc8446.html#section-1"
+    },
+    {
+      "tier": "must",
+      "title": "HTTP methods: safe vs idempotent",
+      "body": "RFC 9110 defines two distinct properties: safe means the client does not request any server state change, while idempotent means multiple identical requests have the exact same intended effect on the server as a single request. In practice, clients or proxies can safely retry idempotent requests when connections drop before receiving a response, but should not automatically retry POST or PATCH without deduplication (such as an idempotency key). A dangerous antipattern is implementing GET /logout or GET /items/1/delete, since web crawlers and browser prefetch engines treat GET as safe to invoke without side effects.",
+      "code": "Method   safe   idempotent\nGET      yes    yes\nHEAD     yes    yes\nOPTIONS  yes    yes\nPUT      no     yes\nDELETE   no     yes\nPOST     no     no\nPATCH    no     no (RFC 5789)",
+      "exam": true,
+      "ref": "https://www.rfc-editor.org/rfc/rfc9110.html#name-safe-methods"
+    },
+    {
+      "tier": "must",
+      "title": "401, 403, and 404: unauthenticated, forbidden, or hidden",
+      "body": "401 Unauthorized indicates the request lacks valid authentication credentials, and the server must include a WWW-Authenticate header explaining how to authenticate. In contrast, 403 Forbidden means the server understood the request but refuses authorization, and repeating the request with the same credentials will not succeed. If a server wishes to hide the existence of a restricted resource from unauthorized callers, RFC 9110 permits responding with 404 instead. A frequent bug is returning 401 when an authenticated user merely lacks permission, causing frontends to trigger infinite login redirect loops.",
+      "code": "HTTP/1.1 401 Unauthorized\nWWW-Authenticate: Basic realm=\"admin\"\n\nHTTP/1.1 403 Forbidden\nContent-Type: application/problem+json",
+      "exam": true,
+      "ref": "https://www.rfc-editor.org/rfc/rfc9110.html#name-401-unauthorized"
+    },
+    {
+      "tier": "must",
+      "title": "Redirects: 301, 302, 303, 307, 308",
+      "body": "301 (permanent) and 302 (temporary) direct clients to the URI specified in the Location header; however, for historical reasons, user agents may rewrite POST to GET on subsequent requests. To prevent this method change, 307 (temporary) and 308 (permanent) strictly forbid changing the HTTP method, making them ideal for redirecting API endpoints that accept POST or PUT. 303 See Other is specifically designed to redirect to a GET endpoint, such as after submitting a form. Additionally, 301 and 308 are heuristically cacheable by browsers; do not use permanent redirects for tentative migrations.",
+      "exam": true,
+      "ref": "https://www.rfc-editor.org/rfc/rfc9110.html#name-redirection-3xx"
+    },
+    {
+      "tier": "must",
+      "title": "409, 422, 429, 503, and the Retry-After header",
+      "body": "409 Conflict applies when a request conflicts with the current state of a resource and can be resolved by the client, such as booking an already reserved seat. 422 Unprocessable Content indicates valid syntax and content type where semantic instructions cannot be processed, such as valid JSON where an end date precedes a start date. 429 Too Many Requests (RFC 6585) signals rate limiting, and 503 means the server is temporarily overloaded or down for maintenance. Both 429 and 503 can include a Retry-After header with a delay in seconds or an HTTP-date so clients avoid immediate retries.",
+      "code": "HTTP/1.1 429 Too Many Requests\nRetry-After: 120\nContent-Type: application/problem+json",
+      "ref": "https://www.rfc-editor.org/rfc/rfc9110.html#name-422-unprocessable-content"
+    },
+    {
+      "tier": "must",
+      "title": "Content-Type, Accept, and content negotiation",
+      "body": "Content-Type indicates the media type of the payload in a message, while Accept declares what media types the client expects in the response, optionally weighted using quality values (q-values for proactive negotiation). If a client sends an unsupported body format, such as sending XML to an endpoint that only accepts JSON, the server should return 415 Unsupported Media Type. If the server cannot generate a representation matching Accept, it may return 406 Not Acceptable. A common mistake is posting JSON without Content-Type: application/json, leading servers to reject the request or fail to parse the body.",
+      "code": "POST /orders HTTP/1.1\nHost: api.example.com\nContent-Type: application/json\nAccept: application/json, text/plain;q=0.5\n\n{\"sku\": \"A-1\", \"qty\": 2}",
+      "ref": "https://www.rfc-editor.org/rfc/rfc9110.html#name-content-negotiation"
+    },
+    {
+      "tier": "must",
+      "title": "Cache-Control: no-store, no-cache, max-age, private",
+      "body": "no-store forbids all caches from storing any part of the request or response. In contrast, no-cache does not prevent storage; it requires caches to revalidate with the origin server before reusing a cached response. max-age specifies freshness lifetime in seconds, private prevents shared caches (like proxies or CDNs) from storing the response while allowing browser caches, and s-maxage overrides max-age specifically for shared caches. A dangerous trap is applying no-cache to sensitive data assuming it will not be saved on disk; truly sensitive data requires no-store.",
+      "code": "# Static files with a hash in the filename; content never changes\nCache-Control: public, max-age=31536000, immutable\n# Private data: stored only by the browser; must revalidate with the server before use\nCache-Control: private, no-cache\n# Data that must never be cached\nCache-Control: no-store",
+      "exam": true,
+      "ref": "https://www.rfc-editor.org/rfc/rfc9111.html#name-response-directives"
+    },
+    {
+      "tier": "must",
+      "title": "Conditional GET: ETag, If-None-Match, and 304",
+      "body": "When an origin response contains an ETag, clients caching that representation include an If-None-Match header with that validator in subsequent requests. If the representation is unchanged, the server returns 304 Not Modified without a response body, saving bandwidth while incurring one round trip. If-None-Match uses weak comparison, allowing weak validators prefixed with W/. This differs from If-Match, which is used for preventing lost updates on state-changing requests and requires strong comparison.",
+      "code": "GET /products/42 HTTP/1.1\nIf-None-Match: \"v7\"\n\nHTTP/1.1 304 Not Modified\nETag: \"v7\"\nCache-Control: max-age=60",
+      "ref": "https://www.rfc-editor.org/rfc/rfc9110.html#name-if-none-match"
+    },
+    {
+      "tier": "should",
+      "title": "HTTP cookies: Set-Cookie and security attributes",
+      "body": "Servers set cookies via the Set-Cookie header, and browsers send them back in the Cookie header subject to attribute rules. Omitting Domain makes the cookie host-only (not sent to subdomains), Max-Age takes precedence over Expires when both are present, Secure restricts transmission to HTTPS, and HttpOnly prevents JavaScript access. SameSite=Lax sends cookies on cross-site requests only for top-level safe navigations; SameSite=None requires the Secure attribute, and many modern browsers default to Lax if unspecified.",
+      "code": "Set-Cookie: sid=8f2c...; Path=/; Secure; HttpOnly; SameSite=Lax; Max-Age=3600",
+      "ref": "https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Set-Cookie"
+    },
+    {
+      "tier": "should",
+      "title": "CORS: enforced by browsers, not an API firewall",
+      "body": "Browsers prevent scripts from reading cross-origin responses (matching scheme, host, and port) unless the server returns CORS headers explicitly authorizing that origin. Requests that are not simple requests—such as using the PUT method or Content-Type: application/json—trigger an automatic preflight OPTIONS request from the browser. CORS does not restrict server-to-server calls or tools like curl. Furthermore, credentialed requests require an explicit origin in Access-Control-Allow-Origin; the wildcard * is disallowed. When CORS fails, JavaScript only receives a generic error; details appear in the browser console.",
+      "code": "OPTIONS /api/orders/7 HTTP/1.1\nOrigin: https://shop.example\nAccess-Control-Request-Method: PUT\nAccess-Control-Request-Headers: content-type\n\nHTTP/1.1 204 No Content\nAccess-Control-Allow-Origin: https://shop.example\nAccess-Control-Allow-Methods: GET, PUT\nAccess-Control-Allow-Headers: content-type\nAccess-Control-Max-Age: 600",
+      "exam": true,
+      "ref": "https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/CORS#preflighted_requests"
+    },
+    {
+      "tier": "should",
+      "title": "Keep-alive and connection reuse",
+      "body": "HTTP/1.1 uses persistent connections by default, allowing multiple sequential requests to reuse the same TCP/TLS connection without repeating handshakes. However, HTTP/1.1 connections process responses strictly in request order (even with pipelining), so browsers open multiple parallel connections; Chrome DevTools documents a limit of 6 TCP connections per origin for HTTP/1.0 and 1.1, with additional requests queued. Backend services calling external APIs should similarly share HTTP clients backed by connection pools rather than opening new connections per request.",
+      "ref": "https://www.rfc-editor.org/rfc/rfc9112.html#name-persistence"
+    },
+    {
+      "tier": "should",
+      "title": "Differences between HTTP/1.1, HTTP/2, and HTTP/3",
+      "body": "All three versions share the same semantics (methods, status codes, and headers defined in RFC 9110), differing in transport framing: HTTP/1.1 is plain text without multiplexing, requiring multiple TCP connections for concurrency. HTTP/2 introduces binary framing and multiplexes streams over a single connection, but suffers from TCP head-of-line blocking when a single lost packet stalls all streams on the connection. HTTP/3 resolves this by running QUIC over UDP, providing independent per-stream loss recovery; servers advertise HTTP/3 availability via the Alt-Svc header.",
+      "exam": true,
+      "ref": "https://www.rfc-editor.org/rfc/rfc9114.html#name-prior-versions-of-http"
+    },
+    {
+      "tier": "should",
+      "title": "Timeouts: distinguishing connect timeout from total timeout",
+      "body": "Every network call requires a timeout to prevent hanging requests from indefinitely consuming threads and socket pools. Systems should separate connection establishment timeout from overall request duration, corresponding to curl's --connect-timeout and --max-time. Optimal timeouts should be guided by observed downstream latency; AWS guidance suggests choosing an acceptable false-timeout rate (e.g. 0.1%) and aligning timeouts with the downstream service's matching latency percentile (p99.9). In gRPC, timeouts are expressed as deadlines that trigger DEADLINE_EXCEEDED when breached.",
+      "ref": "https://aws.amazon.com/builders-library/timeouts-retries-and-backoff-with-jitter/"
+    },
+    {
+      "tier": "should",
+      "title": "Disciplined retries: backoff, jitter, and Retry-After",
+      "body": "Only retry transient failures such as timeouts, 429, 502, 503, or 504—never client errors like 400, 401, 403, or 404, which yield identical results on retry. Automatic retries must be restricted to idempotent requests or operations with idempotency keys. Use exponential backoff combined with jitter (randomized delays) to prevent synchronized retry storms across clients, and always respect the Retry-After header when provided. AWS notes that in a 5-layer architecture where each layer retries 3 times, downstream load can amplify by 243x, emphasizing that retries should be localized to a single layer in the stack.",
+      "code": "# curl --retry attempts retries only for transient errors (timeouts, 408, 429, 500, 502, 503, 504 ...)\n# Waits 1s then doubles each attempt, and respects Retry-After\ncurl --retry 3 --connect-timeout 3 --max-time 10 https://api.example.com/health",
+      "ref": "https://aws.amazon.com/builders-library/timeouts-retries-and-backoff-with-jitter/"
+    },
+    {
+      "tier": "should",
+      "title": "Forward proxy, reverse proxy, load balancer, and CDN",
+      "body": "A forward proxy is chosen by the client, whereas a reverse proxy or gateway acts as the origin server to the client and routes requests to backend servers, handling load balancing and caching. A CDN acts as a geographically distributed shared cache close to users, requiring personalized responses to be marked private or no-store. Upstream servers behind proxies see the proxy's IP rather than the client's IP, leading proxies to append addresses to X-Forwarded-For or Forwarded (RFC 7239). Untrusted client-supplied header values can be spoofed, so never trust the leftmost IP without validating intermediate hops.",
+      "ref": "https://www.rfc-editor.org/rfc/rfc9110.html#name-intermediaries"
+    },
+    {
+      "tier": "should",
+      "title": "Debugging with curl and DevTools",
+      "body": "curl -v provides full trace details: lines starting with > show sent headers, < show received headers, and * show connection events. Use -i to view response headers with the body, -I to send HEAD, -L to follow redirects (rewriting POST to GET on 301, 302, and 303 unless pinned with -X), and -w to format variables like %{http_code} and phase timings. The --resolve flag routes host requests directly to a target IP without modifying DNS, which is useful for testing new servers prior to DNS cutover. In browser DevTools, Copy as cURL exports live browser requests directly to the terminal.",
+      "code": "curl -sS -o /dev/null \\\n  -w 'dns=%{time_namelookup} tcp=%{time_connect} tls=%{time_appconnect} ttfb=%{time_starttransfer} code=%{http_code}\\n' \\\n  https://api.example.com/health\n\n# Test new server before switching DNS\ncurl -v --resolve api.example.com:443:203.0.113.10 https://api.example.com/health",
+      "ref": "https://curl.se/docs/manpage.html"
+    },
+    {
+      "tier": "advanced",
+      "title": "REST vs RPC and gRPC",
+      "body": "REST designs around resources, utilizing standard HTTP methods, status codes, and headers so that intermediate caches and tooling function predictably. In contrast, RPC models remote interactions as function invocations. gRPC uses Protocol Buffers as its interface definition language (IDL) to define services supporting unary, server streaming, client streaming, and bidirectional streaming with built-in deadlines, operating over HTTP/2. gRPC is well-suited for internal service-to-service communication where clients can be tightly controlled, whereas public-facing web APIs generally benefit from the broad interoperability of REST/JSON.",
+      "code": "service OrderService {\n  rpc GetOrder (GetOrderRequest) returns (Order);              // unary\n  rpc WatchOrders (WatchRequest) returns (stream OrderEvent);  // server streaming\n}",
+      "ref": "https://grpc.io/docs/what-is-grpc/core-concepts/"
+    },
+    {
+      "tier": "advanced",
+      "title": "WebSocket vs Server-Sent Events",
+      "body": "WebSocket initiates via an HTTP Upgrade handshake (server response 101 Switching Protocols), establishing a full-duplex TCP communication channel using ws:// and wss:// on default ports 80 and 443. In contrast, Server-Sent Events (SSE) uses a persistent HTTP connection with Content-Type: text/event-stream for unidirectional server-to-client streaming; the browser's EventSource automatically reconnects and passes Last-Event-ID for resumption. For server-push notifications, SSE is simpler, though on HTTP/1.x it is constrained by the browser's 6-connection domain limit. For high-frequency bidirectional exchanges like chat or gaming, WebSocket is preferred.",
+      "code": "GET /chat HTTP/1.1\nHost: server.example.com\nUpgrade: websocket\nConnection: Upgrade\nSec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\nSec-WebSocket-Version: 13\n\nHTTP/1.1 101 Switching Protocols\nUpgrade: websocket\nConnection: Upgrade\nSec-WebSocket-Accept: s3pPLMBiTxaQ9kYGzzhZRbK+xOo=",
+      "ref": "https://www.rfc-editor.org/rfc/rfc6455.html#section-1.3"
+    },
+    {
+      "tier": "advanced",
+      "title": "TLS 1.3 handshake and 0-RTT replay risks",
+      "body": "A full TLS 1.3 handshake takes one round trip (1-RTT) before application data can be transmitted. When resuming a session using a pre-shared key (PSK), clients can send early data (0-RTT) in the initial flight. However, RFC 8446 warns that 0-RTT lacks forward secrecy and provides no replay protection across connections; network attackers can replay early data packets. Applications must therefore restrict 0-RTT early data strictly to safe, idempotent requests like GET queries, never state-changing requests such as financial transfers or order placements.",
+      "ref": "https://www.rfc-editor.org/rfc/rfc8446.html#section-2.3"
+    },
+    {
+      "tier": "advanced",
+      "title": "HSTS: closing the initial unencrypted HTTP window",
+      "body": "Redirecting HTTP traffic to HTTPS still leaves an initial plain HTTP request exposed to man-in-the-middle attacks. The Strict-Transport-Security response header instructs browsers to remember that a host must only be accessed over HTTPS for max-age seconds, while disabling user certificate warning bypasses. Browsers ignore HSTS headers received over unencrypted HTTP; to protect first-time visitors before encountering the header, domains join the HSTS preload list, requiring max-age of at least 31536000 (1 year) and includeSubDomains.",
+      "code": "Strict-Transport-Security: max-age=31536000; includeSubDomains; preload",
+      "ref": "https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Strict-Transport-Security"
+    },
+    {
+      "tier": "advanced",
+      "title": "Vary and cache keys in shared caches or CDNs",
+      "body": "Caches retrieve stored responses using a cache key, which minimally consists of the HTTP method and request URI. When the response representation varies based on request headers—such as Accept-Encoding, Accept-Language, or Origin—the server must declare a Vary header. Otherwise, a CDN might serve Thai content to an English-requesting client or return one tenant's Access-Control-Allow-Origin header to another origin. RFC 9111 prohibits caches from reusing a response containing Vary without revalidation unless all headers listed in Vary match the original request.",
+      "code": "HTTP/1.1 200 OK\nContent-Language: th\nAccess-Control-Allow-Origin: https://shop.example\nVary: Accept-Language, Origin\nCache-Control: public, max-age=300",
+      "ref": "https://www.rfc-editor.org/rfc/rfc9111.html#name-calculating-cache-keys-with"
+    }
+  ],
+  "refs": [
+    {
+      "title": "RFC 9110: HTTP Semantics",
+      "url": "https://www.rfc-editor.org/rfc/rfc9110.html",
+      "note": "Methods, safe/idempotent semantics, status codes, headers, and content negotiation"
+    },
+    {
+      "title": "RFC 9111: HTTP Caching",
+      "url": "https://www.rfc-editor.org/rfc/rfc9111.html",
+      "note": "Cache-Control, freshness, validation, and Vary"
+    },
+    {
+      "title": "MDN: HTTP caching",
+      "url": "https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/Caching",
+      "note": "Explains no-cache vs no-store, cache busting, and common caching patterns"
+    },
+    {
+      "title": "MDN: Cross-Origin Resource Sharing (CORS)",
+      "url": "https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/CORS",
+      "note": "Simple requests, preflights, and credentialed requests"
+    },
+    {
+      "title": "RFC 9114: HTTP/3",
+      "url": "https://www.rfc-editor.org/rfc/rfc9114.html",
+      "note": "Introduction detailing limitations of HTTP/1.1 and HTTP/2 and reasons for adopting QUIC"
+    },
+    {
+      "title": "RFC 8446: TLS 1.3",
+      "url": "https://www.rfc-editor.org/rfc/rfc8446.html",
+      "note": "TLS architecture, handshakes, and 0-RTT replay risks"
+    },
+    {
+      "title": "curl man page",
+      "url": "https://curl.se/docs/manpage.html",
+      "note": "-v, -w, --resolve, --retry, timeouts, and redirect handling"
+    },
+    {
+      "title": "Amazon Builders' Library: Timeouts, retries, and backoff with jitter",
+      "url": "https://aws.amazon.com/builders-library/timeouts-retries-and-backoff-with-jitter/",
+      "note": "Choosing timeouts, retry amplification, and jitter from production experience"
+    }
+  ],
+  "questions": [
+    {
+      "prompt": "A team migrated an API to a new server and updated the A record for api.example.com to the new IP. Two hours later, some users still connect to the old IP, even though the original record had a TTL of 86400. What is the most likely reason?",
+      "options": [
+        "DNS updates require registrar review and take roughly 48 hours to activate",
+        "Existing client TCP connections must close before new DNS records take effect",
+        "Recursive resolvers continue serving the cached record until its full 24h TTL expires",
+        "The new A record only applies to HTTPS, leaving HTTP traffic on the older address"
+      ],
+      "answer": 2,
+      "explain": "TTL specifies how long resolvers can cache a record; answers cached prior to the change remain valid for up to 86,400 seconds (24 hours). TTL should be lowered prior to migration. Changing zone records does not require registrar approval."
+    },
+    {
+      "prompt": "A service pushes metrics over UDP to a collector. During network congestion, fewer metrics arrive than were sent, yet the sender logs zero errors. Which explanation correctly accounts for this behavior?",
+      "options": [
+        "UDP provides no delivery guarantees and never alerts senders to lost packets",
+        "UDP retries dropped packets automatically, but collectors discard out-of-order data",
+        "UDP requires an initial three-way handshake, failing silently if handshakes drop",
+        "UDP caps throughput to one datagram per second, silently dropping excess metrics"
+      ],
+      "answer": 0,
+      "explain": "RFC 768 states that UDP provides no delivery or deduplication guarantees. Reliable transmission requires TCP or application-level handling. The three-way handshake belongs to TCP, not UDP."
+    },
+    {
+      "prompt": "A user navigates to https://bank.example/accounts/123?tab=history over an eavesdropped public Wi-Fi network. If the certificate is validated correctly, what can the eavesdropper still observe?",
+      "options": [
+        "The full path /accounts/123 and query string tab=history",
+        "The Cookie and Authorization headers attached to the request",
+        "The plaintext response payload without being able to alter it",
+        "The destination IP address and approximate data volume"
+      ],
+      "answer": 3,
+      "explain": "TLS encrypts the HTTP request line, headers, and body, but cannot conceal destination IPs or packet lengths visible on the network wire. Response content is confidential, not merely tamper-evident."
+    },
+    {
+      "prompt": "A backend service invokes a partner HTTPS API in production using the command below. What is the primary security risk?",
+      "code": "curl -k -H \"Authorization: Basic $PARTNER_CRED\" \\\n  https://partner.example/api/payouts",
+      "options": [
+        "Data travels unencrypted because -k forces curl to downgrade to plain HTTP",
+        "Skipping certificate checks allows an attacker to impersonate the partner",
+        "curl retries automatically on errors, risking duplicate payment requests",
+        "The Authorization header is dropped by -k, prompting recurring 401 errors"
+      ],
+      "answer": 1,
+      "explain": "-k or --insecure skips certificate verification. While traffic remains encrypted, the peer's identity is unverified, allowing man-in-the-middle impersonation to capture credentials. The flag does not force HTTP or trigger retries."
+    },
+    {
+      "prompt": "A mobile application issues POST /payments and loses its connection before receiving a response. The team proposes configuring the client to automatically retry whenever a connection drops. Which statement is most accurate?",
+      "options": [
+        "Retrying is always safe because a dropped connection proves the server never processed payment",
+        "Automatic retries should be avoided unless an idempotency key is used",
+        "Retrying is safe if the client switches to GET to make the request safe before resending",
+        "Retrying is safe if the client waits for DNS TTL expiry to ensure reaching an alternate server"
+      ],
+      "answer": 1,
+      "explain": "POST is non-idempotent, and a dropped connection does not guarantee the server never processed the payload. RFC 9110 advises automatic retries only for idempotent requests or where no side effects occurred. An idempotency key enables safe deduplication."
+    },
+    {
+      "prompt": "An admin page includes a product deletion link as shown below. After enabling a browser plugin that prefetches page links, several items were unexpectedly deleted. What is the root cause?",
+      "code": "<a href=\"/admin/items/42/delete\">Delete</a>\n\n// server\napp.get(\"/admin/items/:id/delete\", deleteItem);",
+      "options": [
+        "The prefetch plugin rewrote GET to DELETE because the URL contained the word delete",
+        "The anchor lacked a rel=\"nofollow\" attribute, implying browser permission to execute",
+        "The server omitted Cache-Control: no-store, causing deletion calls to be cached and executed again",
+        "Using GET for state-changing actions violates safe semantics, letting prefetchers trigger it"
+      ],
+      "answer": 3,
+      "explain": "RFC 9110 specifies that safe methods like GET must not alter server state, allowing crawlers and prefetchers to call them without penalty. Deletion operations must use state-changing methods like DELETE or POST with proper authentication and CSRF guards."
+    },
+    {
+      "prompt": "A user logs in and sends a valid token, but their role lacks permission to access /admin/reports. The frontend redirects users to login on every 401 response. What should the API return?",
+      "options": [
+        "403 Forbidden because authentication succeeded but permission is denied",
+        "401 Unauthorized to prompt the user to re-authenticate with valid credentials",
+        "400 Bad Request because the client requested an unpermitted resource uri endpoint",
+        "409 Conflict because the user role conflicts with target resource state"
+      ],
+      "answer": 0,
+      "explain": "403 indicates the server understood the request but refuses authorization, and repeating with the same credentials will fail. 401 implies missing or invalid credentials; returning 401 here causes a pointless login redirect loop."
+    },
+    {
+      "prompt": "A team migrates an order creation endpoint from /v1/orders to /v2/orders with the redirect below. Following the redirect, some clients encounter 405 Method Not Allowed because they reissue the request as GET. How should this be fixed?",
+      "code": "POST /v1/orders HTTP/1.1\n\nHTTP/1.1 301 Moved Permanently\nLocation: /v2/orders",
+      "options": [
+        "Switch to 302 Found because temporary redirects guarantee method preservation",
+        "Switch to 303 See Other so that the client repeats its POST at the new target",
+        "Switch to 308 Permanent Redirect, which strictly forbids changing the method",
+        "Keep 301 and include a Retry-After header so the client retries with its POST"
+      ],
+      "answer": 2,
+      "explain": "RFC 9110 permits user agents to rewrite POST to GET on 301 and 302 redirects for historical reasons. 308 (permanent) and 307 (temporary) explicitly preserve the original request method. 303 intentionally redirects to GET."
+    },
+    {
+      "prompt": "A ticketing system receives PUT /seats/A12/booking from a second user while that seat is already booked by someone else. The payload syntax is completely valid. Which status code is most appropriate?",
+      "options": [
+        "422 Unprocessable Content because booking parameters violate business rules",
+        "400 Bad Request because the client submitted a malformed request body payload",
+        "409 Conflict because the request conflicts with current state",
+        "404 Not Found because available seats no longer exist in data"
+      ],
+      "answer": 2,
+      "explain": "409 Conflict indicates the request cannot be completed due to a conflict with the resource's current state, allowing the client to resolve it (e.g. pick another seat). 422 applies when syntax is valid but semantic instructions fail validation."
+    },
+    {
+      "prompt": "An endpoint POST /invoices only accepts JSON, but a legacy system posts with Content-Type: application/xml. Which status code should the API return?",
+      "options": [
+        "415 Unsupported Media Type",
+        "406 Not Acceptable",
+        "422 Unprocessable Content",
+        "501 Not Implemented"
+      ],
+      "answer": 0,
+      "explain": "415 indicates the server refuses to service the request because the payload format is unsupported. 406 is used when the server cannot produce a response matching the Accept header. 422 indicates semantic errors in acceptable formats."
+    },
+    {
+      "prompt": "A client batch job receives the response below from a partner API. What is the most appropriate handling strategy?",
+      "code": "HTTP/1.1 429 Too Many Requests\nRetry-After: 120\nContent-Type: application/problem+json",
+      "options": [
+        "Retry immediately in parallel to process before quotas exhaust completely",
+        "Wait at least 120 seconds before resending and reduce overall call rates",
+        "Downgrade to HTTP/1.0 because status 429 only applies under HTTP/1.1",
+        "Assume the token expired and request new credentials before resending"
+      ],
+      "answer": 1,
+      "explain": "429 (RFC 6585) signals rate limiting, and Retry-After: 120 instructs the client to wait 120 seconds. Firing immediate retries worsens throttling. Expired credentials result in 401, not 429."
+    },
+    {
+      "prompt": "A bank statement page serves Cache-Control: no-cache to 'prevent storing data on client machines'. A security auditor reports this is insufficient. Why?",
+      "options": [
+        "no-cache only affects CDNs; browsers cache and reuse responses freely without asking",
+        "no-cache is limited to HTTP/1.0; HTTP/2 requires Pragma for cache invalidation",
+        "no-cache must be paired with public, or client browsers will ignore the directive",
+        "no-cache permits caching as long as it revalidates; no-store prevents caching"
+      ],
+      "answer": 3,
+      "explain": "no-cache does not prevent storage; it requires caches to revalidate with the origin server before reuse. Truly confidential records must use no-store to prevent storage on disk."
+    },
+    {
+      "prompt": "After placing an API behind a CDN, user A calls /me and receives user B's profile data. Given the response headers below, how should this be resolved?",
+      "code": "GET /me HTTP/1.1\nAuthorization: Basic ...\n\nHTTP/1.1 200 OK\nCache-Control: public, max-age=300\nContent-Type: application/json",
+      "options": [
+        "Change Cache-Control to private or no-store so CDNs never cache the response",
+        "Increase max-age to 3600 so that each authenticated user caches data longer",
+        "Add an ETag header so the CDN partitions cache entries by ETag automatically",
+        "Move credentials into query parameters so each user has an isolated cache key"
+      ],
+      "answer": 0,
+      "explain": "public permits shared caches like CDNs to store and serve the response to other users. private restricts caching to browser clients, and no-store prevents caching altogether. ETags validate freshness rather than partitioning users, and tokens in URLs leak into logs."
+    },
+    {
+      "prompt": "A client issues the conditional request below. Given that product 42 has not changed since the previous fetch, how should the server respond?",
+      "code": "GET /products/42 HTTP/1.1\nIf-None-Match: \"v7\"",
+      "options": [
+        "200 OK with the full response body because GET handlers must return representation data",
+        "304 Not Modified without a body, instructing the client to use its cached copy",
+        "412 Precondition Failed because the supplied ETag matches current resource state exactly",
+        "204 No Content to indicate no changes occurred and prompt purging local caches"
+      ],
+      "answer": 1,
+      "explain": "If-None-Match performs a conditional GET. If the current ETag matches, the condition evaluates to false, and the server returns 304 without a response body. 412 is returned when an If-Match condition fails during state-modifying requests."
+    },
+    {
+      "prompt": "A web frontend hosted at https://app.example calls https://api.example/orders and encounters a browser CORS error, yet invoking the identical URL with curl succeeds. Which statement correctly explains this?",
+      "options": [
+        "The API firewall blocks browser IPs while allowing the different IP used by curl",
+        "curl disables certificate validation by default, while browsers always enforce it",
+        "Browsers enforce CORS, and the API has not granted Access-Control-Allow-Origin",
+        "The API must enable HTTP/2 before browsers allow scripts to read cross-origin data"
+      ],
+      "answer": 2,
+      "explain": "CORS is a browser security mechanism requiring the server to explicitly authorize caller origins via headers. Tools like curl do not enforce CORS. curl validates certificates by default."
+    },
+    {
+      "prompt": "A frontend runs the code below. DevTools shows an OPTIONS request to the same URL returning 404, and the PUT request is never dispatched. Where and how should this be fixed?",
+      "code": "fetch('https://api.example/orders/7', {\n  method: 'PUT',\n  headers: { 'Content-Type': 'application/json' },\n  body: JSON.stringify({ qty: 3 })\n});",
+      "options": [
+        "Switch to GET while retaining the body to bypass browser CORS preflight checks",
+        "Pass mode: \"no-cors\" in fetch to access the response without server configuration",
+        "Set Access-Control-Allow-Origin inside the outgoing client request headers",
+        "Configure the server to return matching Access-Control-Allow-* on preflights"
+      ],
+      "answer": 3,
+      "explain": "PUT and Content-Type: application/json make this a non-simple request, requiring a browser preflight OPTIONS request. The server must handle OPTIONS with matching Access-Control-* headers before the browser sends PUT. Setting Access-Control-* on request headers has no effect."
+    },
+    {
+      "prompt": "An API returns the headers below, and the frontend invokes it via fetch(url, { credentials: 'include' }). However, the browser rejects the response. What is the cause?",
+      "code": "Access-Control-Allow-Origin: *\nAccess-Control-Allow-Credentials: true",
+      "options": [
+        "Access-Control-Allow-Credentials must be set to \"yes\" rather than \"true\"",
+        "fetch only allows sending credentials when targeting same-origin endpoints reliably",
+        "Access-Control-Allow-Origin is only valid on preflights, not real responses sent back",
+        "Credentialed requests require an explicit origin and cannot use wildcard *"
+      ],
+      "answer": 3,
+      "explain": "When requests include credentials like cookies or authorization headers, the server must return a specific origin in Access-Control-Allow-Origin; the wildcard * is strictly disallowed. Authenticated cross-origin requests are supported when properly configured."
+    },
+    {
+      "prompt": "login.example.com sets the cookie shown below. When the browser subsequently makes a request to api.example.com, the cookie is not sent. Why?",
+      "code": "Set-Cookie: sid=abc123; Path=/; Secure; HttpOnly; SameSite=Lax",
+      "options": [
+        "Omitting Domain makes the cookie host-only, sending it only to login.example.com",
+        "HttpOnly restricts transmission to HTML document loads, blocking fetch requests",
+        "SameSite=Lax prevents sending cookies across subdomains under the same site",
+        "Path=/ restricts cookie delivery to the root index, excluding subpaths like /api"
+      ],
+      "answer": 0,
+      "explain": "Omitting the Domain attribute makes the cookie host-only, meaning browsers will never send it to other hosts or subdomains. HttpOnly blocks client-side JavaScript access, and Path=/ matches all subpaths."
+    },
+    {
+      "prompt": "A webpage loads 40 images from a single HTTP/1.1 origin. In DevTools, numerous image requests spend significant time in Queueing or Stalled before initiating. What is the most likely cause?",
+      "options": [
+        "HTTP/1.1 only allows one image download per page, forcing sequential resource transfers",
+        "DNS must re-resolve the hostname for every single request, blocking subsequent calls",
+        "Chrome caps connections at 6 per origin for HTTP/1.x, queuing any additional requests",
+        "The server sent Cache-Control: no-cache, forcing requests to queue during validation"
+      ],
+      "answer": 2,
+      "explain": "Chrome DevTools documentation states that request queueing occurs when reaching the 6 TCP connection limit per origin for HTTP/1.0 and HTTP/1.1. HTTP/2 eliminates this bottleneck by multiplexing streams over a single connection."
+    },
+    {
+      "prompt": "A mobile app accesses APIs over a lossy cellular network. With HTTP/2, dropping a single packet delays all concurrent unrelated requests on that connection. Which explanation and remedy is correct?",
+      "options": [
+        "HTTP/2 handles requests sequentially per socket; downgrade to HTTP/1.1 for concurrent multiplexing",
+        "TCP head-of-line blocking stalls all streams; HTTP/3 over QUIC isolates loss per individual stream",
+        "HTTP/2 runs on UDP without retransmissions; migrate to HTTP/3 to restore robust TCP transmission",
+        "The issue stems from HPACK compression; disable TLS and header compression to recover throughput"
+      ],
+      "answer": 1,
+      "explain": "HTTP/2 multiplexes streams over a single TCP connection, but TCP delivers an in-order byte stream to the application, so packet loss stalls all streams (TCP head-of-line blocking). HTTP/3 uses QUIC over UDP to isolate loss recovery per stream."
+    },
+    {
+      "prompt": "A backup script downloads a large file that typically takes 10 minutes. The team wants to fail fast if it cannot establish a connection within 5 seconds, without aborting healthy in-progress downloads. Which command should they use?",
+      "code": "# A\ncurl --max-time 5 -O https://backup.example/db.tar\n# B\ncurl --connect-timeout 5 --max-time 1800 -O https://backup.example/db.tar\n# C\ncurl --retry 5 -O https://backup.example/db.tar\n# D\ncurl -m 600 --retry 0 -O https://backup.example/db.tar",
+      "options": [
+        "A because --max-time 5 restricts only the initial connection phase without capping transfer time",
+        "B because --connect-timeout bounds connection time while an overall ceiling prevents hangs",
+        "C because --retry 5 ensures each individual connection attempt aborts within 5 seconds",
+        "D because -m 600 configures the initial TCP connection timeout to 600 milliseconds"
+      ],
+      "answer": 1,
+      "explain": "--connect-timeout restricts the initial connection establishment phase, while --max-time (-m) caps the total transfer duration in seconds. Command A aborts after 5 seconds total, and --retry specifies retry counts rather than timeouts."
+    },
+    {
+      "prompt": "Following a 30-second downstream outage, thousands of clients configured with identical backoff delays of 1, 2, 4, and 8 seconds retry in synchronized waves, causing a secondary collapse. What should be changed?",
+      "options": [
+        "Reduce backoff to 0 seconds so requests pass before queues build up",
+        "Increase retry limits across all architectural layers in the system",
+        "Add jitter to randomize backoff intervals and desynchronize clients",
+        "Switch from exponential backoff to a constant 1-second fixed delay"
+      ],
+      "answer": 2,
+      "explain": "When clients back off on identical schedules, their retries arrive in synchronized waves. Jitter introduces randomness to disperse retry attempts across time. Increasing retries across layers amplifies total system load."
+    },
+    {
+      "prompt": "A client library retries up to 5 times on any non-2xx status code. Logs show that requests returning 400 due to invalid email formatting are retried 5 times each. How should the retry policy be adjusted?",
+      "options": [
+        "Retry only transient failures like timeouts, 429, and 503, never client errors like 400",
+        "Continue retrying 400 errors but incorporate randomized jitter to help requests succeed",
+        "Retry all 4xx codes but exclude 5xx codes because 5xx indicates permanent server errors",
+        "Switch the HTTP method to PUT so that any resulting status code can be retried securely"
+      ],
+      "answer": 0,
+      "explain": "400 Bad Request indicates client error; repeating the identical payload yields identical failure. Retries should target transient failures like timeouts, 429, 502, 503, and 504. Many 5xx errors are transient rather than permanent."
+    },
+    {
+      "prompt": "An API sits behind a corporate reverse proxy that appends client IP addresses to X-Forwarded-For. Why can the rate-limiting implementation below be easily bypassed?",
+      "code": "const ip = req.headers['x-forwarded-for'].split(',')[0].trim();\nrateLimit(ip);",
+      "options": [
+        "X-Forwarded-For places the proxy IP leftmost, producing identical IPs on all calls",
+        "Browsers always strip this header, making the extracted value empty on every call",
+        "The parser must split on semicolons because X-Forwarded-For separates with ; not ,",
+        "The leftmost value is spoofable by the client; trust the IP added by your proxy"
+      ],
+      "answer": 3,
+      "explain": "X-Forwarded-For appends IPs to the right at each intermediate proxy. The leftmost value is supplied by the client and easily spoofed. Applications should only trust values appended by managed proxies."
+    },
+    {
+      "prompt": "Testing with the command below, the server responds 302 pointing to /orders/confirm. Why do destination server logs record a GET request instead of POST?",
+      "code": "curl -L -d \"sku=A-1\" https://shop.example/orders",
+      "options": [
+        "curl -L converts POST to GET upon receiving 301, 302, or 303",
+        "curl sent GET initially because -d only applies to GET calls",
+        "The upstream server rewrites POST to GET on missing headers",
+        "-L directs curl to issue a HEAD probe before issuing a GET"
+      ],
+      "answer": 0,
+      "explain": "curl documentation notes that when following redirects via -L, POST requests are rewritten to GET on 301, 302, and 303, while retaining the method on other 3xx codes. Passing -X POST forces POST across all redirects. Servers wishing to preserve POST should use 307 or 308."
+    },
+    {
+      "prompt": "A dashboard displays ticker prices pushed from the server once per second. Users only view updates without sending data back. The infrastructure already runs HTTP/2. Which solution is simplest and most appropriate?",
+      "options": [
+        "WebSocket because it provides the only standard mechanism for server-to-browser push",
+        "Server-Sent Events via EventSource for unidirectional streaming and auto-reconnect",
+        "Bidirectional gRPC streaming invoked directly from standard browser fetch operations",
+        "Short polling with POST calls every 10 milliseconds to fetch updates as fast as possible"
+      ],
+      "answer": 1,
+      "explain": "Server-Sent Events (SSE) is tailored for unidirectional server-to-client streaming over standard HTTP (text/event-stream), with EventSource handling automatic reconnections with Last-Event-ID. WebSocket adds unnecessary protocol complexity when bidirectional communication is not required."
+    },
+    {
+      "prompt": "The infrastructure team proposes enabling TLS 1.3 0-RTT across all endpoints, including POST /transfers, to eliminate connection latency. What is the primary concern?",
+      "options": [
+        "0-RTT sends early data completely unencrypted, exposing fund transfer details",
+        "0-RTT is restricted to HTTP/1.0, requiring a full protocol downgrade across nodes entirely",
+        "0-RTT early data can be replayed across connections, risking duplicate mutations",
+        "0-RTT forces servers to skip certificate validation whenever resuming with a PSK session"
+      ],
+      "answer": 2,
+      "explain": "RFC 8446 states that 0-RTT early data lacks forward secrecy and provides no replay protection between connections. Attackers can replay captured early data packets. Early data must be restricted to safe, idempotent requests like GET, never state-changing endpoints."
+    },
+    {
+      "prompt": "A website serves Strict-Transport-Security headers on responses from both http://shop.example and https://shop.example. An auditor notes that the header on the HTTP response has no effect. Why?",
+      "options": [
+        "HSTS requires HTTP/2, whereas unencrypted http:// is constrained to HTTP/1.1",
+        "The directive must be delivered within request headers rather than responses",
+        "HSTS must be published as a DNS record; delivering it via HTTP has no effect",
+        "Browsers ignore HSTS delivered over HTTP because traffic can be intercepted"
+      ],
+      "answer": 3,
+      "explain": "Browsers only process HSTS headers when received over secure HTTPS connections, since headers over plain HTTP could be injected or stripped by an attacker. Plain HTTP should redirect to HTTPS, and first-visit exposure can be eliminated via HSTS preloading."
+    },
+    {
+      "prompt": "A website localizes content using the Accept-Language header and caches responses at the CDN for 5 minutes. Some English users receive Thai content. Given the response headers below, what should be added?",
+      "code": "HTTP/1.1 200 OK\nContent-Language: th\nCache-Control: public, max-age=300",
+      "options": [
+        "Content-Type: text/html; charset=th to inform CDNs of document language",
+        "Vary: Accept-Language so the cache partitions entries by requested locale",
+        "Distinct ETag headers per language, letting CDNs partition using the tag",
+        "Cache-Control: immutable to prevent the CDN from modifying served headers"
+      ],
+      "answer": 1,
+      "explain": "The default cache key is method plus URI. When responses vary based on request headers, the server must declare them in the Vary header so caches only serve cached responses when those request headers match. charset specifies character encoding, and ETags validate freshness."
+    },
+    {
+      "prompt": "In DevTools for a slow request, the Timing tab shows DNS Lookup 2 ms, Initial connection 15 ms, Waiting (TTFB) 2.8 s, and Content Download 4 ms. Where should investigation begin?",
+      "options": [
+        "Server processing, such as slow database queries or downstream calls",
+        "The client DNS resolver, because requests must re-resolve domain names",
+        "The overall response payload size, because TTFB measures full downloads",
+        "Server certificate verification, as TTFB measures SSL handshake duration"
+      ],
+      "answer": 0,
+      "explain": "TTFB measures the latency to receive the first response byte, comprising one network round trip plus server-side preparation time. When DNS, initial connection, and content download are fast, latency resides in server processing. TLS negotiation is part of Initial connection."
+    }
+  ],
+  "exercises": [
+    {
+      "title": "Call an API with curl securely and debuggably",
+      "level": "ง่าย",
+      "tags": "curl · header · timeout · TLS",
+      "lang": "shell",
+      "prompt": "A teammate posted the curl command below in a runbook for creating test orders in production. Modify it into a single command that: (1) sends a POST request with the JSON body {\"sku\":\"A-1\",\"qty\":2} and tells the server the payload is JSON, (2) includes an Authorization Bearer header reading the token from the API_TOKEN environment variable without hardcoding the token, (3) sets a 3-second connect timeout and a 10-second total request limit, (4) prints response headers to inspect status codes and headers, and (5) enables certificate verification.",
+      "context": "API: https://api.example.com/orders\nAccepts only Content-Type: application/json\nToken is available in the API_TOKEN environment variable\nThe execution environment has curl 7.82 or newer (supports --json)",
+      "starter": "curl -k -X POST https://api.example.com/orders -d '{\"sku\":\"A-1\",\"qty\":2}'",
+      "solution": "curl -i -X POST https://api.example.com/orders \\\n  -H \"Content-Type: application/json\" \\\n  -H \"Authorization: Bearer $API_TOKEN\" \\\n  --connect-timeout 3 --max-time 10 \\\n  -d '{\"sku\":\"A-1\",\"qty\":2}'",
+      "hints": [
+        "Break it down into separate steps: media type header, authentication header, two timeout settings, header inspection flag, and flags to remove.",
+        "Use -H for Content-Type and Authorization (wrap $API_TOKEN in double quotes so the shell expands it) or use --json to set Content-Type automatically.",
+        "Use --connect-timeout to restrict connection establishment and --max-time (or -m) for total transfer duration. Use -i or -v to view headers and remove -k (--insecure)."
+      ],
+      "checks": [
+        {
+          "label": "Send JSON body using -d/--data or --json",
+          "pattern": "(--json(\\s|=)|(^|\\s)(-d|--data(-raw|-binary)?)(\\s|=)?\\s*['\"]?\\{)"
+        },
+        {
+          "label": "Specify Content-Type: application/json or --json",
+          "pattern": "(content-type:\\s*application/json|--json(\\s|=))"
+        },
+        {
+          "label": "Authorization: Bearer (or --oauth2-bearer) reading $API_TOKEN in double quotes",
+          "pattern": "(\"\\s*authorization:\\s*bearer\\s+\\$\\{?api_token\\b|'\\s*authorization:\\s*bearer\\s+'\"?\\$\\{?api_token\\b|--oauth2-bearer(\\s+|=)\"?\\$\\{?api_token\\b)"
+        },
+        {
+          "label": "Connect timeout of 3 seconds",
+          "pattern": "--connect-timeout(\\s+|=)3(\\.0+)?(\\s|$)"
+        },
+        {
+          "label": "Total time limit of at most 10 seconds (--max-time or -m)",
+          "pattern": "(--max-time(\\s+|=)|(^|\\s)-m\\s*)(10(\\.0+)?|[1-9](\\.\\d+)?|0?\\.\\d+)(\\s|$)"
+        },
+        {
+          "label": "Show response headers (-i, -v, --show-headers, --include, or --verbose)",
+          "pattern": "((^|\\s)-[a-z]*[iv][a-z]*(\\s|$)|--show-headers|--include|--verbose)"
+        },
+        {
+          "label": "Do not disable certificate verification (-k / --insecure)",
+          "pattern": "((^|\\s)-[a-z]*k[a-z]*(\\s|$)|--insecure)",
+          "negate": true
+        }
+      ]
+    },
+    {
+      "title": "Choose HTTP status codes for a meeting room booking API",
+      "level": "กลาง",
+      "tags": "status code · 401/403 · 409/422 · 429 · redirect",
+      "lang": "json",
+      "prompt": "You are defining error specifications for a meeting room booking API. Populate each scenario in the context with status codes matching semantics defined in RFC 9110 and RFC 6585. Provide status as integers. For rate_limited, specify retry_after as the number of seconds the client must wait. For endpoint_moved, ensure redirect-following clients preserve the original POST method when accessing the new URL.",
+      "context": "no_token: POST /bookings invoked without an Authorization header\nno_permission: Token is valid, but caller is a guest role lacking executive room booking permissions\nroom_already_booked: Valid JSON, but the room is already reserved for the requested time slot\nend_before_start: Valid JSON syntax, but end time precedes start time\nrate_limited: Client exceeded rate limit of 100 requests per minute and must wait 30 seconds\nendpoint_moved: /bookings permanently moved to /v2/bookings while preserving the POST method",
+      "starter": "{\n  \"no_token\": { \"status\": 403 },\n  \"no_permission\": { \"status\": 401 },\n  \"room_already_booked\": { \"status\": 400 },\n  \"end_before_start\": { \"status\": 500 },\n  \"rate_limited\": { \"status\": 503 },\n  \"endpoint_moved\": { \"status\": 301, \"location\": \"/v2/bookings\" }\n}",
+      "solution": "{\n  \"no_token\": { \"status\": 401 },\n  \"no_permission\": { \"status\": 403 },\n  \"room_already_booked\": { \"status\": 409 },\n  \"end_before_start\": { \"status\": 422 },\n  \"rate_limited\": { \"status\": 429, \"retry_after\": 30 },\n  \"endpoint_moved\": { \"status\": 308, \"location\": \"/v2/bookings\" }\n}",
+      "hints": [
+        "Differentiate whether each failure relates to authentication, permissions, resource conflict, payload validation, or request frequency.",
+        "Unauthenticated vs authenticated but unauthorized use distinct codes. Booking an occupied slot conflicts with existing state.",
+        "Rate limiting uses status codes defined in RFC 6585 with Retry-After. Permanent redirection that preserves the request method is 308, not 301."
+      ],
+      "checks": [
+        {
+          "label": "no_token is 401",
+          "json": {
+            "path": "no_token.status",
+            "op": "matches",
+            "value": "^401$"
+          }
+        },
+        {
+          "label": "no_permission is 403 (or 404 to hide resource)",
+          "json": {
+            "path": "no_permission.status",
+            "op": "matches",
+            "value": "^(403|404)$"
+          }
+        },
+        {
+          "label": "room_already_booked is 409",
+          "json": {
+            "path": "room_already_booked.status",
+            "op": "matches",
+            "value": "^409$"
+          }
+        },
+        {
+          "label": "end_before_start is 422 (or 400)",
+          "json": {
+            "path": "end_before_start.status",
+            "op": "matches",
+            "value": "^(422|400)$"
+          }
+        },
+        {
+          "label": "rate_limited is 429",
+          "json": {
+            "path": "rate_limited.status",
+            "op": "matches",
+            "value": "^429$"
+          }
+        },
+        {
+          "label": "rate_limited includes retry_after of 30 seconds",
+          "json": {
+            "path": "rate_limited.retry_after",
+            "op": "matches",
+            "value": "^30$"
+          }
+        },
+        {
+          "label": "endpoint_moved is 308 to preserve method",
+          "json": {
+            "path": "endpoint_moved.status",
+            "op": "matches",
+            "value": "^308$"
+          }
+        }
+      ]
+    },
+    {
+      "title": "Disciplined fetch with timeout and retries",
+      "level": "ยาก",
+      "tags": "timeout · retry · backoff · jitter · idempotency",
+      "lang": "javascript",
+      "prompt": "Your service calls an external API that occasionally hangs or returns 503 errors. Refactor fetchWithRetry to: (1) apply an AbortSignal timeout for each call based on timeoutMs, (2) retry only idempotent methods (GET, HEAD, OPTIONS, PUT, DELETE), calling POST and PATCH only once, (3) retry only network errors, timeouts, and status codes 408, 429, 500, 502, 503, 504 up to retries attempts, (4) respect Retry-After when present, otherwise use exponential backoff from baseMs with randomized jitter, and (5) return the last response or throw the last error when retries exhaust or the request is non-retryable.",
+      "context": "Node.js 18+ (built-in fetch and AbortSignal.timeout)\nOriginal signature: fetchWithRetry(url, options = {}, { retries = 3, baseMs = 200, timeoutMs = 5000 } = {})\nRetry-After may be integer seconds or an HTTP-date string",
+      "starter": "async function fetchWithRetry(url, options = {}, { retries = 3, baseMs = 200, timeoutMs = 5000 } = {}) {\n  for (let attempt = 0; ; attempt++) {\n    const res = await fetch(url, options);\n    if (res.ok || attempt >= retries) return res;\n    await new Promise((r) => setTimeout(r, baseMs));\n  }\n}",
+      "solution": "const RETRYABLE_STATUS = new Set([408, 429, 500, 502, 503, 504]);\nconst IDEMPOTENT = new Set(['GET', 'HEAD', 'OPTIONS', 'PUT', 'DELETE']);\nconst sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));\n\nfunction retryAfterMs(res) {\n  const value = res.headers.get('retry-after');\n  if (!value) return null;\n  const seconds = Number(value);\n  if (Number.isFinite(seconds)) return seconds * 1000;\n  const date = Date.parse(value);\n  return Number.isNaN(date) ? null : Math.max(0, date - Date.now());\n}\n\nasync function fetchWithRetry(url, options = {}, { retries = 3, baseMs = 200, timeoutMs = 5000 } = {}) {\n  const method = (options.method || 'GET').toUpperCase();\n  const canRetry = IDEMPOTENT.has(method);\n\n  for (let attempt = 0; ; attempt++) {\n    const backoff = Math.random() * baseMs * 2 ** attempt; // full jitter\n    try {\n      const res = await fetch(url, { ...options, signal: AbortSignal.timeout(timeoutMs) });\n      if (!canRetry || !RETRYABLE_STATUS.has(res.status) || attempt >= retries) return res;\n      await sleep(retryAfterMs(res) ?? backoff);\n    } catch (err) {\n      // network error or timeout\n      if (!canRetry || attempt >= retries) throw err;\n      await sleep(backoff);\n    }\n  }\n}",
+      "hints": [
+        "Address three core checks each attempt: is the method retryable, is the failure transient, and how long should the delay be?",
+        "AbortSignal.timeout(timeoutMs) creates a self-aborting signal. Use Sets of status codes and methods for clean lookups, and wrap fetch in try/catch to capture network errors and timeouts.",
+        "Read res.headers.get(\"retry-after\"); if numeric, multiply by 1000; if an HTTP-date, parse with Date.parse. For backoff, use Math.random() * baseMs * 2 ** attempt (full jitter)."
+      ],
+      "checks": [
+        {
+          "label": "Every call has a timeout (AbortSignal.timeout or AbortController)",
+          "pattern": "(abortsignal\\.timeout\\s*\\(|new\\s+abortcontroller\\s*\\()"
+        },
+        {
+          "label": "Defines retryable methods or prevents retrying POST/PATCH",
+          "pattern": "(['\"`]get['\"`][\\s\\S]{0,120}['\"`](put|delete)['\"`]|['\"`](put|delete)['\"`][\\s\\S]{0,120}['\"`]get['\"`]|(!==?|===?)\\s*['\"`](post|patch)['\"`]|['\"`](post|patch)['\"`]\\s*(!==?|===?)|['\"`]post['\"`]\\s*,\\s*['\"`]patch['\"`]|['\"`]patch['\"`]\\s*,\\s*['\"`]post['\"`])"
+        },
+        {
+          "label": "List of retryable methods must not include POST or PATCH",
+          "pattern": "\\[[^\\]]*['\"`]get['\"`][^\\]]*['\"`](post|patch)['\"`]|\\[[^\\]]*['\"`](post|patch)['\"`][^\\]]*['\"`]get['\"`]",
+          "negate": true
+        },
+        {
+          "label": "Retry only transient status codes (including 429 and 503)",
+          "pattern": "^(?=[\\s\\S]*\\b429\\b)(?=[\\s\\S]*\\b503\\b)"
+        },
+        {
+          "label": "Reads Retry-After header",
+          "pattern": "retry-after"
+        },
+        {
+          "label": "Exponential backoff (2 ** attempt, Math.pow(2, ...), bit shift, or *= 2)",
+          "pattern": "(2\\s*\\*\\*\\s*\\(?\\s*\\w+|math\\.pow\\s*\\(\\s*2\\s*,|\\w+\\s*<<\\s*\\w+|\\*=\\s*2\\b)"
+        },
+        {
+          "label": "Includes jitter (Math.random)",
+          "pattern": "math\\.random\\s*\\("
+        }
+      ]
+    }
+  ],
+  "cheatsheet": [
+    "Request lifecycle: DNS → TCP handshake → TLS handshake → HTTP request → TTFB → download; inspect via the Timing tab in DevTools",
+    "DNS TTL dictates how long resolvers cache records; lower TTL before migrating IPs, or users may hit the old server until the cache expires",
+    "TCP: reliable, in-order delivery via a three-way handshake, whereas UDP offers no delivery guarantees; default ports are 80 for HTTP and 443 for HTTPS",
+    "TLS provides server authentication, confidentiality, and integrity, but does not hide destination IP or data size; -k/--insecure disables identity checks",
+    "Safe: GET, HEAD, OPTIONS | Idempotent: safe + PUT, DELETE | POST and PATCH are not idempotent and should not be automatically retried",
+    "401 = missing or invalid credentials (requires WWW-Authenticate), 403 = understood but forbidden, and 404 can hide restricted resources",
+    "301/302 may rewrite POST to GET; 307/308 preserve the method; 303 redirects to GET | 409 conflict, 422 unprocessable, 429 + Retry-After",
+    "no-store = do not store, no-cache = cacheable but requires revalidation, private = no shared caches | ETag + If-None-Match → 304",
+    "CORS is enforced by browsers, not curl | Non-simple requests trigger preflight OPTIONS | Credentialed requests forbid Allow-Origin: *",
+    "HTTP/2 multiplexes over TCP but suffers TCP head-of-line blocking; HTTP/3 uses QUIC over UDP | Retry transient errors with backoff + jitter"
+  ]
+}

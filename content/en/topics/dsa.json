@@ -1,0 +1,672 @@
+{
+  "id": "dsa",
+  "code": "F5",
+  "track": "foundations",
+  "title": "Data Structures & Algorithms",
+  "blurb": "Choose data structures and algorithms based on the shape of a problem, and explain why one approach grows more slowly than another as the data gets larger.",
+  "mustKnow": [
+    {
+      "tier": "must",
+      "exam": true,
+      "title": "Big-O bounds growth in time and memory",
+      "body": "Big-O gives an upper bound on how time or memory grows with input size n, ignoring constant factors and slower-growing terms. Thus, 3n² + 50n + 7 becomes O(n²), and space complexity uses the same notation: for example, creating a Map with n entries takes O(n) memory. Always state which case a complexity describes (worst, average, or best), because the same algorithm can vary widely: quicksort averages O(n log n) but takes O(n²) in the worst case. The Programming topic covers nested loops in more detail.",
+      "ref": "https://en.wikipedia.org/wiki/Big_O_notation"
+    },
+    {
+      "tier": "must",
+      "title": "Amortized O(1): why appending to an array is fast",
+      "body": "A dynamic array reserves spare capacity; when it fills up, it grows by a factor (such as doubling) and copies the existing elements to a new location. A resize takes O(n) time, but resizes become farther apart in a geometric progression, so adding n elements takes O(n) total time, or amortized O(1) per append. This does not guarantee that every append is fast: an append that triggers a resize still takes longer. The key is growing by a fixed factor (such as 1.5 or 2), rather than adding just a few slots each time.",
+      "ref": "https://en.wikipedia.org/wiki/Dynamic_array"
+    },
+    {
+      "tier": "must",
+      "exam": true,
+      "title": "Arrays and linked lists: random access and caching",
+      "body": "An array accesses position i directly in O(1) time because its elements occupy contiguous memory, whereas a linked list must walk through nodes from the head, taking O(n). A linked list can insert or delete in O(1) when you already hold the node at the relevant position, but finding that position first still takes O(n). In practice, iterating over an entire array is often much faster than traversing a linked list despite identical Big-O bounds, because arrays have better locality and make better use of the CPU cache.",
+      "ref": "https://en.wikipedia.org/wiki/Linked_list"
+    },
+    {
+      "tier": "must",
+      "title": "Stacks, queues, deques, and the shift() trap",
+      "body": "A stack is last in, first out (push/pop at the end), a queue is first in, first out, and a deque supports adding or removing elements at either end. In JavaScript, using an array as a queue with push and shift looks simple, but shift moves every remaining value one position to the left, so treat it as O(n) work per call; BFS on a large graph can then degrade to O(n²). A simple fix is to keep a head index and advance it instead of calling shift, or use a deque or ring buffer.",
+      "code": "// Advance a head index instead of calling shift each time\nconst queue = [start];\nconst visited = new Set([start]);\nlet head = 0;\nwhile (head < queue.length) {\n  const node = queue[head++];\n  for (const next of graph.get(node) ?? []) {\n    if (!visited.has(next)) {\n      visited.add(next);\n      queue.push(next);\n    }\n  }\n}",
+      "ref": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/shift"
+    },
+    {
+      "tier": "must",
+      "exam": true,
+      "title": "Hash tables: collisions, load factor, and worst-case O(n)",
+      "body": "A hash table maps keys to positions with a hash function, giving average O(1) lookup, insertion, and deletion. Different keys can map to the same position (a collision), handled with separate chaining or open addressing. An important measure is the load factor = number of entries / number of slots; when it gets too high, the table is resized and every entry is rehashed (open addressing often uses a limit around 0.6–0.75). Lookup can still take O(n) in the worst case when many keys land in the same slot.",
+      "ref": "https://en.wikipedia.org/wiki/Hash_table"
+    },
+    {
+      "tier": "must",
+      "exam": true,
+      "title": "Heaps and priority queues: extract the minimum quickly",
+      "body": "A binary min-heap is a tree in which each parent is no greater than its children, so inspecting the minimum takes O(1), while insertion or extracting the minimum takes O(log n). It is used to implement priority queues, such as task queues ordered by priority or the queue inside Dijkstra’s algorithm. A heap is not fully sorted: finding the maximum in a min-heap or searching for an arbitrary value still takes O(n). To find the top k values among n items, keep a heap of at most k items: each incoming value costs only O(log k), for O(n log k) total, cheaper than sorting everything when k is much smaller than n; building a heap from an array all at once takes O(n).",
+      "ref": "https://en.wikipedia.org/wiki/Binary_heap"
+    },
+    {
+      "tier": "must",
+      "title": "BSTs: fast when balanced, list-like when skewed",
+      "body": "A binary search tree stores smaller values on the left and larger values on the right. Lookup, insertion, and deletion take time proportional to the tree’s height, averaging O(log n), but inserting already sorted data in order makes the tree a straight chain, degrading to O(n) like a linked list. Self-balancing trees such as AVL and red-black trees rotate nodes to keep the height O(log n).",
+      "ref": "https://en.wikipedia.org/wiki/Binary_search_tree"
+    },
+    {
+      "tier": "must",
+      "title": "Tree traversal: pre-, in-, post-, and level-order",
+      "body": "Depth-first traversal has three forms, distinguished by when a node is visited: pre-order visits the node before its children (for example, printing a folder structure from top to bottom), in-order visits left, node, then right, and post-order visits children before the node (useful for deleting folders or calculating their sizes from the bottom up). Level-order traversal visits one level at a time using a queue. Remember that an in-order traversal of a BST produces values in ascending order, which can help check whether a tree is a valid BST.",
+      "code": "function inOrder(node, out = []) {\n  if (!node) return out;\n  inOrder(node.left, out);\n  out.push(node.value); // BST: values in ascending order\n  inOrder(node.right, out);\n  return out;\n}",
+      "ref": "https://en.wikipedia.org/wiki/Tree_traversal"
+    },
+    {
+      "tier": "must",
+      "title": "Graphs: adjacency lists and adjacency matrices",
+      "body": "An adjacency list stores each node’s neighbors, using O(V + E) memory proportional to the number of vertices plus edges. It suits sparse graphs, which account for most real-world graphs, such as follower networks or package dependencies. An adjacency matrix always uses O(V²) memory but answers immediately whether two nodes are connected, making it suitable for dense graphs. In JavaScript, an adjacency list is often represented as a Map of arrays.",
+      "code": "const graph = new Map();\nfor (const [from, to] of edges) {\n  if (!graph.has(from)) graph.set(from, []);\n  graph.get(from).push(to);\n}",
+      "ref": "https://en.wikipedia.org/wiki/Adjacency_list"
+    },
+    {
+      "tier": "must",
+      "exam": true,
+      "title": "BFS and DFS: choose for the question you need to answer",
+      "body": "BFS uses a queue to explore one level at a time, so it always reaches a destination using the fewest edges in an unweighted graph, such as finding how many friendship links separate two people. DFS explores deeply before backtracking (using a stack or recursion), making it suitable for detecting cycles, exploring all paths, or topological sorting. Both take O(V + E) time and need a visited set; without one, a graph with cycles can loop forever. Mark nodes as visited when adding them to the queue, rather than when removing them, to avoid queuing the same node repeatedly.",
+      "ref": "https://en.wikipedia.org/wiki/Breadth-first_search"
+    },
+    {
+      "tier": "must",
+      "title": "Stable sorting and sorting by multiple keys",
+      "body": "A stable sort preserves the original order of items that compare equal. Since ECMAScript 2019, the specification requires Array.prototype.sort to be stable. In practice, this lets you sort by multiple keys by sorting on the secondary key first and then the primary key, or by writing a comparator that compares the primary key and falls back to the secondary key on a tie. Do not assume this holds for every language or algorithm: typical in-place quicksort is not stable (the Programming topic covers comparators and sorting as strings).",
+      "code": "orders.sort((a, b) =>\n  a.status.localeCompare(b.status) || // Primary key\n  b.total - a.total                   // Compare the secondary key on a tie\n);",
+      "ref": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/sort"
+    },
+    {
+      "tier": "should",
+      "title": "Binary search: lower bounds and off-by-one errors",
+      "body": "Real tasks often ask for the first position whose value is ≥ x (the lower bound), rather than simply whether a value exists; this works even with duplicates or when the value is absent. A less error-prone approach uses the half-open interval [lo, hi), loops while (lo < hi), sets lo = mid + 1 if a[mid] < x, and otherwise sets hi = mid. At the end, lo is the answer, possibly equal to the array’s length if every element is less than x. A common bug mixes conventions, such as pairing while (lo <= hi) with hi = mid, causing an infinite loop.",
+      "code": "function lowerBound(a, x) {\n  let lo = 0, hi = a.length;      // Interval [lo, hi)\n  while (lo < hi) {\n    const mid = Math.floor((lo + hi) / 2);\n    if (a[mid] < x) lo = mid + 1;\n    else hi = mid;\n  }\n  return lo; // First position where a[i] >= x\n}",
+      "ref": "https://en.wikipedia.org/wiki/Binary_search"
+    },
+    {
+      "tier": "should",
+      "exam": true,
+      "title": "Dijkstra: shortest paths with nonnegative weights",
+      "body": "When edges carry weights (distance, time, or cost), BFS no longer works. Dijkstra’s algorithm extracts the node with the smallest cumulative distance from a priority queue, then relaxes its outgoing edges; with a binary heap, it takes O((V + E) log V) time. Crucially, every edge weight must be nonnegative, because the algorithm treats the distance of an extracted node as final. For negative edges (such as discounts or credits), use Bellman–Ford, which can also detect negative cycles.",
+      "ref": "https://en.wikipedia.org/wiki/Dijkstra%27s_algorithm"
+    },
+    {
+      "tier": "should",
+      "title": "Topological sort: dependency order and cycle detection",
+      "body": "Topological sorting orders the nodes of a directed acyclic graph (DAG) so that u comes before v for every edge u → v. It schedules builds, migrations, or tasks with dependencies. Kahn’s algorithm starts with nodes that have no incoming edges (in-degree 0), removes them one at a time, and reduces their neighbors’ in-degrees; if it finishes without processing every node, the graph has a cycle and no valid ordering exists. There may be more than one valid ordering, so avoid tests tied to one particular order unless the problem requires it.",
+      "ref": "https://en.wikipedia.org/wiki/Topological_sorting"
+    },
+    {
+      "tier": "should",
+      "title": "The n log n lower bound for comparison sorting",
+      "body": "A sort based on pairwise comparisons needs at least about log₂(n!) comparisons, which grows as n log n, so no comparison sort can beat O(n log n) in the general case. Merge sort and heapsort are therefore optimal in terms of the number of comparisons. To go faster, avoid direct comparisons: counting sort, for example, takes linear O(n + k) time when keys are integers in a narrow range of size k (such as ages 0–150). If that range is very wide, k instead makes it slow and memory-intensive.",
+      "ref": "https://en.wikipedia.org/wiki/Comparison_sort"
+    },
+    {
+      "tier": "should",
+      "exam": true,
+      "title": "Quicksort vs. merge sort: time, space, and stability",
+      "body": "Quicksort averages O(n log n) and uses little extra memory (around O(log n) for recursion when processing the smaller partition first). Poor pivot choices, such as always choosing the first element of already sorted data, degrade it to O(n²), so implementations often randomize the pivot or use median-of-three. Merge sort guarantees O(n log n) in every case and is stable, but requires O(n) extra memory for arrays. The choice depends on what matters more: predictable worst-case behavior and stability, or memory efficiency.",
+      "ref": "https://en.wikipedia.org/wiki/Quicksort"
+    },
+    {
+      "tier": "should",
+      "exam": true,
+      "title": "Memoization and dynamic programming",
+      "body": "Dynamic programming applies when a problem has optimal substructure (an optimal overall answer is built from optimal answers to subproblems) and overlapping subproblems (the same subproblems are computed repeatedly). Memoization is the top-down approach, caching each input’s result in a Map; tabulation is the bottom-up approach, filling a table from smaller subproblems upward. A straightforward recursive fib(n) takes exponential time, but memoization reduces it to O(n) at the cost of O(n) memory. If subproblems never overlap, as in merge sort, the technique is divide and conquer rather than DP.",
+      "code": "function fib(n, memo = new Map()) {\n  if (n <= 1) return n;\n  if (memo.has(n)) return memo.get(n);\n  const v = fib(n - 1, memo) + fib(n - 2, memo);\n  memo.set(n, v);\n  return v;\n}",
+      "ref": "https://en.wikipedia.org/wiki/Dynamic_programming"
+    },
+    {
+      "tier": "should",
+      "title": "Two pointers and sliding windows",
+      "body": "Instead of trying every pair or interval with nested O(n²) loops, use two pointers that each move in only one direction. If each pointer moves at most n times in total, the whole process is O(n). Examples include finding a contiguous interval whose sum equals x or a pair that adds up to a target in a sorted array. Watch the underlying assumptions: expanding a window always increases its sum only when every value is positive; with negative values, use another approach, such as prefix sums with a Map.",
+      "ref": "https://cses.fi/book/book.pdf#page=87"
+    },
+    {
+      "tier": "should",
+      "title": "Explaining complexity in an interview",
+      "body": "Start with the straightforward brute-force approach and its time and space complexity, then look for repeated work or a data structure that reduces it. When an interviewer asks whether you can improve it, consider the possible lower bound: for example, if every item must be read at least once, you cannot do better than O(n). Define your variables clearly when stating complexity (what n represents, or O(n + m) for two collections), and include extra space such as the recursion call stack.",
+      "ref": "https://www.techinterviewhandbook.org/coding-interview-techniques/"
+    },
+    {
+      "tier": "advanced",
+      "title": "Constants matter: insertion sort in hybrid sorts",
+      "body": "Big-O ignores constant factors, but for small or medium-sized real inputs, constants and cache use can matter more. Insertion sort is O(n²), yet it is among the fastest methods for very small arrays and performs well on nearly sorted data. Well-written quicksort implementations therefore switch to insertion sort when a partition falls below a size threshold. Choose an algorithm by Big-O first, then measure actual runtime when the bounds are equal or n is not large.",
+      "ref": "https://en.wikipedia.org/wiki/Insertion_sort"
+    },
+    {
+      "tier": "advanced",
+      "title": "Hash flooding: an attacker-controlled worst case",
+      "body": "A hash table’s average O(1) performance assumes that keys are well distributed. If an attacker knows the hash function, they can send many keys that all collide, making dictionary construction from n entries take O(n²) and saturating the server’s CPU. Python therefore randomizes the hash salt for str and bytes each time a process starts (hash randomization) to defend against this denial-of-service attack. For endpoints that accept JSON or query strings with unlimited keys, the lesson is to limit both input size and key count.",
+      "ref": "https://docs.python.org/3/using/cmdline.html#cmdoption-R"
+    },
+    {
+      "tier": "advanced",
+      "title": "Binary search and >> 1 in JavaScript",
+      "body": "An integer overflow bug in (low + high) / 2 remained hidden in the JDK’s binary search for years. JavaScript numbers are doubles, so addition is safe up to 2^53, but calculating the midpoint with (lo + hi) >> 1 creates a similar problem because >> first converts its operand to a signed 32-bit integer. When lo + hi exceeds 2^31 − 1, the result becomes negative. This can happen when binary-searching a range of large numeric answers, such as times in milliseconds or monetary amounts; use Math.floor((lo + hi) / 2) or lo + Math.floor((hi - lo) / 2) instead.",
+      "code": "(2 ** 31 + 2) >> 1;            // -1073741823 (wrong)\nMath.floor((2 ** 31 + 2) / 2); // 1073741825",
+      "ref": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/Right_shift"
+    },
+    {
+      "tier": "advanced",
+      "title": "Union-find: merge groups and test membership",
+      "body": "A disjoint-set (union-find) structure tracks which group each member belongs to, supporting union (merge two groups) and find (get a group’s representative). Uses include merging accounts that share an email address or phone number, finding connected components in a graph, and Kruskal’s algorithm. A straightforward implementation can produce trees of height O(n), but combining path compression with union by rank or size gives amortized O(α(n)) time per operation. Here α is the inverse Ackermann function, which grows so slowly that it is effectively constant.",
+      "ref": "https://en.wikipedia.org/wiki/Disjoint-set_data_structure"
+    },
+    {
+      "tier": "advanced",
+      "title": "NP-hard: when to stop seeking an exact optimum",
+      "body": "Some problems, such as the travelling salesman problem (finding the cheapest tour through every location), are NP-hard: no polynomial-time algorithm is known, and none exists if P ≠ NP. Trying every ordering of 20 locations means 20! possibilities, too many to run through. For delivery routing or scheduling problems with this structure, accept a good-enough answer using a heuristic or approximation, or limit the input size, rather than searching for the best answer in every case.",
+      "ref": "https://en.wikipedia.org/wiki/NP-hardness"
+    }
+  ],
+  "refs": [
+    {
+      "title": "MIT OpenCourseWare 6.006: Introduction to Algorithms (Spring 2020)",
+      "url": "https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/",
+      "note": "A complete introductory algorithms course covering models of computation, data structures, and performance analysis."
+    },
+    {
+      "title": "Competitive Programmer’s Handbook (Antti Laaksonen)",
+      "url": "https://cses.fi/book/book.pdf",
+      "note": "A free book with concise explanations of complexity, amortized analysis, two pointers, graphs, and DP."
+    },
+    {
+      "title": "Tech Interview Handbook: Coding interview techniques",
+      "url": "https://www.techinterviewhandbook.org/coding-interview-techniques/",
+      "note": "How to approach coding interview problems and reduce time and space complexity step by step."
+    },
+    {
+      "title": "Google Research: Nearly All Binary Searches and Mergesorts are Broken",
+      "url": "https://research.google/blog/extra-extra-read-all-about-it-nearly-all-binary-searches-and-mergesorts-are-broken/",
+      "note": "The original article about the midpoint calculation bug in the JDK binary search implementation."
+    },
+    {
+      "title": "MDN: Array.prototype.sort()",
+      "url": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/sort",
+      "note": "Comparators and the stable sort guarantee introduced in ES2019."
+    },
+    {
+      "title": "Wikipedia: Hash table",
+      "url": "https://en.wikipedia.org/wiki/Hash_table",
+      "note": "Collisions, load factor, and both average-case and worst-case complexity."
+    }
+  ],
+  "questions": [
+    {
+      "prompt": "A service uses BFS to find “friends of friends.” It is fast on a test graph, but runtime grows far out of proportion on a real graph with 200,000 nodes, even though each node has few friends. What is the most likely cause?",
+      "code": "const queue = [start];\nconst visited = new Set([start]);\nwhile (queue.length > 0) {\n  const node = queue.shift();\n  for (const next of graph.get(node)) {\n    if (!visited.has(next)) {\n      visited.add(next);\n      queue.push(next);\n    }\n  }\n}",
+      "options": [
+        "Set.has takes O(n) as the Set grows, making visited checks increasingly slow",
+        "shift moves the remaining queue each time, approaching O(n²) with long queues",
+        "BFS already takes O(V²); switching to DFS is necessary to achieve O(V + E)",
+        "Nodes must be marked visited when dequeued, rather than enqueued, to avoid skips"
+      ],
+      "answer": 1,
+      "explain": "shift removes the first element and shifts every remaining element left. With tens of thousands of queued elements, each operation takes O(n); use a head index instead. BFS itself takes O(V + E), and marking nodes when enqueuing them is already correct."
+    },
+    {
+      "prompt": "An endpoint accepts JSON with unlimited keys and stores them in a hash map. After someone sends hundreds of thousands of keys designed to collide, the server CPU stays saturated for several seconds. What explains this?",
+      "options": [
+        "The hash map moves data to disk when memory runs out, causing heavy I/O",
+        "JSON.parse takes O(n³) for objects with many keys and multiple nested levels",
+        "A low load factor forces the table to resize every time a key is added",
+        "Colliding keys make each hash-table operation O(n), totaling O(n²)"
+      ],
+      "answer": 3,
+      "explain": "The average O(1) bound for hash tables depends on well-distributed keys. If an attacker forces keys into the same bucket, each insertion must scan the colliding entries, so limit key counts and use a randomly seeded hash. Resizing happens at a high load factor, not a low one."
+    },
+    {
+      "prompt": "A game needs the 10 highest scores from a stream of 5 million scores, with limited memory. Which approach fits best?",
+      "options": [
+        "Keep a min-heap of 10, replacing its minimum with higher scores: O(n log 10)",
+        "Keep all scores in an array and sort descending again whenever a score arrives",
+        "Put all 5 million scores in a max-heap, then extract 10 scores at the end",
+        "Keep scores in a Set and use Math.max ten times, removing each maximum"
+      ],
+      "answer": 0,
+      "explain": "A min-heap of size k keeps only the current top 10 and immediately exposes the lowest of them. Each score takes O(log k) work, using O(k) memory. A full max-heap gives the right answer but requires storing all 5 million scores."
+    },
+    {
+      "prompt": "A team builds a BST to look up products by id. It inserts rows in the order read from a table, which is already sorted by id. Why is lookup about as slow as scanning an array?",
+      "code": "for (const p of productsSortedById) {\n  tree.insert(p.id, p); // Ordinary BST, no balancing\n}\ntree.find(999_999);",
+      "options": [
+        "BSTs only search string keys quickly; numeric keys require a hash table",
+        "BST lookup always takes O(n log n), slower than an O(n) array scan",
+        "Sorted input creates a chain of height n, so lookup takes O(n)",
+        "Repeated inserts force the tree to rebalance each time, slowing it down"
+      ],
+      "answer": 2,
+      "explain": "BST lookup time depends on tree height. Inserting sorted values sends each new node to the right, turning the tree into a linked list; use a self-balancing tree (AVL or red-black) or shuffle the insertion order. An ordinary BST never rebalances, so rebalancing is not the cause."
+    },
+    {
+      "prompt": "A social app has 1 million users, each following an average of 200 others. How should it store the follow graph in memory?",
+      "options": [
+        "A 1-million-by-1-million adjacency matrix for O(1) follow checks",
+        "An array of all edges, scanned whenever neighbors are needed",
+        "An adjacency list using V + E space, suitable for this sparse graph",
+        "An adjacency matrix compressed with JSON.stringify before storage"
+      ],
+      "answer": 2,
+      "explain": "There are about 200 million edges, whereas a matrix needs 10¹² cells regardless of the actual edge count. A sparse graph is better represented by an adjacency list using O(V + E) space. The matrix’s O(1) edge checks do not justify its memory cost."
+    },
+    {
+      "prompt": "A “degrees of connection” feature must return the fewest steps between two users, treating every relationship as having equal distance. Which algorithm should it use?",
+      "options": [
+        "BFS from the source: exploring by layers finds the target in the fewest steps",
+        "DFS from the source: exploring deeply always reaches the target more quickly",
+        "Dijkstra: it is the only algorithm guaranteeing shortest paths in every graph",
+        "Topologically sort the friendship graph and count distances in that order"
+      ],
+      "answer": 0,
+      "explain": "In an unweighted graph, BFS reaches every node at distance k before any at distance k + 1, giving the fewest steps. DFS may reach the target through a detour first. Dijkstra works but is unnecessary and slower, while cycles in a friendship graph prevent topological sorting."
+    },
+    {
+      "prompt": "A delivery system uses BFS and chooses the direct route A → D costing 50 baht, although A → B → C → D costs only 18 baht in total. Which explanation and fix are correct?",
+      "options": [
+        "BFS must start at the destination and work backward to find the cheapest route",
+        "Add a visited set, because BFS without one always chooses the shorter edge",
+        "Switch to DFS and stop immediately when the destination is first reached",
+        "BFS counts edges, not cost; use Dijkstra when edge weights differ"
+      ],
+      "answer": 3,
+      "explain": "BFS finds the path with the fewest edges, which is cheapest only when every edge has the same cost. For nonnegative weighted edges, use Dijkstra, which processes the node with the lowest accumulated cost first. Stopping DFS at the first arrival provides no such guarantee."
+    },
+    {
+      "prompt": "A team adds promotional routes with negative delivery costs (cashback) to a graph, then finds that Dijkstra returns a route that is not cheapest. What should it do?",
+      "options": [
+        "Add the same constant to every edge until all are nonnegative, then use Dijkstra",
+        "Use Bellman–Ford, which supports negative weights and detects negative cycles",
+        "Change the priority queue to a max-heap so negative edges are processed first",
+        "Run Dijkstra twice, once from the source and once from the destination"
+      ],
+      "answer": 1,
+      "explain": "Dijkstra assumes that a node’s shortest distance is final when it is extracted, which fails with negative edges. Bellman–Ford handles this and can detect a negative cycle that prevents a finite answer. Adding a constant to every edge penalizes paths with more edges, potentially changing which path is cheapest."
+    },
+    {
+      "prompt": "A migration-ordering function using Kahn’s algorithm returns 7 migrations even though there are 9, without reporting any error. What is the correct conclusion?",
+      "code": "// next: Map of dependent tasks; inDegree: Map of remaining dependencies\nconst queue = tasks.filter((t) => inDegree.get(t) === 0);\nconst order = [];\nlet head = 0;\nwhile (head < queue.length) {\n  const task = queue[head++];\n  order.push(task);\n  for (const n of next.get(task)) {\n    inDegree.set(n, inDegree.get(n) - 1);\n    if (inDegree.get(n) === 0) queue.push(n);\n  }\n}\nconsole.log(order.length, tasks.length); // 7 9",
+      "options": [
+        "A dependency cycle prevents two jobs from ever reaching an in-degree of 0",
+        "Two migrations with no dependencies were skipped and must be appended manually",
+        "The queue must be a priority queue, or some jobs can disappear from the result",
+        "Kahn’s algorithm normally returns partial results when several valid orders exist"
+      ],
+      "answer": 0,
+      "explain": "Jobs in a cycle wait for one another, so their in-degrees never reach 0 and they never enter the queue. An order shorter than the job count indicates a cycle and should trigger an error rather than continuing. Jobs with no dependencies start with in-degree 0 and are enqueued from the outset."
+    },
+    {
+      "prompt": "Orders must be displayed by status, then by date within each status. Which approach works in current JavaScript?",
+      "code": "// Original data is in retrieval order, with no sorting\nconst rows = [\n  { id: 1, status: 'paid', date: new Date('2026-03-02') },\n  { id: 2, status: 'new', date: new Date('2026-03-01') },\n  { id: 3, status: 'paid', date: new Date('2026-02-27') },\n];\n// Wanted: new before paid, then date order within each status",
+      "options": [
+        "Sort by status, then by date, because the second sort preserves the status order",
+        "Sort by date, then by status, because stable sort preserves the date order",
+        "Write merge sort yourself, because Array.prototype.sort does not guarantee stability",
+        "Sort once with a comparator returning a.date - b.date only when statuses differ"
+      ],
+      "answer": 1,
+      "explain": "Since ES2019, Array.prototype.sort must be stable, so sorting by the secondary key before the primary key works. Alternatively, compare status first and date when statuses match. Sorting by status and then date makes date the primary ordering, because the last sort determines the primary key."
+    },
+    {
+      "prompt": "A teammate says 10 million customer ages, integers from 0 to 150, can be sorted faster than O(n log n). You learned that n log n is the best possible sorting bound. Which statement is correct?",
+      "options": [
+        "It is impossible: no sorting method can run faster than O(n log n)",
+        "Counting sort takes O(n + k), avoiding pairwise comparisons when k is small",
+        "It is possible only with quicksort using the true median as pivot every time",
+        "It works because JavaScript engines sort numbers internally with hash tables"
+      ],
+      "answer": 1,
+      "explain": "The n log n lower bound applies to comparison sorts, which make decisions by comparing pairs of values. Counting sort counts occurrences instead, taking O(n + k), where k is the key range. Quicksort remains a comparison sort regardless of how the pivot is chosen."
+    },
+    {
+      "prompt": "A team’s quicksort always chooses the first element as pivot. It is fast on random input, but an overnight job sorting nearly sorted data takes unusually long. Why?",
+      "options": [
+        "Sorted input forces quicksort to use O(n²) memory during partitioning",
+        "Quicksort is fast only without duplicates, so repeated values slow the job",
+        "Quicksort is stable, so preserving sorted input requires additional work",
+        "The pivot is near-minimal each time, removing one item per pass: O(n²)"
+      ],
+      "answer": 3,
+      "explain": "With the first element as pivot on sorted input, each partition removes only one element, totaling O(n²) work. Use a random pivot or median-of-three. The issue is time rather than O(n²) memory, and typical in-place quicksort is not stable."
+    },
+    {
+      "prompt": "A billing system must sort a large dataset with guaranteed worst-case time and preserve the original order of equivalent entries (stability). Extra memory is acceptable. Which choice and tradeoff fit?",
+      "options": [
+        "Random-pivot quicksort is stable and requires no additional memory allocation",
+        "Heapsort is stable and requires only O(1) auxiliary memory for sorting",
+        "Insertion sort guarantees O(n log n) time even for very large datasets",
+        "Merge sort is stable with O(n log n) worst-case time, using O(n) extra space"
+      ],
+      "answer": 3,
+      "explain": "Merge sort guarantees O(n log n) time and stability, at the cost of an O(n) temporary array. Randomized quicksort still has an O(n²) worst case and is not stable; heapsort is not stable, and insertion sort takes O(n²) in the worst case."
+    },
+    {
+      "prompt": "This function finds the first position whose value is ≥ x, but it loops forever on every call. Why?",
+      "code": "function lowerBound(a, x) {\n  let lo = 0, hi = a.length;\n  while (lo <= hi) {\n    const mid = Math.floor((lo + hi) / 2);\n    if (a[mid] < x) lo = mid + 1;\n    else hi = mid;\n  }\n  return lo;\n}",
+      "options": [
+        "With <= and hi = mid, lo === hi repeats the same mid without shrinking the range",
+        "Math.floor rounds downward, preventing mid from ever reaching the final array element",
+        "hi must start at a.length - 1; otherwise reading a[mid] throws an exception",
+        "lowerBound cannot handle duplicate values, so encountering a duplicate causes an infinite loop"
+      ],
+      "answer": 0,
+      "explain": "The half-open interval [lo, hi) requires while (lo < hi). With <=, once lo equals hi, mid equals both; a[mid] there is either undefined or ≥ x, so the else branch repeatedly sets hi = mid without shrinking the range. In JavaScript, reading a[a.length] returns undefined rather than throwing, and lower bound is designed to handle duplicates."
+    },
+    {
+      "prompt": "This binary search finds the earliest completion time in milliseconds, searching from 0 to 4,000,000,000. Why does mid sometimes become negative?",
+      "code": "let lo = 0, hi = 4_000_000_000;\nwhile (lo < hi) {\n  const mid = (lo + hi) >> 1;\n  if (canFinish(mid)) hi = mid;\n  else lo = mid + 1;\n}",
+      "options": [
+        "JavaScript Number cannot exceed 2^31 − 1, so addition overflows its range",
+        "lo + hi exceeds Number.MAX_SAFE_INTEGER, producing an inaccurate negative value",
+        ">> converts to signed int32, so values above 2^31 − 1 can become negative",
+        "while (lo < hi) prevents mid from reaching hi and makes it drift below zero"
+      ],
+      "answer": 2,
+      "explain": "Number is a double and represents integer sums exactly up to 2^53, so this addition is not the problem. The >> operator converts to int32 before shifting, making values around 4 billion negative; use Math.floor((lo + hi) / 2) instead. MAX_SAFE_INTEGER is 2^53 − 1, far above 4 billion."
+    },
+    {
+      "prompt": "On the first call to this memoized fib with n = 1,000, what are its time and space complexities?",
+      "code": "const memo = new Map();\nfunction fib(n) {\n  if (n <= 1) return n;\n  if (memo.has(n)) return memo.get(n);\n  const v = fib(n - 1) + fib(n - 2);\n  memo.set(n, v);\n  return v;\n}",
+      "options": [
+        "Time O(2ⁿ) because each call still recurses twice; space O(1)",
+        "Time O(n); space O(n) for the memo and call-stack depth",
+        "Time O(n log n) because Map lookups take O(log n); space O(n)",
+        "Time O(n); space O(1) because memoization only reduces computation"
+      ],
+      "answer": 1,
+      "explain": "Each value of n is computed once and read from the memo thereafter, giving O(n) time. The memo uses O(n) space and the call stack has O(n) depth. For O(1) space, use a bottom-up approach that stores only the two most recent values."
+    },
+    {
+      "prompt": "Which problem benefits most from dynamic programming?",
+      "options": [
+        "Counting ways to climb n steps, taking 1 or 2 at a time, reusing the answers for n − 1 and n − 2",
+        "Merge-sorting data by splitting it into two nonoverlapping halves and merging the results",
+        "Finding the maximum in an array of several million elements with a single scan",
+        "Binary-searching a sorted array by discarding half the remaining range at each step"
+      ],
+      "answer": 0,
+      "explain": "DP is useful when subproblems overlap. The number of ways to climb n steps is ways(n − 1) + ways(n − 2), and the same subproblems recur many times. Merge sort has nonoverlapping subproblems, so it is divide and conquer; the other two choices have no repeated subproblems to cache."
+    },
+    {
+      "prompt": "A sliding-window algorithm finds a contiguous range summing to a target. It works for sales amounts but fails for daily net profit, where some days are negative. Why?",
+      "options": [
+        "Sliding windows require sorted input, so daily profit must always be sorted first",
+        "Negative numbers cause JavaScript floating-point addition to produce incorrect sums",
+        "The window must always have a fixed size, so variable-length profit ranges cannot work",
+        "Expanding no longer always raises the sum, invalidating shrink-or-expand decisions"
+      ],
+      "answer": 3,
+      "explain": "This two-pointer technique relies on positive values: expanding increases the sum and shrinking decreases it. Negative values remove that property, so valid answers can be skipped; use prefix sums with a Map instead. Sorting destroys the contiguous ranges required by the problem."
+    },
+    {
+      "prompt": "Product prices are already sorted in ascending order. You need to determine whether two products cost exactly the available budget. Which approach is fastest without extra memory?",
+      "options": [
+        "Try every pair with nested loops, stopping early because prices are already sorted",
+        "Sort descending again, then perform a binary search for each individual price",
+        "Use pointers at both ends: move the left one up if the sum is too small, the right one down if too large; O(n)",
+        "Put prices in a Map and check budget − price: O(n) time and O(1) space"
+      ],
+      "answer": 2,
+      "explain": "Because prices are sorted, moving the left pointer is the only move that can increase a sum that is too small. Each pointer advances at most n times, giving O(n) time and O(1) space. The Map approach also takes O(n) time but uses O(n) memory, not O(1)."
+    },
+    {
+      "prompt": "In an interview, a function scans users (n entries) once to build a Map, then scans orders (m entries) once to match them. What time complexity should you give?",
+      "options": [
+        "O(n), because Big-O always discards the smaller input variable",
+        "O(n + m), because the two input sizes are independent",
+        "O(n × m), because the function contains two separate loops",
+        "O(1), because each Map lookup takes constant time"
+      ],
+      "answer": 1,
+      "explain": "The loops are consecutive rather than nested, so their work adds. Independent input sizes must be expressed as O(n + m); one can be dropped only if the other is known to dominate it. O(n × m) would apply if all orders were scanned again for every user."
+    },
+    {
+      "prompt": "A benchmark pushes 10 million elements into an array. Most pushes are very fast, but a few are noticeably slower. What best explains this?",
+      "options": [
+        "The garbage collector deletes old array entries during every push operation",
+        "push takes O(log n), becoming slower every time the array grows larger",
+        "Growth copies the full array when capacity runs out; amortized cost is O(1)",
+        "The engine sorts the array again whenever its size is a perfect square"
+      ],
+      "answer": 2,
+      "explain": "A dynamic array grows by a multiplicative factor. A resize takes O(n), but resizes become increasingly far apart, so n pushes take O(n) in total: amortized O(1) each. push does not slow with size according to an O(log n) bound."
+    },
+    {
+      "prompt": "A very long playlist must support inserting a song where the user clicks, with only the index known. A teammate suggests replacing the array with a linked list “because insertion is O(1).” Which statement is correct?",
+      "options": [
+        "Correct: insertion at any linked-list index is always O(1), with no shifting",
+        "Reaching the index first takes O(n), so the overall cost does not improve",
+        "Incorrect: pointers in each node give a linked list O(n²) memory usage",
+        "Correct: traversing the entire playlist is also faster than using an array"
+      ],
+      "answer": 1,
+      "explain": "Linked-list insertion takes O(1) when you already hold the relevant node. With only an index, reaching it from the head takes O(n) first. Full traversal is often slower than with an array because scattered nodes make poor use of the cache."
+    },
+    {
+      "prompt": "This function recursively counts tree nodes. If the tree is a one-sided chain of n nodes, what is its space complexity?",
+      "code": "function count(node) {\n  if (!node) return 0;\n  return 1 + count(node.left) + count(node.right);\n}",
+      "options": [
+        "O(1), because it creates no new array or Map during execution",
+        "O(log n), because every tree has height log n regardless of its shape",
+        "O(n), because call-stack depth equals the tree height, which is n",
+        "O(n²), because every node makes two recursive calls in a skewed tree"
+      ],
+      "answer": 2,
+      "explain": "Each recursive call stays on the stack until its child returns, so space is O(h), the tree’s height. For a skewed tree that is n, potentially causing stack overflow; log n height applies only to balanced trees. Two calls affect work done, not the number of simultaneously active stack frames."
+    },
+    {
+      "prompt": "You need to check whether a tree returned by an API is a valid BST. Which straightforward approach takes O(n)?",
+      "options": [
+        "Only check that each left child is smaller and each right child larger than its parent",
+        "Traverse in level order and check whether the values within each level are ascending",
+        "Traverse in pre-order and check whether the resulting values are in ascending order",
+        "Traverse in in-order and check whether the resulting values are in ascending order"
+      ],
+      "answer": 3,
+      "explain": "An in-order traversal of a BST produces ascending values, so a single traversal can validate it. Comparing children only with their parents misses a left-side grandchild greater than its grandparent. Pre-order and level-order do not produce sorted values even for a valid BST."
+    },
+    {
+      "prompt": "A customer system treats accounts as the same person when they share an email or phone number, including chains of connections. Which structure best handles merging millions of account relationships quickly?",
+      "options": [
+        "Union-find: union each connected account pair, then find its representative",
+        "Sort accounts by email and merge only adjacent accounts in the resulting list",
+        "A heap ordered by account creation date, extracting accounts to build groups",
+        "A BST keyed by email, merging all accounts within the same subtree"
+      ],
+      "answer": 0,
+      "explain": "Union-find is designed to merge groups and check whether entries belong to the same group. With path compression and union by rank, operations have nearly constant amortized cost. Sorting by email catches direct email matches but misses transitive links through phone numbers."
+    },
+    {
+      "prompt": "A delivery planner must visit 40 customer locations and return to the depot. Trying every order to find the shortest route never finishes. What is a reasonable approach?",
+      "options": [
+        "Use a machine 100 times faster so the computation finishes within a few minutes",
+        "Replace the array with a Map so testing each possible order takes O(1) time",
+        "Use Dijkstra to find the shortest tour through all locations in polynomial time",
+        "This is NP-hard; use a heuristic or approximation to find a good-enough route"
+      ],
+      "answer": 3,
+      "explain": "The travelling salesman problem is NP-hard, and 40 locations have 40! possible orders; a machine 100 times faster does not solve that scale. Use a heuristic or approximation. Dijkstra finds shortest paths between locations, not a shortest tour visiting all of them."
+    },
+    {
+      "prompt": "A custom open-addressing hash table slows sharply as entries are added without resizing. It now holds 980 entries in 1,000 slots. What should the team do?",
+      "options": [
+        "Use a hash function returning longer numbers without changing the table size",
+        "Delete the oldest half of the entries whenever the table begins to fill up",
+        "Resize above a 0.75 load factor and rehash every entry into the new table",
+        "Sort the table after each insertion so lookups can use binary search"
+      ],
+      "answer": 2,
+      "explain": "At a 0.98 load factor, almost every insertion or lookup needs a long probe sequence. Resize open-addressing tables before the load factor approaches 1, typically around 0.6–0.75, then rehash because positions depend on table size. Longer hash values still have to fit the same 1,000 slots."
+    },
+    {
+      "prompt": "A developer uses a min-heap for a priority queue, logs its internal array, and sees that it is not sorted. They suspect a bug. Which statement is correct?",
+      "code": "for (const p of [3, 1, 2, 5, 4]) heap.push(p);\nconsole.log(heap.items); // [1, 3, 2, 5, 4]\nconsole.log(heap.pop());  // 1",
+      "options": [
+        "Correct: a heap must keep its array sorted, or pop returns the wrong value",
+        "A heap only guarantees parent ≤ child, so its internal array need not be sorted",
+        "A heap must sort itself after every push, so an extra sort call is required",
+        "The internal array is always descending because pop removes its final element"
+      ],
+      "answer": 1,
+      "explain": "The heap property only requires each parent to be no greater than its children, keeping the minimum at the root. Siblings and nodes on different branches need not be ordered. This enables O(log n) push and pop; sorting after every push defeats that advantage."
+    },
+    {
+      "prompt": "Many widely used sorting libraries switch to O(n²) insertion sort for short ranges, despite having O(n log n) merge sort available. Why?",
+      "options": [
+        "Insertion sort is the only stable algorithm, so it must be used for short ranges",
+        "Insertion sort’s Big-O becomes O(1) whenever the range has fewer than 64 items",
+        "Merge sort cannot operate at all on ranges with fewer than 64 items in memory",
+        "For small n, constants and overhead matter more, making insertion sort faster"
+      ],
+      "answer": 3,
+      "explain": "Big-O describes growth as n increases, but insertion sort is among the fastest choices for very small arrays because its constants are low. Good implementations switch below a size threshold. Merge sort is also stable and works with inputs of any size."
+    },
+    {
+      "prompt": "This BFS produces correct results but uses excessive memory on densely connected graphs because some nodes are enqueued repeatedly. How should it be fixed?",
+      "code": "const queue = [start];\nconst visited = new Set();\nlet head = 0;\nwhile (head < queue.length) {\n  const node = queue[head++];\n  if (visited.has(node)) continue;\n  visited.add(node);\n  process(node);\n  for (const next of graph.get(node)) queue.push(next);\n}",
+      "options": [
+        "Check visited before pushing and mark on enqueue so each node is queued once",
+        "Replace the queue with a stack to reduce the amount of memory required",
+        "Move visited.add(node) after process(node) to avoid accidentally skipping nodes",
+        "Replace the Set with an array because a Set requires more memory"
+      ],
+      "answer": 0,
+      "explain": "This code pushes every neighbor without checking whether it has already been discovered, so a node can be queued repeatedly through its incoming edges. Marking nodes when enqueuing them ensures each appears only once. Switching to a stack gives DFS, losing the BFS traversal order."
+    }
+  ],
+  "exercises": [
+    {
+      "title": "Highest total sales over k consecutive days",
+      "level": "ง่าย",
+      "tags": "sliding window · O(n) · edge case",
+      "lang": "javascript",
+      "prompt": "The marketing team wants to know which stretch of k consecutive days has the highest total sales. sales contains daily totals for hundreds of thousands of past days, and the dashboard calls this function frequently. The existing code is correct but slow because it recalculates the entire sum for every window. Rewrite maxWindowSum(sales, k) to run in O(n) with no nested loops. Return null if k <= 0 or k exceeds the number of available days.",
+      "context": "// sales: number[] daily sales (zero or positive)\n// maxWindowSum([3, 1, 4, 1, 5, 9, 2], 3) -> 16  (5 + 9 + 2)\n// maxWindowSum([3, 1], 5) -> null",
+      "starter": "// Correct but slow: recalculate the entire window sum each time, O(n * k)\nfunction maxWindowSum(sales, k) {\n  let best = -Infinity;\n  for (let i = 0; i + k <= sales.length; i++) {\n    let sum = 0;\n    for (let j = i; j < i + k; j++) {\n      sum += sales[j];\n    }\n    best = Math.max(best, sum);\n  }\n  return best;\n}",
+      "solution": "function maxWindowSum(sales, k) {\n  if (k <= 0 || k > sales.length) return null;\n\n  // Sum of the first k-day window\n  let sum = 0;\n  for (let i = 0; i < k; i++) sum += sales[i];\n\n  let best = sum;\n  // Move the window one day at a time: add the entering day and subtract the leaving day\n  for (let i = k; i < sales.length; i++) {\n    sum += sales[i] - sales[i - k];\n    best = Math.max(best, sum);\n  }\n  return best;\n}",
+      "hints": [
+        "Two adjacent windows differ in just two values: the one entering and the one leaving.",
+        "Calculate the sum of the first k days once, then loop from day k onward, adding sales[i] and subtracting sales[i - k].",
+        "Check k <= 0 and k > sales.length before starting, then track the maximum with Math.max as the window moves."
+      ],
+      "checks": [
+        {
+          "label": "Return null when k is zero or negative",
+          "pattern": "(\\bk\\s*<=\\s*0|\\bk\\s*<\\s*1\\b|0\\s*>=\\s*k\\b|!\\s*\\(\\s*k\\s*>\\s*0\\s*\\))[\\s\\S]*?return\\s+null|return\\s+null[\\s\\S]*?(\\bk\\s*<=\\s*0|\\bk\\s*<\\s*1\\b)|\\bk\\s*(>\\s*0|>=\\s*1)\\b[\\s\\S]*?return\\s+null"
+        },
+        {
+          "label": "Return null when k exceeds the number of days",
+          "pattern": "\\bk\\s*>\\s*(\\w+\\.length|n|len|length|size|days|count)\\b|\\b(\\w+\\.length|n|len|length|size|days|count)\\s*<\\s*k\\b|\\bk\\s*>\\s*0\\s*&&\\s*k\\s*<=\\s*(\\w+\\.length|n|len|length|size|days|count)\\b"
+        },
+        {
+          "label": "Slide the window by subtracting the value that leaves (such as sales[i - k])",
+          "pattern": "-=?\\s*\\w+(\\[\\s*[^\\]]+\\]|\\.at\\([^)]*\\))|\\w+\\[\\s*\\w+\\s*-\\s*k\\s*\\]"
+        },
+        {
+          "label": "Track the maximum as the window moves",
+          "pattern": "math\\.max\\(|if\\s*\\(\\s*\\w+\\s*>=?\\s*\\w+\\s*\\)|\\w+\\s*>=?\\s*\\w+\\s*\\?"
+        },
+        {
+          "label": "Avoid nested loops or recalculating the entire sum on each iteration",
+          "pattern": "(for|while)\\s*\\([^)]*\\)\\s*\\{[^{}]*((for|while)\\s*\\(|\\.slice\\(|\\.reduce\\()",
+          "negate": true
+        }
+      ]
+    },
+    {
+      "title": "Order migrations by dependency",
+      "level": "กลาง",
+      "tags": "topological sort · Kahn · cycle detection",
+      "lang": "javascript",
+      "prompt": "A deployment system must run migrations in an order that respects their dependencies. deps contains pairs [before, after], meaning before must run before after. Write buildOrder(tasks, deps) using Kahn’s algorithm: count in-degrees and start with tasks whose in-degree is 0. Return an array containing every task in a valid execution order, in O(V + E) time. If a dependency cycle makes ordering impossible, throw an Error instead of returning an incomplete order.",
+      "context": "// tasks: string[]  deps: Array<[before, after]>\n// buildOrder(['users', 'orders', 'payments'],\n//            [['users', 'orders'], ['orders', 'payments']])\n//   -> ['users', 'orders', 'payments']\n// buildOrder(['a', 'b'], [['a', 'b'], ['b', 'a']]) -> throw Error",
+      "starter": "// Sort by each task’s dependency count: appears correct for simple cases\n// But fails for long dependency chains and never checks for cycles\nfunction buildOrder(tasks, deps) {\n  const count = new Map(tasks.map((t) => [t, 0]));\n  for (const [, after] of deps) count.set(after, count.get(after) + 1);\n  return [...tasks].sort((a, b) => count.get(a) - count.get(b));\n}",
+      "solution": "function buildOrder(tasks, deps) {\n  const next = new Map(tasks.map((t) => [t, []]));\n  const inDegree = new Map(tasks.map((t) => [t, 0]));\n  for (const [before, after] of deps) {\n    next.get(before).push(after);\n    inDegree.set(after, inDegree.get(after) + 1);\n  }\n\n  // Start with tasks that do not have to wait for another task\n  const queue = tasks.filter((t) => inDegree.get(t) === 0);\n  const order = [];\n  let head = 0;\n  while (head < queue.length) {\n    const task = queue[head++];\n    order.push(task);\n    for (const n of next.get(task)) {\n      inDegree.set(n, inDegree.get(n) - 1);\n      if (inDegree.get(n) === 0) queue.push(n);\n    }\n  }\n\n  if (order.length !== tasks.length) {\n    throw new Error('dependency cycle: cannot determine an execution order');\n  }\n  return order;\n}",
+      "hints": [
+        "A task can run first if no other task must run before it (it has no incoming edges). Count and store the incoming edges for each task.",
+        "Queue the tasks with in-degree 0. Whenever you dequeue a task, reduce the in-degree of its successors. If one reaches 0, enqueue it.",
+        "If the queue is empty before the order includes every task, there is a cycle. Compare order.length with tasks.length and throw new Error(...)."
+      ],
+      "checks": [
+        {
+          "label": "Store the in-degree of each task",
+          "pattern": "in_?deg|incoming|indeg|count|needs|pending|remaining|prereq|waiting|blocked"
+        },
+        {
+          "label": "Start with tasks whose in-degree is 0",
+          "pattern": "(===?|<=)\\s*0\\b|!\\s*\\w+(\\.get\\(|\\[)"
+        },
+        {
+          "label": "Reduce in-degree when a preceding task is dequeued",
+          "pattern": "-\\s*1\\b|--|-=\\s*1\\b"
+        },
+        {
+          "label": "Check that the order includes every task",
+          "pattern": "\\.(length|size)\\s*(!==?|<)\\s*[a-z_]\\w*|\\b[a-z_]\\w*(\\.(length|size))?\\s*(!==?|>)\\s*\\w+\\.(length|size)\\b|\\w+\\.(length|size)\\s*===?\\s*\\w+\\.(length|size)\\b"
+        },
+        {
+          "label": "Throw an Error when there is a cycle",
+          "pattern": "throw\\s+(new\\s+)?\\w*error\\s*\\("
+        }
+      ]
+    },
+    {
+      "title": "Find the cheapest shipping route with Dijkstra",
+      "level": "ยาก",
+      "tags": "Dijkstra · priority queue · weighted graph",
+      "lang": "javascript",
+      "prompt": "A delivery system must choose the route between warehouses with the lowest total shipping cost. The existing code uses BFS, so it finds a route with the fewest stops but a higher shipping cost. Rewrite cheapestRoute(graph, start, goal) using Dijkstra and the team’s existing MinHeap. Return { cost, path }, or null if the destination is unreachable. If any edge in the graph has a negative cost, throw an Error because Dijkstra gives incorrect results with negative weights.",
+      "context": "// graph: Map<string, Array<{ to: string, cost: number }>>\n// Example: new Map([\n//   ['A', [{ to: 'B', cost: 4 }, { to: 'C', cost: 1 }]],\n//   ['C', [{ to: 'B', cost: 2 }]],\n//   ['B', []],\n// ])\n// cheapestRoute(graph, 'A', 'B') -> { cost: 3, path: ['A', 'C', 'B'] }\n\n// The team’s existing MinHeap (ready to use):\n//   const heap = new MinHeap();\n//   heap.push(item, priority);   // O(log n)\n//   heap.pop();                  // -> { item, priority } with the lowest priority, O(log n)\n//   heap.size                    // number of entries",
+      "starter": "// BFS finds the route with the fewest stops, rather than the cheapest route\nfunction cheapestRoute(graph, start, goal) {\n  const queue = [[start]];\n  const seen = new Set([start]);\n  while (queue.length > 0) {\n    const path = queue.shift();\n    const node = path[path.length - 1];\n    if (node === goal) {\n      let cost = 0;\n      for (let i = 1; i < path.length; i++) {\n        cost += graph.get(path[i - 1]).find((e) => e.to === path[i]).cost;\n      }\n      return { cost, path };\n    }\n    for (const { to } of graph.get(node) ?? []) {\n      if (!seen.has(to)) {\n        seen.add(to);\n        queue.push([...path, to]);\n      }\n    }\n  }\n  return null;\n}",
+      "solution": "function cheapestRoute(graph, start, goal) {\n  for (const edges of graph.values()) {\n    for (const e of edges) {\n      if (e.cost < 0) throw new Error('Dijkstra cannot handle negative costs');\n    }\n  }\n\n  const dist = new Map([[start, 0]]);\n  const prev = new Map();\n  const heap = new MinHeap();\n  heap.push(start, 0);\n\n  while (heap.size > 0) {\n    const { item: node, priority: d } = heap.pop();\n    if (d > dist.get(node)) continue; // Stale entry remaining in the heap\n    if (node === goal) break;\n    for (const { to, cost } of graph.get(node) ?? []) {\n      const nd = d + cost;\n      if (nd < (dist.get(to) ?? Infinity)) {\n        dist.set(to, nd);\n        prev.set(to, node);\n        heap.push(to, nd);\n      }\n    }\n  }\n\n  if (!dist.has(goal)) return null;\n  const path = [goal];\n  while (path[0] !== start) path.unshift(prev.get(path[0]));\n  return { cost: dist.get(goal), path };\n}",
+      "hints": [
+        "BFS treats every edge as having the same cost. Instead, always extract the node with the lowest accumulated cost first: that is the job of a priority queue.",
+        "Use Maps for dist (the best cost known so far) and prev (the preceding node). When you find a cost lower than the existing dist, update both and push the new entry onto the heap.",
+        "The heap may still contain old entries for the same node. If a popped priority exceeds its current dist, continue. Check every edge for cost < 0 before starting, then reconstruct the path backward from goal using prev."
+      ],
+      "checks": [
+        {
+          "label": "Use MinHeap as the priority queue",
+          "pattern": "new\\s+minheap\\s*\\("
+        },
+        {
+          "label": "Throw an Error when a negative cost is found",
+          "pattern": "(<\\s*0|0\\s*>)\\s*\\)+\\s*\\{?\\s*throw\\s+(new\\s+)?\\w*error"
+        },
+        {
+          "label": "Skip stale heap entries or nodes already processed",
+          "pattern": "(\\w+\\s*(>|!==?)\\s*\\w+(\\.get\\(\\s*\\w+\\s*\\)|\\[\\s*\\w+\\s*\\])|\\w+\\.has\\(\\s*\\w+\\s*\\))\\s*\\)\\s*\\{?\\s*continue"
+        },
+        {
+          "label": "Relax edges: update when the new cost is lower than the old cost",
+          "pattern": "<\\s*\\(?\\s*\\w+(\\.get\\(\\s*[\\w.]+\\s*\\)|\\[\\s*[\\w.]+\\s*\\])|\\w+(\\.get\\(\\s*[\\w.]+\\s*\\)|\\[\\s*[\\w.]+\\s*\\])\\s*>\\s*\\w+"
+        },
+        {
+          "label": "Record predecessors to reconstruct the path",
+          "pattern": "\\b(prev|previous|pred|predecessor|parent|parents|camefrom|from|via|before|back)\\w*\\s*(\\.set\\(|\\[[^\\]]+\\]\\s*=[^=])"
+        },
+        {
+          "label": "Return null when the destination is unreachable",
+          "pattern": "return\\s+null"
+        }
+      ]
+    }
+  ],
+  "cheatsheet": [
+    "Big-O is an upper bound on growth as n increases. Drop constants and lower-order terms, and specify whether you mean the worst, average, or best case.",
+    "Appending to a dynamic array is amortized O(1) because capacity grows by a fixed factor. shift moves every remaining element, so avoid it for long queues.",
+    "Arrays provide O(1) indexed access and good cache locality. Linked lists support O(1) insertion only when you already hold the node at that position.",
+    "Hash tables average O(1), but collisions can produce O(n) worst-case behavior. Resize based on load factor and watch for hash flooding.",
+    "Heap: peek at the minimum in O(1), insert/pop in O(log n), build from an array in O(n), and find top-k in O(n log k) with a heap of size k.",
+    "BST operations average O(log n), but inserting sorted data can produce a skewed tree with O(n) operations. In-order traversal of a BST yields values in ascending order.",
+    "Use an O(V + E) adjacency list for sparse graphs / BFS finds the path with the fewest edges / Use Dijkstra for nonnegative weights and Bellman–Ford for negative weights.",
+    "No comparison sort can beat O(n log n) / Quicksort has an O(n²) worst case / Merge sort is always O(n log n) and stable, but needs O(n) extra space.",
+    "Pair binary search over [lo, hi) with while (lo < hi). In JavaScript, avoid calculating the midpoint with >> 1 when values exceed 2^31 − 1.",
+    "Use DP when there is optimal substructure and overlapping subproblems / Expanding and shrinking a sliding window relies on all values being positive."
+  ]
+}

@@ -184,7 +184,7 @@
         "Missing And lines prevent conversion into an automated test"
       ],
       "answer": 2,
-      "explain": "“Fast” and “easy to use” mean different things to different people. Make Then verifiable, such as “Show products whose names contain the search term”, and express speed as a numeric NFR such as p95 under one second. And is only an optional connector."
+      "explain": "“Quickly” and “easy to use” mean different things to different people. Make Then verifiable, such as “Show products whose names contain the search term”, and express speed as a numeric NFR such as p95 under one second. And is only an optional connector."
     },
     {
       "prompt": "A Product Owner writes “The system must support many users during promotions”. Which rewrite is best?",
@@ -278,10 +278,10 @@
     {
       "prompt": "A new team says “We are Agile, so we need no documentation or planning”. Three months later, nobody can explain the system to a new teammate. Which statement best matches the Agile Manifesto?",
       "options": [
-        "Value working software over documentation, but keep what is needed",
-        "Ban documentation and planning because they are waterfall practices",
-        "Value both equally and require complete documentation before coding",
-        "Say nothing about documentation and leave it entirely to company custom"
+        "The Manifesto values working software over documentation, but keeps what is needed",
+        "The Manifesto bans documentation and planning because they are waterfall practices",
+        "The Manifesto values both equally and requires complete documentation before coding",
+        "The Manifesto says nothing about documentation and leaves it entirely to company custom"
       ],
       "answer": 0,
       "explain": "The Manifesto says the items on the right, including documentation, have value but values those on the left more. This expresses relative weight, not a ban. Both forbidding docs and requiring complete docs before coding go beyond its wording."
@@ -456,7 +456,7 @@
       "explain": "Conway’s Law says system design copies organizational communication structures. Layer-based teams tend to create work spanning several teams; aligning teams with desired boundaries is a common application. Conway himself emphasized organizational flexibility for good design. Training and tools alone do not fix the underlying structure."
     },
     {
-      "prompt": "Five independently deployed services read users.phone. The team wants mobile without breaking any service and proposes the migration below. What is safer under parallel change?",
+      "prompt": "Five independently deployed services read users.phone. The team wants to rename the column to mobile without breaking any service and proposes the migration below. What is safer under parallel change?",
       "code": "ALTER TABLE users RENAME COLUMN phone TO mobile;",
       "options": [
         "Add mobile, write both columns, migrate services, then drop unused phone",
@@ -479,7 +479,7 @@
       "explain": "Google recommends small, single-purpose changes because they receive faster, deeper reviews, contain fewer bugs, and are easier to roll back. Tests should accompany their changes. Relying on QA or compressing lines does not improve reviewer comprehension."
     },
     {
-      "prompt": "A reviewer blocks a clearly readability-improving PR for three days over three preferred variable names. What does Google’s review standard suggest?",
+      "prompt": "A reviewer has blocked a PR that clearly improves readability for three days over three preferred variable names. What does Google’s review standard suggest?",
       "options": [
         "Block until all three preferences are met because reviewers should demand perfection",
         "Approve without any comments because every reviewer comment delays the PR",
@@ -540,7 +540,7 @@
         },
         {
           "label": "Include a numeric non-functional requirement with a unit",
-          "pattern": "(non-?\\s?functional|nfr|ไม่ใช่ฟังก์ชัน|ด้านคุณภาพ|quality attributes?)[\\s\\S]*\\d[\\d,.]*\\s*(ms|มิลลิวินาที|วินาที|นาที|ชั่วโมง|วัน|%|ฉบับ|ครั้ง|คำขอ|ข้อความ|รายการ|คน|requests?|rps|seconds?|minutes?|hours?|emails?|(?:s|sec|secs|min|mins|h|hr|hrs)(?![a-z]))"
+          "pattern": "(non-?\\s?functional|nfr|ไม่ใช่ฟังก์ชัน|ด้านคุณภาพ|quality attributes?)[\\s\\S]*\\d[\\d,.]*\\s*(?:\\w+\\s+)?(ms|มิลลิวินาที|วินาที|นาที|ชั่วโมง|วัน|%|ฉบับ|ครั้ง|คำขอ|ข้อความ|รายการ|คน|requests?|rps|seconds?|minutes?|hours?|emails?|users?|messages?|items?|(?:s|sec|secs|min|mins|h|hr|hrs)(?![a-z]))"
         }
       ]
     },

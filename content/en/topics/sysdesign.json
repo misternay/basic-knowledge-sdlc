@@ -1,0 +1,747 @@
+{
+  "id": "sysdesign",
+  "code": "O4",
+  "track": "delivery",
+  "title": "System Design Fundamentals",
+  "blurb": "Work through scaling, caching, data partitioning, queues, and consistency step by step, and explain trade-offs with reasoning and rough estimates.",
+  "mustKnow": [
+    {
+      "tier": "must",
+      "title": "Start with requirements, before drawing components",
+      "body": "System design problems are often deliberately broad. First clarify what the system must do (functional requirements, such as shortening URLs and redirecting) and how well it must do it in measurable terms (non-functional requirements, such as p99 latency, availability, data volume, and the read-to-write ratio), then make your assumptions visible to your audience. Google SRE’s NALSD approach starts with the problem, gathers requirements, and adds complexity iteratively until the design is practical, explaining the trade-offs at each iteration. A common trap is drawing queues, caches, and microservices in the first minute before knowing whether the actual load calls for them (see the dev topic for measurable non-functional requirements).",
+      "exam": false,
+      "ref": "https://sre.google/workbook/non-abstract-design/"
+    },
+    {
+      "tier": "must",
+      "title": "Back-of-the-envelope: estimate orders of magnitude",
+      "body": "Rough estimates help you decide whether one machine is enough and where bottlenecks are likely to be. Use round numbers: a day has 86,400 seconds, which rounds to about 10^5, and always tell your audience when a peak-load multiplier is an assumption. For latency, Peter Norvig’s well-known table estimates main-memory access at about 100 ns, a disk seek at about 8 ms, and a packet round trip from the US to Europe at about 150 ms. These figures come from PCs of the era when the article was written (the disk in the table is a spinning disk), so use them only to compare orders of magnitude, such as memory being tens of thousands of times faster than a disk seek; do not present them as measurements of current hardware.",
+      "code": "10^7 users/day × 10 requests = 10^8 requests/day\n10^8 ÷ ~10^5 seconds/day     ≈ 1,000 QPS (average)\nassumed peak ×3              ≈ 3,000 QPS  <- assumption: state it explicitly\n10^7 new records/day × ~1 KB ≈ 10 GB/day ≈ 3.65 TB/year",
+      "exam": true,
+      "ref": "https://norvig.com/21-days.html"
+    },
+    {
+      "tier": "must",
+      "title": "Latency, throughput, and tail latency",
+      "body": "Latency is the time one request takes; throughput is the amount of work a system completes per unit of time. They are different measures: adding machines may increase throughput without reducing individual request latency at all. Averages also hide the tail of the distribution: Google SRE describes a system where typical requests take about 50 ms but 5% are about 20 times slower, and recommends looking at measurements as distributions. Set targets and view graphs using percentiles such as p50 and p99 rather than averages.",
+      "exam": true,
+      "ref": "https://sre.google/sre-book/service-level-objectives/"
+    },
+    {
+      "tier": "must",
+      "title": "Vertical and horizontal scaling",
+      "body": "Vertical scaling (scaling up) adds CPU or RAM to an existing machine. It is easy because it requires little code change, but usually stops at the largest available machine and still leaves you with a single machine. Horizontal scaling (scaling out) adds instances and distributes the load, requiring a design in which any instance can handle any request. Azure Architecture Center warns that scaling out does not solve every problem: adding web servers will not help when the database is the bottleneck, so identify and address the bottleneck first; components with state are often the bottleneck.",
+      "exam": true,
+      "ref": "https://learn.microsoft.com/en-us/azure/architecture/guide/design-principles/scale-out"
+    },
+    {
+      "tier": "must",
+      "title": "Stateless services: move state out of the process",
+      "body": "The Twelve-Factor App requires processes to be stateless and share nothing. Data that must persist belongs in a backing service, such as a database or external cache. Any instance can then handle any request, allowing instances to be added, removed, or restarted without dropping user sessions. A common trap is storing sessions in a machine’s memory and relying on sticky sessions, which Twelve-Factor explicitly identifies as a violation of its principles and something to avoid.",
+      "code": "// Bad: sessions exist only in this instance’s memory\nconst sessions = new Map();\n\n// Better: use a store accessible to every instance, with an expiry\nawait redis.set(`sess:${id}`, JSON.stringify(data), { EX: 1800 });",
+      "exam": false,
+      "ref": "https://12factor.net/processes"
+    },
+    {
+      "tier": "must",
+      "title": "Layer 4 and Layer 7 load balancers",
+      "body": "A load balancer distributes requests across backends. Layer 4 operates at the TCP/UDP level without reading HTTP content, while Layer 7 understands HTTP and can route by path, host, or header. Google Cloud documentation says Application Load Balancers (L7) distribute HTTP(S) traffic, while Network Load Balancers (L4) support TCP, UDP, or other IP protocols, and recommends passthrough when the client’s source IP must be preserved. As a simple rule, use L7 for routing based on request content and L4 for non-HTTP traffic or forwarding packets without inspecting their content.",
+      "exam": true,
+      "ref": "https://cloud.google.com/load-balancing/docs/load-balancing-overview"
+    },
+    {
+      "tier": "must",
+      "title": "Health checks: send traffic to ready instances",
+      "body": "A load balancer periodically sends test requests to each backend. AWS ALB removes a target from traffic after consecutive failures exceed UnhealthyThresholdCount and restores it after consecutive successes exceed HealthyThresholdCount. In practice, the check endpoint should indicate whether that instance can actually accept work: tying it to a shared dependency, such as a single database, can make every instance unhealthy at once when that database has trouble. ALB documentation says that when all targets are unhealthy, it fails open, sending traffic to all targets using its normal algorithm.",
+      "exam": false,
+      "ref": "https://docs.aws.amazon.com/elasticloadbalancing/latest/application/target-group-health-checks.html"
+    },
+    {
+      "tier": "must",
+      "title": "Single points of failure and redundancy",
+      "body": "A single point of failure (SPOF) is a component whose failure brings down the whole system, such as a lone database or load balancer. Inspect every component on the critical path for redundancy and whether the system can automatically bypass a failed copy. Azure Architecture Center gives an idealized formula: with N equivalent instances that fail independently and have no state lost with a failed instance, each with availability A, overall availability is 1 - (1 - A)^N. The formula applies only when all those conditions hold; copies in one data center can fail together, so distributing them across availability zones or regions trades cost and complexity for resilience.",
+      "exam": false,
+      "ref": "https://learn.microsoft.com/en-us/azure/architecture/guide/design-principles/redundancy"
+    },
+    {
+      "tier": "must",
+      "title": "Cache-aside, TTL, and invalidation order",
+      "body": "With cache-aside (lazy loading), the application checks the cache first. On a cache miss, it reads the database and caches the result for the next request. When changing data, update the database before deleting the cache key: deleting first allows another request to read the old database value and put it back in the cache before the update finishes. Match the TTL to data usage: too short means frequent database reads and little caching benefit, while too long exposes users to stale data.",
+      "code": "async function getProduct(id) {\n  const key = `product:${id}`;\n  const hit = await cache.get(key);\n  if (hit) return JSON.parse(hit);\n  const row = await db.findProduct(id);\n  await cache.set(key, JSON.stringify(row), { EX: 300 }); // TTL 5 minutes\n  return row;\n}\n\nasync function updateProduct(id, data) {\n  await db.updateProduct(id, data);  // 1. write the database first\n  await cache.del(`product:${id}`);  // 2. then delete the key\n}",
+      "exam": true,
+      "ref": "https://learn.microsoft.com/en-us/azure/architecture/patterns/cache-aside"
+    },
+    {
+      "tier": "must",
+      "title": "Read replicas and replication lag",
+      "body": "Read replicas handle read queries in place of the primary, helping workloads with more reads than writes. PostgreSQL streaming replication is asynchronous by default, so a replica can lag behind the primary: users reading from a replica just after saving may not see their own changes, and some committed transactions can be lost if the primary fails before replicating them. Options include reading from the primary briefly after a write or enabling synchronous replication at the cost of longer commit times. Always review queries and indexes before adding replicas (see the sql topic).",
+      "exam": false,
+      "ref": "https://www.postgresql.org/docs/current/warm-standby.html"
+    },
+    {
+      "tier": "must",
+      "title": "Availability nines and error budgets",
+      "body": "Availability is often expressed in nines, with each additional nine reducing allowable downtime by roughly a factor of ten. Google SRE gives 99.99% as an example that permits about 52.56 minutes of downtime per year; the allowance left by the SLO is the error budget, so releases can continue while budget remains, but should slow down in favor of stability when it is exhausted (see the dev topic for SLO basics). For components in series, basic probability applies: if a request needs every component to work and failures are independent, overall availability is the product of their availabilities. It therefore cannot exceed the availability of the weakest component.",
+      "code": "99.9%   -> allowable downtime: about 0.1% × 8,760 hours ≈ 8.76 hours/year\n99.99%  -> about 52.56 minutes/year\nCalculate it: two required components at 99.9% × 99.9% ≈ 99.8%",
+      "exam": false,
+      "ref": "https://sre.google/sre-book/embracing-risk/"
+    },
+    {
+      "tier": "should",
+      "title": "Write-through: fresher caches at a higher cost",
+      "body": "Write-through updates the cache immediately after writing to the database. This keeps the cache more closely aligned with the database and can increase the hit rate. The downside is that even rarely read data is cached, making the cache larger and more expensive. AWS documentation says write-through is almost always paired with lazy loading (cache-aside), because missing or expired data still needs to be loaded on a miss.",
+      "exam": false,
+      "ref": "https://docs.aws.amazon.com/whitepapers/latest/database-caching-strategies-using-redis/caching-patterns.html"
+    },
+    {
+      "tier": "should",
+      "title": "Cache stampedes: a hot key expires",
+      "body": "A cache stampede is a form of cascading failure. When a heavily read key expires, many requests miss simultaneously and repeat the same computation or query until the backend is overwhelmed. Three established mitigations are a per-key lock allowing just one recomputation, an external process that refreshes values before they expire, and probabilistic early expiration, where each process randomly decides to recompute early with increasing probability as expiration approaches. Simply extending the TTL only postpones the stampede.",
+      "exam": false,
+      "ref": "https://en.wikipedia.org/wiki/Cache_stampede"
+    },
+    {
+      "tier": "should",
+      "title": "CDNs and Cache-Control for shared caches",
+      "body": "A CDN is a shared cache between users and the origin. The Cache-Control header controls it: s-maxage specifies freshness for shared caches and overrides max-age there, private allows storage only in private caches such as browsers, and immutable says the content will not change while it remains fresh. Static files with hashes in their names can use a long max-age with immutable because changing the content also changes the URL. A dangerous trap is marking a page containing personal data as public, allowing the CDN to serve one person’s data to someone else.",
+      "code": "# Static files with hashes in their names, such as app.3f9a1c.js\nCache-Control: public, max-age=31536000, immutable\n# Product pages identical for everyone: CDN caches for 60 seconds\nCache-Control: public, s-maxage=60, max-age=0\n# User account pages\nCache-Control: private, no-store",
+      "exam": false,
+      "ref": "https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Cache-Control"
+    },
+    {
+      "tier": "should",
+      "title": "Sharding: choose a shard key and watch for hot keys",
+      "body": "Sharding divides data across databases using a shard key when data or load exceeds what one machine can handle. Azure describes strategies including range (easy range queries, but load can concentrate on adjacent keys, such as recent data), hash (more even distribution, but difficult rebalancing without consistent hashing; hash(key) mod N moves most keys when the shard count changes), and lookup (a mapping table allows flexible relocation but adds a lookup). Choose a shard key that lets major queries finish within one shard. Watch for hot keys, such as one large tenant generating more load than its shard can handle.",
+      "exam": true,
+      "ref": "https://learn.microsoft.com/en-us/azure/architecture/patterns/sharding"
+    },
+    {
+      "tier": "should",
+      "title": "Message queues buffer peak load",
+      "body": "A queue between a producer and a downstream service acts as a buffer, preventing peaks from directly overwhelming the service. The service consumes work at a sustainable rate and the producer does not have to wait for the result, making this suitable for tasks such as sending email or generating reports. Azure says this pattern is unsuitable when callers need low-latency responses, and if the average arrival rate exceeds consumer capacity, the queue and latency keep growing. A queue does not increase service capacity, so monitor both queue length and the age of queued work.",
+      "exam": false,
+      "ref": "https://learn.microsoft.com/en-us/azure/architecture/patterns/queue-based-load-leveling"
+    },
+    {
+      "tier": "should",
+      "title": "At-least-once delivery needs idempotent consumers",
+      "body": "Kafka documentation distinguishes at-most-once (messages may be lost but are not duplicated), at-least-once (messages are not lost but may be duplicated), and exactly-once delivery. If a consumer commits its position before processing and then crashes, the message is lost; if it processes before committing, the work may be repeated. Kafka defaults to at-least-once, so consumers must be idempotent, for example by recording event IDs with a unique constraint or upserting by primary key. Kafka’s exactly-once guarantees cover reading and writing between Kafka topics; other downstream systems, such as email delivery, must cooperate to provide that guarantee.",
+      "code": "// Process first, then commit the offset (at-least-once)\nawait db.query(\n  `INSERT INTO payments (event_id, order_id, amount)\n   VALUES ($1, $2, $3)\n   ON CONFLICT (event_id) DO NOTHING`,  // duplicate messages do not create duplicate rows\n  [evt.id, evt.orderId, evt.amount]\n);\nawait consumer.commit(msg.offset);",
+      "exam": true,
+      "ref": "https://kafka.apache.org/43/design/design/"
+    },
+    {
+      "tier": "should",
+      "title": "Message ordering is guaranteed within a partition",
+      "body": "Kafka writes events with the same key, such as a customer ID, to the same partition and guarantees that its consumer reads them in the order written. There is no total order across partitions, so choose the key according to what actually needs ordering: use an order ID for events belonging to the same order. Missing or random keys can send one order’s events to different partitions, where they may be processed out of order. Keys with few possible values, such as country, often overload some partitions, following the same principle as choosing a shard key with many distinct values.",
+      "exam": false,
+      "ref": "https://kafka.apache.org/43/getting-started/introduction/"
+    },
+    {
+      "tier": "should",
+      "title": "Rate limiting: token buckets and sliding windows",
+      "body": "A token bucket gives each user a bucket that refills with tokens at a steady rate. Each request takes one token and is rejected if the bucket is empty, so bucket capacity sets the maximum burst size; Stripe uses this algorithm with buckets stored in Redis. Cloudflare’s sliding window counter estimates the rate by weighting the previous window’s count by the fraction still overlapping and adding the current window’s count, reducing the traffic spikes at fixed-window boundaries. When a limit is exceeded, return 429 Too Many Requests, optionally with Retry-After as specified in RFC 6585.",
+      "code": "// sliding window counter, limit: 50 requests/minute\n// Previous minute: 42 requests; current minute: 18 requests after 15 seconds\nrate = 42 * ((60 - 15) / 60) + 18   // = 49.5\n// The next request exceeds 50 -> return 429",
+      "exam": true,
+      "ref": "https://stripe.com/blog/rate-limiters"
+    },
+    {
+      "tier": "advanced",
+      "title": "Describe CAP accurately",
+      "body": "The CAP theorem uses narrow definitions: C means linearizability, where every operation appears to occur on a single copy in real-time order (not ACID’s C), and A means every non-failing node can answer requests without errors. The restriction applies only during a network partition, when the system must give up linearizability or that form of availability. Kleppmann points out that even CAP’s originator, Brewer, acknowledges that CAP is misleading and oversimplified: in CAP Twelve Years Later, Brewer says “pick two of three” is misleading and CAP only rules out full C and A during the relatively rare occurrence of a partition. Kleppmann therefore suggests describing actual behavior during partitions instead of labeling databases CP or AP.",
+      "exam": true,
+      "ref": "https://martin.kleppmann.com/2015/05/11/please-stop-calling-databases-cp-or-ap.html"
+    },
+    {
+      "tier": "advanced",
+      "title": "PACELC: trade-offs even without a partition",
+      "body": "Abadi extends CAP to PACELC: during a partition (P), choose availability or consistency (A/C); otherwise (E), in normal operation, a replicated system must choose latency or consistency (L/C), because waiting for replica acknowledgments takes time. Examples in the paper, referring to the default configurations of that era, classify Dynamo, Cassandra, and Riak as PA/EL, and VoltDB/H-Store and Megastore as PC/EC. The first group can increase R + W to trade latency for consistency, but Abadi notes that even R + W > N does not provide full consistency as defined by CAP. The key lesson is that the latency–consistency trade-off occurs every day, not just when the network breaks.",
+      "exam": false,
+      "ref": "https://www.cs.umd.edu/~abadi/papers/abadi-pacelc.pdf"
+    },
+    {
+      "tier": "advanced",
+      "title": "Consistent hashing and Dynamo-style quorums",
+      "body": "Dynamo distributes data with consistent hashing, whose main benefit is that a joining or departing node affects only neighboring nodes, unlike hash(key) mod N, which moves most keys. Virtual nodes let one machine own several ranges, so when a machine fails its load spreads across the remaining machines. For data with N replicas, setting the number of read responses (R) and write responses (W) so that R + W > N produces a quorum-like system where read and write sets overlap by at least one replica. This kind of quorum still does not provide consistency in CAP’s sense (see PACELC above).",
+      "code": "N = 3, W = 2, R = 2  -> R + W = 4 > 3  (quorum-like)\nN = 3, W = 1, R = 1  -> low latency, but a read may miss a recent write",
+      "exam": false,
+      "ref": "https://www.allthingsdistributed.com/files/amazon-dynamo-sosp2007.pdf"
+    },
+    {
+      "tier": "advanced",
+      "title": "Backpressure, load shedding, and retry amplification",
+      "body": "When load exceeds capacity, internal server queues grow, increasing latency and memory use and potentially causing cascading failures. Apply backpressure to send resistance back to producers, for example by bounding queue length and rejecting new work, or use load shedding to drop some traffic near overload so accepted work can still finish on time. Google SRE warns that unbounded retries add load to an already struggling backend and recommends retry budgets, such as limiting retries per minute across a process. See the design topic for retries and circuit breakers.",
+      "exam": false,
+      "ref": "https://sre.google/sre-book/addressing-cascading-failures/"
+    },
+    {
+      "tier": "advanced",
+      "title": "Observability: golden signals and distributed tracing",
+      "body": "Google SRE proposes four golden signals for monitoring services: latency, traffic, errors, and saturation (how full the system is). It emphasizes separating successful-request latency from failed-request latency, because fast errors can make overall latency look misleadingly good. When requests cross several services, distributed tracing must pass trace context along every hop to connect each service’s spans into one path and reveal where time is spent. OpenTelemetry calls this mechanism context propagation and treats it as central to distributed tracing.",
+      "exam": false,
+      "ref": "https://sre.google/sre-book/monitoring-distributed-systems/"
+    }
+  ],
+  "questions": [
+    {
+      "prompt": "In an interview, you are asked to “design a URL shortener” with no further details. What should you do first?",
+      "options": [
+        "Draw a load balancer, Kafka, and Redis in a diagram, then adjust the design later",
+        "Ask about features, daily redirect volume, and latency targets",
+        "Immediately choose NoSQL, since a URL shortener stores key-value data anyway",
+        "Start coding a short-code generator to demonstrate that you can implement it"
+      ],
+      "answer": 1,
+      "explain": "The problem is deliberately broad to see whether you gather functional and non-functional requirements before making decisions. Drawing components before understanding the load leaves no justification for including them."
+    },
+    {
+      "prompt": "A system receives about 200 million requests per day. Rounding a day to about 10^5 seconds, what is the order of magnitude of average QPS?",
+      "code": "2 × 10^8 requests/day\n1 day = 86,400 seconds ≈ 10^5",
+      "options": [
+        "About 200 QPS",
+        "About 20,000 QPS",
+        "About 2,000 QPS",
+        "About 200,000 QPS"
+      ],
+      "answer": 2,
+      "explain": "2 × 10^8 ÷ 10^5 = 2 × 10^3, or about 2,000 QPS (about 2,300 using the exact duration). This is an average; multiply it for peak load using an explicitly stated assumption. The 20,000 option divides by 10^4, an order of magnitude off."
+    },
+    {
+      "prompt": "A dashboard shows API latency averaging a steady 80 ms all day, but some users report occasional waits of several seconds. What should you do first?",
+      "options": [
+        "Check latency percentiles such as p99; averages can hide very slow requests",
+        "Blame the users’ networks, since average server latency remains normal",
+        "Double the instance count, since an 80 ms average means capacity is nearly exhausted",
+        "Measure throughput instead, since it reflects user experience better than latency"
+      ],
+      "answer": 0,
+      "explain": "The average can look normal even with a very slow tail. Check a high percentile such as p99 before drawing conclusions; the average alone does not justify blaming users’ networks."
+    },
+    {
+      "prompt": "Six web servers run at about 20% CPU, but the single database is at 95% CPU and queries keep getting slower. The team proposes increasing to 12 web servers. How should you respond?",
+      "options": [
+        "Agree: horizontal scaling always increases overall system throughput",
+        "Agree, but enable sticky sessions to make local caches more effective",
+        "It will not help; move the web servers to machines with larger CPUs instead",
+        "It will not help; review database queries and indexes first"
+      ],
+      "answer": 3,
+      "explain": "Adding web servers does not help when the database is the bottleneck and may add connections that put it under even more pressure. Find and address the bottleneck first; scaling out helps only the layer that is actually constrained."
+    },
+    {
+      "prompt": "After enabling autoscaling, users are randomly logged out even though their tokens have not expired. What is the most likely cause?",
+      "code": "// Current session middleware\nconst sessions = new Map();\napp.use((req, res, next) => {\n  req.session = sessions.get(req.cookies.sid);\n  next();\n});",
+      "options": [
+        "The load balancer uses Layer 4 and cannot read the users’ cookies",
+        "Sessions live in each instance’s memory and are missing on other instances",
+        "The sid cookie lacks HttpOnly, so the browser periodically deletes it",
+        "Autoscaling introduces large clock differences, causing tokens to expire early"
+      ],
+      "answer": 1,
+      "explain": "An in-memory Map makes the service stateful. Sessions disappear when requests reach a new instance or the original instance is removed, so store them externally where every instance can access them. HttpOnly prevents JavaScript from reading cookies; it does not make them disappear."
+    },
+    {
+      "prompt": "Requests to /api/* must reach service group A and /images/* must reach service group B through the same hostname. Which load balancer should you use?",
+      "options": [
+        "Layer 7, which reads HTTP request paths to choose a destination",
+        "Passthrough Layer 4, which forwards packets faster than an HTTP proxy",
+        "Layer 4, with separate ports assigned to /api and /images traffic",
+        "DNS round robin, which can route by path without introducing a proxy"
+      ],
+      "answer": 0,
+      "explain": "Path-based routing requires reading HTTP content, which is a Layer 7 load balancer’s job. Layer 4 sees TCP/UDP and cannot distinguish paths, while DNS cannot see request paths at all."
+    },
+    {
+      "prompt": "A game server uses UDP and must see players’ real IP addresses to prevent cheating. Which Google Cloud load balancer should you choose?",
+      "options": [
+        "An Application Load Balancer, which supports the X-Forwarded-For header",
+        "An internal Application Load Balancer, with lower latency than an external one",
+        "A Proxy Network Load Balancer, which can handle TLS offloading",
+        "A Passthrough Network Load Balancer for UDP and source IP preservation"
+      ],
+      "answer": 3,
+      "explain": "Google Cloud recommends a passthrough Network Load Balancer when client source IPs must be preserved; it also supports protocols such as UDP. An Application Load Balancer is Layer 7 for HTTP(S), making it unsuitable for the game’s UDP traffic."
+    },
+    {
+      "prompt": "An AWS ALB target group has four targets. All four fail health checks at once because the endpoint checks a shared database that briefly falters. What does ALB do?",
+      "code": "HealthCheckPath: /healthz      # Also checks the database\nHealthCheckIntervalSeconds: 10\nUnhealthyThresholdCount: 2\nHealthyThresholdCount: 3",
+      "options": [
+        "Stop all traffic and return 503 until a target passes its health check",
+        "Send traffic only to the target whose health check failed most recently",
+        "Fail open and send traffic to all targets as usual",
+        "Automatically move traffic to another region"
+      ],
+      "answer": 2,
+      "explain": "AWS documentation says ALB fails open and sends traffic to all targets when a target group contains only unhealthy targets. A health check tied to a shared dependency cannot distinguish failed instances from healthy ones, so it should check the instance’s own readiness."
+    },
+    {
+      "prompt": "A system has three app servers behind one load balancer. They all write to one PostgreSQL database and store uploads on the first app server’s disk. Which option identifies the single points of failure most completely?",
+      "options": [
+        "The load balancer, database, and upload storage disk",
+        "Only the first app server, because it holds uploaded files",
+        "Only the database, because the app servers already have backups",
+        "None, because having three app servers provides sufficient redundancy"
+      ],
+      "answer": 0,
+      "explain": "Every lone component on the critical path is a SPOF: the load balancer, database, and first server’s upload disk. Multiple app servers do not keep the system working when another required component fails."
+    },
+    {
+      "prompt": "Two identical stateless instances each have 99% availability and fail independently. If the system works whenever at least one instance works, what is its idealized availability?",
+      "code": "A = 0.99, N = 2\navailability = 1 - (1 - A)^N",
+      "options": [
+        "99.5%",
+        "98.01%",
+        "99.9%",
+        "99.99%"
+      ],
+      "answer": 3,
+      "explain": "1 - (0.01)^2 = 1 - 0.0001 = 99.99%. The 98.01% option is 0.99 × 0.99, which applies when both instances must work. The redundancy formula applies only when failures really are independent."
+    },
+    {
+      "prompt": "A service has a monthly availability SLO of 99.9% for a 30-day month. Roughly how much downtime does its error budget allow?",
+      "code": "30 days × 24 hours × 60 minutes = 43,200 minutes",
+      "options": [
+        "About 4.3 minutes",
+        "About 43 minutes",
+        "About 7.2 hours",
+        "About 8.8 hours"
+      ],
+      "answer": 1,
+      "explain": "0.1% of 43,200 minutes is 43.2 minutes. The 7.2-hour figure is the monthly budget for 99%, while 8.76 hours is the annual budget for 99.9%."
+    },
+    {
+      "prompt": "Halfway through the quarter, two incidents have exhausted a service’s error budget. Following Google SRE’s approach, what should the team do?",
+      "options": [
+        "Continue planned releases, since the error budget resets each quarter anyway",
+        "Immediately lower the SLO target to make more error budget available",
+        "Slow releases and improve stability until the service meets its target again",
+        "Temporarily disable monitoring so the incidents are not counted twice"
+      ],
+      "answer": 2,
+      "explain": "An error budget controls release speed: keep releasing while budget remains, and slow releases to focus on stability when it is exhausted. Lowering the SLO just to restore budget makes the metric meaningless."
+    },
+    {
+      "prompt": "Users sometimes see old product prices cached until the TTL expires, even though the system deletes the key on every price update. How should you fix this code?",
+      "code": "async function updatePrice(id, price) {\n  await cache.del(`product:${id}`);\n  await db.updatePrice(id, price);\n}",
+      "options": [
+        "Reduce the TTL to one second so old values disappear more quickly",
+        "Move the cache into the memory of each application instance instead",
+        "Call cache.del twice to ensure that the cached key is really deleted",
+        "Update the database, then delete the cache key"
+      ],
+      "answer": 3,
+      "explain": "Deleting the key first allows a cache-miss request to read the old database price and cache it again before the update finishes. Updating the database before deleting the key closes this window. A very short TTL only reduces how long stale data persists while increasing database load."
+    },
+    {
+      "prompt": "Product categories change only a few times a month but are read thousands of times per second. The TTL is currently one second and database load remains high. What should you change?",
+      "options": [
+        "Disable caching entirely, since the short TTL means it provides no benefit",
+        "Make the TTL much longer and delete the key as soon as a category changes",
+        "Keep the one-second TTL and add two more database read replicas",
+        "Move caching into each instance’s memory while keeping the one-second TTL"
+      ],
+      "answer": 1,
+      "explain": "A TTL that is too short causes frequent expiration and database reads, leaving little caching benefit. Rarely changing data deserves a long TTL plus invalidation on updates. Adding replicas or moving to per-instance caches while retaining the one-second TTL does not address the cause."
+    },
+    {
+      "prompt": "Every ten minutes, database CPU jumps to 100% for about five seconds when a heavily read homepage key expires. The query rebuilding the homepage takes two seconds. Which approach best addresses the problem?",
+      "options": [
+        "Use a per-key lock for one recomputation, or refresh before expiry",
+        "Extend the TTL to twenty minutes so the database rests longer between expirations",
+        "Increase the application connection pool so more requests can wait for queries",
+        "Store the homepage in each instance’s local cache instead of the shared cache"
+      ],
+      "answer": 0,
+      "explain": "This is a cache stampede: many requests miss at once and repeatedly rebuild the same value. A per-key lock or refreshing before expiry avoids duplicate recomputation. A longer TTL merely postpones the next stampede."
+    },
+    {
+      "prompt": "After enabling a CDN, one user sees another user’s address and orders on /account. Given this header, how should you fix it?",
+      "code": "GET /account\nCache-Control: public, max-age=3600",
+      "options": [
+        "Use public, max-age=60 to shorten the time stale data stays in the CDN",
+        "Keep public and add must-revalidate to check with the origin after expiry",
+        "Use private, no-store to prevent shared caching",
+        "Add immutable so the CDN does not have to query the origin again"
+      ],
+      "answer": 2,
+      "explain": "public allows a shared cache such as a CDN to store a response and serve it to other users. Pages with personal data must use private or no-store. Reducing max-age only shortens the leak, and must-revalidate applies after expiry; while fresh, the CDN can still serve the page to others."
+    },
+    {
+      "prompt": "A user edits their profile name and immediately reloads the page, but sees the old name for one or two seconds. Writes go to the primary and reads to an asynchronous replica. What is the least disruptive fix?",
+      "options": [
+        "Add several read replicas so updates reach replicas faster than before",
+        "Briefly read the user’s own data from the primary after a write",
+        "Move every read query to the primary and stop using replicas entirely",
+        "Extend the profile page cache TTL to conceal the replication lag"
+      ],
+      "answer": 1,
+      "explain": "This is a read-your-writes problem caused by replication lag. Routing only a recent writer’s own reads to the primary addresses it while keeping replicas for other queries. More replicas do not reduce lag, and abandoning all replicas discards their existing benefits."
+    },
+    {
+      "prompt": "The team enables PostgreSQL synchronous replication with these settings. What effect should you expect?",
+      "code": "synchronous_standby_names = 'FIRST 1 (s1, s2)'\nsynchronous_commit = on",
+      "options": [
+        "Slower commits while waiting for standby acknowledgment, but less failover data loss",
+        "Faster commits because the standby now shares the work of processing writes",
+        "Every replica always returns the latest data, eliminating all replication lag concerns",
+        "No latency change because replication still takes place only after a commit completes"
+      ],
+      "answer": 0,
+      "explain": "PostgreSQL documentation says synchronous replication waits for standby acknowledgment at commit, increasing durability and response time. It does not guarantee every replica serves the latest data: synchronous_commit = on waits for the synchronous standby to flush WAL to disk, not replay it for queries (that requires remote_apply), and the other standby can still lag."
+    },
+    {
+      "prompt": "A log system uses date-range sharding. Today’s shard receives almost all writes while other shards sit idle. What should you consider?",
+      "options": [
+        "Increase CPU only for today’s shard, repeating this adjustment each day",
+        "Add more range shards by narrowing the intervals from days to hours",
+        "Switch to a lookup table but continue to use the date as the shard key",
+        "Hash a well-distributed key, such as device ID"
+      ],
+      "answer": 3,
+      "explain": "Range sharding concentrates load when activity targets adjacent keys, such as recent timestamps. Hashing a well-distributed key spreads writes more evenly. Narrower time ranges still send all new work to the latest shard."
+    },
+    {
+      "prompt": "A cache cluster uses shard = hash(key) % N. Expanding from four nodes to five makes the hit rate plunge and database load surge. What is the cause and remedy?",
+      "code": "function nodeFor(key) {\n  return nodes[hash(key) % nodes.length];\n}",
+      "options": [
+        "The new node has no data yet; wait for the hit rate to recover without changes",
+        "Changing N moves most keys; use consistent hashing",
+        "The hash distributes keys poorly; replace it with a hash producing longer values",
+        "Reduce the TTL so the cache can refill its missing entries more quickly"
+      ],
+      "answer": 1,
+      "explain": "hash(key) mod N moves most keys when N changes, causing misses across the cluster. Consistent hashing confines the effect of adding or removing a node to neighboring ranges. Changing the hash function does not solve the mod N problem."
+    },
+    {
+      "prompt": "An order-confirmation email service can send 200 emails per second. During a flash sale, orders arrive at 2,000 per second for one minute before returning to normal. Which description of a queue is correct?",
+      "options": [
+        "The queue lets the email service increase its send rate to 2,000 emails per second",
+        "A queue is unsuitable because emails are lost whenever the consumer falls behind",
+        "The queue buffers work for the email service to send at its sustainable rate",
+        "A queue works only if users need their email to arrive within a few milliseconds"
+      ],
+      "answer": 2,
+      "explain": "Queue-based load leveling buffers peaks to avoid overwhelming the service; it does not make the service faster. Some emails will temporarily be delayed, which is acceptable because callers do not require low-latency responses."
+    },
+    {
+      "prompt": "A consumer processes a payment event before committing its offset. The process is killed between these two lines. What can happen after restart, and how should you prevent it?",
+      "code": "for await (const msg of consumer) {\n  await chargeCard(msg.value);   // Charge the card\n  await consumer.commit(msg.offset);\n}",
+      "options": [
+        "The event is lost; change the code to commit before charging the card",
+        "Kafka knows processing is complete and will not redeliver it, so no change is needed",
+        "The event may be redelivered; make charging idempotent using the event ID",
+        "Enable Kafka exactly-once and the external payment system will avoid duplicates itself"
+      ],
+      "answer": 2,
+      "explain": "Processing before committing gives at-least-once delivery: a crash before commit causes redelivery. Make the consumer idempotent, for example by recording event IDs uniquely. Committing first gives at-most-once delivery and risks missing charges instead; Kafka exactly-once covers reads and writes between topics, not external payment systems automatically."
+    },
+    {
+      "prompt": "The order-events topic has 12 partitions and the producer supplies no key. Sometimes a “cancelled” event is processed before “created” for the same order. What should you change?",
+      "options": [
+        "Reduce to one partition so every event is ordered across the entire topic",
+        "Use the order ID as the key to keep its events in one partition",
+        "Add as many consumers as there are partitions so they can all keep up",
+        "Add timestamps to every event and have consumers wait and sort them before processing"
+      ],
+      "answer": 1,
+      "explain": "Kafka guarantees ordering only within a partition, and events with the same key go to the same partition. An order ID key preserves per-order ordering while retaining load distribution. A single partition preserves order but sacrifices all parallelism."
+    },
+    {
+      "prompt": "A token-bucket rate limiter has these settings. After a minute without requests, a client sends 15 requests at once in the same second. What should happen?",
+      "code": "capacity    = 10   // Maximum tokens in the bucket\nrefill_rate = 1    // Tokens per second\n// Use 1 token per request",
+      "options": [
+        "All 15 pass because the bucket accumulated 60 tokens while idle",
+        "Only one passes because tokens refill at one per second",
+        "All 15 are rejected because the burst exceeds the configured average rate",
+        "The first 10 pass; the remaining five are rejected"
+      ],
+      "answer": 3,
+      "explain": "Tokens cannot accumulate beyond capacity, so the bucket holds ten after a minute idle. Ten requests can burst through; the rest are rejected until tokens refill. Bucket capacity determines the maximum burst, not the length of the idle period."
+    },
+    {
+      "prompt": "A sliding window counter limits clients to 50 requests per minute. The previous minute had 40 requests; 30 seconds into this minute, there have been 20. What should happen to the next request?",
+      "code": "rate = prev * ((60 - elapsed) / 60) + current",
+      "options": [
+        "Reject it because 40 + 20 = 60, which exceeds 50",
+        "Allow it: the estimated rate is 40 × 0.5 + 20 = 40",
+        "Reject it because this minute has already used more than half the limit",
+        "Allow it because a sliding window counts only the current minute"
+      ],
+      "answer": 1,
+      "explain": "The sliding window counter weights the previous minute by the fraction still overlapping (30 of 60 seconds), giving 40 × 0.5 + 20 = 40, below 50. Simply adding the two minutes incorrectly omits that weighting."
+    },
+    {
+      "prompt": "During an architecture review, someone says, “We can only have two of CAP’s three properties at all times, so we chose AP.” Which explanation is more accurate?",
+      "options": [
+        "Distributed systems must always give up partition tolerance to obtain C and A",
+        "CAP says replicated systems always choose consistency or latency, even without failures",
+        "A system can always choose CA by using a database that supports ACID transactions",
+        "During a network partition, choose linearizability or availability"
+      ],
+      "answer": 3,
+      "explain": "CAP’s restriction applies during a partition, forcing a choice between linearizability and every non-failing node being able to respond. Brewer himself says “two of three” is misleading. The normal-operation consistency–latency trade-off is PACELC’s ELC part, not CAP."
+    },
+    {
+      "prompt": "A Dynamo-style key-value store has N = 3. The team wants reads to be more likely to see recent writes and accepts some extra latency. How should R and W change?",
+      "code": "Currently: N = 3, W = 1, R = 1",
+      "options": [
+        "Set W = 2, R = 2 so R + W > N and read/write sets overlap",
+        "Set W = 1, R = 2 because reads are more important than writes in this system",
+        "Set N = 1 so a single copy always provides the latest value on every read",
+        "Keep R = W = 1 and substantially increase the number of virtual nodes"
+      ],
+      "answer": 0,
+      "explain": "R + W > N makes the read-response set overlap the write-response set by at least one replica, at the cost of waiting for more replicas. W = 1 and R = 2 gives R + W = 3, not greater than N, so overlap is not guaranteed. Virtual nodes concern load distribution, not consistency."
+    },
+    {
+      "prompt": "A backend starts to overload and returns some errors. Every client immediately retries three times on each error. What happens, and how should you address it?",
+      "options": [
+        "It improves by itself because retries eventually make failed requests succeed",
+        "It worsens; use a retry budget, backoff, and load shedding",
+        "It stays unchanged because retried requests do not count as additional load",
+        "It worsens; increase retries to ten to give each request a better chance of success"
+      ],
+      "answer": 1,
+      "explain": "Unbounded retries multiply load on a struggling backend and can trigger cascading failures. Google SRE recommends limiting retries with a budget and having the server shed some load as it approaches overload."
+    },
+    {
+      "prompt": "After a deployment, average latency drops from 120 ms to 60 ms. The team is about to celebrate, but the error rate rose from 0.1% to 30%. How should you interpret this?",
+      "options": [
+        "The system is faster; more errors mean users are now sending more malformed requests",
+        "Focus only on latency because it is the most important of the golden signals",
+        "Fast errors pull the average down; separate successful and failed request latency",
+        "Watch throughput instead because latency and errors are unrelated measurements"
+      ],
+      "answer": 2,
+      "explain": "Google SRE emphasizes separating successful-request and failed-request latency, because immediate errors can make overall latency look misleadingly good. Interpret all four golden signals together."
+    },
+    {
+      "prompt": "A request crosses five services and takes about three seconds, but their logs have no shared link to identify the slow part. What should you add first?",
+      "options": [
+        "Enable debug-level logging throughout every service in the request path",
+        "Increase CPU for every service and wait to see whether overall latency falls",
+        "Alert whenever each service’s average latency exceeds one second",
+        "Distributed tracing with trace context passed at every hop"
+      ],
+      "answer": 3,
+      "explain": "Context propagation connects every service’s spans in one trace, revealing where time is spent. Debug logging adds detail but still does not connect activity across services."
+    }
+  ],
+  "exercises": [
+    {
+      "title": "Estimate load and storage for a URL shortener",
+      "level": "ง่าย",
+      "tags": "Back-of-the-envelope · QPS · Storage",
+      "lang": "markdown",
+      "prompt": "The team is choosing infrastructure for a URL shortener and wants rough figures before the meeting. Using the context, write a short note with: (1) average read QPS (2) average write QPS (3) peak read QPS, stating the assumed multiplier (4) the read-to-write ratio (5) total storage for five years. Round to orders of magnitude and show how many seconds per day you use.",
+      "context": "- About 50 million redirects (reads) per day\n- About 1 million new URLs (writes) per day\n- Each record takes about 500 bytes (short code, destination URL, timestamp, owner)\n- Retain data for five years; ignore replicas and indexes for now\n- No measurements of actual peak traffic are available yet",
+      "starter": "# URL shortener load estimate\n\n- Average read QPS: ?\n- Average write QPS: ?\n- Peak read QPS: ?\n- read:write = ?\n- Five-year storage: ?\n",
+      "solution": "# URL shortener load estimate\n\nAssumption: 1 day = 86,400 seconds, rounded to ~10^5\n\n- Average read QPS (redirects): 5 × 10^7 ÷ 10^5 ≈ 500 QPS (about 579 using the exact duration)\n- Average write QPS (new URLs): 10^6 ÷ 10^5 ≈ 10 QPS\n- Peak read QPS: assume a peak 3 times the average ≈ 1,500 QPS (validate against actual measurements later)\n- read:write = 50:1; this is a read-heavy system, making caching worthwhile\n- Storage: 10^6 × 500 B = 500 MB/day ≈ 182.5 GB/year → five years ≈ 0.9 TB (excluding replicas and indexes)\n",
+      "hints": [
+        "Convert everything to powers of ten first, then divide by the rounded number of seconds per day.",
+        "A day has 86,400 seconds, rounded to about 10^5, so 5 × 10^7 per day is roughly five hundred per second.",
+        "No peak measurements are available, so state an assumed multiple of the average. Storage is records per day × record size × 365 × 5."
+      ],
+      "checks": [
+        {
+          "label": "Average read QPS is about 500–600",
+          "pattern": "(read|อ่าน|redirect)[^\\n]*?(?<![0-9.,])(5[0-9]{2}|600)(\\.[0-9]+)?(?![0-9,])"
+        },
+        {
+          "label": "Average write QPS is about 10–12",
+          "pattern": "(write|เขียน|สร้าง)[^\\n]*?(?<![0-9.,^])(1[0-2])(\\.[0-9]+)?(?![0-9,^])\\s*(qps|rps|req|request|ครั้ง|/\\s*s|ต่อวินาที|per\\s*sec|writes?|\\(|$)"
+        },
+        {
+          "label": "State a peak multiplier or assumption",
+          "pattern": "(peak|พีค|ช่วงสูงสุด)[^\\n]*(สมมติ|assum|[×x*]\\s*[0-9]|[0-9]\\s*(เท่า|x|times))"
+        },
+        {
+          "label": "The read:write ratio is about 50:1",
+          "pattern": "(?<![0-9])50\\s*(:|ต่อ|to)\\s*1(?![0-9])|(?<![0-9])50\\s*(เท่า|x|×|times)|(?<![0-9])1\\s*(:|ต่อ|to)\\s*50(?![0-9])"
+        },
+        {
+          "label": "Five-year storage is about 0.9–1 TB",
+          "pattern": "(?<![0-9.])(0\\.9[0-9]*|~?1(\\.0+)?)\\s*tb|(?<![0-9.,])(9[0-9]{2}|1[,.]?000)(\\.[0-9]+)?\\s*gb"
+        },
+        {
+          "label": "Show the seconds per day used (86,400 or ~10^5)",
+          "pattern": "86[,.]?400|10\\^\\s*5|1e5|100[,.]?000\\s*(วินาที|s|sec)"
+        }
+      ]
+    },
+    {
+      "title": "Set Cache-Control to prevent CDN data leaks",
+      "level": "กลาง",
+      "tags": "CDN · Cache-Control · s-maxage",
+      "lang": "json",
+      "prompt": "The JSON in the context is the configuration your team’s edge proxy uses to set Cache-Control headers by route group. After enabling the CDN, one user’s account page appeared to another user, while static files were reloaded unnecessarily often. Update cacheControl so that: (1) staticAssets can be cached for one year (31536000 seconds) without revalidation because filenames contain hashes (2) productPage can be cached by the CDN for 60 seconds (3) accountPage and apiCart must never be stored in shared caches. Keep the existing structure and keys.",
+      "context": "{\n  \"staticAssets\": { \"match\": \"/assets/*\", \"note\": \"Filenames contain hashes, such as app.3f9a1c.js\", \"cacheControl\": \"public, max-age=3600\" },\n  \"productPage\": { \"match\": \"/products/*\", \"note\": \"Identical for everyone; can be stale for 60 seconds\", \"cacheControl\": \"no-store\" },\n  \"accountPage\": { \"match\": \"/account/*\", \"note\": \"Personal user data\", \"cacheControl\": \"public, max-age=600\" },\n  \"apiCart\": { \"match\": \"/api/cart\", \"note\": \"Each user’s own cart\", \"cacheControl\": \"public, s-maxage=30\" }\n}",
+      "starter": "{\n  \"staticAssets\": { \"match\": \"/assets/*\", \"cacheControl\": \"public, max-age=3600\" },\n  \"productPage\": { \"match\": \"/products/*\", \"cacheControl\": \"no-store\" },\n  \"accountPage\": { \"match\": \"/account/*\", \"cacheControl\": \"public, max-age=600\" },\n  \"apiCart\": { \"match\": \"/api/cart\", \"cacheControl\": \"public, s-maxage=30\" }\n}",
+      "solution": "{\n  \"staticAssets\": { \"match\": \"/assets/*\", \"cacheControl\": \"public, max-age=31536000, immutable\" },\n  \"productPage\": { \"match\": \"/products/*\", \"cacheControl\": \"public, s-maxage=60, max-age=0\" },\n  \"accountPage\": { \"match\": \"/account/*\", \"cacheControl\": \"private, no-store\" },\n  \"apiCart\": { \"match\": \"/api/cart\", \"cacheControl\": \"private, no-store\" }\n}",
+      "hints": [
+        "Distinguish headers affecting shared caches such as CDNs from those affecting browsers.",
+        "s-maxage sets freshness specifically for shared caches. immutable says the content will not change while it remains fresh.",
+        "Pages with user-specific data must have neither public nor s-maxage. Use private or no-store instead."
+      ],
+      "checks": [
+        {
+          "label": "staticAssets has max-age=31536000",
+          "json": {
+            "path": "staticAssets.cacheControl",
+            "op": "matches",
+            "value": "max-age=31536000(?![0-9])"
+          }
+        },
+        {
+          "label": "staticAssets has immutable",
+          "json": {
+            "path": "staticAssets.cacheControl",
+            "op": "matches",
+            "value": "immutable"
+          }
+        },
+        {
+          "label": "productPage allows CDN caching for 60 seconds (s-maxage=60 or max-age=60)",
+          "json": {
+            "path": "productPage.cacheControl",
+            "op": "matches",
+            "value": "s-maxage=60(?![0-9])|^(?!.*s-maxage).*max-age=60(?![0-9])"
+          }
+        },
+        {
+          "label": "productPage does not prohibit caching (no private or no-store)",
+          "json": {
+            "path": "productPage.cacheControl",
+            "op": "matches",
+            "value": "private|no-store"
+          },
+          "negate": true
+        },
+        {
+          "label": "accountPage is private or no-store",
+          "json": {
+            "path": "accountPage.cacheControl",
+            "op": "matches",
+            "value": "private|no-store"
+          }
+        },
+        {
+          "label": "accountPage has neither public nor s-maxage",
+          "json": {
+            "path": "accountPage.cacheControl",
+            "op": "matches",
+            "value": "public|s-maxage"
+          },
+          "negate": true
+        },
+        {
+          "label": "apiCart is private or no-store and has no public",
+          "json": {
+            "path": "apiCart.cacheControl",
+            "op": "matches",
+            "value": "^(?!.*(public|s-maxage)).*(private|no-store)"
+          }
+        }
+      ]
+    },
+    {
+      "title": "Design doc: accepting flash-sale orders",
+      "level": "ยาก",
+      "tags": "Queue · Idempotency · Ordering · Rate limiting",
+      "lang": "markdown",
+      "prompt": "Write a short design doc (in Thai or English) for a flash-sale order intake system using the context. Include: (1) at least one measurable non-functional requirement (2) a rough estimate of the backlog accumulated during the peak (3) a queue buffering order intake from payment/inventory (4) a way to prevent duplicate charges when a consumer receives duplicate messages (5) a way to preserve event ordering for the same order (6) a per-user request rate limit and its response status code (7) at least one accepted trade-off.",
+      "context": "- A ten-minute flash sale is expected to receive about 5,000 orders per second throughout\n- The payment and inventory services together can handle about 500 orders per second\n- The available broker delivers at least once and guarantees ordering only within a partition\n- Events for an order (created, paid, cancelled) must be processed in order\n- Each user must be limited to no more than 5 requests per second\n- Users accept confirmation emails arriving a few minutes late, but must never be charged twice",
+      "starter": "# Flash sale: order intake design\n\n## 1. Requirements\n- \n\n## 2. Rough estimates\n- \n\n## 3. Architecture\n- \n\n## 4. Risks and alternatives\n- \n",
+      "solution": "# Flash sale: order intake design\n\n## 1. Requirements\n- Functional: accept orders, charge payments, deduct inventory, send confirmation emails\n- Non-functional: order intake responds with p99 < 300 ms during the flash sale, and must never charge twice\n\n## 2. Rough estimates\n- Arrivals: 5,000/second; processing: 500/second, so arrivals exceed capacity by about 10 times\n- Backlog: (5,000 - 500) × 600 seconds ≈ 2.7 million messages; draining takes about 2.7 million ÷ 500 ≈ 90 minutes after the sale\n\n## 3. Architecture\n- The order API immediately writes to a queue (Kafka) and returns 202 Accepted. The queue buffers the peak so payment is not overwhelmed\n- The consumer is idempotent: the payments table has a unique constraint on event_id and uses INSERT ... ON CONFLICT DO NOTHING, so duplicate messages do not cause duplicate charges\n- Use order_id as the partition key so the same order’s events stay in one partition and remain ordered\n- Apply a token bucket rate limit per user_id of 5 requests/second; return 429 Too Many Requests with Retry-After when exceeded\n\n## 4. Risks and alternatives\n- Trade-off: accept order confirmations and emails being several minutes late so payment stays available without scaling to 5,000/second\n- Monitor queue length and the age of queued work; if it cannot be drained in time, add consumers or stop accepting orders\n",
+      "hints": [
+        "Compare the arrival rate (5,000/second) with downstream capacity (500/second). Multiply the difference by the duration to estimate the backlog.",
+        "At-least-once means messages can be duplicated. Consider which identifier can prevent duplicate charges; ordering is guaranteed only within a partition, so choose the key carefully.",
+        "Example answer: buffer with a queue, add a unique constraint on event_id (idempotent consumer), use order_id as the partition key, apply a per-user token bucket returning 429, and state the trade-off of delayed confirmations."
+      ],
+      "checks": [
+        {
+          "label": "Specify a non-functional requirement",
+          "pattern": "non-?functional|\\bnfr\\b|ความต้องการด้านคุณภาพ|ความต้องการที่ไม่ใช่ฟังก์ชัน|\\bp9[059]\\b"
+        },
+        {
+          "label": "Estimate the backlog or rate difference (about 2.7 million or 10 times)",
+          "pattern": "2[.,]?7\\s*(ล้าน|m\\b|million)|2[,.]?700[,.]?000|(?<![0-9])10\\s*(เท่า|x|×|times)|4[,.]?500\\s*[×x*]\\s*600"
+        },
+        {
+          "label": "Use a queue to buffer peak load",
+          "pattern": "^(?=[\\s\\S]*(queue|คิว|kafka|sqs|rabbitmq|pub/?sub))(?=[\\s\\S]*(buffer|บัฟเฟอร์|load.?level|peak|พีค|ทยอย))"
+        },
+        {
+          "label": "Prevent duplicate charges with an idempotent consumer or unique key",
+          "pattern": "idempoten|ไอเดมโพเทน|dedup|upsert|idempotency.?key|on\\s+conflict|unique\\s*(constraint|key|index|\\()"
+        },
+        {
+          "label": "Use the order ID as the partition key to preserve ordering",
+          "pattern": "(order[_ -]?id|รหัสคำสั่งซื้อ|เลขที่?คำสั่งซื้อ)[^\\n]{0,60}(partition|key|คีย์|พาร์ทิชัน)|(partition|key|คีย์|พาร์ทิชัน)[^\\n]{0,60}(order[_ -]?id|รหัสคำสั่งซื้อ|เลขที่?คำสั่งซื้อ)"
+        },
+        {
+          "label": "Limit request rates and return 429",
+          "pattern": "^(?=[\\s\\S]*(rate.?limit|token.?bucket|sliding.?window|throttl|\\blimit|จำกัด))(?=[\\s\\S]*429)"
+        },
+        {
+          "label": "State an accepted trade-off",
+          "pattern": "trade-?off|แลกกับ|ยอมแลก|ยอมรับ|ข้อเสีย|downside|at the cost of|\\baccept(s|ing)?\\b"
+        }
+      ]
+    }
+  ],
+  "refs": [
+    {
+      "title": "Google SRE Workbook: Non-Abstract Large System Design",
+      "url": "https://sre.google/workbook/non-abstract-design/",
+      "note": "Steps from requirements to a design with concrete resource estimates"
+    },
+    {
+      "title": "Google SRE Book: Availability Table",
+      "url": "https://sre.google/sre-book/availability-table/",
+      "note": "Allowable downtime for each availability level"
+    },
+    {
+      "title": "Eric Brewer: CAP Twelve Years Later",
+      "url": "https://www.infoq.com/articles/cap-twelve-years-later-how-the-rules-have-changed/",
+      "note": "CAP’s originator explains why “two of three” is misleading"
+    },
+    {
+      "title": "Daniel Abadi: Consistency Tradeoffs in Modern Distributed Database System Design (PACELC)",
+      "url": "https://www.cs.umd.edu/~abadi/papers/abadi-pacelc.pdf",
+      "note": "The latency–consistency trade-off during normal operation"
+    },
+    {
+      "title": "Apache Kafka: Message Delivery Semantics",
+      "url": "https://kafka.apache.org/43/design/design/",
+      "note": "At-most-once, at-least-once, exactly-once, and the scope of each guarantee"
+    },
+    {
+      "title": "Cloudflare: How we built rate limiting capable of scaling to millions of domains",
+      "url": "https://blog.cloudflare.com/counting-things-a-lot-of-different-things/",
+      "note": "Sliding window counters and why they improve on fixed windows"
+    },
+    {
+      "title": "RFC 6585: 429 Too Many Requests",
+      "url": "https://www.rfc-editor.org/rfc/rfc6585.html",
+      "note": "The status code for rate limiting and Retry-After"
+    },
+    {
+      "title": "OpenTelemetry: Traces",
+      "url": "https://opentelemetry.io/docs/concepts/signals/traces/",
+      "note": "Spans, traces, and context propagation"
+    }
+  ],
+  "cheatsheet": [
+    "Start every problem with functional and measurable non-functional requirements, then make your assumptions visible to your audience.",
+    "Estimate orders of magnitude: 1 day ≈ 10^5 seconds. The peak multiplier is an assumption; use Norvig’s latency table only for order-of-magnitude comparisons.",
+    "View latency as percentiles (p50, p99), rather than averages, and separate successful-request latency from error latency.",
+    "Scaling out requires stateless services. Find the bottleneck first: adding web servers does not help when the database is the bottleneck.",
+    "L7 routes by HTTP path/host/header; use L4 for TCP/UDP or when passthrough must preserve the source IP.",
+    "Cache-aside: on a miss, load from the DB and cache the value; on an update, write the DB before deleting the key. Match the TTL to data usage.",
+    "Async replicas can lag: recent writers may not see their own changes. Synchronous replication reduces data loss but slows commits.",
+    "A shard key must spread load and keep major queries within one shard; hash mod N moves most keys when N changes.",
+    "Queues buffer peaks but do not increase processing speed. At-least-once needs idempotent consumers; ordering is guaranteed only within a partition.",
+    "CAP: choose linearizability or availability only during a partition. PACELC: in normal operation, latency and consistency trade off against each other."
+  ]
+}

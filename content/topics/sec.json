@@ -118,7 +118,7 @@
     {
       "tier": "must",
       "title": "MFA, brute force และ credential stuffing",
-      "body": "brute force คือเดารหัสหลายค่ากับบัญชีเดียว ส่วน credential stuffing คือเอาคู่ username/password ที่รั่วจากเว็บอื่นมาลอง ซึ่งได้ผลเพราะคนใช้รหัสซ้ำ ด้านป้องกัน OWASP ถือว่า MFA เป็นด่านที่ดีที่สุดและอ้างการวิเคราะห์ของ Microsoft ว่าน่าจะหยุดการยึดบัญชีได้ 99.9% เสริมด้วยการบล็อกรหัสที่เคยรั่ว, login throttling หรือ lockout และ CAPTCHA และข้อความ error ของ login ต้องเหมือนกันทุกกรณี เช่น \"อีเมลหรือรหัสผ่านไม่ถูกต้อง\" เพื่อไม่ให้เดาได้ว่ามีบัญชีไหนอยู่ในระบบ นโยบายรหัสผ่านที่ OWASP แนะนำคือยาวอย่างน้อย 8 ตัวเมื่อมี MFA (15 ตัวถ้าไม่มี) รองรับอย่างน้อย 64 ตัว และไม่บังคับ composition rule",
+      "body": "brute force คือเดารหัสหลายค่ากับบัญชีเดียว ส่วน credential stuffing คือเอาคู่ username/password ที่รั่วจากเว็บอื่นมาลอง ซึ่งได้ผลเพราะคนใช้รหัสซ้ำ ด้านป้องกัน OWASP ถือว่า MFA เป็นด่านที่ดีที่สุดและอ้างการวิเคราะห์ของ Microsoft ว่าน่าจะหยุดการยึดบัญชีได้ 99.9% เสริมด้วยการบล็อกรหัสที่เคยรั่ว, บังคับใช้ login throttling หรือ lockout และใช้ CAPTCHA และข้อความ error ของ login ต้องเหมือนกันทุกกรณี เช่น \"อีเมลหรือรหัสผ่านไม่ถูกต้อง\" เพื่อไม่ให้เดาได้ว่ามีบัญชีไหนอยู่ในระบบ นโยบายรหัสผ่านที่ OWASP แนะนำคือยาวอย่างน้อย 8 ตัวเมื่อมี MFA (15 ตัวถ้าไม่มี) รองรับอย่างน้อย 64 ตัว และไม่บังคับ composition rule",
       "exam": true,
       "ref": "https://cheatsheetseries.owasp.org/cheatsheets/Authentication_Cheat_Sheet.html"
     },
@@ -243,7 +243,7 @@
       "prompt": "middleware นี้ใช้ตรวจ access token ที่ API ได้รับ ปัญหาร้ายแรงที่สุดคือข้อใด?",
       "code": "const jwt = require('jsonwebtoken');\n\nfunction auth(req, res, next) {\n  const token = req.headers.authorization?.slice(7);\n  const claims = jwt.decode(token);\n  if (!claims || claims.exp < Date.now() / 1000) return res.sendStatus(401);\n  req.user = claims;\n  next();\n}",
       "options": [
-        "jwt.decode ไม่ตรวจ signature ใครก็ปลอม token ที่มี role ใดก็ได้",
+        "jwt.decode ไม่ได้ตรวจสายเซ็นเจอร์ ใครก็ปลอม token ที่มี role ใดก็ได้",
         "เทียบ exp ผิดหน่วย เพราะ exp ใน JWT เก็บเป็นมิลลิวินาทีแทนวินาที",
         "ควรย้าย token ไปไว้ใน cookie แทนการส่งผ่าน Authorization header",
         "payload ยังเป็น plain text ต้องเข้ารหัสทั้งก้อนก่อนจึงจะปลอดภัย"
@@ -332,7 +332,7 @@
     {
       "prompt": "เว็บมีช่อง XSS ที่ยังแก้ไม่เสร็จ แต่หัวหน้าบอกว่า \"session cookie ตั้ง HttpOnly แล้ว ผู้โจมตีทำอะไรไม่ได้\" ข้อใดถูกต้อง?",
       "options": [
-        "ไม่เสมอไป HttpOnly กันแค่การอ่าน cookie แต่สคริปต์ที่แทรกยังสั่ง fetch ได้",
+        "ไม่เช่นนั้น: HttpOnly บล็อกแค่การอ่าน cookie; script ที่ถูกฉีดยังเรียก fetch ได้",
         "ถูก เพราะ HttpOnly ทำให้เบราว์เซอร์ไม่แนบ cookie ไปกับ request ที่สร้างโดยสคริปต์ในหน้า",
         "ถูก เพราะ HttpOnly บล็อกการรัน inline script ทั้งหมดที่ถูกแทรกเข้ามาในหน้าเว็บและกัน XSS",
         "ไม่ถูก เพราะ HttpOnly ใช้ได้เฉพาะกับ cookie ที่ไม่ได้ตั้ง Secure ไว้เท่านั้นอยู่แล้ว"

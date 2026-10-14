@@ -1,0 +1,743 @@
+{
+  "id": "net",
+  "code": "F6",
+  "track": "foundations",
+  "title": "Networking & HTTP",
+  "blurb": "เข้าใจว่า request เดินทางผ่าน DNS, TCP, TLS และ HTTP อย่างไร อ่าน status code กับ header ให้ถูก และ debug ปัญหาเครือข่ายด้วย curl และ DevTools",
+  "mustKnow": [
+    {
+      "tier": "must",
+      "title": "เส้นทางของ request: DNS → TCP → TLS → HTTP",
+      "body": "เมื่อ client เรียก https://api.example.com/orders จะผ่านหลายขั้นตามลำดับ: หา IP จากชื่อด้วย DNS, เปิด TCP connection, ทำ TLS handshake แล้วจึงส่ง HTTP request และรอ byte แรกของ response แท็บ Network ของ Chrome DevTools (ส่วน Timing) แยกเวลาให้เห็นเป็น DNS Lookup, Initial connection (รวม TCP handshake และการเจรจา SSL/TLS), Waiting (TTFB) และ Content Download การรู้ว่าช้าที่ขั้นไหนช่วยให้แก้ถูกจุด เช่น TTFB รวม latency หนึ่งรอบไปกลับกับเวลาที่ server เตรียม response ถ้า TTFB สูงทั้งที่ขั้นอื่นเร็วจึงมักเริ่มดูที่ฝั่ง server ส่วน Initial connection ที่นานทุก request ชี้ว่าอาจเปิด connection ใหม่ตลอดแทนที่จะใช้ซ้ำ",
+      "ref": "https://developer.chrome.com/docs/devtools/network/reference#timing-explanation"
+    },
+    {
+      "tier": "must",
+      "title": "DNS: resolver, cache และ TTL",
+      "body": "DNS แปลงชื่อโดเมนเป็น IP โดยทั่วไปเครื่องเราเป็น stub resolver ที่ส่งคำถามให้ recursive resolver ไปไล่หาคำตอบแทน ทุก resource record มี TTL เป็นวินาที บอกว่า resolver เก็บคำตอบไว้ใน cache ได้นานเท่าไรก่อนต้องทิ้ง กับดักคือย้าย server ไป IP ใหม่แล้วผู้ใช้บางส่วนยังวิ่งไป IP เก่าจนกว่า cache จะหมดอายุ จึงควรลด TTL ล่วงหน้าก่อนย้าย และคำตอบว่า \"ไม่มีชื่อนี้\" (NXDOMAIN) ก็ถูก cache ได้เช่นกัน (negative caching ตาม RFC 2308)",
+      "code": "$ dig +noall +answer api.example.com\napi.example.com.  300  IN  A  203.0.113.10\n# คอลัมน์ที่สองคือ TTL หน่วยวินาที",
+      "exam": true,
+      "ref": "https://www.rfc-editor.org/rfc/rfc1034.html#section-3.6"
+    },
+    {
+      "tier": "must",
+      "title": "TCP กับ UDP และ port",
+      "body": "TCP ให้บริการส่ง byte-stream ที่เชื่อถือได้และเรียงลำดับ (reliable, in-order) โดยเปิด connection ด้วย three-way handshake (SYN, SYN-ACK, ACK) ก่อนส่งข้อมูล ส่วน UDP ส่ง datagram โดยไม่รับประกันว่าจะถึงหรือจะไม่ซ้ำ (RFC 768) โปรโตคอลที่ต้องการความน่าเชื่อถือแต่วิ่งบน UDP อย่าง QUIC จึงต้องทำ reliability เองในชั้นบน ส่วน port ระบุว่าจะคุยกับโปรแกรมไหนบนเครื่อง ถ้า URL ไม่ระบุ port ค่าเริ่มต้นของ http คือ TCP 80 และ https คือ TCP 443 (RFC 9110)",
+      "exam": true,
+      "ref": "https://www.rfc-editor.org/rfc/rfc9293.html#name-establishing-a-connection"
+    },
+    {
+      "tier": "must",
+      "title": "HTTPS/TLS ปกป้องอะไร และไม่ปกป้องอะไร",
+      "body": "TLS ให้สามอย่าง: ยืนยันตัวตนของ server เสมอ (ฝั่ง client เป็นทางเลือก), เก็บข้อมูลเป็นความลับระหว่างสองปลาย และตรวจจับได้ถ้าข้อมูลถูกแก้ระหว่างทาง การยืนยันตัวตนได้ผลก็ต่อเมื่อ client ตรวจ certificate ว่าเชื่อถือได้และตรงกับชื่อ host ที่เรียก (RFC 9525) การปิดการตรวจ เช่น curl -k หรือ --insecure จึงทำให้ HTTPS เหลือแค่การเข้ารหัสกับใครก็ได้ สิ่งที่ TLS ไม่ได้ช่วยคือไม่ซ่อนความยาวของข้อมูล คนกลางยังเห็น IP ปลายทาง และไม่ได้กันช่องโหว่ฝั่ง server หลังถอดรหัสแล้ว เช่น injection",
+      "exam": true,
+      "ref": "https://www.rfc-editor.org/rfc/rfc8446.html#section-1"
+    },
+    {
+      "tier": "must",
+      "title": "Method: safe กับ idempotent ต่างกันอย่างไร",
+      "body": "RFC 9110 แยกสองคุณสมบัติ: safe คือ client ไม่ได้ขอให้ server เปลี่ยนสถานะ ส่วน idempotent คือส่ง request เดิมซ้ำกี่ครั้งผลที่ตั้งใจต่อ server เท่ากับครั้งเดียว ผลในทางปฏิบัติคือ client หรือ proxy retry request ที่ idempotent ได้เมื่อ connection หลุดก่อนได้ response แต่ไม่ควร retry POST หรือ PATCH อัตโนมัติถ้าไม่มีวิธีรู้ว่าไม่ซ้ำ (เช่น idempotency key ในหัวข้อ design) กับดักคือทำ GET /logout หรือ GET /items/1/delete เพราะ crawler และการ prefetch ถือว่าเรียก GET ได้โดยไม่เกิดผลเสีย",
+      "code": "Method   safe   idempotent\nGET      ใช่     ใช่\nHEAD     ใช่     ใช่\nOPTIONS  ใช่     ใช่\nPUT      ไม่     ใช่\nDELETE   ไม่     ใช่\nPOST     ไม่     ไม่\nPATCH    ไม่     ไม่ (RFC 5789)",
+      "exam": true,
+      "ref": "https://www.rfc-editor.org/rfc/rfc9110.html#name-safe-methods"
+    },
+    {
+      "tier": "must",
+      "title": "401, 403 และ 404: ยังไม่ยืนยันตัว ไม่มีสิทธิ์ หรือซ่อนไว้",
+      "body": "401 Unauthorized แปลว่า request ยังไม่มี credential ที่ใช้ได้ และ server ต้องส่ง header WWW-Authenticate บอกวิธียืนยันตัวตนกลับไปด้วย ส่วน 403 Forbidden คือ server เข้าใจ request แต่ปฏิเสธ และ client ไม่ควรส่งซ้ำด้วย credential เดิม ถ้าไม่อยากเปิดเผยว่า resource ที่ห้ามเข้ามีอยู่จริง RFC 9110 อนุญาตให้ตอบ 404 แทนได้ กับดักที่พบบ่อยคือตอบ 401 เมื่อผู้ใช้ login แล้วแต่ไม่มีสิทธิ์ ทำให้ frontend พาไปหน้า login วนไม่จบ (รูปแบบ error ที่สม่ำเสมออยู่ในหัวข้อ design)",
+      "code": "HTTP/1.1 401 Unauthorized\nWWW-Authenticate: Basic realm=\"admin\"\n\nHTTP/1.1 403 Forbidden\nContent-Type: application/problem+json",
+      "exam": true,
+      "ref": "https://www.rfc-editor.org/rfc/rfc9110.html#name-401-unauthorized"
+    },
+    {
+      "tier": "must",
+      "title": "Redirect: 301, 302, 303, 307, 308",
+      "body": "301 (ถาวร) และ 302 (ชั่วคราว) บอกให้ไปที่ URI ใน header Location แต่ด้วยเหตุผลทางประวัติศาสตร์ user agent อาจเปลี่ยน POST เป็น GET ในคำขอถัดไป ส่วน 307 (ชั่วคราว) และ 308 (ถาวร) ห้ามเปลี่ยน method จึงเหมาะกับการย้าย endpoint ของ API ที่รับ POST หรือ PUT ส่วน 303 See Other ตั้งใจพาไป GET อีก resource เช่นหลัง submit ฟอร์มสำเร็จ อีกเรื่องที่ควรรู้คือ 301 และ 308 cache ได้แบบ heuristic เบราว์เซอร์จึงอาจจำไว้ อย่าใช้ redirect ถาวรกับการย้ายที่ยังไม่แน่นอน",
+      "exam": true,
+      "ref": "https://www.rfc-editor.org/rfc/rfc9110.html#name-redirection-3xx"
+    },
+    {
+      "tier": "must",
+      "title": "409, 422, 429, 503 และ header Retry-After",
+      "body": "409 Conflict ใช้เมื่อ request ขัดกับสถานะปัจจุบันของ resource และผู้ใช้อาจแก้แล้วส่งใหม่ได้ เช่น จองที่นั่งที่ถูกจองไปแล้ว ส่วน 422 Unprocessable Content คือ server เข้าใจชนิดข้อมูลและ syntax ถูก แต่ทำตามคำสั่งข้างในไม่ได้ เช่น JSON ถูกรูปแบบแต่วันสิ้นสุดอยู่ก่อนวันเริ่ม 429 Too Many Requests (RFC 6585) คือส่งถี่เกินกำหนด และ 503 คือ server รับไม่ไหวชั่วคราวหรือปิดปรับปรุง ทั้งสองอาจแนบ Retry-After เป็นจำนวนวินาทีหรือวันเวลา ให้ client รอตามนั้นแทนการยิงซ้ำทันที",
+      "code": "HTTP/1.1 429 Too Many Requests\nRetry-After: 120\nContent-Type: application/problem+json",
+      "ref": "https://www.rfc-editor.org/rfc/rfc9110.html#name-422-unprocessable-content"
+    },
+    {
+      "tier": "must",
+      "title": "Content-Type, Accept และ content negotiation",
+      "body": "Content-Type บอกชนิดของข้อมูลที่อยู่ในข้อความนั้น ส่วน Accept บอกว่า client อยากได้ response ชนิดไหน และให้น้ำหนักแต่ละชนิดด้วยค่า q ได้ (proactive negotiation) ถ้า server ไม่รองรับรูปแบบที่ client ส่งมา เช่นส่ง XML ไป endpoint ที่รับแค่ JSON ให้ตอบ 415 Unsupported Media Type แต่ถ้าสร้าง response ตามที่ Accept ขอไม่ได้ ตอบ 406 Not Acceptable ได้ กับดักที่พบบ่อยคือส่ง JSON โดยไม่ตั้ง Content-Type: application/json ซึ่ง server อาจไม่ parse body เป็น JSON หรือปฏิเสธ request ไปเลย",
+      "code": "POST /orders HTTP/1.1\nHost: api.example.com\nContent-Type: application/json\nAccept: application/json, text/plain;q=0.5\n\n{\"sku\": \"A-1\", \"qty\": 2}",
+      "ref": "https://www.rfc-editor.org/rfc/rfc9110.html#name-content-negotiation"
+    },
+    {
+      "tier": "must",
+      "title": "Cache-Control: no-store, no-cache, max-age, private",
+      "body": "no-store ห้าม cache ทุกชนิดเก็บ response ส่วน no-cache ไม่ได้แปลว่าห้ามเก็บ แต่ห้ามนำไปใช้ซ้ำโดยไม่ revalidate กับ server ก่อน max-age บอกอายุความสดเป็นวินาที, private ห้าม shared cache อย่าง proxy หรือ CDN เก็บ แต่ cache ของเบราว์เซอร์เก็บได้ และ s-maxage ใช้แทน max-age เฉพาะใน shared cache กับดักคือใส่ no-cache กับข้อมูลลับโดยเข้าใจว่าจะไม่ถูกเก็บ ข้อมูลที่ห้ามเก็บจริงต้องใช้ no-store",
+      "code": "# ไฟล์ static ที่มี hash ในชื่อ เนื้อหาไม่เปลี่ยนอีก\nCache-Control: public, max-age=31536000, immutable\n# หน้าข้อมูลส่วนตัว: เก็บได้แค่เบราว์เซอร์ และต้องถาม server ก่อนใช้\nCache-Control: private, no-cache\n# ข้อมูลที่ห้ามเก็บเลย\nCache-Control: no-store",
+      "exam": true,
+      "ref": "https://www.rfc-editor.org/rfc/rfc9111.html#name-response-directives"
+    },
+    {
+      "tier": "must",
+      "title": "Conditional GET: ETag, If-None-Match และ 304",
+      "body": "เมื่อ response มี ETag client ที่เก็บ response ไว้จะส่ง If-None-Match พร้อมค่านั้นในการขอครั้งถัดไป ถ้า representation ยังตรงกัน server ตอบ 304 Not Modified โดยไม่ส่ง body ซ้ำ ประหยัด bandwidth แต่ยังเสียหนึ่ง round trip If-None-Match เทียบ ETag แบบ weak จึงใช้ ETag ที่ขึ้นต้นด้วย W/ ได้ ต่างจาก If-Match ที่ใช้กัน lost update ตอนเขียนและต้องเทียบแบบ strong (อยู่ในหัวข้อ design)",
+      "code": "GET /products/42 HTTP/1.1\nIf-None-Match: \"v7\"\n\nHTTP/1.1 304 Not Modified\nETag: \"v7\"\nCache-Control: max-age=60",
+      "ref": "https://www.rfc-editor.org/rfc/rfc9110.html#name-if-none-match"
+    },
+    {
+      "tier": "should",
+      "title": "Cookie ในระดับ HTTP: Set-Cookie และ attribute",
+      "body": "server ตั้ง cookie ด้วย header Set-Cookie แล้วเบราว์เซอร์ส่งกลับใน header Cookie ตามเงื่อนไขของ attribute ถ้าไม่ระบุ Domain จะเป็น host-only (ไม่ส่งไป subdomain), Max-Age ชนะ Expires เมื่อมีทั้งคู่, Secure ส่งเฉพาะ https และ HttpOnly ห้าม JavaScript อ่าน SameSite=Lax ส่ง cookie ข้ามไซต์เฉพาะ top-level navigation ที่ใช้ method แบบ safe ส่วน SameSite=None ต้องมี Secure คู่กัน และบางเบราว์เซอร์ใช้ Lax เป็นค่าเริ่มต้นเมื่อไม่ระบุ เรื่อง session และ CSRF อยู่ในหัวข้อ sec",
+      "code": "Set-Cookie: sid=8f2c...; Path=/; Secure; HttpOnly; SameSite=Lax; Max-Age=3600",
+      "ref": "https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Set-Cookie"
+    },
+    {
+      "tier": "should",
+      "title": "CORS: browser เป็นผู้บังคับ ไม่ใช่ firewall ของ API",
+      "body": "เบราว์เซอร์ไม่ให้ script อ่าน response ข้าม origin (scheme + host + port) เว้นแต่ server ตอบ header ของ CORS ว่าอนุญาต origin นั้น request ที่ไม่ใช่ simple request เช่น method PUT หรือ Content-Type: application/json จะถูกเบราว์เซอร์ส่ง preflight ด้วย OPTIONS ก่อน CORS ไม่ได้กัน client อื่นอย่าง curl หรือ server ด้วยกัน และถ้า request ส่ง credential ค่า Access-Control-Allow-Origin ต้องเป็น origin ที่ระบุชัด ใช้ * ไม่ได้ เมื่อ CORS ล้มเหลว JavaScript รู้แค่ว่ามี error รายละเอียดต้องดูใน console ของเบราว์เซอร์",
+      "code": "OPTIONS /api/orders/7 HTTP/1.1\nOrigin: https://shop.example\nAccess-Control-Request-Method: PUT\nAccess-Control-Request-Headers: content-type\n\nHTTP/1.1 204 No Content\nAccess-Control-Allow-Origin: https://shop.example\nAccess-Control-Allow-Methods: GET, PUT\nAccess-Control-Allow-Headers: content-type\nAccess-Control-Max-Age: 600",
+      "exam": true,
+      "ref": "https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/CORS#preflighted_requests"
+    },
+    {
+      "tier": "should",
+      "title": "Keep-alive และการใช้ connection ซ้ำ",
+      "body": "HTTP/1.1 ใช้ persistent connection เป็นค่าเริ่มต้น หลาย request จึงใช้ TCP/TLS connection เดิมได้โดยไม่ต้อง handshake ใหม่ แต่ connection ของ HTTP/1.1 ตอบได้ตามลำดับ request ทีละตัว (แม้ pipelining ก็ต้องส่ง response ตามลำดับที่รับ) เบราว์เซอร์จึงเปิดหลาย connection โดยเอกสาร Chrome DevTools ระบุว่า Chrome เปิดได้ 6 TCP connection ต่อ origin สำหรับ HTTP/1.0 และ 1.1 request ที่เกินจะรอคิว ฝั่ง backend ที่เรียก API อื่นโดยทั่วไปจึงใช้ HTTP client ที่มี connection pool ร่วมกัน แทนการสร้าง client ใหม่ทุก request",
+      "ref": "https://www.rfc-editor.org/rfc/rfc9112.html#name-persistence"
+    },
+    {
+      "tier": "should",
+      "title": "HTTP/1.1, HTTP/2 และ HTTP/3 ต่างกันตรงไหน",
+      "body": "ทั้งสามเวอร์ชันใช้ semantics เดียวกัน (method, status, header ตาม RFC 9110) ต่างกันที่วิธีส่งข้อมูล: HTTP/1.1 เป็นข้อความ text ไม่มี multiplexing จึงต้องเปิดหลาย TCP connection เพื่อทำงานขนาน HTTP/2 ใช้ binary framing และ multiplex หลาย stream บน connection เดียว แต่ยังติด head-of-line blocking ของ TCP เพราะ packet ที่หายหนึ่งตัวทำให้ทุก stream ต้องรอ HTTP/3 จึงย้ายไปใช้ QUIC บน UDP ซึ่งทำ reliability แยกราย stream และ server ประกาศว่ามี HTTP/3 ผ่าน header Alt-Svc",
+      "exam": true,
+      "ref": "https://www.rfc-editor.org/rfc/rfc9114.html#name-prior-versions-of-http"
+    },
+    {
+      "tier": "should",
+      "title": "Timeout: แยกเวลาเชื่อมต่อกับเวลารวม",
+      "body": "ทุก network call ควรมี timeout ไม่เช่นนั้น request ที่ค้างจะถือ thread และ connection ไว้นานเกินควร อย่างน้อยควรแยก connect timeout (เวลาเปิด connection) กับเวลารวมของทั้ง request เช่น --connect-timeout กับ --max-time ของ curl ค่าที่เหมาะควรมาจาก latency จริงของปลายทาง บทความของ AWS เล่าว่าเลือกอัตรา false timeout ที่ยอมรับได้ (เช่น 0.1%) แล้วใช้ latency percentile ที่ตรงกัน (p99.9) ของ service ปลายทาง ใน gRPC ใช้ deadline ซึ่งถ้าเลยกำหนดจะจบด้วย DEADLINE_EXCEEDED",
+      "ref": "https://aws.amazon.com/builders-library/timeouts-retries-and-backoff-with-jitter/"
+    },
+    {
+      "tier": "should",
+      "title": "Retry อย่างไรไม่ให้ซ้ำเติมระบบ: backoff, jitter, Retry-After",
+      "body": "retry เฉพาะความล้มเหลวชั่วคราว เช่น timeout, 429, 502, 503, 504 ไม่ใช่ 400, 401, 403 หรือ 404 ที่ส่งซ้ำก็ได้ผลเดิม และ retry อัตโนมัติเฉพาะ request ที่ idempotent หรือมี idempotency key ใช้ exponential backoff (รอนานขึ้นทีละเท่าตัว) บวก jitter (สุ่มเวลา) เพื่อไม่ให้ทุก client ยิงกลับพร้อมกัน และเคารพ Retry-After ถ้า server ส่งมา AWS ยกตัวอย่างว่าระบบลึก 5 ชั้นที่ทุกชั้น retry 3 ครั้งทำให้ load ที่ database เพิ่มถึง 243 เท่า จึงแนะนำให้ retry ที่จุดเดียวใน stack (circuit breaker อยู่ในหัวข้อ design)",
+      "code": "# curl --retry ลองใหม่เฉพาะ error ชั่วคราว (timeout, 408, 429, 500, 502, 503, 504 ...)\n# รอ 1 วินาทีแล้วเพิ่มเป็นเท่าตัว และเคารพ Retry-After\ncurl --retry 3 --connect-timeout 3 --max-time 10 https://api.example.com/health",
+      "ref": "https://aws.amazon.com/builders-library/timeouts-retries-and-backoff-with-jitter/"
+    },
+    {
+      "tier": "should",
+      "title": "Proxy, reverse proxy, load balancer และ CDN",
+      "body": "proxy ถูกเลือกโดยฝั่ง client ส่วน gateway หรือ reverse proxy ทำตัวเป็น origin server ในสายตา client แล้วส่งต่อไปยัง server ด้านหลัง ใช้ทำ load balancing และ cache เร่งความเร็ว CDN ทำงานเป็น shared cache ที่อยู่ใกล้ผู้ใช้ จึงต้องกำกับ response ส่วนตัวด้วย private หรือ no-store เมื่อผ่าน proxy server จะเห็น IP ของ proxy แทน client จึงมี header X-Forwarded-For หรือ Forwarded (RFC 7239) แต่ส่วนที่ไม่ได้ถูกเพิ่มโดย proxy ที่เราควบคุมอาจถูกปลอมได้ อย่าใช้ค่านี้ตัดสินเรื่องความปลอดภัยโดยไม่ตรวจที่มา",
+      "ref": "https://www.rfc-editor.org/rfc/rfc9110.html#name-intermediaries"
+    },
+    {
+      "tier": "should",
+      "title": "Debug ด้วย curl และ DevTools",
+      "body": "curl -v แสดงสิ่งที่เกิดขึ้นทั้งหมด บรรทัด > คือ header ที่ส่ง, < คือ header ที่รับ และ * คือข้อมูลการเชื่อมต่อ ส่วน -i แสดง response header พร้อม body, -I ส่ง HEAD, -L ตาม redirect (และเปลี่ยน POST เป็น GET เมื่อเจอ 301, 302, 303 แต่ถ้าบังคับ method ด้วย -X จะใช้ method นั้นทุก request) และ -w พิมพ์ค่าอย่าง %{http_code} หรือเวลาแต่ละขั้น --resolve บังคับให้ชื่อไปที่ IP ที่กำหนดโดยไม่ต้องแก้ DNS เหมาะกับทดสอบ server ใหม่ก่อนสลับ DNS และใน DevTools ใช้ Copy as cURL เพื่อนำ request จริงของเบราว์เซอร์มาทดลองใน terminal",
+      "code": "curl -sS -o /dev/null \\\n  -w 'dns=%{time_namelookup} tcp=%{time_connect} tls=%{time_appconnect} ttfb=%{time_starttransfer} code=%{http_code}\\n' \\\n  https://api.example.com/health\n\n# ทดสอบ server ใหม่ก่อนสลับ DNS\ncurl -v --resolve api.example.com:443:203.0.113.10 https://api.example.com/health",
+      "ref": "https://curl.se/docs/manpage.html"
+    },
+    {
+      "tier": "advanced",
+      "title": "REST กับ RPC และ gRPC",
+      "body": "REST ออกแบบรอบ resource และใช้ method, status และ header ของ HTTP ตามความหมายจริง cache, proxy และเครื่องมือทั่วไปจึงเข้าใจได้ ส่วน RPC มองการเรียกเป็นฟังก์ชันระยะไกล gRPC ใช้ Protocol Buffers เป็น IDL นิยาม service, รองรับ unary, server streaming, client streaming และ bidirectional streaming, มี deadline ในตัว และตามเอกสารโปรโตคอลของ gRPC วิ่งบน HTTP/2 เหมาะกับการคุยระหว่าง service ภายในที่คุม client ได้ ส่วน API ที่ต้องเปิดให้คนภายนอกหรือเบราว์เซอร์เรียกง่าย โดยทั่วไป REST/JSON มักสะดวกกว่า",
+      "code": "service OrderService {\n  rpc GetOrder (GetOrderRequest) returns (Order);              // unary\n  rpc WatchOrders (WatchRequest) returns (stream OrderEvent);  // server streaming\n}",
+      "ref": "https://grpc.io/docs/what-is-grpc/core-concepts/"
+    },
+    {
+      "tier": "advanced",
+      "title": "WebSocket กับ Server-Sent Events",
+      "body": "WebSocket เริ่มด้วย HTTP Upgrade ที่ server ตอบ 101 Switching Protocols แล้วกลายเป็นช่องสื่อสารสองทางบน TCP ใช้ ws:// และ wss:// ซึ่งมี port เริ่มต้น 80 และ 443 ส่วน SSE คือ HTTP response ที่ค้างไว้ชนิด text/event-stream ให้ server ส่ง event ทางเดียว EventSource ในเบราว์เซอร์ต่อใหม่ให้เองและส่ง header Last-Event-ID เพื่อรับต่อจากจุดเดิม ถ้าต้องการแค่ push จาก server SSE ง่ายกว่า แต่บน HTTP/1.x จะติดเพดานจำนวน connection ต่อเบราว์เซอร์และโดเมน (MDN ระบุว่า 6) ส่วนงานโต้ตอบสองทางถี่ ๆ เช่น แชตหรือเกม เหมาะกับ WebSocket",
+      "code": "GET /chat HTTP/1.1\nHost: server.example.com\nUpgrade: websocket\nConnection: Upgrade\nSec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\nSec-WebSocket-Version: 13\n\nHTTP/1.1 101 Switching Protocols\nUpgrade: websocket\nConnection: Upgrade\nSec-WebSocket-Accept: s3pPLMBiTxaQ9kYGzzhZRbK+xOo=",
+      "ref": "https://www.rfc-editor.org/rfc/rfc6455.html#section-1.3"
+    },
+    {
+      "tier": "advanced",
+      "title": "TLS 1.3 handshake และความเสี่ยงของ 0-RTT",
+      "body": "full handshake ของ TLS 1.3 ใช้หนึ่งรอบไปกลับ (1-RTT) ก่อนส่งข้อมูลของแอป และเมื่อกลับมาเชื่อมต่อใหม่ด้วย PSK จาก session ก่อน client ส่ง early data (0-RTT) ไปพร้อม message แรกได้ แต่ RFC 8446 เตือนว่าข้อมูล 0-RTT ไม่ forward secret และไม่มีการรับประกันว่าจะไม่ถูก replay ข้าม connection แอปจึงควรรับ 0-RTT เฉพาะ request ที่ทนการเล่นซ้ำได้ (อย่างน้อยต้อง idempotent) เช่น GET อ่านข้อมูล ไม่ใช่ POST สั่งซื้อหรือโอนเงิน",
+      "ref": "https://www.rfc-editor.org/rfc/rfc8446.html#section-2.3"
+    },
+    {
+      "tier": "advanced",
+      "title": "HSTS: ปิดช่องของ request แรกที่เป็น http",
+      "body": "แค่ redirect http ไป https ยังเหลือช่องให้คนกลางดัก request แรกที่เป็น http header Strict-Transport-Security สั่งให้เบราว์เซอร์จำว่า host นี้ใช้ https เท่านั้นเป็นเวลา max-age วินาที และเมื่อ certificate มีปัญหาเบราว์เซอร์จะไม่ให้ผู้ใช้กดข้ามคำเตือน เบราว์เซอร์ไม่สนใจ header นี้ถ้าได้มาทาง http และการเข้าครั้งแรกก่อนเห็น header ยังเสี่ยงอยู่ จึงมี preload list ซึ่งต้องตั้ง max-age อย่างน้อย 31536000 (1 ปี) และมี includeSubDomains",
+      "code": "Strict-Transport-Security: max-age=31536000; includeSubDomains; preload",
+      "ref": "https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Strict-Transport-Security"
+    },
+    {
+      "tier": "advanced",
+      "title": "Vary และ cache key ใน shared cache หรือ CDN",
+      "body": "cache เลือก response ที่เก็บไว้ด้วย cache key ซึ่งอย่างน้อยประกอบด้วย method กับ URI ถ้า response เปลี่ยนตาม header ของ request เช่น Accept-Encoding, Accept-Language หรือ Origin ต้องประกาศ Vary ไม่อย่างนั้น CDN อาจส่งหน้าภาษาไทยให้ผู้ใช้ที่ขอภาษาอังกฤษ หรือส่ง Access-Control-Allow-Origin ของ origin หนึ่งให้อีก origin RFC 9111 ห้าม cache ใช้ response ที่มี Vary โดยไม่ revalidate เว้นแต่ header ที่ระบุใน Vary ของ request ใหม่ตรงกับของเดิม",
+      "code": "HTTP/1.1 200 OK\nContent-Language: th\nAccess-Control-Allow-Origin: https://shop.example\nVary: Accept-Language, Origin\nCache-Control: public, max-age=300",
+      "ref": "https://www.rfc-editor.org/rfc/rfc9111.html#name-calculating-cache-keys-with"
+    }
+  ],
+  "refs": [
+    {
+      "title": "RFC 9110: HTTP Semantics",
+      "url": "https://www.rfc-editor.org/rfc/rfc9110.html",
+      "note": "method, safe/idempotent, status code, header และ content negotiation"
+    },
+    {
+      "title": "RFC 9111: HTTP Caching",
+      "url": "https://www.rfc-editor.org/rfc/rfc9111.html",
+      "note": "Cache-Control, freshness, validation และ Vary"
+    },
+    {
+      "title": "MDN: HTTP caching",
+      "url": "https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/Caching",
+      "note": "อธิบาย no-cache กับ no-store, cache busting และ pattern ที่ใช้บ่อย"
+    },
+    {
+      "title": "MDN: Cross-Origin Resource Sharing (CORS)",
+      "url": "https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/CORS",
+      "note": "simple request, preflight และ credentialed request"
+    },
+    {
+      "title": "RFC 9114: HTTP/3",
+      "url": "https://www.rfc-editor.org/rfc/rfc9114.html",
+      "note": "บทนำสรุปข้อจำกัดของ HTTP/1.1 และ HTTP/2 และเหตุผลที่ย้ายไป QUIC"
+    },
+    {
+      "title": "RFC 8446: TLS 1.3",
+      "url": "https://www.rfc-editor.org/rfc/rfc8446.html",
+      "note": "เป้าหมายของ TLS, handshake และความเสี่ยงของ 0-RTT"
+    },
+    {
+      "title": "curl man page",
+      "url": "https://curl.se/docs/manpage.html",
+      "note": "-v, -w, --resolve, --retry, timeout และการตาม redirect"
+    },
+    {
+      "title": "Amazon Builders' Library: Timeouts, retries, and backoff with jitter",
+      "url": "https://aws.amazon.com/builders-library/timeouts-retries-and-backoff-with-jitter/",
+      "note": "เลือก timeout, retry amplification และ jitter จากประสบการณ์จริง"
+    }
+  ],
+  "questions": [
+    {
+      "prompt": "ทีมย้าย API ไป server ใหม่และแก้ A record ของ api.example.com เป็น IP ใหม่แล้ว ผ่านไป 2 ชั่วโมงยังมีผู้ใช้บางส่วนวิ่งไป IP เก่า ทั้งที่ record เดิมตั้ง TTL ไว้ 86400 สาเหตุที่เป็นไปได้มากที่สุดคืออะไร?",
+      "options": [
+        "DNS ต้องรอให้ registrar อนุมัติการเปลี่ยน IP ก่อนประมาณ 48 ชั่วโมง",
+        "TCP connection เก่าของผู้ใช้ทุกคนต้องปิดก่อน DNS จึงจะเปลี่ยนตาม",
+        "recursive resolver ยังเก็บคำตอบเดิมไว้ใน cache ได้จนครบ TTL หนึ่งวันเต็ม",
+        "A record ใหม่ใช้ได้เฉพาะ HTTPS ผู้ใช้ที่เข้าทาง HTTP จึงยังเห็น IP เก่า"
+      ],
+      "answer": 2,
+      "explain": "TTL บอกว่า resolver เก็บ record ไว้ได้นานเท่าไร คำตอบที่ถูก cache ไว้ก่อนแก้จึงอยู่ได้ถึง 86400 วินาที ควรลด TTL ล่วงหน้าก่อนย้าย การแก้ record ในโซนไม่ต้องรอ registrar อนุมัติ"
+    },
+    {
+      "prompt": "service ส่ง metric ด้วย UDP ไปยังตัวเก็บข้อมูล พบว่าบางช่วงที่เครือข่ายแน่น จำนวน metric ที่ได้น้อยกว่าที่ส่งและไม่มี error ฝั่งผู้ส่งเลย ข้อใดอธิบายได้ถูกต้อง?",
+      "options": [
+        "UDP ไม่รับประกันว่า datagram จะถึงปลายทาง และไม่แจ้งผู้ส่งเมื่อหาย",
+        "UDP จะส่งซ้ำอัตโนมัติจนครบ แต่ตัวเก็บข้อมูลทิ้ง packet ที่มาไม่เรียง",
+        "UDP ต้องทำ three-way handshake ก่อน ถ้า handshake ล้มจะส่งไม่ออกเลย",
+        "UDP จำกัดหนึ่ง datagram ต่อวินาที metric ที่เกินจึงถูกตัดทิ้งที่ผู้ส่ง"
+      ],
+      "answer": 0,
+      "explain": "RFC 768 ระบุว่า UDP ไม่รับประกันการส่งถึงและไม่กันข้อมูลซ้ำ ถ้าต้องการความน่าเชื่อถือต้องใช้ TCP หรือทำเองในชั้นบน ส่วน three-way handshake เป็นของ TCP ไม่ใช่ UDP"
+    },
+    {
+      "prompt": "ผู้ใช้เปิด https://bank.example/accounts/123?tab=history ผ่าน Wi-Fi สาธารณะที่มีคนดักฟัง ถ้า certificate ถูกตรวจอย่างถูกต้อง ผู้ดักฟังยังเห็นอะไรได้?",
+      "options": [
+        "path /accounts/123 และ query tab=history ทั้งหมด",
+        "header Cookie และ Authorization ที่แนบไปกับ request",
+        "เนื้อหา response แต่แก้ไขระหว่างทางไม่ได้เพราะมี integrity",
+        "IP ปลายทางและขนาดโดยประมาณของข้อมูลที่รับส่ง"
+      ],
+      "answer": 3,
+      "explain": "TLS เข้ารหัสทั้ง request line, header และ body แต่ไม่ซ่อนความยาวข้อมูล และ IP ปลายทางยังมองเห็นในระดับเครือข่าย ส่วนเนื้อหา response เป็นความลับจากคนกลาง ไม่ใช่แค่กันการแก้ไข"
+    },
+    {
+      "prompt": "โค้ดฝั่ง backend ที่เรียก API ของ partner ผ่าน HTTPS มีคำสั่งด้านล่างอยู่ใน production ความเสี่ยงหลักคืออะไร?",
+      "code": "curl -k -H \"Authorization: Basic $PARTNER_CRED\" \\\n  https://partner.example/api/payouts",
+      "options": [
+        "ข้อมูลส่งแบบไม่เข้ารหัสเลย เพราะ -k บังคับให้ curl ใช้ http แทน https ทุกครั้ง",
+        "ไม่ตรวจ certificate ทำให้คนกลางปลอมเป็น partner และเก็บ credential ได้",
+        "curl จะ retry request อัตโนมัติจนอาจจ่ายเงินซ้ำหลายรอบ",
+        "header Authorization จะถูกตัดทิ้งเมื่อใช้ -k ทำให้ partner ตอบ 401 กลับมาทุกครั้ง"
+      ],
+      "answer": 1,
+      "explain": "-k หรือ --insecure ข้ามการตรวจว่า connection ปลอดภัย ข้อมูลยังเข้ารหัสแต่ไม่รู้ว่าคุยกับใคร คนกลางจึงปลอมเป็นปลายทางได้ -k ไม่ได้เปลี่ยนเป็น http และไม่ได้เปิด retry"
+    },
+    {
+      "prompt": "mobile app ส่ง POST /payments แล้ว connection หลุดก่อนได้ response ทีมเสนอให้ HTTP client retry อัตโนมัติทุกครั้งที่ connection หลุด ข้อใดถูกต้องที่สุด?",
+      "options": [
+        "retry ได้เสมอ เพราะ connection หลุดแปลว่า server ยังไม่ได้รับ request และยังไม่ได้ตัดเงิน",
+        "ไม่ควร retry อัตโนมัติ เว้นแต่มี idempotency key",
+        "retry ได้ถ้าเปลี่ยน method เป็น GET เพื่อให้คำขอเป็น safe ก่อนส่งซ้ำ",
+        "retry ได้ถ้ารอให้ครบ TTL ของ DNS ก่อน เพื่อให้ไปถึง server ตัวใหม่"
+      ],
+      "answer": 1,
+      "explain": "POST ไม่ idempotent และ connection ที่หลุดไม่ได้บอกว่า server ยังไม่ได้ทำงาน RFC 9110 ให้ retry อัตโนมัติเฉพาะเมื่อรู้ว่าคำขอ idempotent หรือรู้ว่าคำขอเดิมไม่ถูกนำไปใช้ idempotency key ช่วยให้ server ตรวจจับการส่งซ้ำได้"
+    },
+    {
+      "prompt": "หน้า admin มีลิงก์ลบสินค้าตามโค้ดด้านล่าง หลังเปิดใช้ปลั๊กอินที่ prefetch ลิงก์ล่วงหน้า สินค้าหายไปเองหลายรายการ ต้นเหตุคืออะไร?",
+      "code": "<a href=\"/admin/items/42/delete\">ลบ</a>\n\n// server\napp.get(\"/admin/items/:id/delete\", deleteItem);",
+      "options": [
+        "prefetch ส่ง DELETE แทน GET เมื่อ URL มีคำว่า delete อยู่ใน path",
+        "ลิงก์ไม่มี rel=\"nofollow\" เบราว์เซอร์จึงถือว่าได้รับอนุญาตให้ลบ",
+        "server ไม่ได้ตั้ง Cache-Control: no-store ทำให้คำสั่งลบถูก cache ไว้แล้วถูกเล่นซ้ำภายหลัง",
+        "ใช้ GET กับการกระทำที่เปลี่ยนข้อมูล ทั้งที่ GET ควรเป็น safe ให้ prefetch เรียกได้"
+      ],
+      "answer": 3,
+      "explain": "RFC 9110 แยก safe method ไว้ให้ระบบอัตโนมัติอย่าง crawler และ prefetch เรียกได้โดยไม่ต้องกลัวผลเสีย การลบควรใช้ DELETE หรือ POST ที่มีการยืนยันตัวตนและป้องกัน CSRF ปัญหาไม่ได้อยู่ที่ cache หรือ nofollow"
+    },
+    {
+      "prompt": "ผู้ใช้ login แล้วและส่ง token ที่ยังใช้ได้มา แต่บทบาทของเขาไม่มีสิทธิ์เรียก /admin/reports frontend ถูกเขียนให้พาไปหน้า login ทุกครั้งที่ได้ 401 API ควรตอบอะไร?",
+      "options": [
+        "403 Forbidden เพราะยืนยันตัวตนแล้วแต่ไม่มีสิทธิ์",
+        "401 Unauthorized เพื่อให้ผู้ใช้ login ใหม่ด้วยบัญชีอื่น",
+        "400 Bad Request เพราะ request ขอ resource ที่ไม่ควรขอ",
+        "409 Conflict เพราะบทบาทขัดกับสถานะของ resource"
+      ],
+      "answer": 0,
+      "explain": "403 คือ server เข้าใจ request แต่ปฏิเสธ และ client ไม่ควรส่งซ้ำด้วย credential เดิม ส่วน 401 ใช้เมื่อยังไม่มี credential ที่ใช้ได้ การตอบ 401 ในกรณีนี้จะทำให้วนไปหน้า login โดยไม่ช่วยอะไร"
+    },
+    {
+      "prompt": "ทีมย้าย endpoint สร้างออเดอร์จาก /v1/orders ไป /v2/orders และตั้ง redirect ไว้ตามด้านล่าง client บางตัวตามไปแล้วได้ 405 Method Not Allowed ที่ /v2/orders เพราะส่งเป็น GET ควรแก้อย่างไร?",
+      "code": "POST /v1/orders HTTP/1.1\n\nHTTP/1.1 301 Moved Permanently\nLocation: /v2/orders",
+      "options": [
+        "เปลี่ยนเป็น 302 Found เพราะเป็นการย้ายชั่วคราวที่คง method",
+        "เปลี่ยนเป็น 303 See Other ให้ client ส่ง POST ไปที่ใหม่",
+        "เปลี่ยนเป็น 308 Permanent Redirect ซึ่งห้ามเปลี่ยน method",
+        "คง 301 ไว้และเพิ่ม Retry-After ให้ client ส่ง POST อีกครั้ง"
+      ],
+      "answer": 2,
+      "explain": "RFC 9110 ยอมให้ user agent เปลี่ยน POST เป็น GET เมื่อเจอ 301 หรือ 302 ด้วยเหตุผลทางประวัติศาสตร์ 308 (ถาวร) และ 307 (ชั่วคราว) ห้ามเปลี่ยน method ส่วน 303 ตั้งใจให้ไป GET"
+    },
+    {
+      "prompt": "ระบบจองที่นั่งได้รับ PUT /seats/A12/booking จากผู้ใช้คนที่สอง ในขณะที่ที่นั่งนั้นถูกคนแรกจองไปแล้ว request ถูกรูปแบบทุกอย่าง status code ใดสื่อความหมายได้ตรงที่สุด?",
+      "options": [
+        "422 Unprocessable Content เพราะข้อมูลในการจองผิด",
+        "400 Bad Request เพราะ client ไม่ควรส่ง request นี้",
+        "409 Conflict เพราะ request ขัดกับสถานะปัจจุบันของ resource",
+        "404 Not Found เพราะที่นั่งว่างไม่มีอยู่แล้วในระบบ"
+      ],
+      "answer": 2,
+      "explain": "409 ใช้เมื่อ request ทำไม่ได้เพราะขัดกับสถานะปัจจุบัน และผู้ใช้อาจแก้แล้วส่งใหม่ได้ เช่นเลือกที่นั่งอื่น 422 เหมาะกับเนื้อหาที่ syntax ถูกแต่คำสั่งข้างในใช้ไม่ได้ ซึ่งไม่ใช่กรณีนี้"
+    },
+    {
+      "prompt": "endpoint POST /invoices รับเฉพาะ JSON แต่ระบบเก่าส่งมาเป็น Content-Type: application/xml API ควรตอบ status ใด?",
+      "options": [
+        "415 Unsupported Media Type",
+        "406 Not Acceptable",
+        "422 Unprocessable Content",
+        "501 Not Implemented"
+      ],
+      "answer": 0,
+      "explain": "415 คือ server ไม่รับรูปแบบของ content ที่ส่งมา ส่วน 406 ใช้เมื่อสร้าง response ตามที่ header Accept ขอไม่ได้ ซึ่งเป็นคนละทิศกัน 422 ใช้เมื่อเข้าใจชนิดข้อมูลแล้วแต่ทำตามคำสั่งไม่ได้"
+    },
+    {
+      "prompt": "job ฝั่ง client ได้ response ด้านล่างจาก API ของ partner วิธีรับมือข้อใดเหมาะที่สุด?",
+      "code": "HTTP/1.1 429 Too Many Requests\nRetry-After: 120\nContent-Type: application/problem+json",
+      "options": [
+        "ส่งซ้ำทันทีหลายครั้งพร้อมกัน เพื่อให้ผ่านก่อน quota เต็ม",
+        "รออย่างน้อย 120 วินาทีก่อนส่งใหม่ และลดอัตราการเรียกให้ต่ำลง",
+        "สลับไปส่งเป็น HTTP/1.0 เพราะ 429 ใช้นับเฉพาะ HTTP/1.1",
+        "ถือว่า credential หมดอายุ แล้วขอ token ใหม่ก่อนส่งซ้ำ"
+      ],
+      "answer": 1,
+      "explain": "429 (RFC 6585) หมายถึงส่งถี่เกินกำหนด และ Retry-After: 120 บอกให้รอ 120 วินาที การยิงซ้ำทันทีทำให้โดนจำกัดหนักขึ้น ส่วนปัญหา credential จะได้ 401 ไม่ใช่ 429"
+    },
+    {
+      "prompt": "หน้า statement ของธนาคารตั้ง Cache-Control: no-cache เพื่อ \"ไม่ให้ข้อมูลถูกเก็บในเครื่อง\" ผู้ตรวจความปลอดภัยบอกว่ายังไม่พอ เพราะอะไร?",
+      "options": [
+        "no-cache มีผลเฉพาะ CDN เท่านั้น เบราว์เซอร์ยังเก็บและใช้ซ้ำได้ตาม max-age เดิมโดยไม่ต้องถาม",
+        "no-cache ใช้ได้กับ HTTP/1.0 เท่านั้น HTTP/2 ต้องใช้ Pragma แทน",
+        "no-cache ต้องคู่กับ public เสมอ ไม่อย่างนั้นเบราว์เซอร์จะไม่สนใจ",
+        "no-cache ยังเก็บได้ แค่ต้อง revalidate จึงต้องใช้ no-store"
+      ],
+      "answer": 3,
+      "explain": "no-cache ไม่ได้ห้ามเก็บ แต่ห้ามนำไปใช้ซ้ำโดยไม่ตรวจกับ server ก่อน ส่วน no-store ห้ามทุก cache เก็บทั้ง request และ response จึงเหมาะกับข้อมูลลับ"
+    },
+    {
+      "prompt": "หลังวาง API ไว้หลัง CDN ผู้ใช้ A เรียก /me แล้วเห็นข้อมูลของผู้ใช้ B จาก response header ด้านล่าง ควรแก้อย่างไร?",
+      "code": "GET /me HTTP/1.1\nAuthorization: Basic ...\n\nHTTP/1.1 200 OK\nCache-Control: public, max-age=300\nContent-Type: application/json",
+      "options": [
+        "เปลี่ยนเป็น private หรือ no-store ไม่ให้ CDN เก็บ",
+        "เพิ่ม max-age เป็น 3600 เพื่อให้แต่ละคนได้ข้อมูลของตัวเองนานขึ้น",
+        "เพิ่ม ETag อย่างเดียว เพราะ CDN จะแยก cache ตามค่า ETag ให้เอง",
+        "ย้าย token จาก Authorization ไปไว้ใน query string เพื่อให้ URL ของแต่ละผู้ใช้ไม่ซ้ำกันใน cache"
+      ],
+      "answer": 0,
+      "explain": "public อนุญาตให้ shared cache อย่าง CDN เก็บแล้วส่งต่อให้คนอื่นได้ private ห้าม shared cache เก็บ และ no-store ห้ามทุก cache ETag ใช้ตรวจความเปลี่ยนแปลง ไม่ได้แยก cache ตามผู้ใช้ ส่วน token ใน URL จะรั่วไปใน log"
+    },
+    {
+      "prompt": "client ส่ง request ด้านล่าง และสินค้า 42 ยังไม่เปลี่ยนตั้งแต่ครั้งก่อน server ควรตอบอย่างไร?",
+      "code": "GET /products/42 HTTP/1.1\nIf-None-Match: \"v7\"",
+      "options": [
+        "200 OK พร้อม body เดิม เพราะ GET ต้องคืน representation เสมอ",
+        "304 Not Modified โดยไม่ส่ง body ซ้ำ ให้ client ใช้ของที่เก็บไว้",
+        "412 Precondition Failed เพราะ ETag ตรงกับของเดิม",
+        "204 No Content เพื่อบอกว่าไม่มีอะไรใหม่และให้ล้าง cache"
+      ],
+      "answer": 1,
+      "explain": "If-None-Match ใช้ใน conditional GET ถ้า ETag ปัจจุบันตรงกับที่ส่งมา เงื่อนไขเป็นเท็จ server ตอบ 304 โดยไม่ส่ง body ส่วน 412 มักมาจาก If-Match ที่ไม่ตรงตอนเขียน"
+    },
+    {
+      "prompt": "frontend ที่ https://app.example เรียก https://api.example/orders แล้วเบราว์เซอร์แจ้ง CORS error แต่ใช้ curl เรียก URL เดียวกันได้ปกติ คำอธิบายใดถูกต้อง?",
+      "options": [
+        "API ปิดกั้น IP ของเบราว์เซอร์ไว้ ส่วน curl ใช้ IP อื่นจึงผ่าน",
+        "curl ข้ามการตรวจ certificate โดยอัตโนมัติทุกครั้ง ส่วนเบราว์เซอร์ตรวจเสมอจึงเรียกไม่ผ่าน",
+        "เบราว์เซอร์บังคับ CORS และ API ยังไม่ตอบ Access-Control-Allow-Origin ให้ origin นี้",
+        "API ต้องเปิด HTTP/2 ก่อน เบราว์เซอร์จึงจะอนุญาตให้ script เรียกและอ่าน response ข้าม origin"
+      ],
+      "answer": 2,
+      "explain": "CORS เป็นกติกาของเบราว์เซอร์ที่ให้ server บอกผ่าน header ว่า origin ใดอ่าน response ได้ curl ไม่ได้บังคับ CORS จึงเรียกได้ และ curl ก็ตรวจ certificate เป็นค่าเริ่มต้น"
+    },
+    {
+      "prompt": "frontend เรียกโค้ดด้านล่าง ใน DevTools เห็น request OPTIONS ไปที่ URL เดียวกันได้ 404 และ PUT ไม่ถูกส่งเลย ควรแก้ที่ไหน?",
+      "code": "fetch('https://api.example/orders/7', {\n  method: 'PUT',\n  headers: { 'Content-Type': 'application/json' },\n  body: JSON.stringify({ qty: 3 })\n});",
+      "options": [
+        "เปลี่ยน method เป็น GET แล้วใส่ body เดิม เพื่อเลี่ยงการตรวจ CORS",
+        "ใส่ mode: \"no-cors\" ใน fetch เพื่อให้อ่าน response ได้โดยไม่ต้องตั้งค่า server",
+        "ตั้ง Access-Control-Allow-Origin ใน header ของ request ที่ส่งจาก frontend ทุกครั้งที่เรียก",
+        "ให้ server ตอบ preflight ด้วย Access-Control-Allow-* ที่ตรงกัน"
+      ],
+      "answer": 3,
+      "explain": "PUT และ Content-Type: application/json ไม่ใช่ simple request เบราว์เซอร์จึงส่ง preflight OPTIONS ก่อน server ต้องตอบ preflight ให้ผ่านจึงจะส่ง PUT จริง header Access-Control-* เป็นของ response จาก server ใส่ฝั่ง request ไม่มีผล"
+    },
+    {
+      "prompt": "API ตอบ header ด้านล่าง และ frontend เรียกด้วย fetch(url, { credentials: \"include\" }) แต่เบราว์เซอร์ปฏิเสธ response สาเหตุคืออะไร?",
+      "code": "Access-Control-Allow-Origin: *\nAccess-Control-Allow-Credentials: true",
+      "options": [
+        "Access-Control-Allow-Credentials ต้องเป็น yes ไม่ใช่ true",
+        "fetch ส่ง credential ได้เฉพาะ request ที่เป็น same-origin เท่านั้น",
+        "header Allow-Origin ต้องอยู่ใน preflight เท่านั้น ห้ามอยู่ใน response จริง",
+        "request ที่ส่ง credential ต้องระบุ origin ชัดเจน ใช้ * ไม่ได้"
+      ],
+      "answer": 3,
+      "explain": "เมื่อ request มี credential เช่น cookie server ต้องตอบ Access-Control-Allow-Origin เป็น origin ที่ระบุชัด ไม่ใช่ * และควรใช้ allowlist แทนการสะท้อน Origin ทุกค่า fetch ส่ง credential ข้าม origin ได้ถ้า server อนุญาตถูกต้อง"
+    },
+    {
+      "prompt": "login.example.com ตั้ง cookie ด้านล่าง แต่เมื่อเบราว์เซอร์เรียก api.example.com กลับไม่มี cookie นี้ติดไป เพราะอะไร?",
+      "code": "Set-Cookie: sid=abc123; Path=/; Secure; HttpOnly; SameSite=Lax",
+      "options": [
+        "ไม่ได้ระบุ Domain cookie จึงเป็น host-only ส่งกลับเฉพาะ login.example.com",
+        "HttpOnly ทำให้ cookie ส่งได้เฉพาะ request ที่มาจาก HTML ไม่ใช่ fetch",
+        "SameSite=Lax ห้ามส่ง cookie ไปทุก subdomain รวมถึง request แบบ same-site ที่มาจากเว็บเดียวกัน",
+        "Path=/ จำกัดให้ส่งเฉพาะหน้าแรก ไม่รวม path ของ API อย่าง /orders"
+      ],
+      "answer": 0,
+      "explain": "ถ้าไม่ระบุ Domain cookie จะเป็น host-only ซึ่งไม่ส่งไปยัง host อื่นหรือ subdomain อื่น HttpOnly แค่ห้าม JavaScript อ่าน และ Path=/ ครอบคลุมทุก path"
+    },
+    {
+      "prompt": "หน้าเว็บโหลดรูป 40 รูปจาก origin เดียวที่ให้บริการด้วย HTTP/1.1 ใน DevTools เห็นหลาย request อยู่ในสถานะ Queueing หรือ Stalled นานก่อนเริ่มส่ง สาเหตุที่เป็นไปได้คืออะไร?",
+      "options": [
+        "HTTP/1.1 ส่งได้ทีละรูปต่อหน้าเว็บ เบราว์เซอร์จึงต้องรอให้รูปก่อนหน้าโหลดครบทีละรูปเสมอ",
+        "DNS ต้อง resolve ชื่อใหม่ทุก request ทำให้ request ที่เหลือต้องรอ",
+        "Chrome เปิดได้ 6 connection ต่อ origin สำหรับ HTTP/1.x request ที่เกินต้องรอคิว",
+        "server ส่ง Cache-Control: no-cache ทำให้เบราว์เซอร์ต้องรอคิว revalidate"
+      ],
+      "answer": 2,
+      "explain": "DevTools ระบุว่าการ queue เกิดได้เมื่อมี 6 TCP connection ต่อ origin ครบแล้ว ซึ่งใช้กับ HTTP/1.0 และ 1.1 HTTP/2 multiplex หลาย stream บน connection เดียวจึงลดปัญหานี้ได้"
+    },
+    {
+      "prompt": "แอปมือถือเรียก API ผ่านเครือข่ายที่ packet หายบ่อย ทีมพบว่าบน HTTP/2 เมื่อ packet หายหนึ่งตัว request อื่นที่ไม่เกี่ยวข้องบน connection เดียวกันก็ช้าลงด้วย ข้อใดอธิบายและเสนอทางแก้ได้ถูกต้อง?",
+      "options": [
+        "HTTP/2 ส่ง request ได้ทีละตัวต่อ connection ควรกลับไปใช้ HTTP/1.1 ที่ multiplex หลาย stream ได้",
+        "TCP ต้องรอ packet ที่หายก่อนส่งต่อทุก stream HTTP/3 บน QUIC แยก reliability ราย stream",
+        "HTTP/2 ใช้ UDP จึงไม่มีการส่งซ้ำ ควรเปลี่ยนไปใช้ HTTP/3 ที่วิ่งบน TCP",
+        "ปัญหาเกิดจาก header compression ของ HTTP/2 ควรปิด TLS และ compression ทั้งหมดเพื่อให้เร็วขึ้น"
+      ],
+      "answer": 1,
+      "explain": "HTTP/2 multiplex บน TCP แต่ TCP ส่งข้อมูลให้แอปตามลำดับ packet ที่หายจึงทำให้ทุก stream รอ (head-of-line blocking ระดับ TCP) HTTP/3 ใช้ QUIC บน UDP ที่ทำ reliability ระดับ stream"
+    },
+    {
+      "prompt": "script สำรองข้อมูลดาวน์โหลดไฟล์ขนาดใหญ่ที่ใช้เวลาปกติราว 10 นาที ทีมต้องการให้ล้มเร็วถ้าเชื่อมต่อ server ไม่ได้ภายใน 5 วินาที แต่ไม่ตัดการดาวน์โหลดที่กำลังไปได้ดี ควรใช้คำสั่งใด?",
+      "code": "# A\ncurl --max-time 5 -O https://backup.example/db.tar\n# B\ncurl --connect-timeout 5 --max-time 1800 -O https://backup.example/db.tar\n# C\ncurl --retry 5 -O https://backup.example/db.tar\n# D\ncurl -m 600 --retry 0 -O https://backup.example/db.tar",
+      "options": [
+        "A เพราะ --max-time 5 จำกัดเฉพาะเวลาเชื่อมต่อ ไม่รวมเวลาดาวน์โหลดไฟล์ทั้งหมด",
+        "B เพราะ --connect-timeout จำกัดเฉพาะช่วงเชื่อมต่อ และมีเพดานรวมกันค้าง",
+        "C เพราะ --retry 5 แปลว่ารอเชื่อมต่อไม่เกิน 5 วินาทีต่อครั้ง",
+        "D เพราะ -m 600 ตั้งเวลาเชื่อมต่อไว้ที่ 600 มิลลิวินาที"
+      ],
+      "answer": 1,
+      "explain": "--connect-timeout จำกัดเฉพาะช่วงเชื่อมต่อ ส่วน --max-time (หรือ -m) จำกัดเวลาของทั้ง transfer เป็นวินาที A จะตัดการดาวน์โหลดหลัง 5 วินาที และ --retry คือจำนวนครั้งที่ลองใหม่ ไม่ใช่ timeout"
+    },
+    {
+      "prompt": "หลัง service ปลายทางล่มไป 30 วินาที client นับพันตัวที่ใช้ backoff 1, 2, 4, 8 วินาทีเท่ากันทุกตัวกลับมายิงพร้อมกันเป็นระลอกจนล่มซ้ำ ควรปรับอะไร?",
+      "options": [
+        "ลดเวลารอลงเหลือ 0 เพื่อให้ผ่านไปก่อนที่ระบบจะแน่น",
+        "เพิ่มจำนวนครั้งที่ retry ทุกชั้นของระบบให้มากขึ้น",
+        "เพิ่ม jitter สุ่มเวลารอของแต่ละ client ให้กระจายออกจากกัน",
+        "เปลี่ยนจาก exponential เป็นรอคงที่ 1 วินาทีทุกครั้ง"
+      ],
+      "answer": 2,
+      "explain": "ถ้าทุก client backoff เป็นจังหวะเดียวกัน retry จะกลับมาพร้อมกันอีก jitter เพิ่มความสุ่มเพื่อกระจาย retry ตามเวลา การเพิ่ม retry ทุกชั้นจะยิ่งขยาย load แบบทวีคูณ"
+    },
+    {
+      "prompt": "client library ถูกตั้งให้ retry 5 ครั้งเมื่อได้ status ใดก็ตามที่ไม่ใช่ 2xx log แสดงว่า request ที่ได้ 400 จากการกรอกอีเมลผิดรูปแบบถูกส่งซ้ำ 5 ครั้งทุกครั้ง ควรปรับนโยบายอย่างไร?",
+      "options": [
+        "retry เฉพาะความล้มเหลวชั่วคราว เช่น timeout, 429, 503 และไม่ retry 400",
+        "retry 400 ต่อไปแต่เพิ่ม jitter เพื่อให้มีโอกาสผ่านในรอบถัดไป",
+        "retry ทุก 4xx แต่ไม่ retry 5xx เพราะ 5xx หมายถึง server พังถาวรและไม่มีทางหายเอง",
+        "เปลี่ยน method เป็น PUT เพื่อให้ retry ทุก status ได้อย่างปลอดภัย"
+      ],
+      "answer": 0,
+      "explain": "400 เกิดจาก request ผิด ส่งซ้ำกี่ครั้งก็ได้ผลเดิม retry ควรใช้กับความล้มเหลวชั่วคราวอย่าง timeout, 429, 502, 503, 504 ซึ่ง 5xx หลายตัวเป็นชั่วคราว ไม่ใช่ถาวร"
+    },
+    {
+      "prompt": "API อยู่หลัง reverse proxy ของบริษัทที่ต่อท้าย IP ของ client เข้าไปใน X-Forwarded-For โค้ด rate limit ด้านล่างถูก bypass ได้ง่าย เพราะอะไร?",
+      "code": "const ip = req.headers['x-forwarded-for'].split(',')[0].trim();\nrateLimit(ip);",
+      "options": [
+        "X-Forwarded-For เก็บ IP ของ proxy ไว้ซ้ายสุด จึงได้ IP เดียวกันทุก request",
+        "header นี้ถูกเบราว์เซอร์ลบทิ้งเสมอ ค่าที่อ่านได้จึงว่างทุกครั้ง",
+        "ต้องใช้ split(\";\") เพราะ X-Forwarded-For คั่นแต่ละ IP ด้วย ;",
+        "ค่าซ้ายสุดมาจาก client ซึ่งปลอมได้ ควรใช้ค่าที่ proxy ของเราเพิ่มเข้ามา"
+      ],
+      "answer": 3,
+      "explain": "X-Forwarded-For ต่อ IP ไปทางขวาทีละ hop ค่าซ้ายสุดคือสิ่งที่ client อ้างมาและปลอมได้ ส่วนที่เชื่อได้คือค่าที่ proxy ที่เราควบคุมเพิ่มเข้ามา ซึ่งอยู่ทางขวา"
+    },
+    {
+      "prompt": "ทดสอบด้วยคำสั่งด้านล่าง server ตอบ 302 ไปที่ /orders/confirm แต่ log ของ server ปลายทางเห็นเป็น GET ไม่ใช่ POST เพราะอะไร?",
+      "code": "curl -L -d \"sku=A-1\" https://shop.example/orders",
+      "options": [
+        "curl -L เปลี่ยน POST เป็น GET เมื่อเจอ 301, 302 หรือ 303",
+        "curl ส่งเป็น GET ตั้งแต่แรกเพราะ -d ใช้ได้กับ GET เท่านั้น",
+        "server ปลายทางแปลง POST เป็น GET เองเมื่อไม่มี Content-Type",
+        "-L ทำให้ curl ส่ง HEAD ก่อน แล้วใช้ GET ตามมาเสมอ"
+      ],
+      "answer": 0,
+      "explain": "คู่มือ curl ระบุว่าเมื่อตาม redirect แล้ว request เดิมเป็น POST curl จะใช้ GET ถ้า response เป็น 301, 302 หรือ 303 และคง method เดิมกับ 3xx อื่น ถ้าบังคับ method ด้วย -X POST curl จะส่ง POST ต่อ ฝั่ง server ที่ต้องการคง POST ควรใช้ 307 หรือ 308"
+    },
+    {
+      "prompt": "dashboard ต้องแสดงราคาที่ server push มาทุกวินาที ผู้ใช้แค่ดูอย่างเดียวไม่ต้องส่งอะไรกลับ ระบบใช้ HTTP/2 อยู่แล้ว ทางเลือกใดเรียบง่ายและเหมาะที่สุด?",
+      "options": [
+        "WebSocket เพราะเป็นวิธีเดียวที่ทำให้ server ส่งข้อมูลไปหาเบราว์เซอร์ได้",
+        "Server-Sent Events ผ่าน EventSource ที่ server ส่งทางเดียวและต่อใหม่ให้เอง",
+        "gRPC bidirectional streaming เรียกจากเบราว์เซอร์โดยตรงผ่าน fetch ทั่วไป",
+        "polling ด้วย POST ทุก 10 มิลลิวินาทีเพื่อให้ได้ราคาล่าสุดเร็วที่สุดเท่าที่ทำได้"
+      ],
+      "answer": 1,
+      "explain": "SSE เหมาะกับข้อมูลทางเดียวจาก server ใช้ HTTP ปกติ (text/event-stream) และ EventSource ต่อใหม่พร้อมส่ง Last-Event-ID ให้เอง WebSocket ก็ทำได้แต่ซับซ้อนกว่าและเหมาะกับการสื่อสารสองทาง"
+    },
+    {
+      "prompt": "ทีม infra เสนอเปิด TLS 1.3 0-RTT ให้ทุก endpoint รวมถึง POST /transfers เพื่อลด latency ข้อกังวลหลักคืออะไร?",
+      "options": [
+        "0-RTT ส่งข้อมูลแบบไม่เข้ารหัสเลย คนกลางจึงอ่านยอดเงินที่โอนได้",
+        "0-RTT ใช้ได้กับ HTTP/1.0 เท่านั้น จึงต้องลดเวอร์ชันของทั้งระบบ",
+        "ข้อมูล 0-RTT อาจถูก replay ข้าม connection จึงไม่ควรใช้กับคำสั่งที่มีผลข้างเคียง",
+        "0-RTT ทำให้ server ข้ามการตรวจ certificate ของตัวเองในทุก connection ที่กลับมาเชื่อมต่อใหม่ด้วย PSK"
+      ],
+      "answer": 2,
+      "explain": "RFC 8446 ระบุว่า 0-RTT ไม่ forward secret และไม่รับประกันการกัน replay ระหว่าง connection ข้อมูลยังเข้ารหัสด้วยกุญแจจาก PSK แต่คนกลางเล่นซ้ำได้ จึงควรใช้เฉพาะ request ที่ทนการเล่นซ้ำได้"
+    },
+    {
+      "prompt": "เว็บส่ง Strict-Transport-Security ไว้ทั้งใน response ของ http://shop.example และ https://shop.example ผู้ตรวจบอกว่า header ใน response ที่เป็น http ไม่มีผล เพราะอะไร?",
+      "options": [
+        "HSTS ใช้ได้เฉพาะ HTTP/2 ส่วน http:// ทำงานบน HTTP/1.1 เสมอ",
+        "header นี้ต้องอยู่ใน request จากเบราว์เซอร์ ไม่ใช่ใน response",
+        "HSTS ต้องส่งผ่าน DNS record เท่านั้น การส่งเป็น header ไม่มีผล",
+        "เบราว์เซอร์ไม่สนใจ HSTS ที่ได้มาทาง http เพราะคนกลางแก้ไขได้"
+      ],
+      "answer": 3,
+      "explain": "เบราว์เซอร์รับ HSTS เฉพาะเมื่อมาทาง https เพราะ header ที่มาทาง http อาจถูกคนกลางแก้ ฝั่ง http ควร redirect ไป https และการเข้าครั้งแรกปิดช่องได้ด้วย preload list"
+    },
+    {
+      "prompt": "เว็บเลือกภาษาจาก header Accept-Language แล้ว cache ที่ CDN ไว้ 5 นาที ผู้ใช้ภาษาอังกฤษบางคนได้หน้าภาษาไทย response มี header ด้านล่าง ควรเพิ่มอะไร?",
+      "code": "HTTP/1.1 200 OK\nContent-Language: th\nCache-Control: public, max-age=300",
+      "options": [
+        "Content-Type: text/html; charset=th ให้ CDN รู้ภาษา",
+        "Vary: Accept-Language ให้ cache แยก response ตามภาษาที่ขอ",
+        "ETag ที่ต่างกันต่อภาษา แล้ว CDN จะเลือกตาม ETag เอง",
+        "Cache-Control: immutable เพื่อไม่ให้ CDN สลับภาษา"
+      ],
+      "answer": 1,
+      "explain": "cache key ปกติคือ method กับ URI ถ้า response ต่างกันตาม header ของ request ต้องประกาศใน Vary เพื่อให้ cache ใช้ response ซ้ำเฉพาะเมื่อ header นั้นตรงกัน charset ไม่ได้บอกภาษา และ ETag ไม่ได้ใช้เลือก response ใน cache"
+    },
+    {
+      "prompt": "ใน DevTools ของ request ที่ช้า แท็บ Timing แสดง DNS Lookup 2 ms, Initial connection 15 ms แต่ Waiting (TTFB) 2.8 s และ Content Download 4 ms ควรเริ่มสืบที่ไหนก่อน?",
+      "options": [
+        "ฝั่ง server เช่น query ช้าหรือ service ปลายทาง",
+        "DNS resolver ของผู้ใช้ เพราะทุก request ต้องรอ DNS ใหม่หมด",
+        "ขนาดไฟล์ที่ส่งกลับ เพราะ TTFB คือเวลาดาวน์โหลดทั้งไฟล์",
+        "certificate ของเว็บ เพราะ TTFB รวมเวลาตรวจ certificate ทั้งหมดของทุก request"
+      ],
+      "answer": 0,
+      "explain": "TTFB คือเวลารอ byte แรก ซึ่งรวม latency หนึ่งรอบกับเวลาที่ server เตรียม response เมื่อ DNS, connection และ download เร็ว เวลาส่วนใหญ่จึงอยู่ที่การประมวลผลฝั่ง server ส่วน TLS นับอยู่ใน Initial connection"
+    }
+  ],
+  "exercises": [
+    {
+      "title": "เรียก API ด้วย curl ให้ปลอดภัยและ debug ได้",
+      "level": "ง่าย",
+      "tags": "curl · header · timeout · TLS",
+      "lang": "shell",
+      "prompt": "เพื่อนร่วมทีมแปะคำสั่ง curl ด้านล่างไว้ใน runbook สำหรับสร้างออเดอร์ทดสอบบน production แก้ให้เป็นคำสั่งเดียวที่ (1) ส่ง POST พร้อม body JSON {\"sku\":\"A-1\",\"qty\":2} และบอก server ว่าเป็น JSON (2) แนบ header Authorization แบบ Bearer โดยอ่าน token จาก environment variable API_TOKEN ห้ามเขียน token ลงในคำสั่ง (3) ตั้ง connect timeout 3 วินาทีและเวลารวมไม่เกิน 10 วินาที (4) แสดง response header ด้วยเพื่อดู status และ header (5) ไม่ปิดการตรวจ certificate",
+      "context": "API: https://api.example.com/orders\nรับเฉพาะ Content-Type: application/json\ntoken อยู่ใน environment variable ชื่อ API_TOKEN\nเครื่องที่รันมี curl 7.82 ขึ้นไป (มี --json)",
+      "starter": "curl -k -X POST https://api.example.com/orders -d '{\"sku\":\"A-1\",\"qty\":2}'",
+      "solution": "curl -i -X POST https://api.example.com/orders \\\n  -H \"Content-Type: application/json\" \\\n  -H \"Authorization: Bearer $API_TOKEN\" \\\n  --connect-timeout 3 --max-time 10 \\\n  -d '{\"sku\":\"A-1\",\"qty\":2}'",
+      "hints": [
+        "แยกทีละข้อ: header ที่บอกชนิดข้อมูล, header ยืนยันตัวตน, timeout สองแบบ, การแสดง header และ flag ที่ต้องเอาออก",
+        "ใช้ -H สำหรับ Content-Type และ Authorization (ใส่ $API_TOKEN ใน double quote เพื่อให้ shell แทนค่า) หรือใช้ --json ที่ตั้ง Content-Type ให้เอง",
+        "--connect-timeout จำกัดช่วงเชื่อมต่อ ส่วน --max-time (หรือ -m) จำกัดทั้ง transfer ใช้ -i หรือ -v เพื่อดู header และลบ -k (--insecure) ออก"
+      ],
+      "checks": [
+        {
+          "label": "ส่ง body เป็น JSON ด้วย -d/--data หรือ --json",
+          "pattern": "(--json(\\s|=)|(^|\\s)(-d|--data(-raw|-binary)?)(\\s|=)?\\s*['\"]?\\{)"
+        },
+        {
+          "label": "บอก server ว่าเป็น JSON (Content-Type: application/json หรือ --json)",
+          "pattern": "(content-type:\\s*application/json|--json(\\s|=))"
+        },
+        {
+          "label": "Authorization: Bearer (หรือ --oauth2-bearer) อ่านจาก $API_TOKEN ใน double quote",
+          "pattern": "(\"\\s*authorization:\\s*bearer\\s+\\$\\{?api_token\\b|'\\s*authorization:\\s*bearer\\s+'\"?\\$\\{?api_token\\b|--oauth2-bearer(\\s+|=)\"?\\$\\{?api_token\\b)"
+        },
+        {
+          "label": "connect timeout 3 วินาที",
+          "pattern": "--connect-timeout(\\s+|=)3(\\.0+)?(\\s|$)"
+        },
+        {
+          "label": "เวลารวมไม่เกิน 10 วินาที (--max-time หรือ -m)",
+          "pattern": "(--max-time(\\s+|=)|(^|\\s)-m\\s*)(10(\\.0+)?|[1-9](\\.\\d+)?|0?\\.\\d+)(\\s|$)"
+        },
+        {
+          "label": "แสดง response header (-i, -v, --show-headers, --include หรือ --verbose)",
+          "pattern": "((^|\\s)-[a-z]*[iv][a-z]*(\\s|$)|--show-headers|--include|--verbose)"
+        },
+        {
+          "label": "ไม่ปิดการตรวจ certificate (-k / --insecure)",
+          "pattern": "((^|\\s)-[a-z]*k[a-z]*(\\s|$)|--insecure)",
+          "negate": true
+        }
+      ]
+    },
+    {
+      "title": "เลือก status code ให้ API จองห้องประชุม",
+      "level": "กลาง",
+      "tags": "status code · 401/403 · 409/422 · 429 · redirect",
+      "lang": "json",
+      "prompt": "คุณกำลังเขียนสเปก error ของ API จองห้องประชุม เติม status ของแต่ละสถานการณ์ใน context ให้ตรงความหมายตาม RFC 9110 และ RFC 6585 ใส่ status เป็นตัวเลข สำหรับ rate_limited ให้ใส่ retry_after เป็นจำนวนวินาทีที่ client ควรรอ และ endpoint_moved ต้องให้ client ที่ตาม redirect อัตโนมัติยังส่ง POST เดิมไปที่ใหม่",
+      "context": "no_token: เรียก POST /bookings โดยไม่มี header Authorization\nno_permission: token ถูกต้อง แต่ผู้ใช้เป็น guest ซึ่งไม่มีสิทธิ์จองห้องผู้บริหาร\nroom_already_booked: JSON ถูกต้อง แต่ห้องถูกจองช่วงเวลานั้นไปแล้ว\nend_before_start: JSON ถูก syntax แต่ end อยู่ก่อน start\nrate_limited: client ยิงเกินโควตา 100 ครั้งต่อนาที ต้องรออีก 30 วินาที\nendpoint_moved: /bookings ย้ายถาวรไป /v2/bookings และต้องคง method POST",
+      "starter": "{\n  \"no_token\": { \"status\": 403 },\n  \"no_permission\": { \"status\": 401 },\n  \"room_already_booked\": { \"status\": 400 },\n  \"end_before_start\": { \"status\": 500 },\n  \"rate_limited\": { \"status\": 503 },\n  \"endpoint_moved\": { \"status\": 301, \"location\": \"/v2/bookings\" }\n}",
+      "solution": "{\n  \"no_token\": { \"status\": 401 },\n  \"no_permission\": { \"status\": 403 },\n  \"room_already_booked\": { \"status\": 409 },\n  \"end_before_start\": { \"status\": 422 },\n  \"rate_limited\": { \"status\": 429, \"retry_after\": 30 },\n  \"endpoint_moved\": { \"status\": 308, \"location\": \"/v2/bookings\" }\n}",
+      "hints": [
+        "แยกให้ออกว่าแต่ละกรณีเป็นปัญหาเรื่องตัวตน สิทธิ์ สถานะของ resource เนื้อหาของ request หรือความถี่ในการเรียก",
+        "ไม่มี credential กับมี credential แต่ไม่มีสิทธิ์ใช้คนละ code ส่วนห้องถูกจองแล้วคือขัดกับสถานะปัจจุบัน",
+        "กรณีส่งถี่เกินใช้ code จาก RFC 6585 คู่กับ Retry-After และ redirect ถาวรที่ห้ามเปลี่ยน method คือ 308 ไม่ใช่ 301"
+      ],
+      "checks": [
+        {
+          "label": "no_token เป็น 401",
+          "json": {
+            "path": "no_token.status",
+            "op": "matches",
+            "value": "^401$"
+          }
+        },
+        {
+          "label": "no_permission เป็น 403 (หรือ 404 ถ้าตั้งใจซ่อน resource)",
+          "json": {
+            "path": "no_permission.status",
+            "op": "matches",
+            "value": "^(403|404)$"
+          }
+        },
+        {
+          "label": "room_already_booked เป็น 409",
+          "json": {
+            "path": "room_already_booked.status",
+            "op": "matches",
+            "value": "^409$"
+          }
+        },
+        {
+          "label": "end_before_start เป็น 422 (หรือ 400)",
+          "json": {
+            "path": "end_before_start.status",
+            "op": "matches",
+            "value": "^(422|400)$"
+          }
+        },
+        {
+          "label": "rate_limited เป็น 429",
+          "json": {
+            "path": "rate_limited.status",
+            "op": "matches",
+            "value": "^429$"
+          }
+        },
+        {
+          "label": "rate_limited มี retry_after 30 วินาที",
+          "json": {
+            "path": "rate_limited.retry_after",
+            "op": "matches",
+            "value": "^30$"
+          }
+        },
+        {
+          "label": "endpoint_moved เป็น 308 ซึ่งคง method",
+          "json": {
+            "path": "endpoint_moved.status",
+            "op": "matches",
+            "value": "^308$"
+          }
+        }
+      ]
+    },
+    {
+      "title": "fetch ที่มี timeout และ retry อย่างมีวินัย",
+      "level": "ยาก",
+      "tags": "timeout · retry · backoff · jitter · idempotency",
+      "lang": "javascript",
+      "prompt": "service ของคุณเรียก API ภายนอกที่บางครั้งค้างหรือตอบ 503 ปรับฟังก์ชัน fetchWithRetry ให้ (1) ทุกครั้งที่เรียกมี timeout ตาม timeoutMs (2) retry เฉพาะ method ที่ idempotent (GET, HEAD, OPTIONS, PUT, DELETE) ส่วน POST และ PATCH เรียกครั้งเดียว (3) retry เฉพาะ network error, timeout และ status 408, 429, 500, 502, 503, 504 ไม่เกิน retries ครั้ง (4) ถ้า response มี Retry-After ให้รอตามนั้น ไม่อย่างนั้นใช้ exponential backoff จาก baseMs พร้อม jitter (5) เมื่อไม่ควร retry หรือ retry ครบแล้ว ให้คืน response ล่าสุด หรือ throw error ล่าสุด",
+      "context": "Node.js 18 ขึ้นไป (มี fetch และ AbortSignal.timeout ในตัว)\nsignature เดิม: fetchWithRetry(url, options = {}, { retries = 3, baseMs = 200, timeoutMs = 5000 } = {})\nRetry-After อาจเป็นจำนวนวินาทีหรือวันเวลาแบบ HTTP-date",
+      "starter": "async function fetchWithRetry(url, options = {}, { retries = 3, baseMs = 200, timeoutMs = 5000 } = {}) {\n  for (let attempt = 0; ; attempt++) {\n    const res = await fetch(url, options);\n    if (res.ok || attempt >= retries) return res;\n    await new Promise((r) => setTimeout(r, baseMs));\n  }\n}",
+      "solution": "const RETRYABLE_STATUS = new Set([408, 429, 500, 502, 503, 504]);\nconst IDEMPOTENT = new Set(['GET', 'HEAD', 'OPTIONS', 'PUT', 'DELETE']);\nconst sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));\n\nfunction retryAfterMs(res) {\n  const value = res.headers.get('retry-after');\n  if (!value) return null;\n  const seconds = Number(value);\n  if (Number.isFinite(seconds)) return seconds * 1000;\n  const date = Date.parse(value);\n  return Number.isNaN(date) ? null : Math.max(0, date - Date.now());\n}\n\nasync function fetchWithRetry(url, options = {}, { retries = 3, baseMs = 200, timeoutMs = 5000 } = {}) {\n  const method = (options.method || 'GET').toUpperCase();\n  const canRetry = IDEMPOTENT.has(method);\n\n  for (let attempt = 0; ; attempt++) {\n    const backoff = Math.random() * baseMs * 2 ** attempt; // full jitter\n    try {\n      const res = await fetch(url, { ...options, signal: AbortSignal.timeout(timeoutMs) });\n      if (!canRetry || !RETRYABLE_STATUS.has(res.status) || attempt >= retries) return res;\n      await sleep(retryAfterMs(res) ?? backoff);\n    } catch (err) {\n      // network error or timeout\n      if (!canRetry || attempt >= retries) throw err;\n      await sleep(backoff);\n    }\n  }\n}",
+      "hints": [
+        "แยกเป็นสามคำถามในแต่ละรอบ: method นี้ retry ได้ไหม, ผลลัพธ์นี้เป็นความล้มเหลวชั่วคราวไหม, และควรรอนานเท่าไร",
+        "AbortSignal.timeout(timeoutMs) สร้าง signal ที่ยกเลิกเองเมื่อครบเวลา ใช้ Set ของ status และ method เพื่อเช็กง่าย ๆ และห่อ fetch ด้วย try/catch เพื่อจับ network error กับ timeout",
+        "อ่าน res.headers.get(\"retry-after\") ถ้าเป็นตัวเลขคูณ 1000 ถ้าเป็นวันที่ใช้ Date.parse ส่วน backoff ใช้ Math.random() * baseMs * 2 ** attempt (full jitter)"
+      ],
+      "checks": [
+        {
+          "label": "ทุกครั้งที่เรียกมี timeout (AbortSignal.timeout หรือ AbortController)",
+          "pattern": "(abortsignal\\.timeout\\s*\\(|new\\s+abortcontroller\\s*\\()"
+        },
+        {
+          "label": "มีรายการ method ที่ retry ได้ หรือกัน POST/PATCH ไม่ให้ retry",
+          "pattern": "(['\"`]get['\"`][\\s\\S]{0,120}['\"`](put|delete)['\"`]|['\"`](put|delete)['\"`][\\s\\S]{0,120}['\"`]get['\"`]|(!==?|===?)\\s*['\"`](post|patch)['\"`]|['\"`](post|patch)['\"`]\\s*(!==?|===?)|['\"`]post['\"`]\\s*,\\s*['\"`]patch['\"`]|['\"`]patch['\"`]\\s*,\\s*['\"`]post['\"`])"
+        },
+        {
+          "label": "รายการ method ที่ retry ได้ต้องไม่มี POST หรือ PATCH",
+          "pattern": "\\[[^\\]]*['\"`]get['\"`][^\\]]*['\"`](post|patch)['\"`]|\\[[^\\]]*['\"`](post|patch)['\"`][^\\]]*['\"`]get['\"`]",
+          "negate": true
+        },
+        {
+          "label": "retry เฉพาะ status ชั่วคราว (มีทั้ง 429 และ 503)",
+          "pattern": "^(?=[\\s\\S]*\\b429\\b)(?=[\\s\\S]*\\b503\\b)"
+        },
+        {
+          "label": "อ่าน header Retry-After",
+          "pattern": "retry-after"
+        },
+        {
+          "label": "exponential backoff (2 ** attempt, Math.pow(2, …), bit shift หรือ *= 2)",
+          "pattern": "(2\\s*\\*\\*\\s*\\(?\\s*\\w+|math\\.pow\\s*\\(\\s*2\\s*,|\\w+\\s*<<\\s*\\w+|\\*=\\s*2\\b)"
+        },
+        {
+          "label": "มี jitter (Math.random)",
+          "pattern": "math\\.random\\s*\\("
+        }
+      ]
+    }
+  ],
+  "cheatsheet": [
+    "ลำดับของ request: DNS → TCP handshake → TLS handshake → HTTP request → TTFB → download ดูได้ในแท็บ Timing ของ DevTools",
+    "DNS TTL คือเวลาที่ resolver cache คำตอบได้ ลด TTL ก่อนย้าย IP ไม่อย่างนั้นผู้ใช้บางส่วนจะไปที่เดิมจนกว่า cache หมดอายุ",
+    "TCP: reliable, in-order และเปิดด้วย three-way handshake ส่วน UDP ไม่รับประกันการส่งถึง port เริ่มต้น http 80, https 443",
+    "TLS ให้ server authentication, confidentiality, integrity แต่ไม่ซ่อน IP ปลายทางและขนาดข้อมูล และ -k/--insecure ทำลายการยืนยันตัวตน",
+    "safe: GET, HEAD, OPTIONS | idempotent: safe + PUT, DELETE | POST และ PATCH ไม่ idempotent จึงไม่ควร retry อัตโนมัติ",
+    "401 = ไม่มี credential ที่ใช้ได้ (ต้องมี WWW-Authenticate), 403 = เข้าใจแต่ปฏิเสธ, 404 ใช้ซ่อน resource ที่ห้ามเข้าได้",
+    "301/302 อาจเปลี่ยน POST เป็น GET, 307/308 ห้ามเปลี่ยน method, 303 พาไป GET | 409 ขัดสถานะ, 422 เนื้อหาใช้ไม่ได้, 429 + Retry-After",
+    "no-store = ห้ามเก็บ, no-cache = เก็บได้แต่ต้อง revalidate, private = ห้าม shared cache | ETag + If-None-Match → 304",
+    "CORS บังคับโดยเบราว์เซอร์ ไม่ได้กัน curl | request ที่ไม่ simple มี preflight OPTIONS | ส่ง credential ห้ามใช้ Allow-Origin: *",
+    "HTTP/2 multiplex บน TCP แต่ยังติด TCP head-of-line blocking, HTTP/3 ใช้ QUIC บน UDP | retry เฉพาะ error ชั่วคราว ด้วย backoff + jitter"
+  ]
+}
