@@ -8,66 +8,78 @@
     {
       "tier": "must",
       "title": "SDLC and Agile / Scrum in practice",
-      "body": "SDLC is the cycle of planning → design → development → testing → delivery → maintenance. Agile does not eliminate these stages; it completes the cycle in short iterations to get feedback on working software as early as possible. In Scrum (Scrum Guide 2020), each Sprint lasts at most one month, has a clear Sprint Goal, and uses Sprint Planning, Daily Scrum, Sprint Review, and Sprint Retrospective to inspect and adapt. A common trap is holding every ceremony without changing anything based on the Review or Retrospective: waterfall cut into pieces."
+      "body": "SDLC is the cycle of planning → design → development → testing → delivery → maintenance. Agile does not eliminate these stages; it completes the cycle in short iterations to get feedback on working software as early as possible. In Scrum (Scrum Guide 2020), each Sprint lasts at most one month, has a clear Sprint Goal, and uses Sprint Planning, Daily Scrum, Sprint Review, and Sprint Retrospective to inspect and adapt. A common trap is holding every ceremony without changing anything based on the Review or Retrospective: waterfall cut into pieces.",
+      "ref": "https://scrumguides.org/scrum-guide.html#the-sprint"
     },
     {
       "tier": "must",
       "title": "User stories: who, what, and why",
-      "body": "A user story describes a need from the user’s perspective: “As a… I want… so that…”. The “so that” matters most because it identifies the actual problem and allows the team to suggest a simpler solution. A story starts a conversation rather than serving as a complete specification. Use INVEST (Independent, Negotiable, Valuable, Estimable, Small, Testable) to check its quality. A common trap is attaching “As a developer” to technical tasks without explaining their value to users."
+      "body": "A user story describes a need from the user’s perspective: “As a… I want… so that…”. The “so that” matters most because it identifies the actual problem and allows the team to suggest a simpler solution. A story starts a conversation rather than serving as a complete specification. Use INVEST (Independent, Negotiable, Valuable, Estimable, Small, Testable) to check its quality. A common trap is attaching “As a developer” to technical tasks without explaining their value to users.",
+      "ref": "https://martinfowler.com/bliki/UserStory.html"
     },
     {
       "tier": "must",
       "title": "Acceptance criteria with Given / When / Then",
       "body": "Acceptance criteria are the conditions that must hold for a story to be accepted as complete. Given describes the starting state, When the action, and Then an observable, verifiable result. Write them before implementation through a conversation between the PO, developers, and QA to reveal misunderstandings early; they can often translate almost directly into automated tests. Include failure cases, such as an expired link, rather than only the happy path.",
-      "code": "ในฐานะลูกค้า ฉันต้องการรีเซ็ตรหัสผ่านทางอีเมล\nเพื่อกลับเข้าบัญชีได้เองเมื่อลืมรหัส\n\nGiven ลูกค้ามีบัญชีที่ยืนยันอีเมลแล้ว\nWhen กด “ลืมรหัสผ่าน” และกรอกอีเมลนั้น\nThen ได้อีเมลที่มีลิงก์รีเซ็ต ใช้ได้ภายใน 30 นาที\n\nGiven ลิงก์รีเซ็ตถูกสร้างไว้เกิน 30 นาทีแล้ว\nWhen ลูกค้าเปิดลิงก์นั้น\nThen เห็นข้อความว่าลิงก์หมดอายุ และขอลิงก์ใหม่ได้"
+      "code": "As a customer, I want to reset my password by email\nso that I can regain access to my account if I forget it.\n\nGiven a customer has an account with a verified email address\nWhen they select “Forgot password” and enter that email address\nThen they receive an email with a reset link valid for 30 minutes\n\nGiven a reset link was created more than 30 minutes ago\nWhen the customer opens it\nThen they see an expired-link message and can request a new link",
+      "ref": "https://martinfowler.com/bliki/GivenWhenThen.html"
     },
     {
       "tier": "must",
       "title": "Measurable functional and non-functional requirements",
-      "body": "Functional requirements describe what a system does, such as allowing users to add products to a cart. Non-functional requirements (NFRs) describe how well it must do it: performance, security, availability, or accessibility. Make NFRs verifiable, usually with numbers and conditions, such as “The API responds within 300 ms at p95 under 500 requests per second”; p95 means 95% of requests are faster than this value. Avoid vague statements such as “fast” or “supports many users”. Some requirements need no numeric threshold, such as requiring TLS for communication. Unwritten NFRs are often discovered during production outages, when fixing them costs the most."
+      "body": "Functional requirements describe what a system does, such as allowing users to add products to a cart. Non-functional requirements (NFRs) describe how well it must do it: performance, security, availability, or accessibility. Make NFRs verifiable, usually with numbers and conditions, such as “The API responds within 300 ms at p95 under 500 requests per second”; p95 means 95% of requests are faster than this value. Avoid vague statements such as “fast” or “supports many users”. Some requirements need no numeric threshold, such as requiring TLS for communication. Unwritten NFRs are often discovered during production outages, when fixing them costs the most.",
+      "ref": "https://sre.google/sre-book/service-level-objectives/"
     },
     {
       "tier": "must",
       "title": "Definition of Done",
       "body": "The Definition of Done (DoD) is the team’s shared quality standard that every item must meet to count as done. Acceptance criteria, by contrast, belong to individual stories. Under the Scrum Guide 2020, work that does not meet the DoD cannot be presented at the Sprint Review or released, and must return to the Product Backlog. Accepting work as “90% done” hides unfinished work and makes velocity misleading.",
-      "code": "- [ ] acceptance criteria ผ่านครบทุกข้อ\n- [ ] มี automated test และ CI ผ่าน\n- [ ] ผ่าน code review อย่างน้อย 1 คน\n- [ ] deploy ถึง staging และตรวจแล้ว\n- [ ] อัปเดตเอกสาร / changelog ที่เกี่ยวข้อง"
+      "code": "- [ ] All acceptance criteria pass\n- [ ] Automated tests exist and CI passes\n- [ ] At least one reviewer has completed code review\n- [ ] Deployed to staging and verified\n- [ ] Relevant documentation / changelog updated",
+      "ref": "https://scrumguides.org/scrum-guide.html#increment"
     },
     {
       "tier": "must",
       "title": "Code review that helps",
-      "body": "Review aims to improve overall code health and spread knowledge, rather than catch people out or wait for perfection. Respond quickly: Google’s guidance says each response to a review request should take no more than one business day. Focus on correctness, security, design, and tests, leaving style to formatters or linters. Useful comments identify the problem, explain why it matters, and offer alternatives. Label their importance: “Nit:” marks a small issue that technically should be addressed but has little impact; Google treats it as polish the author may omit if it is not important enough to hold up the PR. Use “Optional/Consider” for truly optional suggestions. Authors help by submitting small PRs explaining what changed, why, and how it was tested."
+      "body": "Review aims to improve overall code health and spread knowledge, rather than catch people out or wait for perfection. Respond quickly: Google’s guidance says each response to a review request should take no more than one business day. Focus on correctness, security, design, and tests, leaving style to formatters or linters. Useful comments identify the problem, explain why it matters, and offer alternatives. Label their importance: “Nit:” marks a small issue that technically should be addressed but has little impact; Google treats it as polish the author may omit if it is not important enough to hold up the PR. Use “Optional/Consider” for truly optional suggestions. Authors help by submitting small PRs explaining what changed, why, and how it was tested.",
+      "ref": "https://google.github.io/eng-practices/review/reviewer/speed.html"
     },
     {
       "tier": "should",
       "title": "Split work into vertical slices",
       "body": "Break large stories into thin slices that cross every layer (UI → API → database) and each deliver usable value. Splitting by technical layer leaves nothing usable until all pieces are complete. Slices that can finish in one or two days provide fast feedback, smaller PRs, and visible progress. Common approaches split by workflow step, business rule, or channel, or deliver the happy path before adding special cases.",
-      "code": "Story ใหญ่: ชำระเงินได้ทุกช่องทาง\n\nแบ่งตามชั้น (ไม่มีชิ้นไหนใช้ได้เอง):\n  ตาราง DB → API → หน้าจอ\n\nแบ่งแนวตั้ง (ทุกชิ้นส่งมอบได้):\n  1. จ่ายด้วยบัตรเครดิต กรณีสำเร็จ ครบ end-to-end\n  2. แสดงข้อความเมื่อบัตรถูกปฏิเสธ\n  3. เพิ่มช่องทาง QR พร้อมเพย์\n  4. เพิ่มช่องทางผ่อนชำระ"
+      "code": "Large story: support all payment methods\n\nSplit by layer (no piece is usable on its own):\n  DB tables → API → UI\n\nVertical slices (each piece can be delivered):\n  1. Successful credit card payment, end to end\n  2. Show a message when a card is declined\n  3. Add PromptPay QR payments\n  4. Add installment payments",
+      "ref": "https://www.humanizingwork.com/the-humanizing-work-guide-to-splitting-user-stories/"
     },
     {
       "tier": "should",
       "title": "Estimate honestly",
-      "body": "An estimate is an uncertain prediction, not a promise. Give a range, such as three to five days, along with known assumptions and risks. For completely unknown areas, run a short, time-boxed spike to reduce uncertainty first. Story points compare relative size within a team and cannot be compared across teams. Do not squeeze numbers to please the listener; when you know delivery will be late, communicate promptly with alternatives such as reducing scope."
+      "body": "An estimate is an uncertain prediction, not a promise. Give a range, such as three to five days, along with known assumptions and risks. For completely unknown areas, run a short, time-boxed spike to reduce uncertainty first. Story points compare relative size within a team and cannot be compared across teams. Do not lower estimates just to please the person asking; when you know delivery will be late, communicate promptly with alternatives such as reducing scope.",
+      "ref": "https://martinfowler.com/bliki/StoryPoint.html"
     },
     {
       "tier": "should",
       "title": "Technical debt",
-      "body": "Technical debt consists of shortcuts or designs that no longer fit, slowing subsequent changes like interest payments; Ward Cunningham used the metaphor in 1992. Some debt can be taken deliberately to ship on time if it is recorded with a repayment plan. Make it visible in the backlog with measurable effects, such as “Changes to this module take twice as long”, and repay it regularly, starting with the most frequently changed areas. Rewriting the entire system at once is often riskier and slower than expected."
+      "body": "Technical debt consists of shortcuts or designs that no longer fit, slowing subsequent changes like interest payments; Ward Cunningham used the metaphor in 1992. Some debt can be taken deliberately to ship on time if it is recorded with a repayment plan. Make it visible in the backlog with measurable effects, such as “Changes to this module take twice as long”, and repay it regularly, starting with the most frequently changed areas. Rewriting the entire system at once is often riskier and slower than expected.",
+      "ref": "https://martinfowler.com/bliki/TechnicalDebt.html"
     },
     {
       "tier": "should",
       "title": "ADRs: record why a decision was made",
       "body": "An Architecture Decision Record (ADR) is a short document, one file per important decision, stored alongside code in the repository. Michael Nygard’s popular format includes Title, Status, Context, Decision, and Consequences. It preserves the reasons and context for future team members, avoiding repeated debates. Do not rewrite an accepted ADR retrospectively; when the decision changes, create a new ADR and mark the old one superseded.",
-      "code": "# ADR-007: ใช้ PostgreSQL เป็นฐานข้อมูลหลัก\nStatus: Accepted\n\n## Context\nข้อมูลคำสั่งซื้อมีความสัมพันธ์ซับซ้อนและต้องใช้ transaction\n\n## Decision\nใช้ PostgreSQL แทน MongoDB\n\n## Consequences\n+ ได้ ACID transaction และ JOIN\n- ต้องวางแผน schema migration ทุกครั้งที่เปลี่ยนโครงสร้าง"
+      "code": "# ADR-007: Use PostgreSQL as the primary database\nStatus: Accepted\n\n## Context\nOrder data has complex relationships and requires transactions.\n\n## Decision\nUse PostgreSQL instead of MongoDB.\n\n## Consequences\n+ ACID transactions and JOINs\n- Schema migrations must be planned for every structural change",
+      "ref": "https://cognitect.com/blog/2011/11/15/documenting-architecture-decisions"
     },
     {
       "tier": "advanced",
       "title": "Forecast from data: cycle time and throughput",
-      "body": "Use the team’s actual delivery data instead of guessing: cycle time is the time from starting to finishing each item, and throughput is the number of items completed per week. Little’s Law says that in a reasonably stable system, average cycle time = average WIP ÷ average throughput. If throughput does not fall, reducing WIP shortens average cycle time; the equation concerns averages and does not guarantee the duration of every item. Historical throughput can support Monte Carlo simulations giving probabilities, such as “an 85% chance of completing 40 items within six weeks”, which is more honest than a single number."
+      "body": "Use the team’s actual delivery data instead of guessing: cycle time is the time from starting to finishing each item, and throughput is the number of items completed per week. Little’s Law says that in a reasonably stable system, average cycle time = average WIP ÷ average throughput. If throughput does not fall, reducing WIP shortens average cycle time; the equation concerns averages and does not guarantee the duration of every item. Historical throughput can support Monte Carlo simulations giving probabilities, such as “an 85% chance of completing 40 items within six weeks”, which is more honest than a single number.",
+      "ref": "https://people.cs.umass.edu/~emery/classes/cmpsci691st/readings/OS/Littles-Law-50-Years-Later.pdf"
     },
     {
       "tier": "advanced",
       "title": "Outcomes matter more than outputs",
-      "body": "Outputs are what a team produces, such as feature counts or story points. Outcomes are actual benefits for users and the business, such as higher conversion, less user effort, or fewer tickets. Shipping many features without improving anything wastes effort. Set measurable outcome goals, hypothesize which metric a feature will affect, and measure after release to choose the next work. Velocity can support planning within a team but does not measure success."
+      "body": "Outputs are what a team produces, such as feature counts or story points. Outcomes are actual benefits for users and the business, such as higher conversion, less user effort, or fewer tickets. Shipping many features without improving anything wastes effort. Set measurable outcome goals, hypothesize which metric a feature will affect, and measure after release to choose what to work on next. Velocity can support planning within a team but does not measure success.",
+      "ref": "https://www.producttalk.org/outcomes-vs-outputs/"
     },
     {
       "tier": "must",
@@ -87,7 +99,7 @@
       "tier": "must",
       "title": "Semantic Versioning: MAJOR.MINOR.PATCH",
       "body": "Semantic Versioning uses MAJOR.MINOR.PATCH to communicate upgrade impact. Increase MAJOR for incompatible public API changes, MINOR for compatible functionality additions and declared deprecations, and PATCH for compatible bug fixes. Increasing a component resets components to its right to zero. Version 0.y.z is initial development, when anything may change. A pre-release such as 1.0.0-rc.1 ranks below 1.0.0, and build metadata after + is ignored when comparing precedence. A common trap is changing the contents of a released version: any modification requires a new version.",
-      "code": "1.4.2 -> 1.4.3   แก้บั๊ก (PATCH)\n1.4.3 -> 1.5.0   เพิ่มความสามารถใหม่ (MINOR) PATCH รีเซ็ต\n1.5.0 -> 2.0.0   ลบ API เดิมที่มีคนใช้ (MAJOR) MINOR และ PATCH รีเซ็ต\n\n1.0.0-alpha < 1.0.0-rc.1 < 1.0.0",
+      "code": "1.4.2 -> 1.4.3   Bug fix (PATCH)\n1.4.3 -> 1.5.0   New functionality (MINOR); PATCH resets\n1.5.0 -> 2.0.0   Remove an API in use (MAJOR); MINOR and PATCH reset\n\n1.0.0-alpha < 1.0.0-rc.1 < 1.0.0",
       "exam": true,
       "ref": "https://semver.org/"
     },
@@ -127,25 +139,25 @@
       "tier": "should",
       "title": "Write changelogs for people: Keep a Changelog",
       "body": "A changelog records noteworthy changes for users by version in chronological order. Keep a Changelog recommends writing for humans rather than machines, including an entry for every version, grouping changes into Added, Changed, Deprecated, Removed, Fixed, and Security, listing the latest version first, including release dates, and stating whether Semantic Versioning is used. Collect upcoming changes under Unreleased. A common trap is pasting git log into a changelog, full of noise such as merge commits and uninformative messages.",
-      "code": "## [Unreleased]\n### Added\n- ช่องกรอกคูปองในหน้าตะกร้า\n\n## [1.2.0] - 2026-09-14\n### Added\n- export รายงานเป็น CSV\n### Deprecated\n- endpoint /v1/report จะถูกลบใน 2.0.0\n### Fixed\n- ยอดรวมผิดเมื่อใช้ส่วนลดสองรายการ",
+      "code": "## [Unreleased]\n### Added\n- Coupon field on the cart page\n\n## [1.2.0] - 2026-09-14\n### Added\n- Export reports as CSV\n### Deprecated\n- Endpoint /v1/report will be removed in 2.0.0\n### Fixed\n- Incorrect total when applying two discounts",
       "ref": "https://keepachangelog.com/en/1.1.0/"
     },
     {
       "tier": "advanced",
       "title": "Conway’s Law: systems mirror communication structures",
-      "body": "Melvin Conway submitted How Do Committees Invent? to Harvard Business Review, which rejected it, then to Datamation, which published it in April 1968, according to his own website. Its proposal is that organizations designing systems produce designs whose structures copy their communication structures. The same website quotes Wikipedia’s explanation that two modules cannot interface correctly unless their designers communicate; that wording is Wikipedia’s, not Conway’s. Conway’s own conclusion is that initial designs are seldom best, system concepts may need to change, and organizational flexibility matters for good design. Teams divided by UI, backend, and database tending to require repeated cross-team handoffs is a common interpretation, not a statement on that page.",
+      "body": "Melvin Conway submitted How Do Committees Invent? to Harvard Business Review, which rejected it, then to Datamation, which published it in April 1968, according to his own website. Its proposal is that organizations designing systems produce designs whose structures copy their communication structures. The same website quotes Wikipedia’s explanation that two modules cannot interface correctly unless their designers communicate; that wording is Wikipedia’s, not Conway’s. Conway’s own conclusion is that initial designs are seldom best, system concepts may need to change, and organizational flexibility matters for good design. The example of teams split by layer (UI, backend, database) producing systems where every feature requires repeated cross-team handoffs is a common interpretation, not a statement on that page.",
       "ref": "https://www.melconway.com/Home/Conways_Law.html"
     },
     {
       "tier": "advanced",
       "title": "Parallel change: expand and contract",
       "body": "An incompatible interface change with many consumers requires updating everyone together if made in one step, which is risky. Parallel change, or expand and contract, has three phases: expand adds the new interface while supporting old and new; migrate moves consumers individually and takes longest when they are outside the team; contract removes the old interface once nobody uses it. Fowler’s same page says most database refactorings follow parallel change, with migration as a transition between schemas until all database-accessing code has moved. The SQL below is our illustration, not Fowler’s. A common trap is stopping after expand and forgetting contract, leaving the old interface indefinitely.",
-      "code": "-- expand: เพิ่มคอลัมน์ใหม่ โค้ดเก่ายังใช้ phone ได้\nALTER TABLE users ADD COLUMN mobile text;\n-- migrate: แอปเขียนทั้งสองคอลัมน์ แล้ว backfill ข้อมูลเก่า\nUPDATE users SET mobile = phone WHERE mobile IS NULL;\n-- contract: เมื่อทุกบริการอ่านจาก mobile และเลิกเขียน phone แล้ว\nALTER TABLE users DROP COLUMN phone;",
+      "code": "-- expand: add a new column; old code can still use phone\nALTER TABLE users ADD COLUMN mobile text;\n-- migrate: the app writes both columns, then backfills existing data\nUPDATE users SET mobile = phone WHERE mobile IS NULL;\n-- contract: once every service reads mobile and no longer writes phone\nALTER TABLE users DROP COLUMN phone;",
       "ref": "https://martinfowler.com/bliki/ParallelChange.html"
     },
     {
       "tier": "advanced",
-      "title": "Hyrum’s Law: observable behavior acquires dependents",
+      "title": "Hyrum’s Law: users rely on observable behavior",
       "body": "Hyrum’s Law says that with enough API users, every observable system behavior will be depended on, regardless of the contract’s promises. Hyrum Wright observed it, and Titus Winters named it. This creates an implicit interface from actual usage that constrains implementation changes, such as users expecting performance levels that were never promised. Changes outside the written contract can therefore still break systems. Our practical conclusion, not a statement on the source page, is to assess consumers and communicate before changes, and not assume a PATCH version guarantees nothing will break for consumers.",
       "ref": "https://www.hyrumslaw.com/"
     }
@@ -155,7 +167,7 @@
       "prompt": "A story says “Managers can view sales by branch, filter dates, and export PDF/Excel”. The team estimates three Sprints. What should the first slice be?",
       "options": [
         "Design every data warehouse table before working on other layers",
-        "A usable view of yesterday’s sales by branch, without filtering or export",
+        "A working view of yesterday’s sales by branch, without filters or export",
         "Complete both PDF and Excel export buttons first because the request is explicit",
         "Separate frontend and backend stories and assign them to different people"
       ],
@@ -164,7 +176,7 @@
     },
     {
       "prompt": "The team wrote these acceptance criteria for product search. What is the main problem?",
-      "code": "Given ผู้ใช้อยู่ที่หน้าแรก\nWhen พิมพ์คำค้นแล้วกด Enter\nThen ระบบแสดงผลลัพธ์อย่างรวดเร็วและใช้งานง่าย",
+      "code": "Given the user is on the home page\nWhen they enter a search term and press Enter\nThen the system displays results quickly and is easy to use",
       "options": [
         "Given should describe database state rather than the user’s location",
         "Everything must be written in English before it can be tested",
@@ -175,7 +187,7 @@
       "explain": "“Fast” and “easy to use” mean different things to different people. Make Then verifiable, such as “Show products whose names contain the search term”, and express speed as a numeric NFR such as p95 under one second. And is only an optional connector."
     },
     {
-      "prompt": "A Product Owner requires “many users during promotions”. Which rewrite is best?",
+      "prompt": "A Product Owner writes “The system must support many users during promotions”. Which rewrite is best?",
       "options": [
         "Support 2,000 requests per second with p95 no higher than 500 ms",
         "Scale well as the number of users grows during promotions",
@@ -188,10 +200,10 @@
     {
       "prompt": "On the final Sprint day, an item’s code is merged but lacks tests and staging deployment required by the team’s Definition of Done. What should happen?",
       "options": [
-        "Count it as done because it is merged and add tests next Sprint",
-        "Temporarily lower the DoD so it passes before the Sprint Review",
-        "Count half its story points to reflect work already performed",
-        "Do not count it as done or present it as an Increment; return it to the Product Backlog"
+        "Count it as done because the code is merged; add tests in the next Sprint",
+        "Temporarily lower the DoD for this Sprint so it passes before the Review",
+        "Count half its story points so velocity reflects the work already performed",
+        "Not done: leave it out of the Increment and return it to the Product Backlog"
       ],
       "answer": 3,
       "explain": "Work that does not meet the DoD is not part of an Increment and cannot be presented at the Sprint Review or released (Scrum Guide 2020). Counting it as done or awarding partial points hides unfinished work and makes velocity misleading."
@@ -201,9 +213,9 @@
       "code": "const user = await db.query(\n  `SELECT * FROM users WHERE id = ${req.params.id}`\n);",
       "options": [
         "This does not look good; rewrite the whole section and send it again",
-        "nit: rename the variable to foundUser to match team style",
-        "id comes directly from the URL, risking SQL injection; use a parameterized query",
-        "SELECT * is fine for now; optimize later, approved"
+        "nit: rename the variable to foundUser to match the team’s naming style",
+        "Raw URL input risks SQL injection here; use a parameterized query",
+        "SELECT * is fine for now; we can optimize it later, so I approve"
       ],
       "answer": 2,
       "explain": "A useful comment identifies a real problem, explains why it matters, and proposes a fix. The naming nit is not wrong but misses a much more important vulnerability. “Rewrite everything” does not explain the problem."
@@ -211,10 +223,10 @@
     {
       "prompt": "Your lead asks whether a new payment API integration can finish by Friday. You have never used it, and its docs are incomplete. How should you respond?",
       "options": [
-        "Promise Friday to reassure everyone, then work overtime",
-        "Probably five to eight business days; let me spend one day trying the API to narrow the estimate",
-        "No estimate is possible until the code is finished because software is unpredictable",
-        "Multiply your estimate by three and promise a single definite date"
+        "Promise it will be ready Friday, then work overtime to meet the deadline",
+        "Estimate 5–8 business days; try the API for a day to narrow the range",
+        "Decline to estimate until coding is finished because software is unpredictable",
+        "Triple the time you expect to need, then give one definite completion date"
       ],
       "answer": 1,
       "explain": "An honest estimate states a range and known uncertainty, with a plan to reduce it through a short spike. Promising to please others makes everyone plan from incorrect numbers. Refusing to estimate at all does not help decisions."
@@ -222,10 +234,10 @@
     {
       "prompt": "A pricing module has duplicated code; changes take longer and introduce bugs. The team proposes stopping features for six months to rewrite everything. Which approach fits best?",
       "options": [
-        "Record debt in the backlog and gradually refactor frequently changed areas alongside features",
-        "Stop every feature for six months and rewrite a clean system",
-        "Leave it because it still works and fix it when there is free time",
-        "Have the expert developer secretly fix it without telling the PO"
+        "Track the debt and refactor frequently changed areas alongside features",
+        "Stop all feature work for six months and rewrite the entire system cleanly",
+        "Leave it alone because it still works; fix it only when there is free time",
+        "Ask the module expert to fix it secretly in spare time without telling the PO"
       ],
       "answer": 0,
       "explain": "Incremental repayment beginning with frequently changed areas produces faster results with lower risk while continuing to deliver value. A complete rewrite sounds clean but must recreate existing capabilities, often taking longer and carrying more risk than expected. Secret work leaves the PO prioritizing with incomplete information."
@@ -233,10 +245,10 @@
     {
       "prompt": "A year later, a new teammate asks why PostgreSQL was chosen over MongoDB. The original decision maker has left, so the team debates it for weeks. What would best prevent this?",
       "options": [
-        "A lengthy comment in the database configuration file",
-        "A wiki page listing every setting and connection string",
-        "A rule forbidding discussion of past decisions",
-        "An ADR recording the context, alternatives, reasons, and consequences"
+        "A lengthy comment explaining the decision in the database configuration file",
+        "A wiki page listing every database setting and all connection strings",
+        "A rule stating that past decisions must never be discussed again",
+        "An ADR with context, alternatives, reasons, and consequences"
       ],
       "answer": 3,
       "explain": "An ADR preserves why the decision was made and its original context, so newcomers can assess whether those reasons still apply. Configuration docs record only what. Forbidding reconsideration is inappropriate because changed context may justify a new ADR that supersedes the old one."
@@ -244,10 +256,10 @@
     {
       "prompt": "During a Sprint, sales asks you to add a feature for a major customer that is not in the Sprint Backlog. What should you do?",
       "options": [
-        "Start immediately without telling anyone because the customer is important",
-        "Reject it because Scrum prohibits every change during a Sprint",
-        "Let the PO prioritize it and discuss changing scope if urgent without harming the Sprint Goal",
-        "Cancel the Sprint immediately and start another including the request"
+        "Start immediately without telling anyone because a major paying customer requested it",
+        "Reject it outright because Scrum forbids all changes during a Sprint",
+        "Ask the PO to prioritize; if urgent, renegotiate scope and keep the Sprint Goal",
+        "Cancel this Sprint immediately and start a new one that includes the feature at once"
       ],
       "answer": 2,
       "explain": "The PO owns Product Backlog ordering, and scope can be renegotiated with the PO during a Sprint without endangering its Goal (Scrum Guide 2020). Scrum does not prohibit every change. Only the PO can cancel a Sprint, and only if its Goal becomes obsolete."
@@ -255,10 +267,10 @@
     {
       "prompt": "The team shipped 12 features this quarter and velocity rose 30%, but checkout conversion stayed flat and customer tickets increased. What should happen next?",
       "options": [
-        "Declare success because velocity and feature count increased",
-        "Set an outcome target such as conversion and measure after each feature release",
-        "Raise story point targets to ship still faster",
-        "Compare velocity with other teams to rank efficiency"
+        "Declare success because both velocity and the number of features increased",
+        "Set a conversion outcome target and measure it after each release",
+        "Increase story point targets per Sprint so features ship even faster",
+        "Compare velocity across teams to see which team works most efficiently"
       ],
       "answer": 1,
       "explain": "Feature counts and velocity are outputs, not evidence of improved user or business outcomes. These numbers suggest the work may not solve the intended problem, although other factors still need examination. Measure each feature’s outcome to choose subsequent work. Story points use a team-specific scale and cannot be compared across teams."
@@ -266,10 +278,10 @@
     {
       "prompt": "A new team says “We are Agile, so we need no documentation or planning”. Three months later, nobody can explain the system to a new teammate. Which statement best matches the Agile Manifesto?",
       "options": [
-        "Working software is valued over comprehensive documentation, but docs still have value and should be sufficient",
-        "The Manifesto bans documentation and planning as waterfall practices",
-        "Docs and working software have equal value, so complete all docs before coding",
-        "The Manifesto does not mention documentation, so company customs alone decide"
+        "Value working software over documentation, but keep what is needed",
+        "Ban documentation and planning because they are waterfall practices",
+        "Value both equally and require complete documentation before coding",
+        "Say nothing about documentation and leave it entirely to company custom"
       ],
       "answer": 0,
       "explain": "The Manifesto says the items on the right, including documentation, have value but values those on the left more. This expresses relative weight, not a ban. Both forbidding docs and requiring complete docs before coding go beyond its wording."
@@ -288,10 +300,10 @@
     {
       "prompt": "The organization’s Definition of Done requires code review and tests. Team A wants its own DoD without review to ship faster. Is this allowed under the Scrum Guide?",
       "options": [
-        "Yes, teams may remove criteria if the PO accepts the risk",
+        "Yes, the team owns its DoD, so it may remove criteria if the PO accepts the risk",
         "Yes, if the Scrum Master records a time-limited exception in the Sprint Backlog",
-        "No, an organizational DoD is a minimum; teams may add criteria but cannot remove them",
-        "Only in Sprints near a deadline, with reviews completed afterward"
+        "No, an organizational DoD is a minimum; teams may add criteria but not remove them",
+        "Only in Sprints near a deadline, with reviews completed afterward when time allows"
       ],
       "answer": 2,
       "explain": "When the DoD is part of organizational standards, every Scrum Team must follow it as a minimum. A team can be stricter but cannot reduce the criteria, even with PO or Scrum Master agreement."
@@ -301,7 +313,7 @@
       "options": [
         "Send all problems to management because the team cannot change how it works",
         "Hold only two Retrospectives per year and fix all accumulated problems together",
-        "Let the Scrum Master fix everything without team involvement",
+        "Let the Scrum Master fix everything during the Sprint without team involvement",
         "Choose a few high-impact improvements and put them in the next Sprint Backlog"
       ],
       "answer": 3,
@@ -309,7 +321,7 @@
     },
     {
       "prompt": "An internal library is at 2.3.1. The team deprecates oldFormat() in favor of format(), without removing it or changing behavior. What is the next Semantic Version?",
-      "code": "/** @deprecated ใช้ format() แทน จะลบใน 3.0.0 */\nexport function oldFormat(d) {\n  return format(d);\n}",
+      "code": "/** @deprecated Use format() instead; will be removed in 3.0.0 */\nexport function oldFormat(d) {\n  return format(d);\n}",
       "options": [
         "2.4.0",
         "2.3.2",
@@ -333,11 +345,11 @@
     },
     {
       "prompt": "The library’s listTags() never documented result order but returned insertion order. A new version deduplicates and sorts alphabetically. The contract is unchanged, yet consumers report breakage. What is the best conclusion?",
-      "code": "// v1: คืนตามลำดับที่เพิ่ม\nexport const listTags = () => tags;\n\n// v2: ตัดซ้ำและเรียงตามตัวอักษร\nexport const listTags = () => [...new Set(tags)].sort();",
+      "code": "// v1: return insertion order\nexport const listTags = () => tags;\n\n// v2: deduplicate and sort alphabetically\nexport const listTags = () => [...new Set(tags)].sort();",
       "options": [
-        "Consumers misused an undocumented order, so the library has no responsibility",
-        "This is a safe PATCH under SemVer because the public API is unchanged",
-        "This illustrates Hyrum’s Law: with enough users, even unpromised observable behavior gains dependents",
+        "Consumers relied on an undocumented order, so the library bears no responsibility",
+        "The unchanged public API makes this a valid PATCH with no impact on consumers",
+        "Hyrum’s Law: users depend on observable behavior even without a promise",
         "Only consumers should fix it; providers need not consider undocumented usage"
       ],
       "answer": 2,
@@ -345,12 +357,12 @@
     },
     {
       "prompt": "An automated release tool follows Conventional Commits to choose versions. What version increase does the commit below imply?",
-      "code": "fix: lowercase email before lookup\n\nBREAKING CHANGE: อีเมลที่มีตัวพิมพ์ใหญ่จะไม่ตรงกับบัญชีเดิมอีกต่อไป",
+      "code": "fix: lowercase email before lookup\n\nBREAKING CHANGE: Emails containing uppercase letters will no longer match existing accounts",
       "options": [
-        "PATCH, because fix always means PATCH",
-        "MINOR, because existing feature behavior changed",
-        "No release, because fix is not feat",
-        "MAJOR, because a BREAKING CHANGE footer is valid for every commit type"
+        "PATCH, because the fix type always corresponds to a patch release",
+        "MINOR, because this changes the behavior of an existing feature",
+        "No release, because fix does not count as a new feature",
+        "MAJOR, because BREAKING CHANGE applies to any commit type"
       ],
       "answer": 3,
       "explain": "The specification says a BREAKING CHANGE footer, or ! after the type/scope, denotes a breaking API change associated with MAJOR, for any commit type. PATCH seems plausible from fix but ignores the footer’s effect on the entire commit."
@@ -358,10 +370,10 @@
     {
       "prompt": "A 300-line commission module has no tests. The team wants clearer structure before adding a rule. What is the best first refactoring step?",
       "options": [
-        "Add tests capturing current behavior, then restructure in small steps while running them",
-        "Rewrite the whole module and manually compare it at week’s end",
-        "Fix discovered bugs simultaneously to avoid multiple PRs",
-        "Add the new rule first and reorganize only if time remains"
+        "Add tests for current behavior, then refactor in small, tested steps",
+        "Rewrite the module in one go, then compare results manually at week’s end",
+        "Fix bugs while restructuring to avoid multiple PRs and repeated changes",
+        "Add the rule in the existing code, then restructure if time remains"
       ],
       "answer": 0,
       "explain": "Refactoring uses small behavior-preserving steps with a working system after each. Tests capturing existing behavior provide a practical safety net; Google eng-practices also expects pure refactoring CLs to have coverage or add it. Whole-module rewrites or mixed bug fixes make behavior changes hard to distinguish."
@@ -369,10 +381,10 @@
     {
       "prompt": "A four-person team has 14 in-progress items, all stuck for days with almost nothing finishing. What should Kanban improve first?",
       "options": [
-        "Add more board columns for detailed visibility",
-        "Define and control WIP, pulling new work only when capacity is available",
-        "Have everyone multitask faster to clear the backlog",
-        "Add more items to make throughput look higher"
+        "Add more detailed board columns to show the status of every work item",
+        "Control WIP and pull new work only when capacity is available",
+        "Have everyone work on more items at once to clear the backlog faster",
+        "Pull more work onto the board to make the throughput number look higher"
       ],
       "answer": 1,
       "explain": "The Kanban Guide requires defining WIP control for started but unfinished items and pulling work when capacity exists. Little’s Law, separately from the Guide, explains that with stable throughput, more concurrent unfinished items increase average cycle time. More columns improve visibility without addressing the cause."
@@ -381,7 +393,7 @@
       "prompt": "A manager reads an SLE of “85% of items finish within eight days” and assumes every item will. Which interpretation is correct?",
       "options": [
         "Every item must finish in eight days or someone must be held accountable",
-        "It is the mean duration, so half the items always finish sooner",
+        "It is the average duration, so half the items always finish within eight days",
         "It is a time-and-probability forecast based on the team’s historical cycle time",
         "It is an unchangeable customer contract requiring SLA renegotiation when exceeded"
       ],
@@ -394,7 +406,7 @@
         "The PO should estimate it and require Developers to accept the number",
         "Wait for Sprint Planning to break it down in a single meeting",
         "The Scrum Master should break it down without consulting Developers",
-        "Refine continuously into items achievable within one Sprint, sized by Developers"
+        "Refine continuously into items doable in one Sprint, sized by Developers"
       ],
       "answer": 3,
       "explain": "The Guide considers items ready when they can finish within one Sprint. Refinement is ongoing, with Developers responsible for sizing. Leaving all decomposition for Planning makes it long and unclear. PO or Scrum Master sizing on behalf of Developers conflicts with the Guide."
@@ -404,7 +416,7 @@
       "options": [
         "It can be released earlier; Sprint Review is not a release gate",
         "It must wait for the Review so stakeholders can authorize release",
-        "It cannot be released before Sprint end because an Increment exists only then",
+        "It cannot ship before Sprint end because an Increment exists only then",
         "It may be released only with written Scrum Master approval"
       ],
       "answer": 0,
@@ -413,10 +425,10 @@
     {
       "prompt": "A developer writes an eight-page design doc for adding an alternate phone field to a profile form. It lists line-by-line file changes with no alternatives. How does Design Docs at Google suggest viewing this?",
       "options": [
-        "Good: line-level detail makes review easier",
-        "Unnecessary: the solution is clear and the doc is an implementation manual; implement and explain in the PR",
-        "It only needs a non-goals section to become sufficient",
-        "It needs 10–20 pages to qualify as a good design doc"
+        "Good: line-level detail helps reviewers and avoids follow-up questions",
+        "Unnecessary: implement the clear solution and explain it in the PR",
+        "Incomplete: add non-goals and it will be sufficient for design review",
+        "Too short: it needs 10–20 pages to qualify as a good design doc"
       ],
       "answer": 1,
       "explain": "The article treats design docs as a cost, useful when solutions are unclear. An implementation manual suggests one may be unnecessary. Small work can use one-to-three-page mini docs. Adding non-goals or more length misses that this problem may not need a doc at all."
@@ -425,9 +437,9 @@
       "prompt": "A checkout outage postmortem says “Root cause: Somchai ran a migration against the wrong production database”. Which rewrite best fits blameless practice?",
       "options": [
         "Replace the name with “an engineer” but still blame their lack of care",
-        "Remove the script details and say only “a temporary system problem”",
-        "State the wrong-database execution, ask why procedures allowed it, and improve the system",
-        "Keep the name, add an apology, and send Somchai for training"
+        "Hide the script details and describe only “a temporary system problem”",
+        "Record what happened, ask why procedures allowed it, and fix the system",
+        "Keep the name, add an apology, and send Somchai for production training"
       ],
       "answer": 2,
       "explain": "Blameless postmortems assume good intentions and ask why systems or processes allowed a mistake, then improve them. Anonymizing blame is still blame, while hiding facts prevents learning."
@@ -435,10 +447,10 @@
     {
       "prompt": "Teams are divided into Frontend, Backend, and Database. Leadership wants business services such as Payment and Catalog, yet every feature still requires three handoffs a year later. What best fits Conway’s Law?",
       "options": [
-        "Developers need more microservices and domain-driven design training",
-        "CI/CD tooling cannot support many independently deployed services",
-        "Every team must use the same language to produce a unified structure",
-        "System structure mirrors communication; organize teams around desired business boundaries"
+        "Train everyone in microservices and domain-driven design to improve their skills",
+        "Improve CI/CD tooling to support many services deployed independently",
+        "Require every team to use the same language to unify the system’s structure",
+        "Systems mirror communication; align teams with business boundaries"
       ],
       "answer": 3,
       "explain": "Conway’s Law says system design copies organizational communication structures. Layer-based teams tend to create work spanning several teams; aligning teams with desired boundaries is a common application. Conway himself emphasized organizational flexibility for good design. Training and tools alone do not fix the underlying structure."
@@ -447,10 +459,10 @@
       "prompt": "Five independently deployed services read users.phone. The team wants mobile without breaking any service and proposes the migration below. What is safer under parallel change?",
       "code": "ALTER TABLE users RENAME COLUMN phone TO mobile;",
       "options": [
-        "Add mobile and write both columns, migrate services individually, then remove phone when unused",
-        "Keep RENAME and tell every team to deploy immediately afterward",
-        "Run RENAME at night and deploy all five services in the same window",
-        "Only add mobile and leave phone forever because removal is too risky"
+        "Add mobile, write both columns, migrate services, then drop unused phone",
+        "Keep RENAME and ask every team to deploy immediately after the migration",
+        "Run RENAME at night and deploy all five services within the same window",
+        "Add only mobile and retain phone forever because removing it is too risky"
       ],
       "answer": 0,
       "explain": "Parallel change separates expand, migrate, and contract. Before contract, each step can deploy while old services still work; phone is removed only when unused. A one-step RENAME requires simultaneous migration. Never removing phone skips contract and leaves old structures indefinitely."
@@ -469,10 +481,10 @@
     {
       "prompt": "A reviewer blocks a clearly readability-improving PR for three days over three preferred variable names. What does Google’s review standard suggest?",
       "options": [
-        "Keep blocking until all preferences are met because code must be perfect",
-        "Approve without any comment because comments always cause delays",
-        "Approve definite code-health improvements despite imperfection and mark naming suggestions optional",
-        "Pass it to another reviewer without answering the author"
+        "Block until all three preferences are met because reviewers should demand perfection",
+        "Approve without any comments because every reviewer comment delays the PR",
+        "Approve the code-health improvement; mark naming preferences optional",
+        "Ask another reviewer to decide without answering the author’s naming questions"
       ],
       "answer": 2,
       "explain": "Google favors approving changes that definitely improve code health even when imperfect: there is better code, not perfect code. Style outside a style guide is personal preference. Reviewers may comment, but minor polish that should not block can begin with “Nit:”; comments.html defines Nit as a technically worthwhile but low-impact point, while truly optional suggestions use Optional or Consider. Blocking for perfection slows improvement and discourages useful changes."
@@ -481,10 +493,10 @@
       "prompt": "After releasing 1.2.0, the team creates CHANGELOG.md by pasting all git log --oneline output. Library users cannot understand it. What does Keep a Changelog suggest?",
       "code": "a1f3c9e Merge branch 'feat/csv'\n7b02d41 wip\nc93e5aa fix typo in docs\ne4410bd csv export",
       "options": [
-        "Add a header pointing users to the complete repository commit log",
-        "Reverse commit order and remove only merge commits",
-        "Format the log attractively and add every author name",
-        "Rewrite for humans, selecting important changes, grouping Added/Fixed, and including the release date"
+        "Add a header telling users to read the complete repository commit log",
+        "Reverse the commit order and remove merges, leaving everything else",
+        "Format the log attractively and include the author of every commit",
+        "Select key changes, group Added/Fixed, and include the release date"
       ],
       "answer": 3,
       "explain": "Keep a Changelog says changelogs are for humans, not machines. Commit logs include noise such as merges and unclear messages, so entries should be selected, edited, and grouped. Formatting or reversing the same noisy log does not fix its content."
@@ -496,10 +508,10 @@
       "level": "ง่าย",
       "tags": "user story · Given/When/Then · NFR",
       "lang": "markdown",
-      "prompt": "A customer requests: “Notify me when a product I want is back in stock”. Write one user story, at least two Given / When / Then acceptance criteria (including at least one case outside the happy path), and at least one non-functional requirement with a measurable number and unit.",
+      "prompt": "A customer requests: “Notify me when a product I want is back in stock”. Write one user story, at least two Given / When / Then acceptance criteria (preferably including at least one case outside the happy path), and at least one non-functional requirement with a measurable number and unit.",
       "context": "An online shop already has inventory tracking and an email service. Popular products sell out quickly, and many customers are waiting to buy.",
-      "starter": "## User story\nในฐานะ ...\n\n## Acceptance criteria\n\n## Non-functional\n",
-      "solution": "## User story\nในฐานะลูกค้าที่รอสินค้าที่หมดสต็อก\nฉันต้องการกดรับแจ้งเตือนเมื่อสินค้ากลับมามีของ\nเพื่อจะได้ซื้อก่อนของหมดอีกครั้ง\n\n## Acceptance criteria\n1. Given สินค้าหมดสต็อก\n   When ลูกค้ากด “แจ้งเตือนฉัน”\n   Then ระบบบันทึกคำขอและแสดงข้อความยืนยัน\n2. Given ลูกค้ากดรับแจ้งเตือนไว้\n   When สต็อกสินค้ามากกว่า 0\n   Then ระบบส่งอีเมลแจ้งลูกค้าเพียงครั้งเดียว\n3. Given ลูกค้ากดรับแจ้งเตือนไว้แล้ว\n   When กด “แจ้งเตือนฉัน” ซ้ำ\n   Then ระบบไม่สร้างคำขอซ้ำ และแจ้งว่าลงทะเบียนไว้แล้ว\n\n## Non-functional\n- ส่งแจ้งเตือนได้อย่างน้อย 10,000 ฉบับต่อชั่วโมง\n- ส่งแจ้งเตือนภายใน 15 นาทีหลังสต็อกเข้า ที่ p95",
+      "starter": "## User story\nAs a ...\n\n## Acceptance criteria\n\n## Non-functional\n",
+      "solution": "## User story\nAs a customer waiting for an out-of-stock product,\nI want to subscribe to back-in-stock notifications\nso that I can buy it before it sells out again.\n\n## Acceptance criteria\n1. Given a product is out of stock\n   When the customer selects “Notify me”\n   Then the system records the request and displays a confirmation\n2. Given a customer has subscribed to notifications\n   When the product's stock rises above 0\n   Then the system sends the customer exactly one notification email\n3. Given a customer has already subscribed to notifications\n   When they select “Notify me” again\n   Then the system creates no duplicate request and says they are already subscribed\n\n## Non-functional\n- Send at least 10,000 notification emails per hour\n- Send notifications within 15 minutes of restocking at p95",
       "hints": [
         "Start with “As a <user>, I want <capability>, so that <benefit>”.",
         "Separate the customer subscribing from the product returning to stock. Consider repeated clicks or the product selling out again.",
@@ -512,7 +524,7 @@
         },
         {
           "label": "State the desired capability",
-          "pattern": "ต้องการ|อยาก|i want|i'd like"
+          "pattern": "ต้องการ|อยาก|i want|i'd like|i would like"
         },
         {
           "label": "State the reason (“so that”)",
@@ -539,8 +551,8 @@
       "lang": "markdown",
       "prompt": "Using the incident notes below, write a blameless postmortem with Summary, Impact (including numbers), Timeline (at least three timestamps), Contributing factors (systems and procedures), What went well, and Action items (each with a responsible role and due date). Do not use personal names in the document; use roles such as “the deploying engineer”.",
       "context": "Raw notes from a fictional incident on Friday, September 25, 2026\n\n14:02 Somchai (backend developer) deployed a new payment-service configuration to production. The payment gateway timeout changed from 30 seconds to 3 seconds. Staging used an instantly responding mock gateway, so the issue was not visible.\n14:09 Checkout error rate rose from 0.5% to 38%.\n14:21 Malee (on-call) learned from support that customers could not pay. No automatic alert fired because its threshold was 50% errors sustained for 15 minutes.\n14:48 The team connected the incident to the latest configuration and began rollback.\n14:55 Error rate returned to normal.\n\nImpact: 1,240 failed orders; 87 customers were charged without an order and needed refunds.\nAdditional information: configuration changes require no code review and there is no canary.",
-      "starter": "# Postmortem: checkout ล่ม\n\n## Summary\n\n## Impact\n\n## Timeline\n\n## Contributing factors\n\n## What went well\n\n## Action items\n",
-      "solution": "# Postmortem: checkout ล่มหลัง deploy config\n\n## Summary\nวันศุกร์ที่ 25 กันยายน 2026 เวลา 14:02 การ deploy config ที่ลด timeout ของ payment gateway จาก 30 วินาทีเหลือ 3 วินาที ทำให้ error rate ของ checkout สูงถึง 38% นาน 46 นาที (14:09 ถึง 14:55) จนกลับสู่ปกติหลัง rollback\n\n## Impact\n- ออเดอร์ล้มเหลว 1,240 รายการ\n- ลูกค้า 87 รายถูกตัดเงินแต่ไม่มีออเดอร์ ต้องคืนเงิน\n- ตรวจพบช้า 12 นาทีหลัง error เริ่มเพิ่ม และไม่ได้มาจาก alert อัตโนมัติ\n\n## Timeline\n- 14:02 วิศวกรที่ deploy ปล่อย config ใหม่ของ payment-service\n- 14:09 error rate ของ checkout เพิ่มจาก 0.5% เป็น 38%\n- 14:21 on-call ทราบปัญหาจากทีม support (alert ไม่ดัง)\n- 14:48 ระบุว่าเกี่ยวกับ config ล่าสุด และเริ่ม rollback\n- 14:55 error rate กลับสู่ปกติ\n\n## Contributing factors\n- staging ใช้ mock gateway ที่ตอบทันที จึงไม่พบว่า timeout 3 วินาทีสั้นเกินไปสำหรับ gateway จริง\n- การแก้ config เข้า production ได้โดยไม่ต้องผ่าน code review และไม่มี canary\n- threshold ของ alert ตั้งไว้ที่ error 50% ต่อเนื่อง 15 นาที จึงไม่ดังที่ 38%\n\n## What went well\n- เมื่อทราบปัญหา ทีมระบุสาเหตุและ rollback ได้ภายในประมาณครึ่งชั่วโมง\n- ทีม support แจ้ง on-call ได้ และ rollback ทำให้ error rate กลับสู่ปกติ\n\n## Action items\n| งาน | ผู้รับผิดชอบ | กำหนดเสร็จ |\n| --- | --- | --- |\n| ให้การแก้ config ของ production ต้องผ่าน review | หัวหน้าทีม platform | 2026-10-16 |\n| ปรับ alert เป็น error มากกว่า 5% ต่อเนื่อง 5 นาที | on-call lead | 2026-10-09 |\n| ทดสอบบน staging กับ gateway sandbox จริง หรือเพิ่ม test ค่า timeout | หัวหน้าทีม QA | 2026-10-23 |\n| เพิ่ม canary สำหรับ deploy ของ payment-service | หัวหน้าทีม platform | 2026-10-30 |\n",
+      "starter": "# Postmortem: checkout outage\n\n## Summary\n\n## Impact\n\n## Timeline\n\n## Contributing factors\n\n## What went well\n\n## Action items\n",
+      "solution": "# Postmortem: checkout outage after a configuration deployment\n\n## Summary\nOn Friday, September 25, 2026, at 14:02, a configuration deployment reduced the payment gateway timeout from 30 seconds to 3 seconds. Checkout errors rose to 38% for 46 minutes (14:09 to 14:55), returning to normal after rollback.\n\n## Impact\n- 1,240 failed orders\n- 87 customers charged without an order; refunds required\n- Detection took 12 minutes after errors began rising and did not come from an automatic alert\n\n## Timeline\n- 14:02 The deploying engineer released a new payment-service configuration\n- 14:09 Checkout error rate rose from 0.5% to 38%\n- 14:21 On-call learned of the issue from support (no alert fired)\n- 14:48 The team linked the incident to the latest configuration and began rollback\n- 14:55 Error rate returned to normal\n\n## Contributing factors\n- Staging used an instantly responding mock gateway, hiding that a 3-second timeout was too short for the real gateway\n- Configuration changes could reach production without code review or a canary\n- The alert threshold required 50% errors for 15 minutes, so it did not fire at 38%\n\n## What went well\n- After learning of the issue, the team identified the cause and rolled back within about half an hour\n- Support reached on-call, and rollback restored the normal error rate\n\n## Action items\n| Action | Owner | Due date |\n| --- | --- | --- |\n| Require review for production configuration changes | Platform team lead | 2026-10-16 |\n| Alert on an error rate above 5% sustained for 5 minutes | On-call lead | 2026-10-09 |\n| Test staging against the real gateway sandbox or add timeout tests | QA team lead | 2026-10-23 |\n| Add a canary for payment-service deployments | Platform team lead | 2026-10-30 |\n",
       "hints": [
         "Start with the section headings and fill them with facts from the notes. Numbers and timestamps must match.",
         "Ask why procedures or systems allowed the mistake rather than who was at fault. Use roles such as deploying engineer or on-call instead of names.",
@@ -561,7 +573,7 @@
         },
         {
           "label": "Include Contributing factors or a causes section",
-          "pattern": "^#+[ \\t]*.*(?:contributing|root cause|สาเหตุ)|^[^\\n]*(?:contributing|root cause|สาเหตุ)[^\\n]*\\n[=-]{2,}[ \\t]*$"
+          "pattern": "^#+[ \\t]*.*(?:contributing|root cause|causes?|สาเหตุ)|^[^\\n]*(?:contributing|root cause|causes?|สาเหตุ)[^\\n]*\\n[=-]{2,}[ \\t]*$"
         },
         {
           "label": "Do not name individuals (Somchai, Malee)",
@@ -574,7 +586,7 @@
         },
         {
           "label": "Assign due dates to Action items",
-          "pattern": "(?:^(#+)[ \\t]*(?:\\d+[.)]?[ \\t]*)?(?:action|งานติดตาม|แผนแก้ไข)[^\\n]*|^(?:action|งานติดตาม|แผนแก้ไข)[^\\n]*\\n[=-]{2,}[ \\t]*)\\n(?:(?!^(?!\\1#)#|^[^\\n]+\\n[=-]{2,}[ \\t]*$)[\\s\\S])*(due|กำหนดเสร็จ|กำหนด|ภายใน|\\d{4}-\\d{2}-\\d{2}|\\d{1,2}/\\d{1,2}/\\d{2,4})"
+          "pattern": "(?:^(#+)[ \\t]*(?:\\d+[.)]?[ \\t]*)?(?:action|งานติดตาม|แผนแก้ไข)[^\\n]*|^(?:action|งานติดตาม|แผนแก้ไข)[^\\n]*\\n[=-]{2,}[ \\t]*)\\n(?:(?!^(?!\\1#)#|^[^\\n]+\\n[=-]{2,}[ \\t]*$)[\\s\\S])*(due|deadline|กำหนดเสร็จ|กำหนด|ภายใน|\\d{4}-\\d{2}-\\d{2}|\\d{1,2}/\\d{1,2}/\\d{2,4})"
         }
       ]
     },
@@ -585,8 +597,8 @@
       "lang": "shell",
       "prompt": "The team uses Conventional Commits and wants Git to reject invalid messages. Write a shell script for the commit-msg hook that: (1) reads the first line of the commit message file passed as the first argument, skipping lines beginning with #; (2) requires type(scope)!: description, with optional scope and !, a space after :, and a nonempty description; (3) accepts feat, fix, docs, style, refactor, perf, test, build, ci, chore, revert as case-insensitive types (a team convention, not a specification requirement); (4) allows Git-generated messages beginning with “Merge ” and “Revert ”; (5) prints an explanation and example to stderr and exits with code 1 on failure.",
       "context": "Git calls commit-msg with one parameter: the path to the commit message file. A nonzero hook exit code cancels the commit; git merge also calls this hook. Save it as .git/hooks/commit-msg and run chmod +x. POSIX sh and grep -E are sufficient.\n\nMust pass: feat: add coupon field | fix(cart)!: change rounding | Merge branch 'x'\nMust fail: added stuff | feat:missing space | feature: wrong type",
-      "starter": "#!/bin/sh\n# .git/hooks/commit-msg\nmsg_file=\"$1\"\n\n# TODO: ตรวจบรรทัดแรกของข้อความ commit\n",
-      "solution": "#!/bin/sh\n# commit-msg hook: บังคับรูปแบบ Conventional Commits\nmsg_file=\"$1\"\nsubject=$(grep -v '^#' \"$msg_file\" | head -n 1)\n\n# ปล่อยผ่าน merge commit และ revert commit ที่ Git สร้างให้\ncase \"$subject\" in\n  \"Merge \"*|\"Revert \"*) exit 0 ;;\nesac\n\npattern='^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\\([^()]+\\))?!?: .*[^[:space:]]'\nif ! printf '%s\\n' \"$subject\" | grep -Eiq \"$pattern\"; then\n  echo \"commit message ไม่ตรงรูปแบบ: <type>(<scope>)!: <description>\" >&2\n  echo \"ตัวอย่าง: feat(api)!: ลบ endpoint v1\" >&2\n  exit 1\nfi\n",
+      "starter": "#!/bin/sh\n# .git/hooks/commit-msg\nmsg_file=\"$1\"\n\n# TODO: validate the first line of the commit message\n",
+      "solution": "#!/bin/sh\n# commit-msg hook: enforce Conventional Commits format\nmsg_file=\"$1\"\nsubject=$(grep -v '^#' \"$msg_file\" | head -n 1)\n\n# allow Git-generated merge and revert commits\ncase \"$subject\" in\n  \"Merge \"*|\"Revert \"*) exit 0 ;;\nesac\n\npattern='^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\\([^()]+\\))?!?: .*[^[:space:]]'\nif ! printf '%s\\n' \"$subject\" | grep -Eiq \"$pattern\"; then\n  echo \"Invalid commit message format: <type>(<scope>)!: <description>\" >&2\n  echo \"Example: feat(api)!: remove endpoint v1\" >&2\n  exit 1\nfi\n",
       "hints": [
         "Git passes the file path as $1. Use grep -v or sed to read the first non-comment line into a variable.",
         "Build an extended regex such as ^(type1|type2|...)(\\(scope\\))?!?: .+ and test it with grep -Eiq. Handle Merge and Revert first using case.",
@@ -665,5 +677,17 @@
       "url": "https://google.github.io/eng-practices/review/reviewer/comments.html",
       "note": "Nit / Optional / FYI labels and writing review comments"
     }
+  ],
+  "cheatsheet": [
+    "Agile completes the SDLC in short iterations to get feedback on working software.",
+    "A user story uses “As a… I want… so that…”; “so that” identifies the actual problem, and the story starts a conversation.",
+    "Given is the starting state, When the action, and Then a verifiable result; acceptance criteria must also cover failure cases.",
+    "Functional requirements say what the system does; NFRs say how well it must do it and must be verifiable.",
+    "DoD is the team’s shared quality standard; acceptance criteria are specific to each story.",
+    "Code review focuses on correctness, security, design, and tests; leave style to formatters or linters.",
+    "SemVer: MAJOR for incompatible public API changes, MINOR for compatible feature additions, PATCH for compatible bug fixes.",
+    "Refactoring changes structure without changing observable behavior; use small steps and automated tests to verify it.",
+    "An estimate is a prediction, not a promise; give a range with assumptions and risks, and use a time-boxed spike for unknowns.",
+    "Parallel change: expand supports old and new, migrate moves consumers individually, contract removes the old interface once unused."
   ]
 }

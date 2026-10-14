@@ -9,72 +9,84 @@
       "tier": "must",
       "title": "SELECT พื้นฐานและพฤติกรรมของ NULL",
       "body": "SELECT … FROM … WHERE … ORDER BY … LIMIT คือโครงหลักของการอ่านข้อมูล จุดที่พลาดบ่อยคือ NULL ซึ่งแปลว่า “ไม่รู้ค่า” การเปรียบเทียบใด ๆ กับ NULL (แม้แต่ NULL = NULL) ได้ผลเป็น UNKNOWN และ WHERE เก็บเฉพาะแถวที่เป็น TRUE จึงต้องใช้ IS NULL, IS NOT NULL หรือ COALESCE แทน ผลที่ตามมาคือ status <> 'paid' จะไม่คืนแถวที่ status เป็น NULL, COUNT(col) ไม่นับ NULL ต่างจาก COUNT(*) และ NOT IN กับรายการที่มี NULL จะไม่คืนแถวใดเลย",
-      "code": "-- แถวที่ status เป็น NULL จะหลุดไป\nSELECT * FROM orders WHERE status <> 'paid';\n\n-- ถ้าต้องการรวมแถว NULL ด้วย\nSELECT * FROM orders\nWHERE status <> 'paid' OR status IS NULL;\n\n-- COUNT(*) นับทุกแถว ส่วน COUNT(email) ข้าม NULL\nSELECT COUNT(*), COUNT(email) FROM customers;"
+      "code": "-- แถวที่ status เป็น NULL จะหลุดไป\nSELECT * FROM orders WHERE status <> 'paid';\n\n-- ถ้าต้องการรวมแถว NULL ด้วย\nSELECT * FROM orders\nWHERE status <> 'paid' OR status IS NULL;\n\n-- COUNT(*) นับทุกแถว ส่วน COUNT(email) ข้าม NULL\nSELECT COUNT(*), COUNT(email) FROM customers;",
+      "ref": "https://www.postgresql.org/docs/current/functions-comparison.html"
     },
     {
       "tier": "must",
       "title": "JOIN และการคูณแถว",
       "body": "INNER JOIN คืนเฉพาะแถวที่จับคู่ได้ทั้งสองฝั่ง ส่วน LEFT JOIN เก็บทุกแถวของตารางซ้ายและเติม NULL เมื่อไม่มีคู่ JOIN ไม่ได้ “ดึงข้อมูลมาแปะ” แต่สร้างหนึ่งแถวต่อทุกคู่ที่ตรงเงื่อนไข ลูกค้า 1 คนที่มี 3 ออเดอร์จึงกลายเป็น 3 แถว และถ้า join ตาราง one-to-many สองตารางพร้อมกันแถวจะคูณกันจน SUM หรือ COUNT เพี้ยน อีกกับดักคือใส่เงื่อนไขของตารางขวาที่ไม่ยอมรับ NULL (เช่น o.status = 'paid') ไว้ใน WHERE ซึ่งตัดแถวที่ไม่มีคู่ทิ้งจน LEFT JOIN ทำงานเหมือน INNER JOIN ให้ย้ายเงื่อนไขนั้นไปไว้ใน ON (ยกเว้นเงื่อนไขอย่าง o.id IS NULL ที่ตั้งใจหาแถวไม่มีคู่)",
-      "code": "-- ลูกค้าทุกคน + จำนวนออเดอร์ที่จ่ายแล้ว (คนที่ไม่มีได้ 0)\nSELECT c.name, COUNT(o.id) AS paid_orders\nFROM customers c\nLEFT JOIN orders o\n  ON o.customer_id = c.id\n AND o.status = 'paid'   -- อยู่ใน ON ไม่ใช่ WHERE\nGROUP BY c.id, c.name;"
+      "code": "-- ลูกค้าทุกคน + จำนวนออเดอร์ที่จ่ายแล้ว (คนที่ไม่มีได้ 0)\nSELECT c.name, COUNT(o.id) AS paid_orders\nFROM customers c\nLEFT JOIN orders o\n  ON o.customer_id = c.id\n AND o.status = 'paid'   -- อยู่ใน ON ไม่ใช่ WHERE\nGROUP BY c.id, c.name;",
+      "ref": "https://www.postgresql.org/docs/current/queries-table-expressions.html#QUERIES-JOIN"
     },
     {
       "tier": "must",
       "title": "GROUP BY, HAVING และลำดับการทำงานของ query",
       "body": "ฐานข้อมูลตีความ query ตามลำดับเชิงตรรกะ FROM/JOIN → WHERE → GROUP BY → HAVING → SELECT → ORDER BY → LIMIT ไม่ใช่ตามลำดับที่เขียน WHERE จึงกรองแถวก่อนจัดกลุ่มและใช้ aggregate อย่าง SUM() ไม่ได้ ส่วน HAVING กรองกลุ่มหลังคำนวณแล้ว alias ที่ตั้งใน SELECT ใช้ใน WHERE ไม่ได้แต่ใช้ใน ORDER BY ได้ (บาง DB ยอมให้ใช้ใน GROUP BY หรือ HAVING เป็นส่วนขยาย แต่ไม่ควรพึ่ง) และคอลัมน์ใน SELECT ที่ไม่ได้อยู่ใน aggregate ต้องอยู่ใน GROUP BY หรือขึ้นกับ primary key ที่ group อยู่",
-      "code": "SELECT customer_id, SUM(total) AS spent\nFROM orders\nWHERE status = 'paid'       -- กรองแถว ก่อนจัดกลุ่ม\nGROUP BY customer_id\nHAVING SUM(total) > 10000   -- กรองกลุ่ม หลังรวมยอด\nORDER BY spent DESC;        -- ORDER BY ใช้ alias ได้"
+      "code": "SELECT customer_id, SUM(total) AS spent\nFROM orders\nWHERE status = 'paid'       -- กรองแถว ก่อนจัดกลุ่ม\nGROUP BY customer_id\nHAVING SUM(total) > 10000   -- กรองกลุ่ม หลังรวมยอด\nORDER BY spent DESC;        -- ORDER BY ใช้ alias ได้",
+      "ref": "https://www.postgresql.org/docs/current/sql-select.html"
     },
     {
       "tier": "must",
       "title": "Keys, constraints และ normalization",
       "body": "primary key ระบุแต่ละแถวแบบไม่ซ้ำ foreign key บังคับว่าค่าที่อ้างถึงต้องมีอยู่จริง และ UNIQUE, NOT NULL, CHECK ให้ฐานข้อมูลช่วยกันข้อมูลเสียแทนการพึ่งโค้ดอย่างเดียว normalization (ราว 1NF–3NF) คือการเก็บข้อเท็จจริงแต่ละอย่างไว้ที่เดียว เช่น เก็บชื่อลูกค้าใน customers แล้วให้ orders อ้างด้วย customer_id แทนการคัดลอกชื่อลงทุกออเดอร์ ซึ่งพอลูกค้าเปลี่ยนชื่อจะแก้ไม่ครบ (update anomaly) การ denormalize เพื่ออ่านเร็วทำได้แต่ควรเป็นการตัดสินใจที่รู้ตัว และใน PostgreSQL การประกาศ foreign key ไม่สร้าง index ให้คอลัมน์ฝั่งที่อ้างอิงอัตโนมัติ ต้องสร้างเองถ้า join หรือลบบ่อย",
-      "code": "CREATE TABLE orders (\n  id          BIGINT PRIMARY KEY,\n  customer_id BIGINT NOT NULL REFERENCES customers(id),\n  total       NUMERIC(12,2) NOT NULL CHECK (total >= 0),\n  created_at  TIMESTAMPTZ NOT NULL DEFAULT now()\n);\nCREATE INDEX ON orders (customer_id);"
+      "code": "CREATE TABLE orders (\n  id          BIGINT PRIMARY KEY,\n  customer_id BIGINT NOT NULL REFERENCES customers(id),\n  total       NUMERIC(12,2) NOT NULL CHECK (total >= 0),\n  created_at  TIMESTAMPTZ NOT NULL DEFAULT now()\n);\nCREATE INDEX ON orders (customer_id);",
+      "ref": "https://www.postgresql.org/docs/current/ddl-constraints.html"
     },
     {
       "tier": "must",
       "title": "Transaction และ ACID",
       "body": "transaction รวมหลายคำสั่งเป็นหน่วยเดียว: COMMIT แล้วผลอยู่ครบ ถ้า ROLLBACK หรือระบบล่มกลางทางก็เหมือนไม่เคยเกิด ACID คือ Atomicity (ทั้งหมดหรือไม่มีเลย), Consistency (ไม่ละเมิด constraint), Isolation (transaction ที่รันพร้อมกันไม่เห็นสถานะครึ่งทางของกัน) และ Durability (COMMIT แล้วไม่หายแม้ไฟดับ) ถ้าไม่เปิด transaction เอง ส่วนใหญ่จะเป็น autocommit คือแต่ละคำสั่ง commit ทันที การโอนเงินด้วย UPDATE สองครั้งจึงอาจหักเงินแล้วไม่เติมให้ปลายทาง ควรทำ transaction ให้สั้นและไม่รอ network call หรือผู้ใช้ระหว่างนั้น เพราะ lock จะค้างนาน",
-      "code": "BEGIN;\nUPDATE accounts SET balance = balance - 500 WHERE id = 1;\nUPDATE accounts SET balance = balance + 500 WHERE id = 2;\nCOMMIT;  -- ถ้ามี error ระหว่างทางให้ ROLLBACK ทั้งชุด"
+      "code": "BEGIN;\nUPDATE accounts SET balance = balance - 500 WHERE id = 1;\nUPDATE accounts SET balance = balance + 500 WHERE id = 2;\nCOMMIT;  -- ถ้ามี error ระหว่างทางให้ ROLLBACK ทั้งชุด",
+      "ref": "https://www.postgresql.org/docs/current/tutorial-transactions.html"
     },
     {
       "tier": "must",
       "title": "Index และการอ่าน EXPLAIN",
       "body": "index (ส่วนใหญ่เป็น B-tree) เก็บค่าที่เรียงไว้ให้หาแถวได้โดยไม่ต้องสแกนทั้งตาราง ช่วย WHERE, JOIN และ ORDER BY แต่ INSERT, DELETE และ UPDATE ส่วนใหญ่ต้องอัปเดต index ด้วย (PostgreSQL มี HOT update ที่ข้ามได้ในบางกรณี) และ index กินพื้นที่ จึงสร้างตาม query ที่ใช้จริง index หลายคอลัมน์ (a, b) ได้ผลดีที่สุดเมื่อเงื่อนไขเริ่มจากคอลัมน์ซ้ายสุด และการครอบคอลัมน์ด้วยฟังก์ชัน เช่น LOWER(email) ทำให้ index ปกติบน email ใช้ไม่ได้ (ต้องสร้าง expression index) ใช้ EXPLAIN ดูแผนที่ planner เลือก และ EXPLAIN ANALYZE ดูเวลาจริง ซึ่งรัน query จริง ถ้าเป็น UPDATE/DELETE ให้ครอบด้วย transaction แล้ว ROLLBACK",
-      "code": "CREATE INDEX idx_orders_customer_created\n  ON orders (customer_id, created_at);\n\nEXPLAIN ANALYZE\nSELECT * FROM orders\nWHERE customer_id = 42\nORDER BY created_at DESC\nLIMIT 20;\n-- บนตารางใหญ่ควรเห็น Index Scan ไม่ใช่ Seq Scan"
+      "code": "CREATE INDEX idx_orders_customer_created\n  ON orders (customer_id, created_at);\n\nEXPLAIN ANALYZE\nSELECT * FROM orders\nWHERE customer_id = 42\nORDER BY created_at DESC\nLIMIT 20;\n-- บนตารางใหญ่ควรเห็น Index Scan ไม่ใช่ Seq Scan",
+      "ref": "https://www.postgresql.org/docs/current/indexes-multicolumn.html"
     },
     {
       "tier": "should",
       "title": "CTE และ window functions",
       "body": "CTE (WITH name AS (…)) ตั้งชื่อให้ผลลัพธ์ย่อย เพื่อแตก query ยาวเป็นขั้น ๆ ที่อ่านและตรวจทีละส่วนได้ window function เช่น ROW_NUMBER(), RANK(), LAG() หรือ SUM() OVER (PARTITION BY … ORDER BY …) คำนวณข้ามแถวโดยไม่ยุบแถวแบบ GROUP BY เหมาะกับอันดับในแต่ละกลุ่ม ยอดสะสม หรือเทียบกับแถวก่อนหน้า window function คำนวณในขั้น SELECT ซึ่งมาหลัง WHERE จึงต้องห่อด้วย CTE หรือ subquery ก่อนกรองผลของมัน",
-      "code": "-- ออเดอร์ล่าสุดของลูกค้าแต่ละคน\nWITH ranked AS (\n  SELECT o.*,\n         ROW_NUMBER() OVER (\n           PARTITION BY customer_id\n           ORDER BY created_at DESC\n         ) AS rn\n  FROM orders o\n)\nSELECT * FROM ranked WHERE rn = 1;"
+      "code": "-- ออเดอร์ล่าสุดของลูกค้าแต่ละคน\nWITH ranked AS (\n  SELECT o.*,\n         ROW_NUMBER() OVER (\n           PARTITION BY customer_id\n           ORDER BY created_at DESC\n         ) AS rn\n  FROM orders o\n)\nSELECT * FROM ranked WHERE rn = 1;",
+      "ref": "https://www.postgresql.org/docs/current/tutorial-window.html"
     },
     {
       "tier": "should",
       "title": "ปัญหา N+1 query",
       "body": "N+1 เกิดเมื่อโค้ดดึงรายการมา 1 ครั้งแล้ววน loop ยิง query เพิ่มทีละแถว เช่น บทความ 50 รายการ + query ผู้เขียนอีก 50 ครั้ง มักซ่อนอยู่ใน lazy loading ของ ORM จึงดูเร็วตอน dev ที่ข้อมูลน้อย แต่ช้าบน production เพราะทุก query มี round-trip ของตัวเอง แก้โดยดึงข้อมูลที่เกี่ยวข้องในครั้งเดียวด้วย JOIN หรือ WHERE id IN (…) หรือใช้ eager loading ของ ORM (เช่น select_related/prefetch_related ของ Django หรือ includes ของ Rails) และสังเกตได้จาก query log ที่มีคำสั่งหน้าตาเดียวกันซ้ำ ๆ",
-      "code": "-- N+1: 1 ครั้ง + อีก 1 ครั้งต่อบทความ\nSELECT id, title, author_id FROM posts LIMIT 50;\nSELECT name FROM users WHERE id = $1;  -- x50\n\n-- แก้: ดึงผู้เขียนมาพร้อมกันในครั้งเดียว\nSELECT p.id, p.title, u.name\nFROM posts p\nJOIN users u ON u.id = p.author_id\nLIMIT 50;"
+      "code": "-- N+1: 1 ครั้ง + อีก 1 ครั้งต่อบทความ\nSELECT id, title, author_id FROM posts LIMIT 50;\nSELECT name FROM users WHERE id = $1;  -- x50\n\n-- แก้: ดึงผู้เขียนมาพร้อมกันในครั้งเดียว\nSELECT p.id, p.title, u.name\nFROM posts p\nJOIN users u ON u.id = p.author_id\nLIMIT 50;",
+      "ref": "https://guides.rubyonrails.org/active_record_querying.html#n-1-queries-problem"
     },
     {
       "tier": "should",
       "title": "Migration แบบปลอดภัย (expand/contract)",
       "body": "เปลี่ยน schema ผ่านไฟล์ migration ที่อยู่ใน Git และรันผ่าน pipeline ไม่แก้ production ด้วยมือ ระหว่าง deploy จะมีโค้ดเวอร์ชันเก่าและใหม่รันพร้อมกัน การเปลี่ยนที่ทำลายของเดิม (rename หรือ drop คอลัมน์) จึงต้องแยกเป็นขั้น: expand (เพิ่มของใหม่ที่โค้ดเก่าไม่สนใจ) → migrate (เขียนสองที่ backfill แล้วย้ายการอ่าน) → contract (ลบของเก่าเมื่อไม่มีโค้ดใช้แล้ว) ระวังคำสั่งที่ lock ตารางใหญ่นาน เช่น ใน PostgreSQL ให้สร้าง index ด้วย CREATE INDEX CONCURRENTLY ซึ่งไม่บล็อกการเขียน (แต่รันใน transaction block ไม่ได้) และ backfill เป็นชุดเล็ก ๆ",
-      "code": "-- 1) expand\nALTER TABLE users ADD COLUMN full_name TEXT;\n-- 2) migrate: โค้ดเขียนทั้งสองคอลัมน์ + backfill ทีละชุด\nUPDATE users SET full_name = name\nWHERE full_name IS NULL AND id BETWEEN 1 AND 10000;\n-- 3) deploy โค้ดที่อ่าน full_name\n-- 4) contract (release ถัดไป)\nALTER TABLE users DROP COLUMN name;"
+      "code": "-- 1) expand\nALTER TABLE users ADD COLUMN full_name TEXT;\n-- 2) migrate: โค้ดเขียนทั้งสองคอลัมน์ + backfill ทีละชุด\nUPDATE users SET full_name = name\nWHERE full_name IS NULL AND id BETWEEN 1 AND 10000;\n-- 3) deploy โค้ดที่อ่าน full_name\n-- 4) contract (release ถัดไป)\nALTER TABLE users DROP COLUMN name;",
+      "ref": "https://martinfowler.com/bliki/ParallelChange.html"
     },
     {
       "tier": "should",
       "title": "Parameterized query กัน SQL injection",
       "body": "การต่อ string จาก input เข้าไปใน SQL ทำให้ผู้ใช้แทรกคำสั่งเองได้ เช่น ใส่ ' OR '1'='1 จนเงื่อนไขเป็นจริงทุกแถว วิธีที่ถูกคือ parameterized query หรือ prepared statement ซึ่งส่งตัวคำสั่งกับค่าแยกกัน ฐานข้อมูลจึงไม่ตีความค่าเป็น SQL ส่วนการ escape เองหรือกรองอักขระเป็นแค่การบรรเทา ชื่อตารางหรือคอลัมน์ (เช่น คอลัมน์ที่ใช้ sort) ส่งเป็น parameter ไม่ได้ ให้ตรวจกับ allowlist แทน",
-      "code": "// อันตราย: ค่าจากผู้ใช้กลายเป็นส่วนหนึ่งของ SQL\ndb.query(\"SELECT * FROM users WHERE email = '\" + email + \"'\");\n\n// ปลอดภัย: node-postgres ใช้ $1, $2, ...\ndb.query('SELECT * FROM users WHERE email = $1', [email]);"
+      "code": "// อันตราย: ค่าจากผู้ใช้กลายเป็นส่วนหนึ่งของ SQL\ndb.query(\"SELECT * FROM users WHERE email = '\" + email + \"'\");\n\n// ปลอดภัย: node-postgres ใช้ $1, $2, ...\ndb.query('SELECT * FROM users WHERE email = $1', [email]);",
+      "ref": "https://cheatsheetseries.owasp.org/cheatsheets/SQL_Injection_Prevention_Cheat_Sheet.html"
     },
     {
       "tier": "advanced",
       "title": "Isolation level และ lost update",
       "body": "isolation level กำหนดว่า transaction ที่รันพร้อมกันเห็นการเปลี่ยนแปลงของกันแค่ไหน: Read Committed กัน dirty read, Repeatable Read กัน non-repeatable read เพิ่ม และ Serializable ให้ผลเหมือนรันทีละตัว ค่าเริ่มต้นต่างกัน (PostgreSQL ใช้ Read Committed, MySQL InnoDB ใช้ Repeatable Read) และพฤติกรรมจริงของแต่ละ DB ไม่ตรงตารางมาตรฐานทุกช่อง กับดักที่พบบ่อยคือ lost update: สอง request อ่าน stock = 10 พร้อมกันแล้วต่างเขียน 9 ทับกัน แก้ด้วย UPDATE แบบอะตอม, SELECT … FOR UPDATE หรือใช้ Serializable คู่กับโค้ด retry เมื่อเจอ serialization failure",
-      "code": "-- อ่านแล้วค่อยเขียน: เสี่ยง lost update\nSELECT stock FROM products WHERE id = 7;   -- ได้ 10\nUPDATE products SET stock = 9 WHERE id = 7;\n\n-- อะตอมในคำสั่งเดียว และกันสต็อกติดลบ\nUPDATE products SET stock = stock - 1\nWHERE id = 7 AND stock > 0;"
+      "code": "-- อ่านแล้วค่อยเขียน: เสี่ยง lost update\nSELECT stock FROM products WHERE id = 7;   -- ได้ 10\nUPDATE products SET stock = 9 WHERE id = 7;\n\n-- อะตอมในคำสั่งเดียว และกันสต็อกติดลบ\nUPDATE products SET stock = stock - 1\nWHERE id = 7 AND stock > 0;",
+      "ref": "https://www.postgresql.org/docs/current/transaction-iso.html"
     },
     {
       "tier": "advanced",
       "title": "SQL vs NoSQL และการขยายระบบ",
-      "body": "relational database เด่นเรื่องข้อมูลที่มีความสัมพันธ์ query แบบ ad-hoc ด้วย JOIN และ constraint กับ transaction ที่เข้มงวด ส่วน NoSQL (document, key-value, wide-column) มักออกแบบตามรูปแบบการอ่านเขียนที่รู้ล่วงหน้าและกระจายข้อมูลข้ามเครื่องได้ง่ายกว่า แต่ query ที่ไม่ได้วางแผนไว้ทำได้ยาก เส้นแบ่งไม่ชัดเหมือนเดิม เพราะ PostgreSQL มี JSONB และ NoSQL หลายตัว (เช่น MongoDB) รองรับ transaction หลายเอกสาร จึงควรเลือกจาก access pattern และความต้องการด้าน consistency ไม่ใช่ตามกระแส ก่อนคิดถึง sharding ให้ลอง index, read replica (ระวัง replication lag ที่ทำให้อ่านค่าที่เพิ่งเขียนไม่เจอ) และ cache ก่อน เพราะ sharding เพิ่มความซับซ้อนมาก"
+      "body": "relational database เด่นเรื่องข้อมูลที่มีความสัมพันธ์ query แบบ ad-hoc ด้วย JOIN และ constraint กับ transaction ที่เข้มงวด ส่วน NoSQL (document, key-value, wide-column) มักออกแบบตามรูปแบบการอ่านเขียนที่รู้ล่วงหน้าและกระจายข้อมูลข้ามเครื่องได้ง่ายกว่า แต่ query ที่ไม่ได้วางแผนไว้ทำได้ยาก เส้นแบ่งไม่ชัดเหมือนเดิม เพราะ PostgreSQL มี JSONB และ NoSQL หลายตัว (เช่น MongoDB) รองรับ transaction หลายเอกสาร จึงควรเลือกจาก access pattern และความต้องการด้าน consistency ไม่ใช่ตามกระแส ก่อนคิดถึง sharding ให้ลอง index, read replica (ระวัง replication lag ที่ทำให้อ่านค่าที่เพิ่งเขียนไม่เจอ) และ cache ก่อน เพราะ sharding เพิ่มความซับซ้อนมาก",
+      "ref": "https://www.postgresql.org/docs/current/datatype-json.html#JSON-DOC-DESIGN"
     },
     {
       "tier": "must",
@@ -184,9 +196,9 @@
       "code": "SELECT c.name, COUNT(o.id) AS paid_orders\nFROM customers c\nLEFT JOIN orders o ON o.customer_id = c.id\nWHERE o.status = 'paid'\nGROUP BY c.id, c.name;",
       "options": [
         "ย้าย o.status = 'paid' ไปไว้ในเงื่อนไข ON ของ LEFT JOIN",
-        "เปลี่ยน COUNT(o.id) เป็น COUNT(*) เพื่อให้นับแถวที่เป็น NULL ด้วย",
-        "เปลี่ยนเป็น RIGHT JOIN เพื่อให้เก็บแถวที่ไม่มีคู่ไว้",
-        "เพิ่ม o.status ลงใน GROUP BY เพื่อแยกกลุ่มตามสถานะ"
+        "เปลี่ยน COUNT(o.id) เป็น COUNT(*) เพื่อให้นับแถวที่เป็น NULL",
+        "เปลี่ยนเป็น RIGHT JOIN เพื่อให้เก็บแถวที่ไม่มีคู่ไว้ครบทุกแถว",
+        "เพิ่ม o.status ลงใน GROUP BY เพื่อแยกกลุ่มตามสถานะออเดอร์"
       ],
       "answer": 0,
       "explain": "WHERE ทำงานหลัง JOIN ลูกค้าที่ไม่มีคู่จะมี o.status เป็น NULL จึงถูกกรองทิ้ง LEFT JOIN เลยกลายเป็น INNER JOIN เมื่อย้ายเงื่อนไขไปที่ ON จะกรองเฉพาะฝั่ง orders แต่ยังเก็บลูกค้าทุกคน ส่วน COUNT(*) ไม่ช่วยและยังนับแถว NULL เป็น 1 แทน 0"
@@ -242,9 +254,9 @@
       "prompt": "หน้ารายการบทความโหลดช้า query log แสดง SELECT … FROM posts LIMIT 50 หนึ่งครั้ง ตามด้วย SELECT … FROM users WHERE id = $1 อีก 50 ครั้ง วิธีแก้ที่ตรงจุดที่สุดคืออะไร?",
       "options": [
         "เพิ่ม index ให้ users.id เพื่อให้แต่ละ query หาผู้เขียนได้เร็วขึ้น",
-        "เพิ่มขนาด connection pool ให้ 50 query วิ่งขนานกันได้",
-        "ดึงผู้เขียนทั้งหมดในครั้งเดียวด้วย JOIN, WHERE id IN (…) หรือ eager loading",
-        "cache ผลของ query ผู้เขียนแต่ละ id ไว้ใน Redis"
+        "เพิ่มขนาด connection pool เพื่อให้ทั้ง 50 query วิ่งขนานกันได้",
+        "ดึงผู้เขียนทั้งหมดครั้งเดียวด้วย JOIN, WHERE id IN (…) หรือ eager loading",
+        "cache ผลของ query ผู้เขียนแต่ละ id ไว้ใน Redis เพื่อไม่ต้องถามซ้ำ"
       ],
       "answer": 2,
       "explain": "นี่คือ N+1 query ต้นทุนหลักคือ round-trip 50 ครั้ง ไม่ใช่ความเร็วของแต่ละ query การดึงในครั้งเดียวลดเหลือ 1–2 query ส่วน users.id เป็น primary key ที่มี index อยู่แล้ว และ cache ทีละ id ก็ยังยิงหลายรอบเหมือนเดิมแค่เปลี่ยนปลายทาง"
@@ -274,10 +286,10 @@
     {
       "prompt": "ต้องการออเดอร์ล่าสุด 1 รายการของลูกค้าแต่ละคน พร้อมทุกคอลัมน์ของออเดอร์นั้น วิธีใดถูกต้อง?",
       "options": [
-        "เรียง orders ด้วย created_at DESC แล้วต่อท้ายด้วย LIMIT 1",
-        "GROUP BY customer_id แล้วเลือก id คู่กับ MAX(created_at)",
-        "คำนวณ ROW_NUMBER() OVER (PARTITION BY customer_id ORDER BY created_at DESC) ใน CTE แล้วกรอง rn = 1 ข้างนอก",
-        "ใส่ ROW_NUMBER() OVER (PARTITION BY customer_id ORDER BY created_at DESC) = 1 ไว้ใน WHERE"
+        "เรียง orders ทั้งตารางด้วย created_at DESC แล้วต่อ LIMIT 1 เพื่อเอาแถวบนสุดของแต่ละคน",
+        "GROUP BY customer_id แล้วเลือก id คู่กับ MAX(created_at) ใน SELECT เดียวกัน เพื่อได้แถวล่าสุด",
+        "ใช้ ROW_NUMBER() OVER (PARTITION BY customer_id ORDER BY created_at DESC) ใน CTE แล้วกรอง rn = 1",
+        "ใส่ ROW_NUMBER() OVER (PARTITION BY customer_id ORDER BY created_at DESC) = 1 ไว้ในเงื่อนไข WHERE"
       ],
       "answer": 2,
       "explain": "window function คำนวณในขั้น SELECT ซึ่งมาหลัง WHERE จึงใส่ใน WHERE ไม่ได้ ต้องห่อด้วย CTE หรือ subquery ก่อนกรอง ส่วน GROUP BY แล้วเลือก id ที่ไม่ได้ aggregate จะ error ใน DB ส่วนใหญ่ และไม่รับประกันว่า id มาจากแถวเดียวกับ MAX ขณะที่ LIMIT 1 ได้แค่ออเดอร์เดียวของทั้งตาราง"
@@ -287,8 +299,8 @@
       "code": "SELECT c.name\nFROM customers c\nJOIN orders o ON o.customer_id = c.id\nWHERE o.status = 'paid';",
       "options": [
         "เขียนใหม่เป็น WHERE EXISTS (…) ที่ตรวจว่าลูกค้าคนนั้นมีออเดอร์ paid",
-        "เปลี่ยน JOIN เป็น LEFT JOIN เพื่อให้ฐานข้อมูลรวมแถวของลูกค้าคนเดียวกันให้เองอัตโนมัติ",
-        "เพิ่ม ORDER BY c.name เพื่อให้แถวที่ชื่อซ้ำถูกรวมเป็นแถวเดียว",
+        "เปลี่ยน JOIN เป็น LEFT JOIN เพื่อให้ฐานข้อมูลรวมแถวของลูกค้าคนเดียวกันให้เอง",
+        "เพิ่ม ORDER BY c.name ลงท้าย query เพื่อให้แถวที่ชื่อซ้ำถูกรวมเป็นแถวเดียว",
         "ย้ายเงื่อนไข o.status = 'paid' ไปไว้ใน ON ซึ่งจะทำให้ไม่เกิดแถวซ้ำ"
       ],
       "answer": 0,
@@ -381,8 +393,8 @@
       "prompt": "ทีมรันเทสต์บน SQLite ในเครื่อง การ INSERT orders ที่ customer_id ไม่มีอยู่จริงผ่านฉลุย ทั้งที่ตารางประกาศ REFERENCES customers(id) แต่บน PostgreSQL จริงได้ error ทำไม?",
       "code": "CREATE TABLE orders (\n  id INTEGER PRIMARY KEY,\n  customer_id INTEGER NOT NULL REFERENCES customers(id)\n);\nINSERT INTO orders (id, customer_id) VALUES (1, 999);  -- ไม่มี customer 999",
       "options": [
-        "SQLite ไม่บังคับ foreign key เป็นค่าเริ่มต้น ต้องเปิดด้วย PRAGMA foreign_keys = ON",
-        "SQLite ไม่รู้จัก REFERENCES จึงข้ามคำสั่งนี้ไปตอนสร้างตาราง",
+        "SQLite ปิด foreign key ไว้ตามค่าเริ่มต้น ต้องเปิดด้วย PRAGMA foreign_keys = ON",
+        "SQLite ไม่รู้จักคำว่า REFERENCES จึงเพิกเฉยข้อกำหนดนี้ตอนสร้างตาราง",
         "SQLite ตรวจ foreign key เฉพาะตอน COMMIT เทสต์ที่ ROLLBACK ทุกครั้งจึงไม่เห็น error",
         "SQLite ต้องมี index บนคอลัมน์ customer_id ก่อน จึงจะบังคับ foreign key"
       ],
@@ -487,9 +499,9 @@
       "code": "CREATE INDEX idx_jobs_pending ON jobs (created_at)\n  WHERE status = 'pending';\n\nEXPLAIN SELECT * FROM jobs\nWHERE created_at < now() - interval '1 hour';",
       "options": [
         "partial index ใช้ได้เฉพาะกับ UNIQUE index เท่านั้น ไม่ใช้กับ query ทั่วไป",
-        "query ไม่มี status = 'pending' ที่ตรงกับ predicate ของ index",
+        "query ไม่มี status = 'pending' ที่ตรงกับ predicate ของ index ที่สร้างไว้",
         "ต้องเพิ่ม ORDER BY created_at ท้าย query ให้ตรงกับคีย์ของ index planner จึงจะยอมใช้",
-        "partial index ต้องสร้างด้วย CONCURRENTLY เสมอ มิฉะนั้น planner จะไม่เลือกใช้ index นั้น"
+        "partial index ต้องสร้างด้วย CONCURRENTLY เสมอ ไม่เช่นนั้น planner จะไม่เลือกใช้"
       ],
       "answer": 1,
       "explain": "index ที่สร้างจากแถว pending เท่านั้นไม่ครอบคลุมแถวสถานะอื่นที่ query ก็อาจต้องการ จึงใช้ได้ก็ต่อเมื่อเงื่อนไขของ query บังคับให้ตรง predicate ถ้าเติม AND status = 'pending' ก็จะใช้ index ได้ ส่วน CONCURRENTLY เป็นเรื่องวิธีสร้างโดยไม่บล็อกการเขียน ไม่ใช่เงื่อนไขการเลือกใช้"
@@ -693,5 +705,17 @@
       "url": "https://learn.microsoft.com/en-us/sql/t-sql/queries/select-order-by-clause-transact-sql",
       "note": "ไวยากรณ์ pagination ของ T-SQL"
     }
+  ],
+  "cheatsheet": [
+    "การเปรียบเทียบกับ NULL ได้ UNKNOWN; WHERE เก็บเฉพาะ TRUE จึงต้องตรวจด้วย IS NULL หรือ IS NOT NULL",
+    "LEFT JOIN: เงื่อนไขฝั่งขวาที่ไม่รับ NULL ควรอยู่ใน ON; ถ้าอยู่ใน WHERE แถวที่ไม่มีคู่จะหายไป",
+    "WHERE กรองแถวก่อน GROUP BY; HAVING กรองกลุ่มหลังคำนวณ aggregate",
+    "Normalization เก็บข้อเท็จจริงแต่ละอย่างไว้ที่เดียว เพื่อลด update anomaly จากข้อมูลที่คัดลอกซ้ำ",
+    "Autocommit ทำให้แต่ละคำสั่ง commit ทันที; งานหลายคำสั่งที่ต้องสำเร็จทั้งหมดหรือไม่เกิดเลยต้องครอบด้วย transaction",
+    "Index หลายคอลัมน์ (a, b) ได้ผลดีที่สุดเมื่อเงื่อนไขเริ่มจากคอลัมน์ซ้ายสุด",
+    "ใช้ NUMERIC สำหรับเงินที่ต้องแม่นยำ; real และ double precision เป็นชนิดแบบประมาณ",
+    "Window function ไม่ยุบแถวแบบ GROUP BY; ต้องห่อด้วย CTE หรือ subquery ก่อนกรองผลด้วย WHERE",
+    "ใช้ parameterized query สำหรับค่า input; ชื่อตารางและคอลัมน์ต้องตรวจด้วย allowlist เพราะส่งเป็น parameter ไม่ได้",
+    "Read Committed ไม่กัน lost update จากการอ่านแล้วเขียนทับ; ใช้ UPDATE แบบอะตอมหรือ SELECT … FOR UPDATE"
   ]
 }

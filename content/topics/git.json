@@ -9,72 +9,84 @@
       "tier": "must",
       "title": "commit คือ snapshot และ staging area",
       "body": "commit คือ snapshot ของทั้งโปรเจกต์ ณ ตอนนั้น พร้อม author ข้อความ และลิงก์ไปยัง commit แม่ จึงต่อกันเป็นประวัติที่ย้อนดูได้ ก่อน commit การเปลี่ยนแปลงต้องผ่าน staging area (git add) ซึ่งทำให้เราเลือกได้ว่าอะไรจะอยู่ใน commit นี้ เช่น แยกการแก้บั๊กกับการจัด format เป็นคนละ commit กับดักที่พบบ่อยคือ add แล้วแก้ไฟล์ต่อ ส่วนที่แก้ทีหลังจะยังไม่เข้า commit จนกว่าจะ add อีกครั้ง",
-      "code": "git status            # ดูว่าอะไร modified / staged\ngit add src/cart.js   # stage ทั้งไฟล์\ngit add -p            # เลือก stage ทีละส่วน\ngit diff --staged     # ดูสิ่งที่จะเข้า commit\ngit commit -m \"fix(cart): ...\""
+      "code": "git status            # ดูว่าอะไร modified / staged\ngit add src/cart.js   # stage ทั้งไฟล์\ngit add -p            # เลือก stage ทีละส่วน\ngit diff --staged     # ดูสิ่งที่จะเข้า commit\ngit commit -m \"fix(cart): ...\"",
+      "ref": "https://git-scm.com/book/en/v2/Git-Basics-Recording-Changes-to-the-Repository"
     },
     {
       "tier": "must",
       "title": "branch คือ pointer และ HEAD คือตำแหน่งปัจจุบัน",
       "body": "branch เป็นแค่ป้ายชื่อที่ชี้ไปยัง commit หนึ่ง เมื่อ commit ใหม่ ป้ายของ branch ที่เราอยู่จะเลื่อนไปชี้ commit ใหม่เอง การสร้าง branch จึงเร็วและแทบไม่กินพื้นที่ HEAD บอกว่าตอนนี้เราอยู่ตรงไหน ปกติชี้ไปที่ branch แต่ถ้า checkout hash ตรง ๆ จะเป็น detached HEAD และ commit ที่สร้างตอนนั้นไม่มี branch ไหนชี้ถึง ให้ git switch -c สร้าง branch เก็บไว้ก่อนย้ายออก",
-      "code": "git switch -c feat/search   # สร้าง branch แล้วย้ายไป\ngit log --oneline --graph --all\n# * a1b2c3d (HEAD -> feat/search) feat: add search box\n# * 9f8e7d6 (origin/main, main) fix: typo"
+      "code": "git switch -c feat/search   # สร้าง branch แล้วย้ายไป\ngit log --oneline --graph --all\n# * a1b2c3d (HEAD -> feat/search) feat: add search box\n# * 9f8e7d6 (origin/main, main) fix: typo",
+      "ref": "https://git-scm.com/book/en/v2/Git-Branching-Branches-in-a-Nutshell"
     },
     {
       "tier": "must",
       "title": "Pull Request workflow",
       "body": "แตก branch จาก main ล่าสุด แก้ทีละเรื่อง commit แล้ว push จากนั้นเปิด PR ให้ CI รัน test และให้เพื่อนร่วมทีม review ก่อน merge PR ที่เล็กและมีเรื่องเดียว review ได้เร็วและละเอียดกว่า PR ใหญ่ เมื่อถูกขอให้แก้ ให้ commit เพิ่มบน branch เดิมแล้ว push อีกครั้ง PR จะอัปเดตเองโดยไม่ต้องเปิดใหม่",
-      "code": "git switch main && git pull\ngit switch -c fix/cart-total\n# ...แก้โค้ด...\ngit add -p && git commit -m \"fix(cart): ...\"\ngit push -u origin fix/cart-total\n# เปิด PR แล้วรอ CI + review"
+      "code": "git switch main && git pull\ngit switch -c fix/cart-total\n# ...แก้โค้ด...\ngit add -p && git commit -m \"fix(cart): ...\"\ngit push -u origin fix/cart-total\n# เปิด PR แล้วรอ CI + review",
+      "ref": "https://docs.github.com/en/get-started/using-github/github-flow"
     },
     {
       "tier": "must",
       "title": "แก้ merge conflict",
       "body": "conflict เกิดเมื่อสองฝั่งแก้บรรทัดเดียวกันหรือบรรทัดติดกัน Git จึงตัดสินแทนไม่ได้ ช่วง <<<<<<< ถึง ======= คือฝั่ง HEAD (branch ที่เราอยู่ตอน merge) ช่วง ======= ถึง >>>>>>> คือฝั่งที่กำลัง merge เข้ามา ต้องเข้าใจเจตนาของทั้งสองฝั่งแล้วรวมให้ถูก ไม่ใช่เลือกฝั่งใดฝั่งหนึ่งทั้งก้อน จากนั้นลบ marker ให้หมด รัน test แล้ว git add และ commit (ถ้ายังไม่พร้อม git merge --abort ย้อนกลับได้)",
-      "code": "<<<<<<< HEAD\nconst TIMEOUT_MS = 3000;\nconst RETRIES = 3;\n=======\nconst TIMEOUT_MS = 5000;\n>>>>>>> main"
+      "code": "<<<<<<< HEAD\nconst TIMEOUT_MS = 3000;\nconst RETRIES = 3;\n=======\nconst TIMEOUT_MS = 5000;\n>>>>>>> main",
+      "ref": "https://git-scm.com/book/en/v2/Git-Branching-Basic-Branching-and-Merging#_basic_merge_conflicts"
     },
     {
       "tier": "must",
       "title": "revert, reset และ restore ต่างกันอย่างไร",
       "body": "git restore ทิ้งการแก้ไขในไฟล์ที่ยังไม่ commit (ใส่ --staged เพื่อแค่ถอนออกจาก staging) git reset ย้าย branch ปัจจุบันกลับไป commit เก่า ใช้กับ commit ที่ยังไม่ push และถ้าใส่ --hard จะทิ้งงานที่ยังไม่ commit ไปด้วย git revert สร้าง commit ใหม่ที่หักล้าง commit เดิมโดยไม่แก้ประวัติ จึงเป็นวิธีที่ถูกเมื่อ commit นั้นถูก push และคนอื่น pull ไปแล้ว",
-      "code": "git restore src/app.js          # ทิ้งการแก้ที่ยังไม่ add\ngit restore --staged src/app.js # ถอนจาก staging แต่การแก้ยังอยู่\ngit reset --soft HEAD~1         # ยกเลิก commit ล่าสุด เก็บการแก้ไว้ใน staging\ngit revert a1b2c3d              # ย้อน commit ที่ push แล้วด้วย commit ใหม่"
+      "code": "git restore src/app.js          # ทิ้งการแก้ที่ยังไม่ add\ngit restore --staged src/app.js # ถอนจาก staging แต่การแก้ยังอยู่\ngit reset --soft HEAD~1         # ยกเลิก commit ล่าสุด เก็บการแก้ไว้ใน staging\ngit revert a1b2c3d              # ย้อน commit ที่ push แล้วด้วย commit ใหม่",
+      "ref": "https://git-scm.com/docs/git#_reset_restore_and_revert"
     },
     {
       "tier": "must",
       "title": ".gitignore และ secret ที่หลุด: rotate ก่อน",
       "body": ".gitignore บอก Git ว่าไม่ต้องติดตามไฟล์ใด เช่น node_modules/, ไฟล์ build และ .env แต่มีผลเฉพาะไฟล์ที่ยังไม่ถูก track ถ้าเคย commit ไปแล้วต้อง git rm --cached ด้วย ถ้า secret ถูก push ขึ้น remote แล้วให้ถือว่ารั่ว ต้อง revoke หรือ rotate key เป็นอย่างแรก เพราะประวัติ fork และ clone ของคนอื่นยังมีค่าเดิมอยู่ การลบไฟล์ใน commit ใหม่จึงไม่พอ ส่วนการล้างประวัติ (เช่นด้วย git filter-repo) ทำทีหลัง",
-      "code": "# .gitignore\nnode_modules/\ndist/\n.env\n.env.*\n!.env.example\n\n# เลิก track แต่ไฟล์ยังอยู่ในเครื่อง\ngit rm --cached .env"
+      "code": "# .gitignore\nnode_modules/\ndist/\n.env\n.env.*\n!.env.example\n\n# เลิก track แต่ไฟล์ยังอยู่ในเครื่อง\ngit rm --cached .env",
+      "ref": "https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/removing-sensitive-data-from-a-repository"
     },
     {
       "tier": "should",
       "title": "reflog กู้ commit ที่ “หาย”",
       "body": "reflog บันทึกทุกตำแหน่งที่ HEAD และ branch เคยชี้ในเครื่องเรา เมื่อ reset --hard ผิด rebase พัง หรือลบ branch ไป commit เหล่านั้นมักยังอยู่ แค่ไม่มี branch ชี้ถึง จึงหา hash จาก reflog แล้วสร้าง branch หรือ reset กลับไปได้ ข้อจำกัดคือ reflog อยู่เฉพาะในเครื่อง (ไม่ไปกับ push หรือ clone) entry หมดอายุตามค่าเริ่มต้น 90 วัน (30 วันสำหรับ entry ที่ commit ไปถึงไม่ได้จากปลาย branch ปัจจุบัน) ส่วนงานที่ไม่เคย commit reflog ช่วยไม่ได้ (ไฟล์ที่เคย git add อาจยังหาได้ด้วย git fsck --lost-found)",
-      "code": "git reflog\n# 9f8e7d6 HEAD@{0}: reset: moving to HEAD~3\n# a1b2c3d HEAD@{1}: commit: feat: add export\ngit switch -c rescue a1b2c3d   # หรือ git reset --hard a1b2c3d"
+      "code": "git reflog\n# 9f8e7d6 HEAD@{0}: reset: moving to HEAD~3\n# a1b2c3d HEAD@{1}: commit: feat: add export\ngit switch -c rescue a1b2c3d   # หรือ git reset --hard a1b2c3d",
+      "ref": "https://git-scm.com/docs/git-reflog"
     },
     {
       "tier": "should",
       "title": "rebase กับ merge และห้าม rewrite ประวัติที่แชร์",
       "body": "merge รวมสองเส้นโดยไม่แตะ commit เดิม (ถ้า fast-forward ไม่ได้จะสร้าง merge commit) ส่วน rebase นำ commit ของเราไปต่อบนฐานใหม่ทีละตัว ได้ประวัติเส้นตรงแต่ทุก commit ได้ hash ใหม่ จึงห้าม rebase หรือ reset branch ที่คนอื่น pull ไปแล้ว (เช่น main) เพราะประวัติของทีมจะแยกกันและเกิด commit ซ้ำ ถ้า rebase branch ของตัวเองที่เคย push แล้ว ให้ใช้ --force-with-lease ซึ่งจะไม่ยอมทับถ้า remote เปลี่ยนไปจากที่เราเห็นล่าสุด (คือ origin/<branch> ในเครื่อง ถ้าเพิ่ง fetch มาต้องดูก่อนว่ามีงานใหม่ของคนอื่นหรือไม่)",
-      "code": "git switch feat/search\ngit fetch origin\ngit rebase origin/main      # branch นี้เราใช้คนเดียว\ngit push --force-with-lease"
+      "code": "git switch feat/search\ngit fetch origin\ngit rebase origin/main      # branch นี้เราใช้คนเดียว\ngit push --force-with-lease",
+      "ref": "https://git-scm.com/book/en/v2/Git-Branching-Rebasing#_rebase_peril"
     },
     {
       "tier": "should",
       "title": "Commit message ที่ดีบอก “ทำไม”",
       "body": "บรรทัดแรกสั้น (ราว 50 ตัวอักษร) บอกว่าเปลี่ยนอะไร ส่วน body อธิบายว่าทำไม เพราะ diff บอกได้แค่ว่าอะไรเปลี่ยน แต่คนที่เปิด git blame ในอีกหกเดือนต้องการเหตุผล หลายทีมใช้ Conventional Commits (feat:, fix:, docs:, refactor:) ให้อ่านง่ายและสร้าง changelog อัตโนมัติได้ หลีกเลี่ยงข้อความอย่าง “update” หรือ “fix bug” และการรวมหลายเรื่องไว้ใน commit เดียว",
-      "code": "fix(cart): ปัดเศษส่วนลดก่อนรวมยอด\n\nยอดรวมคลาดไป 0.01 บาทเมื่อมีส่วนลดหลายรายการ\nเพราะปัดเศษหลังรวม ทำให้ไม่ตรงกับใบเสร็จจาก POS\n\nCloses #482"
+      "code": "fix(cart): ปัดเศษส่วนลดก่อนรวมยอด\n\nยอดรวมคลาดไป 0.01 บาทเมื่อมีส่วนลดหลายรายการ\nเพราะปัดเศษหลังรวม ทำให้ไม่ตรงกับใบเสร็จจาก POS\n\nCloses #482",
+      "ref": "https://git-scm.com/book/en/v2/Distributed-Git-Contributing-to-a-Project#_commit_guidelines"
     },
     {
       "tier": "should",
       "title": "Trunk-based กับ GitFlow",
-      "body": "trunk-based ให้ทุกคนทำงานบน branch อายุสั้น (ไม่กี่ชั่วโมงถึงวันสองวัน) แล้ว merge เข้า main บ่อย ๆ ผ่าน CI โดยซ่อนงานที่ยังไม่เสร็จด้วย feature flag ทำให้ conflict เล็กและ deploy ได้ตลอด GitFlow ใช้ branch อายุยาวหลายเส้น (develop, release/*, hotfix/*) เหมาะกับซอฟต์แวร์ที่ออกเป็นเวอร์ชันและต้องดูแลหลายเวอร์ชันพร้อมกัน ผู้คิด GitFlow เองเขียนไว้ในปี 2020 ว่าทีมที่ทำ continuous delivery ควรใช้ workflow ที่ง่ายกว่า เช่น GitHub flow"
+      "body": "trunk-based ให้ทุกคนทำงานบน branch อายุสั้น (ไม่กี่ชั่วโมงถึงวันสองวัน) แล้ว merge เข้า main บ่อย ๆ ผ่าน CI โดยซ่อนงานที่ยังไม่เสร็จด้วย feature flag ทำให้ conflict เล็กและ deploy ได้ตลอด GitFlow ใช้ branch อายุยาวหลายเส้น (develop, release/*, hotfix/*) เหมาะกับซอฟต์แวร์ที่ออกเป็นเวอร์ชันและต้องดูแลหลายเวอร์ชันพร้อมกัน ผู้คิด GitFlow เองเขียนไว้ในปี 2020 ว่าทีมที่ทำ continuous delivery ควรใช้ workflow ที่ง่ายกว่า เช่น GitHub flow",
+      "ref": "https://nvie.com/posts/a-successful-git-branching-model/"
     },
     {
       "tier": "advanced",
       "title": "Interactive rebase จัด commit ก่อนเปิด PR",
       "body": "git rebase -i ให้เราแก้ชุด commit ที่ยังไม่ได้แชร์ ใช้ squash หรือ fixup รวม commit ย่อยอย่าง “wip” หรือ “fix typo” ใช้ reword แก้ข้อความ เรียงลำดับใหม่ หรือ drop ทิ้ง ผลคือ PR ที่ reviewer อ่านทีละ commit แล้วเข้าใจ ใช้กฎเดียวกับ rebase ทั่วไปคือทำเฉพาะ commit ที่ยังไม่มีใครใช้ และถ้าพลาดกู้ได้ด้วย reflog",
-      "code": "git rebase -i origin/main\n# pick   a1b2c3d feat: add search API\n# fixup  b2c3d4e fix typo\n# reword c3d4e5f wip"
+      "code": "git rebase -i origin/main\n# pick   a1b2c3d feat: add search API\n# fixup  b2c3d4e fix typo\n# reword c3d4e5f wip",
+      "ref": "https://git-scm.com/docs/git-rebase#_interactive_mode"
     },
     {
       "tier": "advanced",
       "title": "git bisect หา commit ที่ทำให้พัง",
       "body": "เมื่อรู้ว่าเวอร์ชันหนึ่งยังดีและเวอร์ชันล่าสุดพัง bisect จะ checkout commit ตรงกลางให้ทดสอบแล้วตัดครึ่งไปเรื่อย ๆ แม้มี 1,000 commit ก็ใช้ราว 10 รอบ ถ้ามี script ที่ exit 0 เมื่อผ่านและ exit 1 เมื่อพัง ใช้ git bisect run ให้หาอัตโนมัติได้ เสร็จแล้วอย่าลืม git bisect reset เพื่อกลับไป branch เดิม",
-      "code": "git bisect start\ngit bisect bad              # commit ปัจจุบันพัง\ngit bisect good v2.3.0      # tag ที่รู้ว่ายังดี\ngit bisect run npm test     # ให้ Git ทดสอบแต่ละ commit เอง\ngit bisect reset"
+      "code": "git bisect start\ngit bisect bad              # commit ปัจจุบันพัง\ngit bisect good v2.3.0      # tag ที่รู้ว่ายังดี\ngit bisect run npm test     # ให้ Git ทดสอบแต่ละ commit เอง\ngit bisect reset",
+      "ref": "https://git-scm.com/docs/git-bisect"
     },
     {
       "tier": "must",
@@ -193,9 +205,9 @@
     {
       "prompt": "commit a1b2c3d ทำให้หน้า checkout พัง และถูก push ขึ้น main ที่ทั้งทีม pull ไปแล้ว ควรย้อนอย่างไร?",
       "options": [
-        "git reset --hard a1b2c3d~1 แล้ว git push --force",
-        "git rebase -i แล้ว drop commit นั้น ตามด้วย push --force-with-lease",
-        "git revert a1b2c3d แล้ว push หรือเปิด PR ตามปกติ",
+        "git reset --hard a1b2c3d~1 แล้ว git push --force ขึ้น main",
+        "git rebase -i drop commit นั้น แล้ว push --force-with-lease",
+        "git revert a1b2c3d แล้ว push หรือเปิด PR ตามปกติได้เลย",
         "git restore --staged . เพื่อถอน commit นั้นออกจาก main"
       ],
       "answer": 2,
@@ -240,12 +252,12 @@
       "prompt": "คุณแก้ config.js และ api.js อยู่ (ยังไม่ได้ git add) แล้วอยากทิ้งเฉพาะการแก้ใน config.js ให้กลับไปเหมือน commit ล่าสุด ควรใช้คำสั่งใด?",
       "options": [
         "git restore config.js",
-        "git reset --hard",
-        "git revert HEAD",
-        "git restore --staged config.js"
+        "git reset --hard HEAD",
+        "git revert HEAD --no-edit",
+        "git restore -S config.js"
       ],
       "answer": 0,
-      "explain": "git restore <file> คืนไฟล์ใน working tree ให้ตรงกับ staging ซึ่งตอนนี้เท่ากับ commit ล่าสุด และแตะแค่ไฟล์นั้น reset --hard จะทิ้งการแก้ใน api.js ไปด้วย ส่วน --staged แค่ถอนไฟล์ออกจาก staging โดยไม่แตะเนื้อหาที่แก้"
+      "explain": "git restore <file> คืนไฟล์ใน working tree ให้ตรงกับ staging ซึ่งตอนนี้เท่ากับ commit ล่าสุด และแตะแค่ไฟล์นั้น reset --hard จะทิ้งการแก้ใน api.js ไปด้วย ส่วน --staged (-S) แค่ถอนไฟล์ออกจาก staging โดยไม่แตะเนื้อหาที่แก้"
     },
     {
       "prompt": "คุณกับเพื่อนช่วยกันทำ branch feature/cart ที่ push ขึ้น remote แล้ว คุณ rebase บน main แล้ว push ไม่ผ่าน ควรทำอย่างไร?",
@@ -273,9 +285,9 @@
     {
       "prompt": "ทีมของคุณ deploy เว็บวันละหลายครั้งด้วย CI/CD แต่ feature branch มักเปิดค้าง 2–3 สัปดาห์ และ merge ทีไรเจอ conflict ใหญ่ ควรเปลี่ยนอย่างไร?",
       "options": [
-        "เปลี่ยนไปใช้ GitFlow แยก develop และ release branch",
-        "ใช้ branch อายุสั้น merge เข้า main ทุกวัน ซ่อนงานค้างด้วย feature flag",
-        "รอ merge ทุก branch พร้อมกันตอนปลาย sprint ทีเดียว",
+        "เปลี่ยนไปใช้ GitFlow แยก develop และ release branch ให้ชัดเจนยิ่งขึ้น",
+        "merge branch อายุสั้นเข้า main ทุกวัน ซ่อนงานค้างด้วย feature flag",
+        "รอ merge ทุก branch พร้อมกันตอนปลาย sprint แล้วค่อยรวมทีเดียว",
         "ให้ทุกคน push ตรงเข้า main โดยไม่ต้องผ่าน CI หรือ review"
       ],
       "answer": 1,
@@ -427,7 +439,7 @@
       "options": [
         "ใส่ hash ลง .git-blame-ignore-revs แล้วตั้ง blame.ignoreRevsFile",
         "git rebase -i แล้ว drop commit format ออกจากประวัติของ main",
-        "ใช้ git blame -w ซึ่งจะข้ามทุก commit ที่เป็นการ format ให้เองทุกกรณี โดยไม่ต้องตั้งค่าอะไรเพิ่ม",
+        "git blame -w ข้ามทุก commit ที่ format ให้ในทุกกรณีโดยไม่ต้องตั้งค่า",
         "git revert commit นั้นเพื่อให้ blame กลับไปชี้ผู้เขียนเดิม"
       ],
       "answer": 0,
@@ -506,9 +518,9 @@
       "prompt": "ก่อนเปิด PR คุณอยากเห็นรายการ commit ที่อยู่บน feat/search แต่ main ยังไม่มี คำสั่งใดถูกต้อง?",
       "code": "main:         A---B---C\n                   \\\nfeat/search:        D---E",
       "options": [
-        "git log feat/search..main",
-        "git log main feat/search",
-        "git diff main feat/search --stat",
+        "git log -p feat/search..main",
+        "git log -5 main feat/search",
+        "git diff main feat/search",
         "git log main..feat/search"
       ],
       "answer": 3,
@@ -696,5 +708,17 @@
       "url": "https://git-scm.com/docs/git-init",
       "note": "ค่าเริ่มต้น hash และข้อจำกัดของ repo แบบ SHA-256"
     }
+  ],
+  "cheatsheet": [
+    "git add เก็บเนื้อหา ณ ตอนที่ stage; ถ้าแก้ไฟล์ต่อ ต้อง add อีกครั้งจึงจะเข้า commit",
+    "commit บน detached HEAD ไม่มี branch ชี้ถึง; ใช้ git switch -c เก็บงานไว้ก่อนย้ายออก",
+    "git fetch อัปเดต remote-tracking branch โดยไม่แตะงานเรา; git pull fetch แล้วรวมเข้า branch ปัจจุบันทันที",
+    "ใช้ git revert ย้อน commit ที่คนอื่น pull ไปแล้ว เพราะสร้าง commit หักล้างโดยไม่แก้ประวัติ",
+    "secret ที่ push แล้วถือว่ารั่ว: revoke หรือ rotate key ก่อน การลบไฟล์หรือประวัติไม่ทำให้ key ใช้ไม่ได้",
+    "แก้ merge conflict โดยรวมเจตนาทั้งสองฝั่ง ลบ marker ให้หมด รัน test แล้ว git add และ commit",
+    "git stash ไม่รวมไฟล์ untracked โดยค่าเริ่มต้น; ใช้ -u รวมไฟล์ใหม่ หรือ -a รวมไฟล์ ignored ด้วย",
+    "reflog ช่วยหา commit ที่ไม่มี branch ชี้ถึงได้ แต่มีเฉพาะในเครื่องและกู้งานที่ไม่เคย commit ไม่ได้",
+    "merge ไม่เปลี่ยน commit เดิม; rebase เล่น commit ใหม่บนฐานใหม่และเปลี่ยน hash จึงอย่าใช้กับ branch ที่คนอื่น pull ไปแล้ว",
+    "git bisect ค้นหา commit ที่ทำให้พังด้วยการตัดช่วงครึ่งหนึ่ง; 1,000 commit ใช้ราว 10 รอบ"
   ]
 }

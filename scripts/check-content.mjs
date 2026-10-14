@@ -1,8 +1,9 @@
 #!/usr/bin/env node
 // Validate Thai and English content independently, then compare locale parity.
 import { readFileSync, readdirSync, existsSync } from 'node:fs';
-import { join, basename } from 'node:path';
+import { join, basename, resolve, sep } from 'node:path';
 import { parseContent } from '../src/lib/validate.js';
+import { parityDiff, thaiLeaks } from '../src/lib/parity.js';
 
 const root = new URL('..', import.meta.url).pathname;
 const thaiDir = join(root, 'content', 'topics');
@@ -40,33 +41,33 @@ function loadLocale(dir, files) {
   return entries;
 }
 
-function machineFields(topic) {
-  return {
-    id: topic.id,
-    code: topic.code ?? null,
-    track: topic.track,
-    mustKnow: (topic.mustKnow || []).map(({ tier, exam, ref, code }) => ({ tier: tier ?? null, exam: exam ?? null, ref: ref ?? null, code: code ?? null })),
-    questions: (topic.questions || []).map(({ answer, options, code }) => ({ answer, optionsCount: options?.length ?? 0, code: code ?? null })),
-    exercises: (topic.exercises || (topic.exercise ? [topic.exercise] : [])).map(({ level, lang, starter, solution, hints, checks }) => ({ level, lang, starter: starter ?? null, solution: solution ?? null, hintsCount: hints?.length ?? 0, checks: (checks || []).map(({ pattern, negate, json }) => ({ pattern: pattern ?? null, negate: negate ?? null, json: json ?? null })) })),
-    refs: (topic.refs || []).map(({ url }) => url),
-  };
+const containsThai = (value) => typeof value === 'string' && /[\u0E00-\u0E7F]/u.test(value);
+
+// Thai is the source of truth. Code, starters and solutions may differ only in comments
+// and string literals (see src/lib/parity.js); everything else machine-readable must match.
+function reportPair(id, thTopic, enTopic) {
+  const diff = parityDiff(thTopic, enTopic);
+  if (diff.length) errorList.push(`✗ English topic “${id}”: machine fields must match Thai (code may differ only in comments and string literals): ${diff.slice(0, 6).join(', ')}${diff.length > 6 ? ` (+${diff.length - 6} more)` : ''}`);
+  for (const path of thaiLeaks(enTopic, thTopic)) errorList.push(`✗ English topic “${id}” · ${path}: Thai characters remain in English text`);
 }
 
-const containsThai = (value) => typeof value === 'string' && /[\u0E00-\u0E7F]/u.test(value);
-function checkEnglishTopic(topic, label) {
-  const check = (value, path) => { if (containsThai(value)) errorList.push(`✗ ${label} · ${path}: Thai characters remain in English text`); };
-  check(topic.title, 'title'); check(topic.blurb, 'blurb');
-  (topic.mustKnow || []).forEach((item, i) => { check(item.title, `mustKnow[${i}].title`); check(item.body, `mustKnow[${i}].body`); });
-  (topic.questions || []).forEach((item, i) => {
-    check(item.prompt, `questions[${i}].prompt`); check(item.explain, `questions[${i}].explain`);
-    (item.options || []).forEach((option, j) => check(option, `questions[${i}].options[${j}]`));
-  });
-  (topic.exercises || (topic.exercise ? [topic.exercise] : [])).forEach((item, i) => {
-    for (const field of ['title', 'prompt']) check(item[field], `exercises[${i}].${field}`);
-    (item.hints || []).forEach((hint, j) => check(hint, `exercises[${i}].hints[${j}]`));
-    (item.checks || []).forEach((entry, j) => check(entry.label, `exercises[${i}].checks[${j}].label`));
-  });
-  (topic.refs || []).forEach((ref, i) => { check(ref.title, `refs[${i}].title`); check(ref.note, `refs[${i}].note`); });
+// Explicit-file mode: compare each given topic with its sibling in the other locale.
+function checkSiblings(files, loaded) {
+  const enMarker = `${sep}content${sep}en${sep}topics${sep}`;
+  const thMarker = `${sep}content${sep}topics${sep}`;
+  for (const file of files) {
+    const abs = resolve(file);
+    const locale = abs.includes(enMarker) ? 'en' : abs.includes(thMarker) ? 'th' : null;
+    if (!locale) continue;
+    const sibling = locale === 'en' ? abs.replace(enMarker, thMarker) : abs.replace(thMarker, enMarker);
+    if (!existsSync(sibling)) { errorList.push(`✗ ${basename(file)}: missing ${locale === 'en' ? 'Thai' : 'English'} counterpart ${sibling.replace(root, '')}`); continue; }
+    const other = parseContent(readFileSync(sibling, 'utf8'), { strict: true, label: basename(sibling) });
+    for (const e of other.errors) errorList.push(`✗ ${e.where}: ${e.msg}`);
+    const otherTopic = other.topics[0];
+    const mine = otherTopic && loaded.get(otherTopic.id);
+    if (!mine || !otherTopic) continue;
+    if (locale === 'en') reportPair(otherTopic.id, otherTopic, mine); else reportPair(otherTopic.id, mine, otherTopic);
+  }
 }
 
 function compareLocalizedList(thPath, enPath, label, machineProjection) {
@@ -90,7 +91,7 @@ function compareLocalizedList(thPath, enPath, label, machineProjection) {
 let totalFiles;
 if (explicitFiles.length) {
   totalFiles = explicitFiles.length;
-  loadLocale('', explicitFiles);
+  checkSiblings(explicitFiles, loadLocale('', explicitFiles));
 } else {
   const thaiFiles = topicFiles(thaiDir);
   totalFiles = thaiFiles.length;
@@ -105,10 +106,7 @@ if (explicitFiles.length) {
     for (const id of english.keys()) if (!thai.has(id)) errorList.push(`✗ English topics: unexpected id “${id}”`);
     for (const [id, thTopic] of thai) {
       const enTopic = english.get(id);
-      if (enTopic && JSON.stringify(machineFields(thTopic)) !== JSON.stringify(machineFields(enTopic))) {
-        errorList.push(`✗ English topic “${id}”: IDs, machine fields, item counts (including options and hints), answers, code, exercise checks, and reference URLs must match Thai`);
-      }
-      if (enTopic) checkEnglishTopic(enTopic, `English topic “${id}”`);
+      if (enTopic) reportPair(id, thTopic, enTopic);
     }
   }
   compareLocalizedList(join(root, 'content', 'tracks.json'), join(root, 'content', 'en', 'tracks.json'), 'tracks', ({ id, num }) => ({ id, num }));

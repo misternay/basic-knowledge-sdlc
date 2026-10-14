@@ -8,70 +8,82 @@
     {
       "tier": "must",
       "title": "Explore → Plan → Code → Verify",
-      "body": "ให้ agent อ่านโค้ดที่เกี่ยวข้องก่อนโดยยังไม่แก้อะไร (เช่น plan mode ของ Claude Code) แล้วเสนอแผนว่าจะแก้ไฟล์ไหนอย่างไร ให้คนตรวจแผนก่อน จากนั้นจึงเขียนโค้ดและตรวจผล การแยกขั้นสำรวจออกจากขั้นลงมือกันไม่ให้ agent รีบแก้ปัญหาผิดข้อ และการแก้แผนถูกกว่าการรื้อโค้ดที่เขียนไปแล้วมาก แต่งานเล็กที่อธิบาย diff ได้ในประโยคเดียว เช่น แก้คำผิดหรือเปลี่ยนชื่อตัวแปร ข้ามขั้นวางแผนได้ เพราะวางแผนก็มีต้นทุน"
+      "body": "ให้ agent อ่านโค้ดที่เกี่ยวข้องก่อนโดยยังไม่แก้อะไร (เช่น plan mode ของ Claude Code) แล้วเสนอแผนว่าจะแก้ไฟล์ไหนอย่างไร ให้คนตรวจแผนก่อน จากนั้นจึงเขียนโค้ดและตรวจผล การแยกขั้นสำรวจออกจากขั้นลงมือกันไม่ให้ agent รีบแก้ปัญหาผิดข้อ และการแก้แผนถูกกว่าการรื้อโค้ดที่เขียนไปแล้วมาก แต่งานเล็กที่อธิบาย diff ได้ในประโยคเดียว เช่น แก้คำผิดหรือเปลี่ยนชื่อตัวแปร ข้ามขั้นวางแผนได้ เพราะวางแผนก็มีต้นทุน",
+      "ref": "https://code.claude.com/docs/en/best-practices#explore-first-then-plan-then-code"
     },
     {
       "tier": "must",
       "title": "ให้ agent มีวิธีตรวจงานตัวเอง",
       "body": "agent จะหยุดเมื่องาน “ดูเหมือนเสร็จ” ถ้าไม่มีสิ่งที่บอกผ่านหรือไม่ผ่านได้ชัด คนก็ต้องเป็นผู้ตรวจทุกรอบ ให้ระบุ check ที่ agent รันเองได้ เช่น test, build, linter, type check หรือ screenshot เทียบกับ design แล้วสั่งให้วนแก้จนผ่าน และขอหลักฐาน (คำสั่งที่รันกับผลลัพธ์) แทนคำว่า “ผ่านแล้ว” นี่เป็นสิ่งเดียวที่ช่วยให้งานถูกต้องได้มากที่สุด",
-      "code": "เขียน validateEmail ใน src/utils/email.ts\nกรณีทดสอบ: user@example.com → true, invalid → false, user@.com → false\nรัน npm test แล้วแก้จนผ่าน\nแก้ที่ต้นเหตุ ห้ามปิด error หรือแก้ test เพื่อให้ผ่าน\nแนบผลการรัน test ครั้งล่าสุดมาด้วย"
+      "code": "เขียน validateEmail ใน src/utils/email.ts\nกรณีทดสอบ: user@example.com → true, invalid → false, user@.com → false\nรัน npm test แล้วแก้จนผ่าน\nแก้ที่ต้นเหตุ ห้ามปิด error หรือแก้ test เพื่อให้ผ่าน\nแนบผลการรัน test ครั้งล่าสุดมาด้วย",
+      "ref": "https://code.claude.com/docs/en/best-practices#give-claude-a-way-to-verify-its-work"
     },
     {
       "tier": "must",
       "title": "Task spec ที่มีเกณฑ์ว่าเสร็จ",
       "body": "spec ที่ดีบอกเป้าหมาย (ผลลัพธ์ที่ต้องการ) บริบท (ไฟล์ interface และ pattern ที่มีอยู่ให้ทำตาม) ข้อจำกัดและสิ่งที่อยู่นอกขอบเขต และเกณฑ์ว่าเสร็จที่ตรวจได้ เช่น test ไหนต้องผ่าน prompt กว้าง ๆ อย่าง “แก้บั๊ก login” บังคับให้ agent เดา แล้วจบที่การแก้กลับไปกลับมาหลายรอบ งานใหญ่ให้ agent ถามคำถามจนได้ spec ที่ครบก่อน แล้วเริ่ม session ใหม่เพื่อลงมือตาม spec นั้น",
-      "code": "เป้าหมาย: login ที่ session หมดอายุแล้วต้องพาไปหน้า login ไม่ใช่ error 500\nบริบท: ดู token refresh ใน src/auth/session.ts\nข้อจำกัด: ห้ามเพิ่ม dependency, ไม่แตะ UI\nเสร็จเมื่อ: มี test ที่จำลอง session หมดอายุ (fail ก่อนแก้)\n           และ npm test กับ npm run typecheck ผ่าน"
+      "code": "เป้าหมาย: login ที่ session หมดอายุแล้วต้องพาไปหน้า login ไม่ใช่ error 500\nบริบท: ดู token refresh ใน src/auth/session.ts\nข้อจำกัด: ห้ามเพิ่ม dependency, ไม่แตะ UI\nเสร็จเมื่อ: มี test ที่จำลอง session หมดอายุ (fail ก่อนแก้)\n           และ npm test กับ npm run typecheck ผ่าน",
+      "ref": "https://code.claude.com/docs/en/best-practices#let-claude-interview-you"
     },
     {
       "tier": "must",
       "title": "Project memory: CLAUDE.md / AGENTS.md",
       "body": "ไฟล์คำสั่งประจำโปรเจกต์ที่ agent โหลดเข้า context ทุก session ใช้บอกสิ่งที่เดาจากโค้ดไม่ได้ เช่น คำสั่ง build/test ข้อตกลงที่ต่างจากค่าปกติ และกับดักของโปรเจกต์ (Claude Code อ่าน CLAUDE.md ส่วนเครื่องมืออื่นหลายตัว เช่น Codex อ่าน AGENTS.md) ไฟล์ยิ่งยาว กฎสำคัญยิ่งจมหายและเปลือง context จึงควรสั้น ตัดเรื่องล้าสมัยสม่ำเสมอ และห้ามมี secret เพราะไฟล์นี้มัก commit ขึ้น git ให้ทุกคนเห็น",
-      "code": "# Commands\n- npm run dev / npm test / npm run typecheck\n# Conventions\n- ใช้ ES modules (import) ไม่ใช้ require\n- endpoint ใหม่ต้องมี test ใน tests/api/\n# Gotchas\n- ต้องตั้ง env DATABASE_URL ก่อนรัน test (ค่าจริงอยู่ใน .env ที่ไม่ commit)"
+      "code": "# Commands\n- npm run dev / npm test / npm run typecheck\n# Conventions\n- ใช้ ES modules (import) ไม่ใช้ require\n- endpoint ใหม่ต้องมี test ใน tests/api/\n# Gotchas\n- ต้องตั้ง env DATABASE_URL ก่อนรัน test (ค่าจริงอยู่ใน .env ที่ไม่ commit)",
+      "ref": "https://code.claude.com/docs/en/memory#claude-md-files"
     },
     {
       "tier": "must",
       "title": "Review ทุก diff เหมือน PR ของเพื่อนร่วมทีม",
-      "body": "คนที่กด merge ยังเป็นผู้รับผิดชอบโค้ด ไม่ใช่ AI โค้ดจาก AI มักดูเรียบร้อยแต่พลาด edge case เรื่องสิทธิ์ หรือแก้เกินขอบเขตที่สั่ง เริ่มจาก git diff --stat ดูว่าแตะไฟล์ไหนบ้าง แล้วเจาะจุดเสี่ยงก่อน ได้แก่ ไฟล์ test, dependency ใหม่, config, auth และโค้ดที่ถูกลบ ถ้าอ่านไม่เข้าใจหรือ diff ใหญ่เกินจะ review ได้จริง ให้ขอแยกงานใหม่ ไม่ใช่ merge เพราะ test ผ่าน"
+      "body": "คนที่กด merge ยังเป็นผู้รับผิดชอบโค้ด ไม่ใช่ AI โค้ดจาก AI มักดูเรียบร้อยแต่พลาด edge case เรื่องสิทธิ์ หรือแก้เกินขอบเขตที่สั่ง เริ่มจาก git diff --stat ดูว่าแตะไฟล์ไหนบ้าง แล้วเจาะจุดเสี่ยงก่อน ได้แก่ ไฟล์ test, dependency ใหม่, config, auth และโค้ดที่ถูกลบ ถ้าอ่านไม่เข้าใจหรือ diff ใหญ่เกินจะ review ได้จริง ให้ขอแยกงานใหม่ ไม่ใช่ merge เพราะ test ผ่าน",
+      "ref": "https://code.claude.com/docs/en/security#user-responsibility"
     },
     {
       "tier": "must",
       "title": "งานเล็กและ Git checkpoint",
       "body": "แตกงานเป็นขั้นเล็กที่ review ได้ในไม่กี่นาที และ commit ทุกครั้งที่ขั้นนั้นผ่าน check ถ้า agent พาไปผิดทางก็ย้อนกลับไปจุดที่ดีล่าสุดได้ทันที และ diff ที่เล็กทำให้ review ได้จริง checkpoint หรือ rewind ในเครื่องมือ (เช่น Claude Code) ช่วยได้ แต่ไม่ติดตามไฟล์ที่ถูกแก้ผ่านคำสั่ง shell จึงใช้แทน git ไม่ได้",
-      "code": "git switch -c feat/export-csv\n# ขั้นที่ 1 ผ่าน test แล้ว บันทึกไว้\nnpm test && git add -A && git commit -m \"export: add CSV serializer\"\n# ขั้นที่ 2 ผิดทาง ทิ้งการแก้ไขที่ยังไม่ commit\ngit restore .   # ไฟล์ใหม่ที่ยังไม่ track ต้องลบเองหรือใช้ git clean"
+      "code": "git switch -c feat/export-csv\n# ขั้นที่ 1 ผ่าน test แล้ว บันทึกไว้\nnpm test && git add -A && git commit -m \"export: add CSV serializer\"\n# ขั้นที่ 2 ผิดทาง ทิ้งการแก้ไขที่ยังไม่ commit\ngit restore .   # ไฟล์ใหม่ที่ยังไม่ track ต้องลบเองหรือใช้ git clean",
+      "ref": "https://code.claude.com/docs/en/checkpointing#limitations"
     },
     {
       "tier": "should",
       "title": "Context hygiene",
-      "body": "context ของ agent เก็บทุกข้อความ ทุกไฟล์ที่อ่าน และทุก output ของคำสั่ง เมื่อเต็มไปด้วยเรื่องไม่เกี่ยวข้อง คุณภาพจะลดลงและ agent เริ่มลืมคำสั่งช่วงต้น จึงควรล้าง context (เช่น /clear ใน Claude Code) เมื่อเปลี่ยนไปทำงานที่ไม่เกี่ยวกัน ถ้าแก้ประเด็นเดิมเกินสองรอบแล้วยังผิด ให้เริ่ม session ใหม่ด้วย prompt ที่ดีขึ้นจากสิ่งที่เรียนรู้ และใช้ subagent ไปสำรวจโค้ดแทน เพื่อไม่ให้ไฟล์จำนวนมากล้น context หลัก"
+      "body": "context ของ agent เก็บทุกข้อความ ทุกไฟล์ที่อ่าน และทุก output ของคำสั่ง เมื่อเต็มไปด้วยเรื่องไม่เกี่ยวข้อง คุณภาพจะลดลงและ agent เริ่มลืมคำสั่งช่วงต้น จึงควรล้าง context (เช่น /clear ใน Claude Code) เมื่อเปลี่ยนไปทำงานที่ไม่เกี่ยวกัน ถ้าแก้ประเด็นเดิมเกินสองรอบแล้วยังผิด ให้เริ่ม session ใหม่ด้วย prompt ที่ดีขึ้นจากสิ่งที่เรียนรู้ และใช้ subagent ไปสำรวจโค้ดแทน เพื่อไม่ให้ไฟล์จำนวนมากล้น context หลัก",
+      "ref": "https://code.claude.com/docs/en/best-practices#manage-your-session"
     },
     {
       "tier": "should",
       "title": "ระวัง agent แก้หรือข้าม test เพื่อให้ “ผ่าน”",
       "body": "เมื่อเป้าหมายคือให้ test ผ่าน agent อาจแก้ assertion ให้ตรงกับผลที่ผิด เพิ่ม .skip, hardcode ค่าให้ตรงเฉพาะกรณีทดสอบ หรือดัก error ทิ้ง ผลคือ test เขียวแต่ bug ยังอยู่ ให้เขียนใน spec ว่าห้ามแก้ test เดิมโดยไม่ได้รับอนุญาต และตรวจ diff ของไฟล์ test ทุกครั้งก่อนเชื่อรายงาน",
-      "code": "# รอบนี้แตะไฟล์ test อะไรบ้าง\ngit diff --stat main -- '*.test.ts'\n# หา skip/only ที่เพิ่งเพิ่มเข้ามา\ngit diff main -- '*.test.ts' | grep -E '^\\+.*\\.(skip|only)\\('"
+      "code": "# รอบนี้แตะไฟล์ test อะไรบ้าง\ngit diff --stat main -- '*.test.ts'\n# หา skip/only ที่เพิ่งเพิ่มเข้ามา\ngit diff main -- '*.test.ts' | grep -E '^\\+.*\\.(skip|only)\\('",
+      "ref": "https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/claude-prompting-best-practices#avoid-focusing-on-passing-tests-and-hard-coding"
     },
     {
       "tier": "should",
       "title": "แยกคนเขียนกับคนตรวจ",
-      "body": "agent ที่เพิ่งเขียนโค้ดมักเอนเอียงเข้าข้างงานตัวเอง เพราะเห็นเหตุผลทั้งหมดที่ใช้ตัดสินใจ ให้ session หรือ subagent ใหม่ที่เห็นแค่ diff กับเกณฑ์ (spec หรือแผน) เป็นผู้ review แทน ระบุให้รายงานเฉพาะปัญหาที่กระทบความถูกต้องหรือ requirement เพราะ reviewer ที่ถูกสั่งให้หาปัญหามักหาอะไรมาเสนอเสมอ ถ้าไล่แก้ทุกข้อจะได้โค้ดซับซ้อนเกินจำเป็น"
+      "body": "agent ที่เพิ่งเขียนโค้ดมักเอนเอียงเข้าข้างงานตัวเอง เพราะเห็นเหตุผลทั้งหมดที่ใช้ตัดสินใจ ให้ session หรือ subagent ใหม่ที่เห็นแค่ diff กับเกณฑ์ (spec หรือแผน) เป็นผู้ review แทน ระบุให้รายงานเฉพาะปัญหาที่กระทบความถูกต้องหรือ requirement เพราะ reviewer ที่ถูกสั่งให้หาปัญหามักหาอะไรมาเสนอเสมอ ถ้าไล่แก้ทุกข้อจะได้โค้ดซับซ้อนเกินจำเป็น",
+      "ref": "https://code.claude.com/docs/en/best-practices#add-an-adversarial-review-step"
     },
     {
       "tier": "should",
       "title": "รันหลาย agent พร้อมกันด้วย git worktree",
       "body": "git worktree สร้าง working directory แยกที่ใช้ repo เดียวกันแต่ checkout คนละ branch แต่ละ agent จึงแก้ไฟล์และรัน test ได้โดยไม่ทับกัน ต่างจากการสลับ branch ใน folder เดียว ที่ทุก agent เห็นไฟล์ชุดเดียวกัน กับดักคือแต่ละ worktree ต้องติดตั้ง dependency และตั้ง env ของตัวเอง เพราะ node_modules หรือ .env ไม่ได้มาด้วย",
-      "code": "git worktree add -b fix/login-timeout ../app-fix-login\ngit worktree add -b feat/export-csv ../app-export\n# เปิด agent คนละตัวในแต่ละ folder\ngit worktree list\ngit worktree remove ../app-fix-login   # หลัง merge แล้ว"
+      "code": "git worktree add -b fix/login-timeout ../app-fix-login\ngit worktree add -b feat/export-csv ../app-export\n# เปิด agent คนละตัวในแต่ละ folder\ngit worktree list\ngit worktree remove ../app-fix-login   # หลัง merge แล้ว",
+      "ref": "https://code.claude.com/docs/en/worktrees"
     },
     {
       "tier": "advanced",
       "title": "ตรวจ package ที่ AI แนะนำ (slopsquatting)",
       "body": "โมเดลอาจแต่งชื่อ package ที่ฟังดูสมจริงแต่ไม่มีอยู่จริง ผู้โจมตีจึงไปจดชื่อที่โมเดลมักแต่งซ้ำ ๆ แล้วใส่ malware ไว้ เรียกว่า slopsquatting ก่อนเพิ่ม dependency ให้ตรวจใน registry ว่ามีจริง ดู repo ผู้ดูแล อายุ และยอดดาวน์โหลด การ “ลองติดตั้งดูก่อน” ไม่ปลอดภัย เพราะ install script ของ npm (เช่น postinstall) รันทันทีที่ติดตั้ง",
-      "code": "# ดูข้อมูลก่อนติดตั้ง แทนที่จะ npm install ทันที\nnpm view <ชื่อ-package> repository.url time.created maintainers"
+      "code": "# ดูข้อมูลก่อนติดตั้ง แทนที่จะ npm install ทันที\nnpm view <ชื่อ-package> repository.url time.created maintainers",
+      "ref": "https://genai.owasp.org/llmrisk/llm092025-misinformation/"
     },
     {
       "tier": "advanced",
       "title": "Permissions และ sandbox",
       "body": "กำหนดว่าคำสั่งใดให้ agent รันได้เลย ต้องถามก่อน หรือห้าม โดยใน Claude Code กฎ deny ถูกตรวจก่อน ask และ allow เสมอ allow จึงเจาะข้อยกเว้นให้ deny ไม่ได้ แต่ permission rule จับที่คำสั่งที่ agent พิมพ์ ไม่กันโปรแกรมที่ไปอ่านไฟล์เอง เช่น script Node ที่เปิด .env ถ้าต้องกันจริงให้เปิด sandbox ระดับ OS ที่จำกัด filesystem และ network งานที่ปล่อยรันโดยไม่มีคนเฝ้าควรอยู่ใน sandbox หรือ container และไม่มี credential ของ production",
-      "code": "// .claude/settings.json\n{\n  \"permissions\": {\n    \"allow\": [\"Bash(npm test *)\", \"Bash(npm run lint)\"],\n    \"deny\": [\"Read(./.env)\", \"Bash(curl *)\"]\n  }\n}"
+      "code": "// .claude/settings.json\n{\n  \"permissions\": {\n    \"allow\": [\"Bash(npm test *)\", \"Bash(npm run lint)\"],\n    \"deny\": [\"Read(./.env)\", \"Bash(curl *)\"]\n  }\n}",
+      "ref": "https://code.claude.com/docs/en/permissions#manage-permissions"
     },
     {
       "tier": "must",
@@ -164,10 +176,10 @@
       "prompt": "ให้ agent แก้ bug คำนวณ VAT แล้ว agent รายงานว่า “แก้เสร็จ test ผ่านหมดแล้ว” ใน diff มีการเปลี่ยนแปลงนี้ ควรทำอย่างไร?",
       "code": " test('บวก VAT 7% ในยอดรวม', () => {\n-  expect(total(100)).toBe(107);\n+  expect(total(100)).toBe(100);\n });",
       "options": [
-        "รับได้ เพราะ test ทั้งชุดผ่านแล้ว ถือว่าเสร็จตามเกณฑ์ที่ตั้งไว้",
+        "รับได้ เพราะ test ทั้งชุดผ่านครบทุกข้อแล้ว ถือว่างานเสร็จตามเกณฑ์ที่ตั้งไว้",
         "ไม่รับ diff นี้ คืน assertion เดิม แล้วให้แก้โค้ดคำนวณจน test เดิมผ่าน",
-        "ถาม agent ซ้ำว่าค่าใหม่ถูกต้องตาม business rule หรือไม่ ถ้ายืนยันก็รับ",
-        "รับไว้ก่อน แล้วค่อยเพิ่ม test VAT ชุดใหม่ภายหลังเมื่อมีเวลา"
+        "ถาม agent ซ้ำว่าค่าใหม่ถูกต้องตาม business rule หรือไม่ ถ้า agent ยืนยันก็รับได้",
+        "รับไว้ก่อน แล้วค่อยเพิ่ม test VAT ชุดใหม่ให้ครบภายหลังเมื่อมีเวลาว่าง"
       ],
       "answer": 1,
       "explain": "agent เปลี่ยนค่าที่คาดหวังให้ตรงกับผลที่ผิด test จึงเขียวแต่ bug ยังอยู่ การถามให้ agent ยืนยันซ้ำไม่ใช่หลักฐาน เพราะ agent ตัวเดิมมักยืนยันงานของตัวเอง ต้องใช้ test เดิมเป็นเกณฑ์และแก้ที่โค้ด"
@@ -198,8 +210,8 @@
     {
       "prompt": "task spec ข้อใดมีแนวโน้มได้งานที่ถูกต้องโดยไม่ต้องแก้กลับไปกลับมามากที่สุด?",
       "options": [
-        "ทำระบบ login ให้ปลอดภัยขึ้น เลือกวิธีที่ดีที่สุดตามมาตรฐานอุตสาหกรรม",
-        "เพิ่ม rate limit ให้ทุก endpoint ทั้งระบบ แล้วแก้ทุกอย่างที่พังตามมา",
+        "ทำระบบ login ให้ปลอดภัยขึ้น เลือกวิธีที่ดีที่สุดตามมาตรฐานอุตสาหกรรมปัจจุบัน",
+        "เพิ่ม rate limit ให้ทุก endpoint ทั้งระบบ แล้วแก้ทุกอย่างที่พังตามมาให้หมด",
         "เขียน rate limiter ที่ดีที่สุดเท่าที่ทำได้ ไม่ต้องรีบ ตรวจให้รอบคอบ",
         "จำกัด POST /login 5 ครั้ง/นาที/IP เกินตอบ 429 และ auth.test.ts ต้องผ่าน"
       ],
@@ -209,8 +221,8 @@
     {
       "prompt": "งานใดคุ้มที่สุดที่จะให้ agent สำรวจโค้ดและเสนอแผนให้ตรวจก่อนลงมือ?",
       "options": [
-        "แก้คำผิดในข้อความ error ที่รู้แล้วว่าอยู่ไฟล์ไหนบรรทัดไหน",
-        "เปลี่ยนชื่อตัวแปรที่ตั้งไม่สื่อความหมายภายในฟังก์ชันเดียว",
+        "แก้คำผิดในข้อความ error ที่รู้แล้วว่าอยู่ไฟล์ไหนและบรรทัดไหนแน่นอน",
+        "เปลี่ยนชื่อตัวแปรที่ตั้งไม่สื่อความหมายภายในฟังก์ชันเดียวเท่านั้น",
         "เพิ่ม Google OAuth ในระบบ auth ที่ไม่คุ้นเคยและกระทบหลายไฟล์",
         "เพิ่ม log หนึ่งบรรทัดก่อนเรียก API ภายนอกที่รู้ตำแหน่งแล้ว"
       ],
@@ -242,10 +254,10 @@
     {
       "prompt": "คุณรัน agent สองตัวพร้อมกันใน folder เดียวกัน ตัวหนึ่งแก้ bug อีกตัวทำฟีเจอร์ใหม่ ปรากฏว่าไฟล์ถูกแก้ทับกัน และ test ของตัวหนึ่งพังเพราะงานที่ยังไม่เสร็จของอีกตัว ควรแก้อย่างไร?",
       "options": [
-        "ให้แต่ละตัวใช้ branch ของตัวเองใน folder เดิม แล้วสลับ branch ตามงาน",
+        "ให้แต่ละตัวใช้ branch ของตัวเองใน folder เดิม แล้วสลับ branch ไปมาตามงานที่ทำ",
         "ใช้ git worktree ให้แต่ละ agent มี working directory และ branch ของตัวเอง",
         "ให้ agent ทั้งสองตัว commit ถี่ขึ้น ไฟล์จะได้ไม่ชนกันระหว่างทำงาน",
-        "เขียนใน prompt ให้แต่ละ agent ระวังไม่แตะไฟล์ที่อีกตัวกำลังแก้อยู่"
+        "เขียนใน prompt ให้แต่ละ agent ระวังไม่แตะไฟล์ที่อีกตัวกำลังแก้อยู่ในตอนนั้น"
       ],
       "answer": 1,
       "explain": "worktree แยกไฟล์บนดิสก์ของแต่ละ agent ออกจากกันจริง แต่ยังใช้ repo เดียวกัน การใช้ branch ต่างกันใน folder เดียวไม่ช่วย เพราะ working directory มีได้ทีละ branch ทั้งสอง agent จึงยังเห็นและแก้ไฟล์ชุดเดียวกัน"
@@ -288,7 +300,7 @@
     {
       "prompt": "CLAUDE.md เขียนว่า “รัน prettier หลังแก้ไฟล์ทุกครั้ง” แต่ agent ลืมเป็นบางครั้ง ทีมอยากให้ format เกิดทุกครั้งโดยไม่ขึ้นกับโมเดล ควรทำอย่างไร?",
       "options": [
-        "ตั้ง hook แบบ PostToolUse ที่ match Edit|Write แล้วรัน prettier กับไฟล์ที่เพิ่งแก้ให้อัตโนมัติ",
+        "ตั้ง hook PostToolUse ที่ match Edit|Write แล้วรัน prettier กับไฟล์ที่เพิ่งแก้โดยอัตโนมัติ",
         "ใส่ IMPORTANT และตัวพิมพ์ใหญ่ให้ทุกบรรทัดใน CLAUDE.md เพื่อให้ agent จำกฎได้แม่นขึ้นทั้งไฟล์",
         "ย้ายกฎข้อนี้ไปไว้บรรทัดแรกสุดของ CLAUDE.md แล้วเชื่อว่า agent จะทำตามทุกครั้งหลังจากนั้นแน่นอน",
         "ตั้ง hook แบบ PreToolUse ที่รัน prettier ก่อน agent แก้ไฟล์ เพื่อให้ไฟล์ถูก format ไว้ล่วงหน้า"
@@ -390,10 +402,10 @@
     {
       "prompt": "แอปภายในให้ agent เรียก API ลบข้อมูลลูกค้า และให้ agent ตัดสินเองว่า user คนนี้มีสิทธิ์ลบหรือไม่ โดยบอกกฎไว้ใน prompt วันหนึ่ง user ที่ไม่มีสิทธิ์ลบข้อมูลได้สำเร็จ ควรปรับสถาปัตยกรรมอย่างไร?",
       "options": [
-        "เขียนกฎสิทธิ์ใน prompt ให้ละเอียดขึ้น พร้อมตัวอย่างกรณีที่ต้องปฏิเสธเพิ่มอีกหลายตัวอย่าง",
+        "เขียนกฎสิทธิ์ใน prompt ให้ละเอียดขึ้น พร้อมตัวอย่างกรณีที่ต้องปฏิเสธเพิ่มอีกหลายสิบตัวอย่าง",
         "ให้ API ปลายทางตรวจสิทธิ์ของ user ทุกคำขอเอง แทนการเชื่อว่าโมเดลจะตัดสินสิทธิ์ได้ถูกต้อง",
         "เปลี่ยนไปใช้โมเดลที่ใหญ่กว่า เพราะโมเดลที่เก่งกว่าจะแยกคำขอที่ไม่มีสิทธิ์ได้แม่นยำกว่ามาก",
-        "ให้ agent เรียก API ด้วย service account สิทธิ์สูง แล้วให้มันกรองผลก่อนส่งกลับไปให้ user"
+        "ให้ agent เรียก API ด้วย service account สิทธิ์สูง แล้วให้มันกรองผลลัพธ์ก่อนส่งกลับไปให้ user"
       ],
       "answer": 1,
       "explain": "OWASP แนะนำ complete mediation คือบังคับสิทธิ์ที่ระบบปลายทางในบริบทของ user นั้น ไม่พึ่งให้ LLM ตัดสินว่าทำได้หรือไม่ การใช้ account สิทธิ์สูงแล้วให้โมเดลกรองคือตัวอย่างของ permission เกินที่ OWASP เตือน"
@@ -448,9 +460,9 @@
       "code": "const filter = await llm.toSqlFilter(userQuestion);\nconst rows = await db.query(`SELECT * FROM orders WHERE ${filter}`);",
       "options": [
         "เพิ่มคำสั่งใน prompt ว่าห้ามสร้าง SQL ที่มี DROP หรือ DELETE โดยเด็ดขาดทุกกรณีที่เจอ",
-        "ให้ LLM escape เครื่องหมาย quote ใน output เองก่อนส่งกลับมาให้ต่อเข้า query ของเรา",
+        "ให้ LLM escape เครื่องหมาย quote ใน output เองก่อนส่งกลับมาให้ต่อเข้ากับ query ของเรา",
         "ให้โมเดลคืนแค่ค่า เช่น status ที่ตรวจกับ allowlist แล้วส่งผ่าน parameterized query",
-        "ย้ายไปใช้โมเดลที่ถูกปรับจูนด้านความปลอดภัย แล้วเชื่อผลลัพธ์ได้โดยไม่ต้องตรวจซ้ำอีก"
+        "ย้ายไปใช้โมเดลที่ถูกปรับจูนด้านความปลอดภัย แล้วเชื่อผลลัพธ์ได้ทันทีโดยไม่ต้องตรวจซ้ำอีก"
       ],
       "answer": 2,
       "explain": "output ของโมเดลควบคุมได้ด้วย prompt จึงต้องถือเป็น input ที่ไม่น่าเชื่อถือ ใช้ parameterized query และ validate ค่าก่อนส่งต่อ การสั่งใน prompt หรือให้โมเดล escape เองยังพึ่งโมเดลซึ่งผู้โจมตีชักจูงได้"
@@ -528,7 +540,7 @@
         },
         {
           "label": "ห้ามแก้หรือข้าม test เดิม",
-          "pattern": "(ห้าม|ต้องไม่|อย่า|ไม่ให้|ไม่)\\s*(ไป)?(แก้ไข|แก้|ลบ|ข้าม|skip|ปิด|งด|ปรับ|comment)[^\\n]*(test|เทสต์)|(test|เทสต์)[^\\n]*(ห้าม|ต้องไม่|อย่า|ไม่ให้|ไม่)\\s*(แก้ไข|แก้|ลบ|ข้าม|skip|ปิด|งด|ปรับ)|(do not|don't|must not|never|without)\\s+(modify|edit|change|delete|remove|skip|disable|touch)[^\\n]*test|test[^\\n]*(unchanged|untouched|intact)|(คง|รักษา|เก็บ)[^\\n]{0,20}(test|เทสต์)[^\\n]{0,30}(ไม่เปลี่ยน|ไม่แก้|ไม่ลบ|ไม่ข้าม|ครบ)|(test|เทสต์)\\s*เดิม[^\\n]{0,40}(ไม่(ถูก)?(เปลี่ยน|แก้|ลบ|ข้าม))"
+          "pattern": "(ห้าม|ต้องไม่|อย่า|ไม่ให้|ไม่)\\s*(ไป)?(แก้ไข|แก้|ลบ|ข้าม|skip|ปิด|งด|ปรับ|comment)[^\\n]*(test|เทสต์)|(test|เทสต์)[^\\n]*(ห้าม|ต้องไม่|อย่า|ไม่ให้|ไม่)\\s*(แก้ไข|แก้|ลบ|ข้าม|skip|ปิด|งด|ปรับ)|(do not|don't|must not|never|without)\\s+(modify|edit|change|delete|remove|skip|disable|touch)[^\\n]*test|test[^\\n]*(unchanged|untouched|intact)|(คง|รักษา|เก็บ)[^\\n]{0,20}(test|เทสต์)[^\\n]{0,30}(ไม่เปลี่ยน|ไม่แก้|ไม่ลบ|ไม่ข้าม|ครบ)|(test|เทสต์)\\s*เดิม[^\\n]{0,40}(ไม่(ถูก)?(เปลี่ยน|แก้|ลบ|ข้าม))|\\bpreserve\\s+(?:the\\s+)?existing\\s+tests\\s+without\\s+(?:modifying|editing|changing|deleting|removing)(?:\\s*,\\s*|\\s+or\\s+|\\s+and\\s+)(?:skipping|disabling)\\s+them\\b"
         },
         {
           "label": "ให้เสนอแผนก่อนลงมือ",
@@ -536,7 +548,7 @@
         },
         {
           "label": "เกณฑ์ว่าเสร็จอ้างถึง test ที่รันได้",
-          "pattern": "(เสร็จ|done)[\\s\\S]*((npm|pnpm|yarn) (run )?test|test[\\s\\S]{0,30}ผ่าน|tests? pass)"
+          "pattern": "(เสร็จ|done)[\\s\\S]*((npm|pnpm|yarn) (run )?test|test[\\s\\S]{0,30}ผ่าน|tests? pass)|\\b(?:completion criteria|acceptance criteria)\\b[\\s\\S]*((npm|pnpm|yarn) (run )?test|tests? pass)"
         },
         {
           "label": "ครอบคลุมกรณีไม่มีสิทธิ์และไม่พบ",
@@ -675,5 +687,17 @@
       "url": "https://docs.github.com/en/actions/reference/security/secure-use",
       "note": "pin action ด้วย SHA และจำกัดสิทธิ์ของ GITHUB_TOKEN"
     }
+  ],
+  "cheatsheet": [
+    "อ่านโค้ดก่อน เสนอแผนให้คน review แล้วจึงเขียนและตรวจผล; งานเล็กที่อธิบาย diff ได้ในประโยคเดียวข้ามแผนได้",
+    "Task spec ต้องมีเป้าหมาย บริบท ข้อจำกัด สิ่งนอกขอบเขต และเกณฑ์เสร็จที่ตรวจได้",
+    "ให้ agent รัน check เองได้ และขอคำสั่งกับผลลัพธ์เป็นหลักฐาน อย่าเชื่อแค่คำว่า test ผ่าน",
+    "CLAUDE.md / AGENTS.md ควรสั้น เก็บสิ่งที่เดาจากโค้ดไม่ได้ ตัดข้อมูลล้าสมัย และห้ามใส่ secret",
+    "เริ่ม review ด้วย git diff --stat แล้วตรวจ test, dependency, config, auth และโค้ดที่ลบ; test ผ่านไม่พอให้ merge",
+    "แบ่งงานให้ diff เล็กและ commit เมื่อ check ผ่าน; checkpoint ของเครื่องมือไม่ติดตามการแก้ผ่าน shell จึงแทน Git ไม่ได้",
+    "git worktree แยกไฟล์และ branch ให้แต่ละ agent แต่แต่ละ worktree ต้องติดตั้ง dependency และตั้ง env เอง",
+    "deny มาก่อน ask และ allow; permission rule ไม่กัน script อ่านไฟล์เอง ต้องใช้ sandbox ระดับ OS เพื่อจำกัดจริง",
+    "PreToolUse ที่ exit 2 บล็อก tool call; exit 1 ไม่บล็อก และ PostToolUse บล็อกย้อนหลังไม่ได้",
+    "Prompt injection แฝงในไฟล์หรือเว็บได้; ลดสิทธิ์ ให้คนอนุมัติ action เสี่ยงสูง และแยกข้อมูลไม่น่าเชื่อถือจากคำสั่ง"
   ]
 }

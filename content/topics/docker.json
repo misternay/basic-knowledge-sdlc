@@ -9,72 +9,84 @@
       "tier": "must",
       "title": "Image, container และ registry",
       "body": "image คือแพ็กเกจแบบอ่านอย่างเดียวที่รวม filesystem ของแอป (runtime, ไลบรารี, ไฟล์) กับ metadata ว่าจะรันคำสั่งอะไร ส่วน container คือ process ที่รันจาก image โดยมี writable layer บาง ๆ ของตัวเองซ้อนด้านบน จึงสร้างหลาย container จาก image เดียวได้โดยไม่กระทบกัน registry (เช่น Docker Hub, GHCR, ECR) คือที่เก็บและแจกจ่าย image ผ่าน push/pull กับดักที่พบบ่อยคือแก้ไฟล์ใน container ที่รันอยู่แล้วคิดว่า image เปลี่ยนตาม ซึ่งไม่ใช่ ต้องแก้ Dockerfile แล้ว build ใหม่",
-      "code": "docker build -t ghcr.io/acme/myapp:1.4.0 .\ndocker push ghcr.io/acme/myapp:1.4.0\n# เครื่องอื่น pull แล้วรันเป็น container ได้หลายตัว\ndocker run -d --name web1 ghcr.io/acme/myapp:1.4.0\ndocker run -d --name web2 ghcr.io/acme/myapp:1.4.0"
+      "code": "docker build -t ghcr.io/acme/myapp:1.4.0 .\ndocker push ghcr.io/acme/myapp:1.4.0\n# เครื่องอื่น pull แล้วรันเป็น container ได้หลายตัว\ndocker run -d --name web1 ghcr.io/acme/myapp:1.4.0\ndocker run -d --name web2 ghcr.io/acme/myapp:1.4.0",
+      "ref": "https://docs.docker.com/engine/storage/drivers/#container-and-layers"
     },
     {
       "tier": "must",
       "title": "Container ไม่ใช่ VM",
-      "body": "VM จำลองฮาร์ดแวร์และมี kernel ของตัวเอง ส่วน container คือ process ธรรมดาบน host ที่ถูกแยกมุมมองด้วย namespaces (process, network, filesystem) และจำกัดทรัพยากรด้วย cgroups โดยใช้ kernel ของ host ร่วมกัน จึงเริ่มได้ในเสี้ยววินาทีแต่แยกตัวได้อ่อนกว่า VM ช่องโหว่ใน kernel หรือการให้สิทธิ์ root เกินจำเป็นจึงกระทบ host ได้ ผลอีกข้อคือ binary ใน image ต้องตรงกับ CPU architecture ของเครื่องที่รัน (amd64 กับ arm64 ข้ามได้ด้วย emulation เช่น QEMU แต่ช้ากว่า) และบน macOS/Windows นั้น Docker Desktop รัน Linux VM ไว้เบื้องหลังเพื่อให้รัน Linux container ได้"
+      "body": "VM จำลองฮาร์ดแวร์และมี kernel ของตัวเอง ส่วน container คือ process ธรรมดาบน host ที่ถูกแยกมุมมองด้วย namespaces (process, network, filesystem) และจำกัดทรัพยากรด้วย cgroups โดยใช้ kernel ของ host ร่วมกัน จึงเริ่มได้ในเสี้ยววินาทีแต่แยกตัวได้อ่อนกว่า VM ช่องโหว่ใน kernel หรือการให้สิทธิ์ root เกินจำเป็นจึงกระทบ host ได้ ผลอีกข้อคือ binary ใน image ต้องตรงกับ CPU architecture ของเครื่องที่รัน (amd64 กับ arm64 ข้ามได้ด้วย emulation เช่น QEMU แต่ช้ากว่า) และบน macOS/Windows นั้น Docker Desktop รัน Linux VM ไว้เบื้องหลังเพื่อให้รัน Linux container ได้",
+      "ref": "https://docs.docker.com/get-started/docker-concepts/the-basics/what-is-a-container/#containers-versus-virtual-machines-vms"
     },
     {
       "tier": "must",
       "title": "Layer และ build cache",
       "body": "คำสั่งที่เปลี่ยน filesystem (RUN, COPY, ADD) แต่ละบรรทัดสร้าง layer และ Docker ใช้ cache ของบรรทัดนั้นได้ก็ต่อเมื่อบรรทัดก่อนหน้าทั้งหมดใช้ cache อยู่ พอบรรทัดใดเปลี่ยน cache ของบรรทัดนั้นและทุกบรรทัดหลังจากนั้นจะถูกทิ้ง COPY ตัดสินจากเนื้อหาไฟล์ ส่วน RUN ตัดสินจากข้อความคำสั่ง (จึงไม่รู้ว่าแพ็กเกจภายนอกมีเวอร์ชันใหม่) หลักคือวางขั้นที่เปลี่ยนน้อย เช่นติดตั้ง dependency ไว้ก่อน COPY source ที่เปลี่ยนบ่อย",
-      "code": "FROM node:24-slim\nWORKDIR /app\n# cache ของ npm ci อยู่ตราบที่ lockfile ไม่เปลี่ยน\nCOPY package.json package-lock.json ./\nRUN npm ci\n# แก้ source ทำให้ cache หลุดตั้งแต่บรรทัดนี้ลงไป\nCOPY . .\nRUN npm run build"
+      "code": "FROM node:24-slim\nWORKDIR /app\n# cache ของ npm ci อยู่ตราบที่ lockfile ไม่เปลี่ยน\nCOPY package.json package-lock.json ./\nRUN npm ci\n# แก้ source ทำให้ cache หลุดตั้งแต่บรรทัดนี้ลงไป\nCOPY . .\nRUN npm run build",
+      "ref": "https://docs.docker.com/build/cache/invalidation/"
     },
     {
       "tier": "must",
       "title": "Multi-stage build",
       "body": "Dockerfile มีหลาย FROM ได้ แต่ละ FROM เริ่ม stage ใหม่ และ image สุดท้ายมีเฉพาะสิ่งที่อยู่ใน stage สุดท้ายเท่านั้น ให้ stage แรกมี compiler, devDependencies และ source ไว้ build แล้วใช้ COPY --from ดึงเฉพาะผลลัพธ์ไป stage runtime ผลคือ image เล็กลง pull เร็วขึ้น และมีเครื่องมือให้ผู้โจมตีใช้น้อยลง กับดักคือไฟล์ที่ไม่ได้ COPY ข้าม stage จะไม่ตามไป เช่นไฟล์ config หรือ migration ที่ต้องใช้ตอนรัน",
-      "code": "FROM golang:1.27 AS build\nWORKDIR /src\nCOPY go.mod go.sum ./\nRUN go mod download\nCOPY . .\nRUN CGO_ENABLED=0 go build -o /out/api ./cmd/api\n\nFROM gcr.io/distroless/static-debian13\nCOPY --from=build /out/api /api\nUSER nonroot\nENTRYPOINT [\"/api\"]"
+      "code": "FROM golang:1.27 AS build\nWORKDIR /src\nCOPY go.mod go.sum ./\nRUN go mod download\nCOPY . .\nRUN CGO_ENABLED=0 go build -o /out/api ./cmd/api\n\nFROM gcr.io/distroless/static-debian13\nCOPY --from=build /out/api /api\nUSER nonroot\nENTRYPOINT [\"/api\"]",
+      "ref": "https://docs.docker.com/build/building/multi-stage/"
     },
     {
       "tier": "must",
       "title": "Non-root USER และ .dockerignore",
       "body": "ถ้า image ไม่ได้กำหนด USER ไว้ (base image ส่วนใหญ่ไม่กำหนด) process ใน container จะรันเป็น root (UID 0) เมื่อแอปถูกเจาะหรือมีช่องโหว่ให้หลุดออกจาก container ผู้โจมตีจะเริ่มจากสิทธิ์สูงสุด จึงควรใช้ user ที่ไม่ใช่ root (image node มี user ชื่อ node ให้แล้ว) และตั้ง USER ก่อน CMD ส่วน .dockerignore ใช้กันไฟล์ไม่ให้ถูกส่งเข้า build context เลย ทำให้ build เร็วขึ้น cache ไม่หลุดเพราะไฟล์ที่ไม่เกี่ยวข้อง และ COPY . . ไม่เผลอพา .env หรือ .git เข้าไปใน image (Docker ไม่อ่าน .gitignore)",
-      "code": "# .dockerignore\n.git\nnode_modules\ndist\n.env\n*.log"
+      "code": "# .dockerignore\n.git\nnode_modules\ndist\n.env\n*.log",
+      "ref": "https://docs.docker.com/build/building/best-practices/#user"
     },
     {
       "tier": "must",
       "title": "Volume, network และ port mapping",
       "body": "ไฟล์ที่เขียนใน container หายไปพร้อม container ข้อมูลที่ต้องอยู่ต่อจึงต้องเก็บใน named volume หรือ bind mount (map โฟลเดอร์จากเครื่องเรา เหมาะกับ source ตอน dev) และต้อง mount ให้ตรง path ที่ image ใช้ เช่น postgres:18 ใช้ /var/lib/postgresql ไม่ใช่ /var/lib/postgresql/data แบบเวอร์ชันก่อน -p 8080:3000 คือ HOST:CONTAINER แอปใน container ต้อง listen ที่ 0.0.0.0 และ EXPOSE เป็นแค่เอกสาร ไม่ได้เปิด port ให้ container ใน user-defined network เดียวกันเรียกกันด้วยชื่อได้ และ localhost ใน container หมายถึงตัว container เอง ไม่ใช่เครื่อง host",
-      "code": "docker network create appnet\ndocker volume create pgdata\ndocker run -d --name db --network appnet \\\n  -v pgdata:/var/lib/postgresql \\\n  -e POSTGRES_PASSWORD=dev postgres:18\ndocker run -d --network appnet -p 8080:3000 \\\n  -e DATABASE_HOST=db ghcr.io/acme/myapp:1.4.0"
+      "code": "docker network create appnet\ndocker volume create pgdata\ndocker run -d --name db --network appnet \\\n  -v pgdata:/var/lib/postgresql \\\n  -e POSTGRES_PASSWORD=dev postgres:18\ndocker run -d --network appnet -p 8080:3000 \\\n  -e DATABASE_HOST=db ghcr.io/acme/myapp:1.4.0",
+      "ref": "https://docs.docker.com/engine/storage/volumes/"
     },
     {
       "tier": "should",
       "title": "Docker Compose สำหรับ local dev",
       "body": "Compose นิยาม service, network และ volume ของทั้งระบบไว้ใน compose.yaml แล้วสั่ง docker compose up ครั้งเดียว ทุก service อยู่ใน network เดียวกันและเรียกกันด้วยชื่อ service เช่น db:5432 depends_on แบบธรรมดาแค่เรียงลำดับการ start ไม่ได้รอให้ DB พร้อมรับ connection ถ้าต้องรอให้ใส่ healthcheck ที่ db แล้วใช้ condition: service_healthy และระวังว่า docker compose down -v จะลบ named volume พร้อมข้อมูลไปด้วย",
-      "code": "services:\n  app:\n    build: .\n    ports: [\"8080:3000\"]\n    environment: { DATABASE_URL: \"postgres://postgres:dev@db:5432/postgres\" }\n    depends_on: { db: { condition: service_healthy } }\n  db:\n    image: postgres:18\n    environment: { POSTGRES_PASSWORD: dev }\n    volumes: [\"pgdata:/var/lib/postgresql\"]\n    healthcheck: { test: [\"CMD\", \"pg_isready\", \"-U\", \"postgres\"], interval: 5s }\nvolumes: { pgdata: {} }"
+      "code": "services:\n  app:\n    build: .\n    ports: [\"8080:3000\"]\n    environment: { DATABASE_URL: \"postgres://postgres:dev@db:5432/postgres\" }\n    depends_on: { db: { condition: service_healthy } }\n  db:\n    image: postgres:18\n    environment: { POSTGRES_PASSWORD: dev }\n    volumes: [\"pgdata:/var/lib/postgresql\"]\n    healthcheck: { test: [\"CMD\", \"pg_isready\", \"-U\", \"postgres\"], interval: 5s }\nvolumes: { pgdata: {} }",
+      "ref": "https://docs.docker.com/compose/how-tos/startup-order/"
     },
     {
       "tier": "should",
       "title": "Tag กับ digest",
       "body": "tag เช่น :latest หรือ :1.4 เป็นแค่ป้ายชื่อที่ถูกย้ายไปชี้ image ใหม่ได้ทุกเมื่อ ส่วน digest (sha256:…) คำนวณจากเนื้อหาของ image จึงชี้ของเดิมเสมอ ใน production ควร deploy ด้วย tag ที่ไม่ใช้ซ้ำ (เช่น 1.4.0 หรือ git SHA) หรือ pin ด้วย digest เพื่อให้ทุกเครื่องรันของเดียวกันและ rollback ได้แน่นอน อย่าเข้าใจผิดว่า :latest แปลว่าใหม่สุด มันเป็นแค่ tag ที่ใช้เมื่อไม่ได้ระบุ tag",
-      "code": "# tag เลื่อนได้: build วันนี้กับเดือนหน้าอาจได้ base คนละตัว\nFROM node:24-slim\n# digest ตายตัว (ดูได้จาก docker images --digests)\nFROM node:24-slim@sha256:<digest>"
+      "code": "# tag เลื่อนได้: build วันนี้กับเดือนหน้าอาจได้ base คนละตัว\nFROM node:24-slim\n# digest ตายตัว (ดูได้จาก docker images --digests)\nFROM node:24-slim@sha256:<digest>",
+      "ref": "https://docs.docker.com/build/building/best-practices/#pin-base-image-versions"
     },
     {
       "tier": "should",
       "title": "Image security",
       "body": "เริ่มจาก base image ที่เล็กและมีของน้อย (slim, distroless หรือ alpine ซึ่งใช้ musl libc จึงอาจมีปัญหากับ native module) เพราะทุกแพ็กเกจที่ไม่ได้ใช้คือช่องโหว่ที่อาจเกิด สแกน image ใน CI ด้วยเครื่องมืออย่าง Trivy หรือ Docker Scout และ rebuild เป็นระยะเพื่อรับ patch ของ base image ห้ามใส่ secret ผ่าน COPY, ENV หรือ ARG เพราะค่าจะติดอยู่ใน layer, metadata หรือ history ของ image แม้จะ rm ในบรรทัดหลัง ถ้าต้องใช้ตอน build ให้ใช้ BuildKit secret mount ส่วนตอนรันให้ส่งผ่าน environment หรือ secret manager",
-      "code": "# Dockerfile: secret ถูก mount เฉพาะตอน RUN นี้ ไม่ถูกเขียนลง layer\nRUN --mount=type=secret,id=npmrc,target=/root/.npmrc npm ci\n\n# คำสั่ง build\ndocker build --secret id=npmrc,src=$HOME/.npmrc -t myapp:1.4.0 ."
+      "code": "# Dockerfile: secret ถูก mount เฉพาะตอน RUN นี้ ไม่ถูกเขียนลง layer\nRUN --mount=type=secret,id=npmrc,target=/root/.npmrc npm ci\n\n# คำสั่ง build\ndocker build --secret id=npmrc,src=$HOME/.npmrc -t myapp:1.4.0 .",
+      "ref": "https://docs.docker.com/build/building/secrets/"
     },
     {
       "tier": "should",
       "title": "SIGTERM และ graceful shutdown",
       "body": "docker stop ส่ง SIGTERM ให้ process หลัก (PID 1) แล้วรอ 10 วินาทีตามค่า default ก่อนส่ง SIGKILL ส่วน Kubernetes รอตาม terminationGracePeriodSeconds ซึ่ง default 30 วินาที แอปที่ดีต้องรับ SIGTERM แล้วหยุดรับ request ใหม่ ทำงานที่ค้างให้เสร็จ ปิด connection แล้วค่อย exit กับดักคือ process ที่เป็น PID 1 ไม่ได้รับ default action ของสัญญาณจาก kernel (Node.js ที่เป็น PID 1 จึงไม่ปิดเองถ้าไม่เขียน handler) และ CMD แบบ shell form รันผ่าน /bin/sh -c ทำให้สัญญาณอาจไปไม่ถึงแอป ให้ใช้ exec form (JSON array) หรือ docker run --init",
-      "code": "# Dockerfile: exec form ให้ node เป็น PID 1 และได้รับสัญญาณโดยตรง\nCMD [\"node\", \"dist/server.js\"]\n\n// server.js\nprocess.on('SIGTERM', () => {\n  server.close(() => process.exit(0)); // รอ request ที่ค้างจบก่อน\n});"
+      "code": "# Dockerfile: exec form ให้ node เป็น PID 1 และได้รับสัญญาณโดยตรง\nCMD [\"node\", \"dist/server.js\"]\n\n// server.js\nprocess.on('SIGTERM', () => {\n  server.close(() => process.exit(0)); // รอ request ที่ค้างจบก่อน\n});",
+      "ref": "https://docs.docker.com/reference/cli/docker/container/stop/"
     },
     {
       "tier": "advanced",
       "title": "Kubernetes เบื้องต้น",
       "body": "Kubernetes จัดการ container บนหลายเครื่อง โดย Pod คือหน่วยเล็กที่สุด (container หนึ่งตัวหรือมากกว่าที่แชร์ network กัน) Deployment ดูแลให้มี Pod ตามจำนวนที่ต้องการและทำ rolling update ส่วน Service ให้ชื่อ DNS ที่คงที่และกระจาย traffic ไปยัง Pod ที่พร้อม Pod ถูกสร้างใหม่และเปลี่ยน IP ได้ตลอด แอปจึงควร stateless และรับ config จาก ConfigMap/Secret แทนการฝังใน image ระวังว่าค่าใน Secret แค่ encode เป็น base64 ไม่ใช่การเข้ารหัส",
-      "code": "apiVersion: apps/v1\nkind: Deployment\nmetadata: { name: api }\nspec:\n  replicas: 3\n  selector: { matchLabels: { app: api } }\n  template:\n    metadata: { labels: { app: api } }\n    spec:\n      containers:\n        - name: api\n          image: ghcr.io/acme/myapp:1.4.0"
+      "code": "apiVersion: apps/v1\nkind: Deployment\nmetadata: { name: api }\nspec:\n  replicas: 3\n  selector: { matchLabels: { app: api } }\n  template:\n    metadata: { labels: { app: api } }\n    spec:\n      containers:\n        - name: api\n          image: ghcr.io/acme/myapp:1.4.0",
+      "ref": "https://kubernetes.io/docs/concepts/workloads/controllers/deployment/"
     },
     {
       "tier": "advanced",
       "title": "Healthcheck, liveness และ readiness",
       "body": "HEALTHCHECK ใน Dockerfile หรือ healthcheck ใน Compose ให้ Docker รันคำสั่งตรวจเป็นระยะและแสดงสถานะ healthy/unhealthy (Docker เดี่ยว ๆ ไม่ restart container ที่ unhealthy ให้) ส่วน Kubernetes ไม่ใช้ HEALTHCHECK ของ image ต้องกำหนด probe เอง: readiness ไม่ผ่านคือถอด Pod ออกจาก Service ชั่วคราว liveness ไม่ผ่านคือ restart container กับดักใหญ่คือให้ liveness เช็ก database หรือ service ภายนอก พอ DB ช้า Pod ทุกตัวถูก restart พร้อมกันโดยไม่ช่วยอะไร ให้ liveness เช็กแค่ว่า process ยังตอบได้ และย้ายการเช็ก dependency ไปที่ readiness",
-      "code": "readinessProbe:\n  httpGet: { path: /ready, port: 3000 }\n  periodSeconds: 5\nlivenessProbe:\n  httpGet: { path: /healthz, port: 3000 }\n  periodSeconds: 10\n  failureThreshold: 3"
+      "code": "readinessProbe:\n  httpGet: { path: /ready, port: 3000 }\n  periodSeconds: 5\nlivenessProbe:\n  httpGet: { path: /healthz, port: 3000 }\n  periodSeconds: 10\n  failureThreshold: 3",
+      "ref": "https://kubernetes.io/docs/concepts/workloads/pods/probes/"
     },
     {
       "tier": "must",
@@ -172,7 +184,7 @@
       "code": "FROM node:24-slim\nWORKDIR /app\nCOPY . .\nRUN npm ci\nRUN npm run build\nCMD [\"node\", \"dist/server.js\"]",
       "options": [
         "build ด้วย --no-cache ทุกครั้ง เพื่อไม่ให้ Docker ใช้ cache เก่าที่ทำให้สับสน",
-        "COPY package.json กับ package-lock.json แล้ว RUN npm ci ก่อน จากนั้นค่อย COPY . .",
+        "COPY package.json กับ package-lock.json แล้ว RUN npm ci แล้วค่อย COPY . .",
         "รวม npm ci กับ npm run build ไว้ใน RUN เดียวกัน เพื่อลดจำนวน layer",
         "เปลี่ยน npm ci เป็น npm install เพราะ npm install ใช้ cache ของ Docker ได้"
       ],
@@ -206,8 +218,8 @@
       "prompt": "Dockerfile นี้ลบ .npmrc ที่มี token ของ private registry ออกแล้ว ถ้าปล่อย image นี้สู่สาธารณะจะเกิดอะไรขึ้น?",
       "code": "FROM node:24-slim\nWORKDIR /app\nCOPY .npmrc package*.json ./\nRUN npm ci\nRUN rm .npmrc\nCOPY . .",
       "options": [
-        "ปลอดภัย เพราะ rm ทำให้ไฟล์หายไปจาก image สุดท้ายแล้ว",
-        "token ยังอยู่ใน layer ของ COPY ใครที่ pull image ไปก็แตก layer ออกมาอ่านได้",
+        "ปลอดภัย เพราะคำสั่ง rm ลบไฟล์ token ออกจาก filesystem ของ image สุดท้ายไปแล้ว",
+        "token ยังอยู่ใน layer ของ COPY ใครที่ pull image ไปก็แตก layer อ่านได้",
         "ปลอดภัยถ้าตั้ง USER ที่ไม่ใช่ root เพราะ user อื่นอ่านไฟล์ของ root ไม่ได้",
         "token หายแล้ว แค่ต้อง build ด้วย --no-cache เพื่อล้าง cache บนเครื่อง build"
       ],
@@ -344,9 +356,9 @@
       "prompt": "รัน docker run -d --restart always --name api myapi แล้วช่วง maintenance สั่ง docker stop api ต่อมาเครื่องถูก reboot และพบว่า api ถูกเปิดกลับมาเองทั้งที่ตั้งใจให้หยุด ส่วนปกติทีมยังอยากให้ api เปิดกลับมาเองหลัง reboot หรือหลัง daemon restart ควรเปลี่ยนเป็น policy ใด?",
       "options": [
         "--restart on-failure เพราะจะ restart เฉพาะตอน exit code ผิดปกติ จึงไม่เปิดกลับเมื่อสั่ง stop",
-        "--restart no แล้วตั้ง cron ให้เรียก docker start ตามเวลาที่ต้องการ",
+        "--restart no แล้วตั้ง cron ให้เรียก docker start ทุกครั้งที่ต้องการให้ container ทำงาน",
         "คง always ไว้ เพราะ docker stop ปิด policy ถาวรจนกว่าจะสั่ง docker start เอง",
-        "--restart unless-stopped เพราะ container ที่ถูกสั่งหยุดเองจะไม่ถูกเปิดใหม่แม้ daemon restart"
+        "--restart unless-stopped เพราะ container ที่ stop เองจะไม่เปิดกลับตอน daemon restart"
       ],
       "answer": 3,
       "explain": "always จะเปิด container กลับเมื่อ daemon restart แม้เราสั่ง stop เอง ส่วน unless-stopped เคารพการสั่งหยุดของเรา on-failure ก็ไม่ restart เมื่อ daemon restart เช่นกัน จึงทำให้บริการที่ควรกลับมาหลัง reboot ไม่กลับ"
@@ -377,10 +389,10 @@
     {
       "prompt": "ทีมใช้ named volume site ที่ mount ที่ /usr/share/nginx/html เก็บเว็บ static ที่มากับ image mysite:1.0 ต่อมา deploy mysite:2.0 ที่ไฟล์ใน image เปลี่ยนแล้ว แต่หน้าเว็บยังเป็นเนื้อหาเดิม สาเหตุคืออะไร?",
       "options": [
-        "Docker copy จาก image เข้า volume เฉพาะตอน volume ว่าง volume เดิมที่มีข้อมูลจึงบังไฟล์ใหม่",
-        "cache ของ image mysite:2.0 ยังชี้ไปที่ layer เก่าของเวอร์ชันก่อน จึงต้อง pull ใหม่ด้วย --no-cache",
+        "Docker copy จาก image เข้า volume เฉพาะตอน volume ว่าง ข้อมูลเดิมจึงบังไฟล์ใหม่",
+        "cache ของ image mysite:2.0 ยังชี้ไปที่ layer เก่า จึงต้อง pull ใหม่ด้วย --no-cache",
         "volume sync เนื้อหาจาก image ทุกครั้งที่ start แต่ browser cache ทำให้เห็นของเก่า",
-        "named volume ล็อกเวอร์ชันของ image ไว้ จึงต้องใช้ tag 1.0 ต่อไป"
+        "named volume ล็อกเวอร์ชันของ image ไว้ ทำให้ต้องใช้ tag 1.0 ต่อไปจนกว่าจะลบ volume"
       ],
       "answer": 0,
       "explain": "เอกสารระบุว่าไฟล์ใน image ถูก propagate เข้า volume ที่ว่างเท่านั้น volume ที่มีข้อมูลแล้วจะบังเนื้อหาเดิมใน image การ pull ใหม่จึงไม่ช่วย ต้องลบ volume หรือไม่เก็บไฟล์ที่มากับ image ไว้ใน volume"
@@ -435,7 +447,7 @@
         "ชื่อ container ใช้เป็น hostname ได้เฉพาะเมื่อ publish port ของ container นั้นด้วย -p เท่านั้น",
         "default bridge ไม่ resolve ชื่อ ต้องสร้าง user-defined network ซึ่ง Compose ทำให้เอง",
         "Postgres ปิดรับ connection จาก container อื่น จนกว่าจะตั้งค่า listen_addresses ให้เปิด",
-        "ต้องใช้ --link ทุกกรณี เพราะมีเพียง Compose เท่านั้นที่มี DNS ในตัว"
+        "ต้องใช้ --link ทุกกรณี เพราะมีเพียง Compose เท่านั้นที่มี DNS ในตัวสำหรับเรียกหากัน"
       ],
       "answer": 1,
       "explain": "เอกสารระบุว่า user-defined bridge มี DNS ให้ container เรียกกันด้วยชื่อ ส่วน default bridge เข้าถึงกันได้ด้วย IP เท่านั้น Compose สร้าง network ให้โปรเจกต์ จึงทำงานได้ ส่วนเรื่อง -p ไม่เกี่ยวกับการ resolve ชื่อ"
@@ -679,5 +691,17 @@
       "url": "https://github.com/opencontainers/image-spec/blob/main/spec.md",
       "note": "โครงสร้าง manifest, image index, layer และ config ของ image"
     }
+  ],
+  "cheatsheet": [
+    "Image อ่านอย่างเดียว; container มี writable layer ของตัวเอง การแก้ไฟล์ใน container ไม่เปลี่ยน image",
+    "Container ใช้ kernel ของ host ร่วมกัน; VM มี kernel ของตัวเอง โดย container แยกตัวได้อ่อนกว่า VM",
+    "ติดตั้ง dependency ก่อน COPY source ที่เปลี่ยนบ่อย เพราะ cache ที่หลุดจะทำให้ขั้นหลังจากนั้นต้อง build ใหม่",
+    "Multi-stage build เก็บเฉพาะ stage สุดท้ายใน image; ใช้ COPY --from นำไฟล์ที่ต้องใช้ตอนรันข้าม stage",
+    "ข้อมูลใน writable layer หายเมื่อเอา container ออก; ใช้ named volume หรือ bind mount เพื่อเก็บข้อมูลถาวร",
+    "เมื่อ ENTRYPOINT และ CMD เป็น exec form ทั้งคู่ อาร์กิวเมนต์หลังชื่อ image ใน docker run จะแทนที่ CMD แล้วต่อท้าย ENTRYPOINT",
+    "ARG ใช้ตอน build ไม่เข้า environment ตอนรันโดยอัตโนมัติ; ENV เก็บใน image และแก้ทับตอนรันด้วย docker run -e ได้",
+    "Compose depends_on ปกติแค่เรียงลำดับ start; ถ้าต้องรอ DB พร้อม ให้ใช้ healthcheck กับ condition: service_healthy",
+    "อย่าใส่ secret ผ่าน COPY, ENV หรือ ARG แม้ลบทิ้งทีหลังยังติดใน image ได้; ตอน build ใช้ BuildKit secret mount",
+    "Kubernetes: readiness ไม่ผ่านจะถอด Pod ออกจาก Service; liveness ไม่ผ่านจะ restart container จึงไม่ควรเช็ก DB ใน liveness"
   ]
 }

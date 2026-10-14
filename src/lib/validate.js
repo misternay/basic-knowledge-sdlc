@@ -118,6 +118,13 @@ export function validateTopic(t, { strict = false, label = 'หัวข้อ',
       });
     }
   }
+  if (t.cheatsheet !== undefined) {
+    if (!Array.isArray(t.cheatsheet)) E('cheatsheet', 'cheatsheet ต้องเป็น array ของข้อความ');
+    else {
+      t.cheatsheet.forEach((line, i) => { if (typeof line !== 'string' || !line.trim()) E('cheatsheet[' + i + ']', 'ข้อความสรุปต้องไม่ว่าง'); });
+      if (strict && (t.cheatsheet.length < 6 || t.cheatsheet.length > 12)) E('cheatsheet', 'cheatsheet ควรมี 6–12 บรรทัด (มี ' + t.cheatsheet.length + ')');
+    }
+  }
   if (language === 'en') {
     const translate = (d) => {
       const msg = d.msg
@@ -159,6 +166,9 @@ export function validateTopic(t, { strict = false, label = 'หัวข้อ',
         .replace(/^ต้องมี title$/, 'title is required')
         .replace(/^url ต้องขึ้นต้นด้วย https:\/\/$/, 'url must start with https://')
         .replace(/^url ซ้ำกัน$/, 'Duplicate url')
+        .replace(/^cheatsheet ต้องเป็น array ของข้อความ$/, 'cheatsheet must be an array of strings')
+        .replace(/^ข้อความสรุปต้องไม่ว่าง$/, 'Cheat sheet lines must not be empty')
+        .replace(/^cheatsheet ควรมี 6–12 บรรทัด \(มี (\d+)\)$/, 'cheatsheet should have 6–12 lines (found $1)')
         .replace(/^บรรทัด (\d+)$/, 'Line $1')
         .replace(/^questions\[(\d+)\]$/, 'questions[$1]');
       return { ...d, where: d.where.replace(/^หัวข้อ/, 'Topic').replaceAll(' · บรรทัด ', ' · Line ').replace(/^บรรทัด /, 'Line ') , msg };

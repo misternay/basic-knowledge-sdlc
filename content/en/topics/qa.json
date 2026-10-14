@@ -3,142 +3,154 @@
   "code": "O1",
   "track": "delivery",
   "title": "Quality Engineering",
-  "blurb": "Build confidence with tests that detect real defects, and understand what coverage does and does not prove.",
+  "blurb": "Build confidence with tests that catch real bugs, rather than just making coverage numbers look good.",
   "mustKnow": [
     {
       "tier": "must",
       "title": "Test pyramid: when to change the balance",
-      "body": "The test pyramid described by Mike Cohn puts many fast, focused unit tests at the base, integration tests in the middle, and a few slower, more brittle E2E tests at the top for important flows. These proportions are not fixed: when most code connects to a database or service, integration failures may deserve more emphasis, as in Kent C. Dodds’s testing trophy. Test each risk at the lowest layer that can actually detect it. Avoid an inverted pyramid, or ice-cream cone, dominated by E2E or manual tests."
+      "body": "The test pyramid described by Mike Cohn puts many fast, focused unit tests at the base, integration tests in the middle, and a few slower, more brittle E2E tests at the top for important flows. These proportions are not fixed: when most code connects to a database or service, integration failures may deserve more emphasis, as in Kent C. Dodds’s testing trophy. Test each risk at the lowest layer that can actually detect it. Avoid an inverted pyramid, or ice-cream cone, dominated by E2E or manual tests.",
+      "ref": "https://martinfowler.com/bliki/TestPyramid.html"
     },
     {
       "tier": "must",
       "title": "Good unit tests: AAA and one behavior",
-      "body": "Structure a test as Arrange (prepare data), Act (call the code), and Assert (check the result). Give each test one behavior and a name that states the condition and expected result, so a failure identifies what broke. One behavior can require several assertions, such as checking multiple fields of one returned object. Tests must run independently, without relying on order or state left by another test.",
-      "code": "test('ส่งฟรีเมื่อยอดถึง 500 พอดี', () => {\n  const total = 500;              // Arrange\n  const fee = shippingFee(total); // Act\n  expect(fee).toBe(0);            // Assert\n});"
+      "body": "Structure a test as Arrange (prepare data), Act (call the code under test), and Assert (check the result). Have each test check one behavior, with a name that states the condition and expected result so a failure immediately identifies what broke. One behavior can require several assertions, such as checking multiple fields of one returned object. Tests must run independently, without relying on order or state left by another test.",
+      "code": "test('free shipping when the total is exactly 500', () => {\n  const total = 500;              // Arrange\n  const fee = shippingFee(total); // Act\n  expect(fee).toBe(0);            // Assert\n});",
+      "ref": "https://xp123.com/3a-arrange-act-assert/"
     },
     {
       "tier": "must",
       "title": "Test behavior, not implementation",
       "body": "Test inputs and observable results through a public interface rather than the order or count of internal method calls. Tests tied to implementation details break during refactoring even when behavior stays correct. This can discourage refactoring or lead teams to weaken tests until they no longer detect bugs. Exporting internal functions solely to test them is a common warning sign.",
-      "code": "// เปราะ: ผูกกับวิธีคำนวณภายใน\nexpect(pricing.applyDiscount).toHaveBeenCalledWith(1000, 0.1);\n\n// ทนทาน: ตรวจผลที่ผู้ใช้เห็น\nexpect(checkout(cart).total).toBe(900);"
+      "code": "// Brittle: tied to internal calculation details\nexpect(pricing.applyDiscount).toHaveBeenCalledWith(1000, 0.1);\n\n// Robust: checks the result the user sees\nexpect(checkout(cart).total).toBe(900);",
+      "ref": "https://kentcdodds.com/blog/testing-implementation-details"
     },
     {
       "tier": "must",
-      "title": "Test double: mock, stub and fake",
-      "body": "Test doubles replace dependencies that are slow or hard to control, such as networks, clocks, or payment gateways. A stub returns predefined values; a fake is a simplified working implementation, such as an in-memory repository. A mock verifies calls and their arguments, which is useful for side effects such as sending email. Jest often creates all of these with jest.fn() and calls them mocks, but distinguishing their roles helps you choose whether to assert results or interactions.",
-      "code": "class InMemoryUserRepo {          // fake\n  users = new Map();\n  async save(u) { this.users.set(u.id, u); }\n  async findById(id) { return this.users.get(id) ?? null; }\n}\n\nconst sendEmail = jest.fn();      // mock\nawait registerUser({ repo: new InMemoryUserRepo(), sendEmail }, input);\nexpect(sendEmail).toHaveBeenCalledWith(\n  expect.objectContaining({ to: 'a@example.com' })\n);"
+      "title": "Test doubles: mocks, stubs, and fakes",
+      "body": "Test doubles replace dependencies that are slow or hard to control, such as networks, clocks, or payment gateways. A stub returns predefined values; a fake is a simplified working implementation, such as an in-memory repository. A mock verifies calls and their arguments, which is useful for side effects that are not visible in the return value, such as sending email. In Jest, all three are often created with jest.fn() and called mocks, but distinguishing their roles helps you choose whether to assert results or interactions.",
+      "code": "class InMemoryUserRepo {          // fake\n  users = new Map();\n  async save(u) { this.users.set(u.id, u); }\n  async findById(id) { return this.users.get(id) ?? null; }\n}\n\nconst sendEmail = jest.fn();      // mock\nawait registerUser({ repo: new InMemoryUserRepo(), sendEmail }, input);\nexpect(sendEmail).toHaveBeenCalledWith(\n  expect.objectContaining({ to: 'a@example.com' })\n);",
+      "ref": "https://martinfowler.com/bliki/TestDouble.html"
     },
     {
       "tier": "must",
       "title": "Boundary values: bugs at the edges",
-      "body": "Errors such as using > instead of >= or an off-by-one loop often appear only at a boundary, so testing values in the middle can miss them. Divide inputs into equivalence partitions and test values immediately on both sides of each boundary. For free shipping from 500 onward, test 499 and 500 rather than only 100 and 1000. Also consider zero, negative values, empty lists, empty strings, and null."
+      "body": "Errors such as using > instead of >= or an off-by-one loop often appear only at a boundary, so testing values in the middle can miss them. Divide inputs into equivalence partitions and test values immediately on both sides of each boundary. For free shipping from 500 onward, test 499 and 500 rather than only 100 and 1000. Also consider zero, negative values, empty lists, empty strings, and null.",
+      "ref": "https://istqb.org/wp-content/uploads/2024/11/ISTQB_CTFL_Syllabus_v4.0.1.pdf#page=39"
     },
     {
       "tier": "must",
       "title": "Linter, formatter and static analysis",
-      "body": "Linters, type checkers, and formatters inspect code without running it. Tools such as ESLint, TypeScript, and Prettier catch unused variables, incompatible types, and—through typescript-eslint rules—unawaited promises faster than separate tests for each occurrence. Apply the same rules in editors, pre-commit checks, and CI so reviews focus on logic and design. These tools cannot establish whether business rules are correct, so they do not replace testing."
+      "body": "Linters, type checkers, and formatters inspect code without running it. Tools such as ESLint, the TypeScript type checker, and Prettier handle recurring issues across the codebase, including unused variables, incompatible types, and—through typescript-eslint rules—promises that were not awaited, faster and more cheaply than separate tests for each case. Keep their results consistent in the editor, pre-commit checks, and CI so reviews focus on logic and design rather than style. These tools cannot establish whether business rules are correct, so they do not replace tests.",
+      "ref": "https://prettier.io/docs/comparison.html"
     },
     {
       "tier": "should",
       "title": "What coverage can and cannot tell you",
       "body": "Coverage shows which lines or branches ran during tests, helping you find untested code. It does not show whether the results were asserted: merely calling a function can increase coverage. A mandatory percentage can encourage meaningless tests. Use coverage, especially branch coverage, to find blind spots rather than to prove test quality.",
-      "code": "test('คำนวณภาษี', () => {\n  calculateTax(1000);\n  // บรรทัดถูกรันครบ coverage ขึ้น แต่ไม่ได้ตรวจอะไรเลย\n});"
+      "code": "test('calculates tax', () => {\n  calculateTax(1000);\n  // All lines run and coverage increases, but nothing is asserted\n});",
+      "ref": "https://martinfowler.com/bliki/TestCoverage.html"
     },
     {
       "tier": "should",
       "title": "Flaky tests: inconsistent results",
       "body": "A flaky test passes and fails without a code change, often because it depends on real time, fixed sleeps, shared state, test order, or an external network. Repeated reruns can train a team to ignore failures that indicate real bugs. Fix the cause by controlling the clock, using fake timers, or isolating each test’s state. If an immediate fix is not possible, quarantine the test with tracked follow-up work instead of relying permanently on retries.",
-      "code": "beforeEach(() => {\n  jest.useFakeTimers();\n  jest.setSystemTime(new Date('2026-01-31T23:00:00Z'));\n});\nafterEach(() => jest.useRealTimers());\n\ntest('คูปองยังใช้ได้ก่อนหมดเดือน', () => {\n  expect(isCouponValid(januaryCoupon)).toBe(true);\n});"
+      "code": "beforeEach(() => {\n  jest.useFakeTimers();\n  jest.setSystemTime(new Date('2026-01-31T23:00:00Z'));\n});\nafterEach(() => jest.useRealTimers());\n\ntest('coupon remains valid before the end of the month', () => {\n  expect(isCouponValid(januaryCoupon)).toBe(true);\n});",
+      "ref": "https://martinfowler.com/articles/nonDeterminism.html"
     },
     {
       "tier": "should",
       "title": "TDD: Red, Green, Refactor",
-      "body": "Write a failing test for the next behavior (Red), write the smallest implementation that passes (Green), then improve the code while tests protect its behavior (Refactor). Observing the initial failure demonstrates that the test detects the missing behavior. If it passes immediately, either the behavior already exists or the test is not checking it correctly. TDD works well for clear logic with fast feedback; exploratory work or a rapidly changing UI may call for tests afterward."
+      "body": "Write a failing test for the next behavior (Red), write the smallest implementation that passes (Green), then improve the code while tests protect its behavior (Refactor). Observing the initial failure demonstrates that the test detects the missing behavior. If it passes immediately, either the behavior already exists or the test is not checking it correctly. TDD works well for clear logic with fast feedback; exploratory work or a rapidly changing UI may call for tests afterward.",
+      "ref": "https://martinfowler.com/bliki/TestDrivenDevelopment.html"
     },
     {
       "tier": "should",
       "title": "Over-mocking: green tests, broken systems",
-      "body": "Mocking every dependency, including your own classes, may verify only that code makes the calls you expected. A mock can return a result that the real dependency would never produce, leaving tests green despite invalid SQL or a renamed field. Warning signs include mock setup longer than the test and failures after every refactor. Prefer mocking boundaries you do not own, use fakes when practical, and add integration tests against real dependencies, for example a database started with Testcontainers."
+      "body": "Mocking every dependency, including your own classes, may verify only that code makes the calls you expected. A mock can return a result that the real dependency would never produce, leaving tests green despite invalid SQL or a renamed field. Warning signs include mock setup longer than the test and failures after every refactor. Prefer mocking boundaries you do not own, use fakes when practical, and add integration tests against real dependencies, for example a database started with Testcontainers.",
+      "ref": "https://testing.googleblog.com/2020/07/testing-on-toilet-dont-mock-types-you.html"
     },
     {
       "tier": "advanced",
       "title": "Performance and load testing",
-      "body": "Load testing measures behavior at expected traffic levels; stress testing pushes beyond them to find limits; soak testing runs for longer to expose issues such as memory leaks. Inspect high-percentile latency (p95 and p99) and error rates rather than averages that hide slow requests. Results are useful when the environment, data volume, and usage patterns resemble production. Common tools include k6, JMeter, Gatling, and Locust."
+      "body": "Load testing measures behavior at expected traffic levels; stress testing pushes beyond them to find limits; soak testing runs for longer to expose issues such as memory leaks. Inspect high-percentile latency (p95 and p99) and error rates rather than averages that hide slow requests. Results are useful when the environment, data volume, and usage patterns resemble production. Common tools include k6, JMeter, Gatling, and Locust.",
+      "ref": "https://grafana.com/docs/k6/latest/testing-guides/test-types/"
     },
     {
       "tier": "advanced",
       "title": "Contract testing and mutation testing",
-      "body": "Consumer-driven contract testing, such as Pact, records what a consumer expects from an API and checks that contract in the provider’s CI. It can detect changed fields without an E2E test spanning every service. Mutation testing, such as StrykerJS or PIT, makes small code changes and reruns tests; a surviving mutant usually reveals a missing assertion, unless it is equivalent to the original code. It measures fault detection more directly than coverage, but is slower, so teams often run it on changed code or periodically."
+      "body": "Contract testing checks that a consumer and provider can still communicate correctly. In consumer-driven testing, such as Pact, the consumer records its API expectations as a contract that the provider checks in CI, catching changed fields without E2E tests spanning every service. Mutation testing, such as StrykerJS for JavaScript or PIT for Java, makes small code changes—for example, replacing >= with >—and reruns tests; a surviving mutant usually means the tests do not check that behavior, except for equivalent mutants that no test can distinguish from the original. It measures test quality more directly than coverage but is slower, so teams often run it on changed code or periodically.",
+      "ref": "https://docs.pact.io/getting_started/how_pact_works"
     },
     {
       "tier": "must",
       "exam": true,
       "title": "ISTQB’s seven testing principles",
-      "body": "ISTQB gives seven testing principles: testing shows the presence, not the absence, of defects; exhaustive testing is impossible; early testing saves time and money; defects cluster; tests wear out; testing is context-dependent; and absence of defects does not guarantee a useful system. Refresh tests and data as the product changes, and validate user needs as well as verifying requirements. Do not interpret ‘tests wear out’ as saying repeated regression tests are useless: the syllabus explicitly recognizes their continuing value.",
+      "body": "ISTQB gives seven testing principles: testing shows the presence, not the absence, of defects; exhaustive testing is impossible, so choose tests using techniques and risk; early testing saves time and money; defects cluster in a few components; tests wear out; testing is context-dependent; and meeting every requirement does not guarantee that a system meets user needs. Repeating unchanged tests detects fewer new defects, so refresh tests and data, and validate user needs as well as verifying requirements. Do not interpret “tests wear out” as saying repeated regression tests are useless: the syllabus explicitly recognizes their value in cases such as automated regression testing.",
       "ref": "https://astqb.org/assets/documents/ISTQB_CTFL_Syllabus_v4.0.1.pdf#page=17"
     },
     {
       "tier": "must",
       "exam": true,
       "title": "Test levels versus test types",
-      "body": "A test level identifies where you test: ISTQB lists component, component integration, system, system integration, and acceptance testing. A test type identifies what you test, such as functional, non-functional, black-box, or white-box testing. Types can apply at any level; measuring a function’s response time is a non-functional component test. Distinguish integration between components inside your system from integration with an external system, such as a payment gateway.",
+      "body": "A test level identifies where you test: ISTQB lists component (or unit), component integration, system, system integration, and acceptance testing. A test type identifies what you test: functional, non-functional (such as performance, security, or usability), black-box, or white-box testing. Each type can apply at any level; measuring a single function’s response time is a non-functional component test. Distinguish component integration, between components inside your system, from system integration, with another system or external service such as a payment gateway.",
       "ref": "https://astqb.org/assets/documents/ISTQB_CTFL_Syllabus_v4.0.1.pdf#page=29"
     },
     {
       "tier": "must",
       "exam": true,
       "title": "Confirmation testing and regression testing",
-      "body": "Confirmation testing reruns the failing case to verify that the original defect is fixed. Regression testing checks that the change has not broken the same component, other components, or connected systems. After fixing a coupon calculation, confirm the previously incorrect case and run related checkout tests. Automate frequently run regression tests in CI, and use impact analysis to choose their scope.",
+      "body": "After a bug fix, confirmation testing verifies that the original defect is fixed, for example by rerunning the previously failing case. Regression testing checks that the change, including a confirmed fix, has not broken the same component, other components, or connected systems. After fixing a coupon calculation, rerun the previously incorrect coupon case for confirmation, then run the full set of checkout and pricing tests for regression. Regression suites run frequently and keep growing, making them good candidates for automation in CI; use impact analysis to choose their scope.",
       "ref": "https://astqb.org/assets/documents/ISTQB_CTFL_Syllabus_v4.0.1.pdf#page=30"
     },
     {
       "tier": "must",
       "title": "Async tests: await or return the promise",
       "body": "Jest must know when asynchronous work finishes: return its promise or await it. Otherwise the test may finish before a promise resolves or rejects. Always await or return .resolves and .rejects assertions. With try/catch, ensure the test also fails if no rejection occurs, for example using expect.assertions(n) or storing the error and asserting outside the catch.",
-      "code": "test('ดึงผู้ใช้สำเร็จ', async () => {\n  await expect(fetchUser(1)).resolves.toMatchObject({ id: 1 });\n});\n\ntest('throw เมื่อไม่พบผู้ใช้', async () => {\n  await expect(fetchUser(999)).rejects.toThrow('not found');\n});\n\n// แบบ try/catch ต้องล็อกจำนวน assertion\ntest('throw เมื่อไม่พบผู้ใช้ (try/catch)', async () => {\n  expect.assertions(1);\n  try { await fetchUser(999); } catch (e) { expect(e.message).toBe('not found'); }\n});",
+      "code": "test('fetches the user successfully', async () => {\n  await expect(fetchUser(1)).resolves.toMatchObject({ id: 1 });\n});\n\ntest('throws when the user is not found', async () => {\n  await expect(fetchUser(999)).rejects.toThrow('not found');\n});\n\n// With try/catch, enforce the assertion count\ntest('throws when the user is not found (try/catch)', async () => {\n  expect.assertions(1);\n  try { await fetchUser(999); } catch (e) { expect(e.message).toBe('not found'); }\n});",
       "ref": "https://jestjs.io/docs/asynchronous"
     },
     {
       "tier": "must",
       "title": "Setup, teardown, and isolated state",
       "body": "beforeEach and afterEach run around each test; beforeAll and afterAll run once for their file or describe block. Hooks inside describe apply to that block, and outer beforeEach hooks run before inner ones. A test that passes alone but fails with the suite often depends on state left by another test. Create or reset mutable data in beforeEach rather than sharing it at file scope or through beforeAll.",
-      "code": "let cache;\nbeforeEach(() => {\n  cache = new Map();            // ใหม่ทุก test ไม่มีของเหลือจาก test ก่อนหน้า\n});\n\ntest('เก็บค่าแล้วอ่านกลับได้', () => {\n  cache.set('a', 1);\n  expect(cache.get('a')).toBe(1);\n});\n\ntest('cache ใหม่ต้องว่าง', () => {\n  expect(cache.size).toBe(0);\n});",
+      "code": "let cache;\nbeforeEach(() => {\n  cache = new Map();            // Fresh for each test, with no state left by the previous test\n});\n\ntest('reads back a stored value', () => {\n  cache.set('a', 1);\n  expect(cache.get('a')).toBe(1);\n});\n\ntest('a fresh cache is empty', () => {\n  expect(cache.size).toBe(0);\n});",
       "ref": "https://jestjs.io/docs/setup-teardown"
     },
     {
       "tier": "should",
       "exam": true,
       "title": "Defect reports: severity and priority",
-      "body": "A defect report should let someone reproduce and fix a problem without follow-up questions. Include a concise title, the test object and environment, reproduction steps, expected and actual results, logs or screenshots, severity, priority, and status. Severity describes impact; priority describes the order or urgency of fixing it. They can differ: a distorted logo before tomorrow’s press conference may have low functional impact but high priority.",
+      "body": "A defect report should let someone reproduce and fix a problem without follow-up questions. Include a concise title, the test object and environment, reproduction steps, expected and actual results, logs or screenshots, severity, priority, and status. In the ISTQB syllabus, severity describes the degree of impact on stakeholders or requirements, while priority describes the order of fixing defects; the two need not align. A distorted homepage logo before tomorrow’s press conference may have low functional impact but need an immediate fix.",
       "ref": "https://astqb.org/assets/documents/ISTQB_CTFL_Syllabus_v4.0.1.pdf#page=56"
     },
     {
       "tier": "should",
       "exam": true,
       "title": "Decision table and state transition testing",
-      "body": "A decision table describes outcomes determined by combinations of conditions: rows hold conditions and actions, and columns hold rules. Coverage measures the proportion of feasible rules tested; three independent boolean conditions create eight combinations. State transition tests describe event sequences that move a system between states, with coverage levels including all states, valid transitions, and all transitions. The last also attempts invalid transitions; use separate tests so one defect does not mask another.",
-      "code": "# ตัวอย่างสมมติ: กฎส่วนลดของร้านค้า\ncondition / rule      R1  R2  R3  R4\nis_member             T   T   F   F\ntotal >= 1000         T   F   T   F\n----------------------------------\ndiscount 15%          X\ndiscount 5%               X   X\nno discount                       X",
+      "body": "A decision table describes outcomes determined by combinations of conditions: rows hold conditions and actions, and columns hold rules. Coverage measures the proportion of feasible rules tested, helping reveal missing combinations or conflicting rules, but the number of rules grows quickly: three boolean conditions yield eight combinations. State transition testing suits systems whose behavior depends on state, such as orders; test cases are event sequences, and the syllabus describes all states, valid transitions, and all transitions coverage. The last also attempts invalid transitions; test them separately so one defect does not mask another.",
+      "code": "# Illustrative example: store discount rules\ncondition / rule      R1  R2  R3  R4\nis_member             T   T   F   F\ntotal >= 1000         T   F   T   F\n----------------------------------\ndiscount 15%          X\ndiscount 5%               X   X\nno discount                       X",
       "ref": "https://astqb.org/assets/documents/ISTQB_CTFL_Syllabus_v4.0.1.pdf#page=41"
     },
     {
       "tier": "should",
       "title": "Playwright: locators, auto-waiting, and assertions",
       "body": "Playwright automatically waits for an element to be ready before acting: a click checks that it uniquely matches, is visible, stable, unobstructed, and enabled. Prefer user-facing locators such as getByRole over selectors coupled to DOM structure. Use retrying web-first assertions such as await expect(locator).toBeVisible(); expect(await locator.isVisible()).toBe(true) checks only once and can be flaky. Keep each test independent of previous tests.",
-      "code": "// เปราะ: ผูกกับ class และเช็กครั้งเดียว\nawait page.locator('button.btn.btn-primary.x1').click();\nexpect(await page.getByText('สั่งซื้อสำเร็จ').isVisible()).toBe(true);\n\n// ทน: locator แบบที่ผู้ใช้เห็น + assertion ที่ retry\nawait page.getByRole('button', { name: 'ชำระเงิน' }).click();\nawait expect(page.getByText('สั่งซื้อสำเร็จ')).toBeVisible();",
+      "code": "// Brittle: tied to a CSS class and checks only once\nawait page.locator('button.btn.btn-primary.x1').click();\nexpect(await page.getByText('Order placed').isVisible()).toBe(true);\n\n// Robust: user-facing locator and a retrying assertion\nawait page.getByRole('button', { name: 'Pay' }).click();\nawait expect(page.getByText('Order placed')).toBeVisible();",
       "ref": "https://playwright.dev/docs/best-practices"
     },
     {
       "tier": "should",
       "title": "Snapshot testing: review the diff",
       "body": "Snapshot tests save serialized output in a text file and compare future output against it, making them useful for small, specific structures such as component output or error messages. Commit .snap files and review their diffs as part of the test. Control changing values such as time and random IDs, or use property matchers; Jest does not create new snapshots automatically in CI mode. Updating with jest -u without reading the diff turns the test into a rubber stamp for unintended changes.",
-      "code": "test('สรุปคำสั่งซื้อ', () => {\n  const order = createOrder(cart);   // id สุ่มทุกครั้ง\n  expect(order).toMatchSnapshot({\n    id: expect.any(String),          // คุมค่าที่ไม่คงที่\n  });\n});",
+      "code": "test('order summary', () => {\n  const order = createOrder(cart);   // A random ID each time\n  expect(order).toMatchSnapshot({\n    id: expect.any(String),          // Handle the nondeterministic value\n  });\n});",
       "ref": "https://jestjs.io/docs/snapshot-testing"
     },
     {
       "tier": "advanced",
       "title": "Property-based testing with fast-check",
       "body": "Property-based testing defines relationships between input and output that must hold for all supported inputs. A library generates many inputs and shrinks a failing case toward the smallest counterexample it can find. Example properties include sorted output being nondecreasing with unchanged length, or decode(encode(x)) returning x. A general caution, not taken from the linked page: duplicating the implementation’s formula in a property can reproduce the same error and detect nothing.",
-      "code": "const fc = require('fast-check');\n\ntest('sortNumbers เรียงจากน้อยไปมากและความยาวเท่าเดิม', () => {\n  fc.assert(\n    fc.property(fc.array(fc.integer()), (xs) => {\n      const out = sortNumbers(xs);\n      expect(out).toHaveLength(xs.length);\n      for (let i = 1; i < out.length; i++) {\n        expect(out[i - 1]).toBeLessThanOrEqual(out[i]);\n      }\n    })\n  );\n});",
+      "code": "const fc = require('fast-check');\n\ntest('sortNumbers sorts in ascending order and preserves length', () => {\n  fc.assert(\n    fc.property(fc.array(fc.integer()), (xs) => {\n      const out = sortNumbers(xs);\n      expect(out).toHaveLength(xs.length);\n      for (let i = 1; i < out.length; i++) {\n        expect(out[i - 1]).toBeLessThanOrEqual(out[i]);\n      }\n    })\n  );\n});",
       "ref": "https://fast-check.dev/docs/introduction/what-is-property-based-testing/"
     },
     {
@@ -151,7 +163,7 @@
       "tier": "advanced",
       "title": "jest.mock hoisting and partial mocks",
       "body": "With babel-jest, jest.mock calls are hoisted before imports, so their factories cannot normally reference variables outside their scope. Jest permits names beginning with mock, but you must ensure those variables are initialized when needed. A factory that returns only some exports removes the rest; use jest.requireActual to preserve real exports and replace only selected ones. For different mocks in individual tests, use jest.doMock, which is not hoisted.",
-      "code": "jest.mock('./mailer', () => ({\n  ...jest.requireActual('./mailer'),  // เก็บ export จริงไว้\n  send: jest.fn(),                    // แทนที่เฉพาะ send\n}));\n\nconst mailer = require('./mailer');\n// mailer.formatSubject ยังเป็นของจริง, mailer.send เป็น mock",
+      "code": "jest.mock('./mailer', () => ({\n  ...jest.requireActual('./mailer'),  // Preserve the real exports\n  send: jest.fn(),                    // Replace only send\n}));\n\nconst mailer = require('./mailer');\n// mailer.formatSubject remains real; mailer.send is a mock",
       "ref": "https://jestjs.io/docs/es6-class-mocks#calling-jestmock-with-the-module-factory-parameter"
     }
   ],
@@ -159,16 +171,16 @@
     {
       "prompt": "Most of one service’s work is handling requests and reading or writing PostgreSQL. Its many unit tests mock every repository, but most production bugs involve invalid SQL or migrations that do not match the code. How should the team adjust its testing strategy?",
       "options": [
-        "Add unit tests to the mock repository to cover all types of queries.",
-        "Add an integration test that runs with real PostgreSQL, such as in a container.",
-        "Write E2E through the UI for every case of every endpoint.",
-        "Set a minimum coverage of 90% in CI for every PR to pass."
+        "Add more unit tests with mocked repositories to cover every query type.",
+        "Add integration tests using real PostgreSQL, for example in a container.",
+        "Add UI E2E tests for every possible case of every endpoint.",
+        "Require every PR to meet a minimum of 90% coverage in CI."
       ],
       "answer": 1,
-      "explain": "The bug is at the junction with the database, which is invisible to the mock. Therefore, more weight should be given to integration tests, which is the lowest layer that catches this bug. Adding unit tests to the mock repository will cause the test to continue to run green even if the SQL is incorrect. E2E in all cases is unnecessarily slow and brittle."
+      "explain": "The bugs occur at the database boundary, which mocks cannot exercise. Integration tests are the lowest layer that can catch them, so give that layer more emphasis. More mocked unit tests can stay green despite invalid SQL, while E2E tests for every case would be unnecessarily slow and brittle."
     },
     {
-      "prompt": "This test fails in CI and only reports that the “order” is broken. What is the main problem with this test?",
+      "prompt": "This test fails in CI under the vague name “order”. What is its main problem?",
       "code": "test('order', () => {\n  const order = createOrder([{ sku: 'A', qty: 2, price: 100 }]);\n  expect(order.total).toBe(200);\n  order.applyCoupon('SAVE10');\n  expect(order.total).toBe(180);\n  order.cancel();\n  expect(order.status).toBe('cancelled');\n  expect(() => order.applyCoupon('SAVE10')).toThrow();\n});",
       "options": [
         "It has several expect calls; a unit test must always contain exactly one assertion.",
@@ -181,38 +193,38 @@
     },
     {
       "prompt": "This test passes locally but sometimes fails on a busy CI machine. What addresses the cause?",
-      "code": "test('สร้างรายงานเสร็จ', async () => {\n  startReportJob();\n  await sleep(200);\n  expect(getReportStatus()).toBe('done');\n});",
+      "code": "test('finishes generating the report', async () => {\n  startReportJob();\n  await sleep(200);\n  expect(getReportStatus()).toBe('done');\n});",
       "options": [
-        "Increase sleep to 2000 ms to allow enough time on slow CI machines.",
-        "Set CI to retry tests that fail automatically 3 times before reporting results.",
-        "Let startReportJob return promise and await instead of guessing the time with sleep.",
-        "Move this test to run last to prevent other tests from competing for CPU."
+        "Increase the sleep to 2000 ms to allow more time on slow CI machines.",
+        "Configure CI to retry failing tests three times before reporting results.",
+        "Have startReportJob return a promise; await it instead of using sleep.",
+        "Run this test last so other tests cannot compete with it for CPU time."
       ],
       "answer": 2,
       "explain": "The test assumes the job finishes within 200 ms, which may fail on a busy CI machine. Wait for completion directly, or control time with fake timers. Longer sleeps make every run slower without removing the cause; retries hide it."
     },
     {
-      "prompt": "You do TDD to add the rule “VIP members get 10% discount”. Write a new test and run it. It passes immediately even though you haven't edited the code yet. What should I do next?",
+      "prompt": "You are using TDD to add a rule: “VIP members get a 10% discount.” The new test passes before you change any code. What should you do next?",
       "options": [
         "Skip to refactoring because the test is already green.",
         "Delete the test because a test that never failed is useless.",
         "Implement the discount as planned and inspect the test afterward.",
-        "Check whether the test detects the new behavior or the rule already exists."
+        "Check the test: it may miss the new rule, or the rule may exist."
       ],
       "answer": 3,
       "explain": "The Red step demonstrates that a test detects missing behavior. An immediately passing test may have an incorrect assertion or setup, or the rule may already exist. Investigate before refactoring rather than trusting a test that has never shown the expected failure."
     },
     {
-      "prompt": "The team refactors checkout to round to satang only once at the end. Every customer-visible total stays the same, but the following test fails. What should change?",
-      "code": "test('คิดยอดรวมพร้อมส่วนลด', () => {\n  const spy = jest.spyOn(pricing, 'roundToSatang');\n  checkout(cart);\n  expect(spy).toHaveBeenCalledTimes(3);\n});",
+      "prompt": "The team refactors checkout to round to satang (hundredths of a baht) only once at the end. Every customer-visible total stays the same, but this test fails. What should change?",
+      "code": "test('calculates the total including discounts', () => {\n  const spy = jest.spyOn(pricing, 'roundToSatang');\n  checkout(cart);\n  expect(spy).toHaveBeenCalledTimes(3);\n});",
       "options": [
         "Change toHaveBeenCalledTimes to 1 to match the new implementation.",
-        "Assert the total returned by checkout instead of an internal call count.",
+        "Assert checkout’s returned total instead of counting internal calls.",
         "Revert the refactor because a failing test proves behavior changed.",
         "Mock roundToSatang with a constant result to avoid testing rounding."
       ],
       "answer": 1,
-      "explain": "This test is tied to internal calculation methods. So it breaks even though the results don't change. Changing the number to 1 actually makes it pass, but it's still brittle and will break again in the next refactor. You should check the results that the user sees, such as expect(checkout(cart).total).toBe(...)"
+      "explain": "The test checks an internal calculation detail, so it breaks even though the result is unchanged. Changing the call count to 1 makes it pass but leaves it just as brittle for the next refactor. Assert the customer-visible result instead, for example expect(checkout(cart).total).toBe(...)."
     },
     {
       "prompt": "A ticketing system offers student prices from ages 13 through 19, inclusive. Which set best tests the boundaries?",
@@ -223,22 +235,22 @@
         "13 and 19 alone, because the requirements mention them."
       ],
       "answer": 2,
-      "explain": "< and <= or off-by-one bugs appear on the edge, so you need to test both the values ​​within and outside the range on both sides of the edge. Sets 13 and 19 only test the inside side. If the code is incorrectly written as age <= 20, it still passes."
+      "explain": "Mistakes involving < versus <= or off-by-one errors occur at boundaries, so test just inside and just outside both ends of the range. Testing only 13 and 19 checks the inside values: an incorrect condition such as age <= 20 would still pass those tests."
     },
     {
       "prompt": "Most PR comments concern spacing, import order, and unused variables, leaving little review time for logic. What should the team change?",
       "options": [
-        "Write a detailed style guide and have reviewers help enforce it.",
-        "Set formatter and linter to run automatically in editor, pre-commit and CI.",
-        "Added unit tests that check the coding style of each file.",
-        "Let one senior reviewer make all style decisions."
+        "Write a detailed style guide and have reviewers manually enforce its rules.",
+        "Automate formatting and linting in the editor, pre-commit, and CI.",
+        "Add unit tests that check the coding style of each file.",
+        "Let one senior reviewer decide every question of coding style."
       ],
       "answer": 1,
-      "explain": "Work that can be checked by rules should be done by a machine. Because it's consistent, you don't forget, and you can fix it automatically. Reviewers can therefore concentrate on logic and design. The style guide that is given to reviewers still takes the same amount of time to review and each person can interpret it differently."
+      "explain": "Automate checks that follow mechanical rules: tools apply them consistently and can often fix issues automatically. This frees reviewers to focus on logic and design. A manually enforced style guide still consumes review time and leaves room for different interpretations."
     },
     {
-      "prompt": "Coverage of this function is 100%, but mutation testing reports that mutants changed >= to > survived. What does that mean?",
-      "code": "function shippingFee(total) {\n  return total >= 500 ? 0 : 50;\n}\n\n// test ที่มีอยู่\nexpect(shippingFee(100)).toBe(50);\nexpect(shippingFee(1000)).toBe(0);",
+      "prompt": "This function has 100% coverage, but mutation testing reports that a mutant replacing >= with > survived. What does that mean?",
+      "code": "function shippingFee(total) {\n  return total >= 500 ? 0 : 50;\n}\n\n// Existing tests\nexpect(shippingFee(100)).toBe(50);\nexpect(shippingFee(1000)).toBe(0);",
       "options": [
         "No test distinguishes >= from >; add a case where total is exactly 500.",
         "The tool is misconfigured because 100% coverage proves complete testing.",
@@ -251,10 +263,10 @@
     {
       "prompt": "Orders calls a Users API maintained by another team. Users renames fullName to name and deploys; both teams’ tests pass, but Orders fails in production. What best prevents this?",
       "options": [
-        "Let Orders mock Users' responses in more detail in unit tests.",
-        "Add unit tests on the users side until coverage reaches 100% before deploying.",
-        "Conduct consumer-driven contract tests where Users' CIs are checked against Orders' contracts.",
-        "Have every team run E2E across every service in staging before every deployment."
+        "Make Orders’ unit tests mock Users responses in greater detail.",
+        "Add Users unit tests until coverage reaches 100% before deployment.",
+        "Check Orders’ consumer contract in Users’ CI before deployment.",
+        "Run E2E tests across every service in shared staging before deployment."
       ],
       "answer": 2,
       "explain": "The Orders mock encodes that team’s assumptions and stays green after Users changes the response. Contract tests check the consumer’s expectations in the provider’s CI before deployment. Cross-service E2E tests can also catch this, but are slower, more brittle, and depend on shared staging."
@@ -262,93 +274,93 @@
     {
       "prompt": "A product-search API meets its latency target with an average of 120 ms in a load test, but some users report very slow searches. What should the team inspect next?",
       "options": [
-        "latency at p95 and p99 and error rate under the same load",
-        "Rerun the load test with a reduced number of simulated users to make the results more stable.",
-        "The median value is because it tolerates outliers better than the average.",
-        "It is considered passing because the average is within the target. Users who complain probably have slow internet."
+        "Inspect p95 and p99 latency alongside the error rate under the same load.",
+        "Rerun the load test with fewer simulated users to make results more stable.",
+        "Inspect the median because it is less sensitive to outliers than the mean.",
+        "Accept the result; users reporting delays probably have slow connections."
       ],
       "answer": 0,
-      "explain": "Both the average and median cancel out the group of very slow requests. If p99 is several seconds, 1 out of 100 requests will wait that long even though the average looks good, so high percentiles and error rates need to be looked at together. Reducing the load makes the results look better but doesn't match the actual conditions."
+      "explain": "Both the mean and median can hide very slow requests. If p99 is several seconds, roughly one in a hundred requests waits that long despite a good average, so inspect high percentiles alongside the error rate. Reducing the load may improve the numbers but no longer reflects real conditions."
     },
     {
-      "prompt": "A set of 600 automatic regression tests ran every night for half a year. But features that the team fixes frequently still have new bugs leaking to users. Which conclusion is most consistent with the testing principles?",
+      "prompt": "A suite of 600 automated regression tests has passed every night for six months, yet new bugs in frequently changed features keep reaching users. Which conclusion best fits the testing principles?",
       "options": [
-        "The original test set caught fewer new defects. Tests and data should be adjusted according to the changed parts.",
-        "Green every night means there are no defects left. The bug that was released is a changed requirement, not the fault of the test.",
-        "Automatic regression should be stopped entirely because running the same test over and over has no value.",
-        "You should run the same set of tests more often, several times per night, to catch more bugs."
+        "The suite detects fewer new defects; update tests and data for changed features.",
+        "Nightly passes prove no defects remain; escaped bugs must be requirement changes.",
+        "Stop automated regression entirely because repeating tests has no value.",
+        "Run the unchanged suite several times a night so it detects more bugs."
       ],
       "answer": 0,
-      "explain": "The \"tests wear out\" principle states that repeated tests will catch fewer new defects, so tests and data must be adjusted or written more. But the documentation indicates that reruns are still useful in some cases, such as automated regression, so they are not deprecated. As for running more frequently, it doesn't help because the same test set still checks the same things."
+      "explain": "The “tests wear out” principle calls for updating tests and data or adding cases when unchanged tests detect fewer new defects. Repeated tests still have value, including automated regression, so do not abandon them. Running the same checks more often does not expand what they test."
     },
     {
       "prompt": "Several months of defect history show most customer-reported bugs in one tax module. Testing time before release is limited. How should the team allocate it?",
       "options": [
-        "Time is divided equally across modules so that it is fair and no part is left out.",
-        "Specially increase the testing time at the tax calculation module because defects tend to be concentrated.",
-        "Skip the tax module and test the other modules first. Because there are many bugs, it means that testing will never end.",
-        "Test only newly written modules. because the old module has been used"
+        "Divide time equally across modules to be fair and leave none neglected.",
+        "Give the tax module extra testing time because defects cluster there.",
+        "Skip the tax module; its many bugs mean testing it would never finish.",
+        "Test only newly written modules because older modules have already been used."
       ],
       "answer": 1,
-      "explain": "The defects cluster principle states that a small number of components often have the majority of defects, and old defect information is the input to risk-based sequencing. So you should invest there. Equal division appears fair but is not associated with risk. As for skipping it because there are a lot of bugs, it's the opposite of principle."
+      "explain": "The “defects cluster” principle says that a few components often contain most defects. Historical defect data helps prioritize testing by risk, so focus extra effort on the tax module. Equal allocation ignores risk, while skipping the module because it has many bugs reverses the principle."
     },
     {
-      "prompt": "The team tested all requirements in the spec and fixed all found bugs. But after the release, users complained that the steps didn't match their actual work and were too difficult to use. This situation corresponds to which idea?",
+      "prompt": "The team tests every requirement in the specification and fixes every defect found. After release, users say the workflow does not match their work and is too difficult to use. Which concept explains this?",
       "options": [
-        "Pesticide paradox: Rerun of the same test cannot detect new defects anymore.",
-        "Exhaustive testing is impossible: not every possible input and path can be tested.",
-        "Absence-of-defects fallacy: Passing all requirements does not mean meeting the user's needs.",
-        "Defect clustering: All bugs are clustered together in a single module of the system."
+        "Pesticide paradox: repeated tests no longer detect new defects.",
+        "Exhaustive testing is impossible: not every input and path can be tested.",
+        "Absence-of-defects fallacy: meeting requirements may not meet user needs.",
+        "Defect clustering: all bugs are concentrated in one system module."
       ],
       "answer": 2,
-      "explain": "Checking that the system complies with the spec (verification) does not guarantee that the spec meets actual needs, so it must be validated, such as having real users try it or doing acceptance testing. The pesticide paradox refers to the effectiveness of repeated tests, which is not a problem in this case."
+      "explain": "Verification checks conformance to the specification, but does not establish that the specification meets real user needs. Add validation, such as trials with actual users or acceptance testing. The pesticide paradox concerns the effectiveness of repeated tests, which is not the issue here."
     },
     {
-      "prompt": "The team writes tests that call the payment gateway of the external service provider in the sandbox to check that the requests and responses are as agreed upon. According to ISTQB's classification, what test level is it classified as?",
+      "prompt": "The team tests an external provider’s payment gateway in its sandbox to check that requests and responses match the agreed contract. Which ISTQB test level is this?",
       "options": [
-        "Component testing to directly test our payment modules in isolation",
-        "Component integration testing: tests the connections between two pieces of code.",
-        "Acceptance testing because it uses data that is close to the real thing in testing.",
-        "System integration testing because it tests connections with external services."
+        "Component testing: it directly tests our payment module in isolation.",
+        "Component integration testing: it checks an interface between two code components.",
+        "Acceptance testing: it uses data resembling real transactions.",
+        "System integration testing: it checks an interface with an external service."
       ],
       "answer": 3,
-      "explain": "System integration testing focuses on the connections between the system being tested and other systems and external services, and should be done in a near-real environment. Component integration addresses the connections between components within the same system. This is the most confusing choice."
+      "explain": "System integration testing checks interfaces between the system under test and other systems or external services, ideally in an environment resembling production. Component integration, the most tempting alternative, concerns interfaces between components within the same system."
     },
     {
       "prompt": "A developer fixes incorrect totals caused by overlapping coupons. QA reruns the previously failing case and it passes. What should happen before closing the ticket?",
       "options": [
-        "Run a regression test on areas that might be affected, such as price and checkout.",
-        "You can close the ticket now because confirmation testing has passed which means the resolution is complete.",
-        "Run the same case again dozens of times. Until you're sure it's not flaky before turning it off.",
-        "Test only the screen showing the discount. Because the user sees the results there and does not need to look at other parts."
+        "Run regression tests for affected areas, such as pricing and checkout.",
+        "Close the ticket because passing confirmation testing proves the fix is complete.",
+        "Rerun the same case dozens of times to rule out flakiness before closing.",
+        "Test only the discount screen because that is where users see the result."
       ],
       "answer": 0,
-      "explain": "Confirmation testing only checks to see if the original bug has been fixed. Regression testing checks to make sure the change doesn't cause any other negative effects. This must be done even if the correction has been made through confirmation. The option to close immediately is missed here."
+      "explain": "Confirmation testing establishes only that the original defect is fixed. Regression testing checks for adverse effects elsewhere and is still needed after a fix passes confirmation. Closing the ticket immediately skips that check."
     },
     {
       "prompt": "Which e-commerce defect is best described as low severity but high priority?",
       "options": [
-        "The payment page crashes every time a customer uses a credit card during a flash sale, causing the sale to fail.",
-        "Export feature for old reports that no one has enabled. Causes the entire system to crash when a button is pressed.",
-        "The brand's name is misspelled on the campaign page launching tomorrow morning. The system still works normally.",
-        "The language switch button is misaligned by two pixels on some phones, which hardly anyone notices."
+        "Credit-card checkout crashes throughout a flash sale, preventing purchases.",
+        "An unused legacy report export crashes the whole system when its button is clicked.",
+        "Tomorrow’s campaign page misspells the brand name, but the system works normally.",
+        "The language button is two pixels out of place on a few phones, with little notice."
       ],
       "answer": 2,
       "explain": "Severity measures impact, while priority reflects urgency. A misspelled brand name on tomorrow’s campaign page has low functional impact but needs an immediate fix. A payment failure during a sale is high in both; a rarely used feature that crashes the whole system can have high severity but lower priority."
     },
     {
-      "prompt": "Shipping rules depend on three boolean conditions: membership, reaching a spending threshold, and a free-shipping coupon. Each combination may have a different result. How many rules does the full unreduced decision table have, and how is coverage measured?",
+      "prompt": "Shipping rules depend on three boolean conditions: membership, reaching a spending threshold, and having a free-shipping coupon. Outcomes depend on their combinations. How many rules are in the full unreduced decision table, and how is coverage measured?",
       "options": [
-        "3 rules, one rule, one condition and measured by the number of conditions that are fully tested",
-        "8 rules and measured by the proportion of possible rules that are covered by test.",
-        "6 rules because each condition has two values. and measured by the total number of tests",
-        "9 rules of three conditions multiplied by three values and measured by lines of code that are executed"
+        "3 rules, one per condition; coverage is the proportion of conditions tested.",
+        "8 rules; coverage is the proportion of feasible rules tested.",
+        "6 rules, two per condition; coverage is measured by the total test count.",
+        "9 rules, three conditions times three values; coverage is measured by executed lines."
       ],
       "answer": 1,
-      "explain": "The three true/false conditions give 2 x 2 x 2 = 8 combinations, and the coverage of the decision table is the number of possible columns that are tested. Divide by the total number of possible columns. Thinking additively or one rule per condition makes a mistake. Because the results depend on the combination of conditions."
+      "explain": "Three true/false conditions yield 2 × 2 × 2 = 8 combinations. Decision table coverage is the number of feasible columns tested divided by the total number of feasible columns. Adding the values or assigning one rule per condition misses the fact that outcomes depend on combinations."
     },
     {
-      "prompt": "Orders have statuses: Created, Paid, Shipped, Closed, and can only be canceled before shipping. The team aims for \"all transitions coverage\" in addition to testing every correct transition. What else must I do?",
+      "prompt": "An order can be Created, Paid, Shipped, or Closed, and cancellation is allowed only before shipping. The team targets “all transitions coverage”. After testing every valid transition, what else is required?",
       "options": [
         "Nothing: visiting every state already gives complete coverage.",
         "Nothing: every valid transition already covers all transitions.",
@@ -356,11 +368,11 @@
         "Attempt invalid transitions, such as cancellation after shipping, in separate tests."
       ],
       "answer": 3,
-      "explain": "all transitions coverage covers all valid transitions and must also attempt invalid transitions. Trying one test at a time avoids defect masking, where one defect blocks the other. Combining multiple cases into a single test risks errors. Valid transitions are a weaker level."
+      "explain": "All transitions coverage includes valid transitions and attempts at invalid ones. Test invalid transitions separately to avoid defect masking, where one defect prevents another from being detected. Combining them risks missing defects; valid transitions coverage alone is a weaker target."
     },
     {
       "prompt": "Async getUser should reject with \"not found\", but a bug makes it resolve to null. The test below still passes. How should the test detect this?",
-      "code": "test('ไม่พบผู้ใช้ต้อง throw', async () => {\n  try {\n    await getUser(999);\n  } catch (e) {\n    expect(e.message).toBe('not found');\n  }\n});",
+      "code": "test('throws when the user is not found', async () => {\n  try {\n    await getUser(999);\n  } catch (e) {\n    expect(e.message).toBe('not found');\n  }\n});",
       "options": [
         "Await expect(e.message) inside catch so it waits for the result.",
         "Use expect(() => getUser(999)).toThrow(\"not found\") without await.",
@@ -368,11 +380,11 @@
         "Increase the timeout to give catch more time to run."
       ],
       "answer": 2,
-      "explain": "When getUser doesn't throw, the code in the catch never runs, so no assertions are called and the test passes without checking. Resolve it with .rejects (if the promise succeeds, the test will fail itself) or add expect.assertions(1). As for adding await in the catch, it doesn't change the fact that the catch doesn't run. And toThrow without await doesn't work with async functions because it returns the promise that rejects instead of immediately throwing it. Even if the code is correct, the test will still fail."
+      "explain": "If getUser resolves, the catch block never runs, so no assertion executes and the test passes without checking the result. Use an awaited .rejects assertion, which fails on fulfillment, or expect.assertions(1). Awaiting inside catch cannot make that block run, and a synchronous toThrow assertion cannot detect an async rejection, so it would fail even after the implementation is fixed."
     },
     {
       "prompt": "The second test below passes with test.only but fails when both tests run together. What is the cause and fix?",
-      "code": "const cart = createCart();\n\ntest('เพิ่มสินค้า A แล้วมี 1 ชิ้น', () => {\n  cart.add('A');\n  expect(cart.count()).toBe(1);\n});\n\ntest('ตะกร้าใหม่ต้องว่าง', () => {\n  expect(cart.count()).toBe(0);\n});",
+      "code": "const cart = createCart();\n\ntest('contains one item after adding product A', () => {\n  cart.add('A');\n  expect(cart.count()).toBe(1);\n});\n\ntest('a new cart is empty', () => {\n  expect(cart.count()).toBe(0);\n});",
       "options": [
         "Jest always randomizes tests; configure file-order execution.",
         "The count function is wrong on repeated calls; edit only production code.",
@@ -385,10 +397,10 @@
     {
       "prompt": "A component change makes snapshot tests fail in 14 files. A developer runs jest -u and commits every update without reading it. What is the problem?",
       "options": [
-        "No problem, because snapshots are created from real code and are always correct.",
-        "jest -u approves everything that was not intended, should read the diff first.",
-        "You should not commit the .snap file because it is automatically generated by Jest.",
-        "You should delete all snapshot tests and rewrite them with toBe."
+        "No problem: snapshots come from real code, so they are always correct.",
+        "Updating blindly accepts unintended changes; review the diff first.",
+        "Do not commit .snap files because Jest generates them automatically.",
+        "Delete every snapshot test and replace each one with a toBe assertion."
       ],
       "answer": 1,
       "explain": "Snapshot files are part of the tests and need code review. Updating them without reading the diff can accept unintended behavior. Commit .snap files to version control, as Jest recommends, after reviewing the changes."
@@ -396,16 +408,16 @@
     {
       "prompt": "A developer adds a toMatchSnapshot test, sees it pass locally, but forgets to commit the .snap file. CI runs Jest with --ci. What happens?",
       "options": [
-        "The test passes and Jest automatically writes a new .snap file on the CI.",
-        "The test is skipped and is skipped until there is a .snap file in the repo.",
-        "test fails because CI doesn't write new snapshots for you, you have to commit the .snap file.",
-        "The test passes, but Jest warns that there is a snapshot that has not yet been saved to a file."
+        "The test passes and CI automatically writes a new .snap file.",
+        "The test is skipped until a .snap file appears in the repository.",
+        "The test fails; CI will not create snapshots. Commit the .snap file.",
+        "The test passes with a warning that its snapshot has not been saved."
       ],
       "answer": 2,
       "explain": "In --ci mode, Jest fails a new snapshot rather than writing it unless --updateSnapshot is explicitly supplied. This prevents unreviewed snapshots from being accepted automatically. Commit the reviewed .snap file."
     },
     {
-      "prompt": "The dev wrote this code and Jest complained that the module factory of jest.mock() does not refer to variables outside of scope. Which one correctly describes the cause and solution?",
+      "prompt": "Jest reports that the module factory in this jest.mock() call cannot reference an out-of-scope variable. Which explanation and fix are correct?",
       "code": "const fakeMailer = { send: jest.fn() };\njest.mock('./mailer', () => fakeMailer);",
       "options": [
         "jest.fn cannot be used inside a factory; write a normal function instead.",
@@ -418,60 +430,60 @@
     },
     {
       "prompt": "This E2E test is flaky because the “Saved” toast appears about 300 ms after the click. What fixes the cause?",
-      "code": "await page.getByRole('button', { name: 'บันทึก' }).click();\nexpect(await page.getByText('บันทึกแล้ว').isVisible()).toBe(true);",
+      "code": "await page.getByRole('button', { name: 'Save' }).click();\nexpect(await page.getByText('Saved').isVisible()).toBe(true);",
       "options": [
-        "Use await expect(page.getByText(\"Saved\")).toBeVisible()",
-        "Add await page.waitForTimeout(2000) before the line that checks for toast to wait long enough.",
-        "Set the test runner's retries to 3, try rerunning the entire test when it fails.",
-        "Changed the locator to be a more specific and more stable CSS selector for toast."
+        "Use await expect(page.getByText(\"Saved\")).toBeVisible().",
+        "Add await page.waitForTimeout(2000) before checking the toast.",
+        "Set the runner’s retries to 3 so it reruns the whole test on failure.",
+        "Use a more specific CSS selector for the toast to improve stability."
       ],
       "answer": 0,
-      "explain": "isVisible() checks once and returns the value immediately, without waiting. For web-first assertions like toBeVisible(), it will retry until the condition is true or the timeout expires. A fixed number delay is still guesswork, and the runner's retry just hides the problem."
+      "explain": "isVisible() checks once and returns immediately without waiting. A web-first assertion such as toBeVisible() retries until the condition holds or the timeout expires. A fixed delay still guesses when the toast will appear, and runner retries hide the problem."
     },
     {
-      "prompt": "The designer refactored the entire website's CSS class name, causing almost the entire E2E set to fail even though the screen works as before. Most locators are written as div.card > button.btn-x1:nth-child(2) . How should I adjust this?",
+      "prompt": "A designer renames CSS classes across the site. Almost every E2E test fails although the pages work as before. Most locators look like div.card > button.btn-x1:nth-child(2). How should they change?",
       "options": [
-        "Designers are prohibited from changing class names again because tests rely on these names.",
-        "Change to getByRole with the agreed upon button name or test id.",
-        "Switch to full XPath from root because it's more precise than CSS.",
-        "Cut the E2E count in half to reduce refactoring time."
+        "Forbid future class renaming because tests depend on those names.",
+        "Use getByRole with the button’s name, or an agreed test ID.",
+        "Use full XPath selectors from the root because they are more precise.",
+        "Halve the E2E suite to reduce maintenance after refactoring."
       ],
       "answer": 1,
-      "explain": "A locator tied to a DOM structure or class will break when the markup structure changes even though the behavior remains the same. Playwright recommends using a locator that is closer to what the user perceives, such as a role or test id as a convention. Long XPaths are more fragile."
+      "explain": "Locators tied to DOM structure or CSS classes break when markup changes even if behavior stays the same. Playwright recommends user-facing locators such as roles, or explicit test IDs as a shared contract. Long XPath selectors would be even more brittle."
     },
     {
       "prompt": "The “Edit Profile” E2E test depends on a previous “Login” test leaving a session behind. It fails alone or in parallel. What enables independent tests and clear failure diagnosis?",
       "options": [
-        "Force the running order to always test login first. then turn off parallel running",
-        "Combine every step into one long test so that you don't have to depend on each other.",
-        "Set retry to test profile edits in case the session arrives in time.",
-        "Have each test log itself in beforeEach without relying on other tests."
+        "Always run the login test first and disable parallel execution.",
+        "Combine all steps into one long test to avoid dependencies between tests.",
+        "Retry the profile test in case the session becomes available in time.",
+        "Log in during each test’s beforeEach, independently of other tests."
       ],
       "answer": 3,
-      "explain": "Each test should be independent with its own storage, cookies, and data. This makes the results repeatable and easy to debug. Forcing the sequence solves the problem but causes one test to break and spread to many others. A single, long test, even without relying on other tests, combines so many behaviors that it's impossible to immediately tell which feature is broken."
+      "explain": "Give each test its own storage, cookies, and data so it runs independently, produces repeatable results, and is easier to debug. Enforcing an order treats the symptom and lets one failure cascade into others. A single long test avoids dependencies between tests but combines behaviors, making the failing feature harder to identify."
     },
     {
       "prompt": "This property test passes even when sortNumbers returns an unsorted array. Which property detects the bug?",
       "code": "fc.assert(\n  fc.property(fc.array(fc.integer()), (xs) => {\n    return sortNumbers(xs).length === xs.length;\n  })\n);",
       "options": [
-        "Check that all pairs of adjacent members are arranged in ascending order.",
-        "Increase the number of random rounds tenfold for greater coverage.",
-        "Verify that the result is always an array, regardless of the input.",
-        "Verify that sortNumbers does not throw on any random input."
+        "Check that adjacent elements are in nondecreasing order.",
+        "Generate ten times as many random inputs to increase coverage.",
+        "Check that the result is always an array, regardless of the input.",
+        "Check that sortNumbers never throws for any generated input."
       ],
       "answer": 0,
       "explain": "The existing property checks only length, which unsorted output can preserve. Assert that adjacent elements are nondecreasing. More random inputs cannot compensate for a property that never checks ordering; checking only the array type or absence of errors is too weak."
     },
     {
-      "prompt": "Two testing days remain before release. Changes include a rewritten payment module, new About-page copy, and monthly internal reports. What should risk-based testing prioritize?",
+      "prompt": "Two testing days remain before release. There is a completely new payment module, an About page with only text changes, and an internal report used once a month. What should risk-based testing prioritize?",
       "options": [
-        "Start with the part that is easiest to test first in order to get the highest coverage as quickly as possible.",
-        "Let's start with the payment module. Because the chance of being wrong and the impact are both high.",
-        "Arrange the menus in the app so you don't miss anything.",
-        "Allocate the time equally to achieve team equality."
+        "Start with the easiest part to test to raise coverage as quickly as possible.",
+        "Start with payments: both the likelihood of defects and their impact are high.",
+        "Test in application menu order to ensure no section is missed.",
+        "Give every area equal testing time to keep the allocation fair."
       ],
       "answer": 1,
-      "explain": "Risk level comes from likelihood and impact. Newly written code has a high chance of being wrong, and mistakes involving money have a high impact. Therefore, you should get the most sequence and time possible. As for starting with the easy part, the coverage numbers are good but do not reduce the actual risk."
+      "explain": "Risk depends on likelihood and impact. Newly written payment code has a high likelihood of defects, and errors involving money have a high impact, so it deserves the highest priority and the most testing time. Starting with easy areas improves coverage numbers without addressing the greatest risk."
     },
     {
       "prompt": "The function below has only one test, discount(1000, true). What does coverage show, and what is needed for complete branch coverage?",
@@ -479,22 +491,22 @@
       "options": [
         "100% statement and branch coverage because every line runs.",
         "50% statement and branch coverage; add tests for both cases.",
-        "100% statement coverage but incomplete branches; test isMember=false.",
+        "100% statements, incomplete branches; test isMember=false.",
         "Incomplete statement coverage; add a test reaching the return."
       ],
       "answer": 2,
-      "explain": "A single test runs every line (statement 100%) but never goes to the if-false path, so it doesn't reach 100% branch coverage (actually runs 50%). The branch coverage covers the statement coverage, but not vice versa."
+      "explain": "The single test executes every statement, giving 100% statement coverage, but never takes the false branch of the if, leaving branch coverage at 50%. Add a case with isMember set to false. Branch coverage subsumes statement coverage, but statement coverage does not imply full branch coverage."
     },
     {
       "prompt": "A new file-import feature has sparse requirements and one day until delivery. Which additional testing approach is most useful?",
       "options": [
-        "Use session-based exploratory testing with a charter and time frame.",
-        "Wait until the specs are complete before testing. In order not to waste time testing the wrong thing.",
-        "Write detailed, fully documented test cases in advance to complete all cases before starting to run.",
-        "Only use unit tests because they run quickly and do not require the tester's discretion."
+        "Use session-based exploratory testing with a charter and a time box.",
+        "Wait for complete specifications to avoid testing the wrong behavior.",
+        "Document detailed test cases for every scenario before executing any tests.",
+        "Use only unit tests because they are fast and require no tester judgment."
       ],
       "answer": 0,
-      "explain": "exploratory testing Design, run, and evaluate tests while learning the system. This is useful when specs are small or time is limited. Having a session with a charter and time box gives structure, while waiting for specs leaves no time to test."
+      "explain": "Exploratory testing combines designing, running, and evaluating tests with learning about the system. It is useful when specifications are sparse or time is limited. A session charter and time box provide structure; waiting for complete specifications could leave no time to test."
     }
   ],
   "exercises": [
@@ -505,8 +517,8 @@
       "lang": "javascript",
       "prompt": "shippingFee(total) charges 50 baht, gives free shipping for totals of at least 500 baht, and throws for negative totals. Write at least four Jest unit tests, each checking one behavior by calling shippingFee directly. Cover both sides of 500, zero, and a negative total.",
       "context": "function shippingFee(total) {\n  if (total < 0) throw new Error('invalid total');\n  return total >= 500 ? 0 : 50;\n}",
-      "starter": "describe('shippingFee', () => {\n  // เขียน test ที่นี่\n});\n",
-      "solution": "describe('shippingFee', () => {\n  test('คิดค่าส่ง 50 เมื่อยอด 499 ซึ่งต่ำกว่าขอบ', () => {\n    expect(shippingFee(499)).toBe(50);\n  });\n\n  test('ส่งฟรีเมื่อยอดเท่ากับ 500 พอดี', () => {\n    expect(shippingFee(500)).toBe(0);\n  });\n\n  test('ยอด 0 ยังคิดค่าส่ง 50 และไม่ throw', () => {\n    expect(shippingFee(0)).toBe(50);\n  });\n\n  test('throw error เมื่อยอดติดลบ', () => {\n    expect(() => shippingFee(-1)).toThrow('invalid total');\n  });\n});\n",
+      "starter": "describe('shippingFee', () => {\n  // Write tests here\n});\n",
+      "solution": "describe('shippingFee', () => {\n  test('charges 50 for a total of 499, just below the boundary', () => {\n    expect(shippingFee(499)).toBe(50);\n  });\n\n  test('free shipping when the total is exactly 500', () => {\n    expect(shippingFee(500)).toBe(0);\n  });\n\n  test('charges 50 for a zero total without throwing', () => {\n    expect(shippingFee(0)).toBe(50);\n  });\n\n  test('throws an error for a negative total', () => {\n    expect(() => shippingFee(-1)).toThrow('invalid total');\n  });\n});\n",
       "hints": [
         "Separate totals below 500, totals from 500 onward, and negative totals; choose boundary values for each group.",
         "Use 499 and 500 for the free-shipping boundary, and -1 and 0 for the negative-total boundary.",
@@ -551,8 +563,8 @@
       "lang": "javascript",
       "prompt": "sendWelcome receives repo (user lookup) and mailer (email sending) as dependencies. Write at least three async Jest tests: a user with an email returns sent: true and calls mailer.send with that email; a user without an email returns sent: false and does not call mailer.send; and a missing user rejects with \"user not found\". Use jest.fn() for stubs and mocks instead of real dependencies, and await every promise.",
       "context": "async function sendWelcome({ repo, mailer }, userId) {\n  const user = await repo.findById(userId);\n  if (!user) throw new Error('user not found');\n  if (!user.email) return { sent: false };\n  await mailer.send({ to: user.email, subject: 'Welcome' });\n  return { sent: true };\n}\nmodule.exports = { sendWelcome };",
-      "starter": "const { sendWelcome } = require('./welcome');\n\ndescribe('sendWelcome', () => {\n  // เตรียม stub ของ repo กับ mock ของ mailer แล้วเขียน test ที่นี่\n});\n",
-      "solution": "const { sendWelcome } = require('./welcome');\n\ndescribe('sendWelcome', () => {\n  let repo;\n  let mailer;\n\n  beforeEach(() => {\n    repo = { findById: jest.fn() };\n    mailer = { send: jest.fn().mockResolvedValue(undefined) };\n  });\n\n  test('ส่งอีเมลต้อนรับและคืน sent true เมื่อผู้ใช้มีอีเมล', async () => {\n    repo.findById.mockResolvedValue({ id: 1, email: 'a@example.com' });\n\n    const result = await sendWelcome({ repo, mailer }, 1);\n\n    expect(result).toEqual({ sent: true });\n    expect(mailer.send).toHaveBeenCalledWith(\n      expect.objectContaining({ to: 'a@example.com' })\n    );\n  });\n\n  test('ไม่ส่งอีเมลและคืน sent false เมื่อผู้ใช้ไม่มีอีเมล', async () => {\n    repo.findById.mockResolvedValue({ id: 2, email: null });\n\n    const result = await sendWelcome({ repo, mailer }, 2);\n\n    expect(result).toEqual({ sent: false });\n    expect(mailer.send).not.toHaveBeenCalled();\n  });\n\n  test('throw user not found เมื่อไม่พบผู้ใช้ และไม่ส่งอีเมล', async () => {\n    repo.findById.mockResolvedValue(null);\n\n    await expect(sendWelcome({ repo, mailer }, 3)).rejects.toThrow('user not found');\n    expect(mailer.send).not.toHaveBeenCalled();\n  });\n});\n",
+      "starter": "const { sendWelcome } = require('./welcome');\n\ndescribe('sendWelcome', () => {\n  // Set up a repo stub and a mailer mock, then write tests here\n});\n",
+      "solution": "const { sendWelcome } = require('./welcome');\n\ndescribe('sendWelcome', () => {\n  let repo;\n  let mailer;\n\n  beforeEach(() => {\n    repo = { findById: jest.fn() };\n    mailer = { send: jest.fn().mockResolvedValue(undefined) };\n  });\n\n  test('sends a welcome email and returns sent true when the user has an email', async () => {\n    repo.findById.mockResolvedValue({ id: 1, email: 'a@example.com' });\n\n    const result = await sendWelcome({ repo, mailer }, 1);\n\n    expect(result).toEqual({ sent: true });\n    expect(mailer.send).toHaveBeenCalledWith(\n      expect.objectContaining({ to: 'a@example.com' })\n    );\n  });\n\n  test('sends no email and returns sent false when the user has no email', async () => {\n    repo.findById.mockResolvedValue({ id: 2, email: null });\n\n    const result = await sendWelcome({ repo, mailer }, 2);\n\n    expect(result).toEqual({ sent: false });\n    expect(mailer.send).not.toHaveBeenCalled();\n  });\n\n  test('rejects with user not found for a missing user and sends no email', async () => {\n    repo.findById.mockResolvedValue(null);\n\n    await expect(sendWelcome({ repo, mailer }, 3)).rejects.toThrow('user not found');\n    expect(mailer.send).not.toHaveBeenCalled();\n  });\n});\n",
       "hints": [
         "Pass fresh dependency objects into the function rather than mocking the whole module. Reset them in beforeEach to avoid state leaking between tests.",
         "repo.findById and mailer.send are async. Use jest.fn().mockResolvedValue(...) and await sendWelcome(...) in an async test.",
@@ -597,8 +609,8 @@
       "lang": "javascript",
       "prompt": "retry calls fn once, then retries up to retries times after failures, waiting delayMs between attempts. If every attempt fails, it rejects with the last error. Replace slow real-clock tests with fake timers: verify success on the third call after two failures; verify that fn is called once before delayMs and again when the delay expires; and verify rejection with the final error when all attempts fail. Restore real timers after each test.",
       "context": "async function retry(fn, { retries, delayMs }) {\n  let lastError;\n  for (let attempt = 0; attempt <= retries; attempt++) {\n    try {\n      return await fn(attempt);\n    } catch (err) {\n      lastError = err;\n      if (attempt < retries) {\n        await new Promise((resolve) => setTimeout(resolve, delayMs));\n      }\n    }\n  }\n  throw lastError;\n}\nmodule.exports = { retry };",
-      "starter": "const { retry } = require('./retry');\n\n// test เดิม: รอเวลาจริงสองวินาที ช้าและพึ่งนาฬิกาจริง\ntest('retry สำเร็จในครั้งที่ 3', async () => {\n  const fn = jest\n    .fn()\n    .mockRejectedValueOnce(new Error('fail 1'))\n    .mockRejectedValueOnce(new Error('fail 2'))\n    .mockResolvedValue('ok');\n\n  await expect(retry(fn, { retries: 3, delayMs: 1000 })).resolves.toBe('ok');\n  expect(fn).toHaveBeenCalledTimes(3);\n});\n",
-      "solution": "const { retry } = require('./retry');\n\ndescribe('retry', () => {\n  beforeEach(() => {\n    jest.useFakeTimers();\n  });\n\n  afterEach(() => {\n    jest.useRealTimers();\n  });\n\n  test('สำเร็จในครั้งที่ 3 หลังล้มเหลว 2 ครั้ง', async () => {\n    const fn = jest\n      .fn()\n      .mockRejectedValueOnce(new Error('fail 1'))\n      .mockRejectedValueOnce(new Error('fail 2'))\n      .mockResolvedValue('ok');\n\n    const promise = retry(fn, { retries: 3, delayMs: 1000 });\n    await jest.advanceTimersByTimeAsync(2000);\n\n    await expect(promise).resolves.toBe('ok');\n    expect(fn).toHaveBeenCalledTimes(3);\n  });\n\n  test('ยังไม่เรียกซ้ำจนกว่าจะครบ delayMs', async () => {\n    const fn = jest.fn().mockRejectedValueOnce(new Error('fail')).mockResolvedValue('ok');\n\n    const promise = retry(fn, { retries: 1, delayMs: 1000 });\n    await jest.advanceTimersByTimeAsync(999);\n    expect(fn).toHaveBeenCalledTimes(1);\n\n    await jest.advanceTimersByTimeAsync(1);\n    expect(fn).toHaveBeenCalledTimes(2);\n    await expect(promise).resolves.toBe('ok');\n  });\n\n  test('reject ด้วย error ล่าสุดเมื่อลองครบตามจำนวน retries', async () => {\n    const fn = jest.fn().mockImplementation(async (attempt) => {\n      throw new Error(`fail ${attempt}`);\n    });\n\n    const assertion = expect(retry(fn, { retries: 2, delayMs: 500 })).rejects.toThrow('fail 2');\n    await jest.advanceTimersByTimeAsync(1000);\n\n    await assertion;\n    expect(fn).toHaveBeenCalledTimes(3);\n  });\n});\n",
+      "starter": "const { retry } = require('./retry');\n\n// Original test: waits two real seconds, making it slow and dependent on the real clock\ntest('retry succeeds on the third attempt', async () => {\n  const fn = jest\n    .fn()\n    .mockRejectedValueOnce(new Error('fail 1'))\n    .mockRejectedValueOnce(new Error('fail 2'))\n    .mockResolvedValue('ok');\n\n  await expect(retry(fn, { retries: 3, delayMs: 1000 })).resolves.toBe('ok');\n  expect(fn).toHaveBeenCalledTimes(3);\n});\n",
+      "solution": "const { retry } = require('./retry');\n\ndescribe('retry', () => {\n  beforeEach(() => {\n    jest.useFakeTimers();\n  });\n\n  afterEach(() => {\n    jest.useRealTimers();\n  });\n\n  test('succeeds on the third attempt after two failures', async () => {\n    const fn = jest\n      .fn()\n      .mockRejectedValueOnce(new Error('fail 1'))\n      .mockRejectedValueOnce(new Error('fail 2'))\n      .mockResolvedValue('ok');\n\n    const promise = retry(fn, { retries: 3, delayMs: 1000 });\n    await jest.advanceTimersByTimeAsync(2000);\n\n    await expect(promise).resolves.toBe('ok');\n    expect(fn).toHaveBeenCalledTimes(3);\n  });\n\n  test('does not retry until delayMs has elapsed', async () => {\n    const fn = jest.fn().mockRejectedValueOnce(new Error('fail')).mockResolvedValue('ok');\n\n    const promise = retry(fn, { retries: 1, delayMs: 1000 });\n    await jest.advanceTimersByTimeAsync(999);\n    expect(fn).toHaveBeenCalledTimes(1);\n\n    await jest.advanceTimersByTimeAsync(1);\n    expect(fn).toHaveBeenCalledTimes(2);\n    await expect(promise).resolves.toBe('ok');\n  });\n\n  test('rejects with the last error after exhausting retries', async () => {\n    const fn = jest.fn().mockImplementation(async (attempt) => {\n      throw new Error(`fail ${attempt}`);\n    });\n\n    const assertion = expect(retry(fn, { retries: 2, delayMs: 500 })).rejects.toThrow('fail 2');\n    await jest.advanceTimersByTimeAsync(1000);\n\n    await assertion;\n    expect(fn).toHaveBeenCalledTimes(3);\n  });\n});\n",
       "hints": [
         "Enable fake timers in beforeEach with jest.useFakeTimers(), and restore real timers in afterEach with jest.useRealTimers().",
         "Use await jest.advanceTimersByTimeAsync(ms) so promise callbacks run during time advancement. The synchronous version does not let pending promises continue in the same way.",
@@ -641,42 +653,54 @@
     {
       "title": "ISTQB Certified Tester Foundation Level Syllabus v4.0.1",
       "url": "https://astqb.org/assets/documents/ISTQB_CTFL_Syllabus_v4.0.1.pdf",
-      "note": "Testing principles: test level/type, technique, risk and defect report refer to the same standards."
+      "note": "A shared standards reference for testing principles, test levels and types, techniques, risk, and defect reports."
     },
     {
       "title": "Martin Fowler: Test Pyramid",
       "url": "https://martinfowler.com/bliki/TestPyramid.html",
-      "note": "The origin and precautions of the test pyramid, including the reasons why there should be few UI tests."
+      "note": "The origins and caveats of the test pyramid, including why UI tests should be few."
     },
     {
       "title": "Jest: Testing Asynchronous Code",
       "url": "https://jestjs.io/docs/asynchronous",
-      "note": "promises, async/await, resolves/rejects and the trap of forgetting to await"
+      "note": "Promises, async/await, resolves/rejects, and the pitfalls of forgetting await."
     },
     {
       "title": "Jest: Snapshot Testing",
       "url": "https://jestjs.io/docs/snapshot-testing",
-      "note": "best practices, property matcher and CI behavior"
+      "note": "Best practices, property matchers, and CI behavior."
     },
     {
       "title": "Jest: The Jest Object",
       "url": "https://jestjs.io/docs/jest-object",
-      "note": "jest.mock, requireActual, doMock and fake timers all on one page."
+      "note": "jest.mock, requireActual, doMock, and fake timers in one place."
     },
     {
       "title": "Playwright: Best Practices",
       "url": "https://playwright.dev/docs/best-practices",
-      "note": "locator, web-first assertion and independent testing"
+      "note": "Locators, web-first assertions, and test isolation."
     },
     {
       "title": "Playwright: Auto-waiting",
       "url": "https://playwright.dev/docs/actionability",
-      "note": "actionability check list before taking action"
+      "note": "The actionability checks performed before an action."
     },
     {
       "title": "fast-check: What is Property-Based Testing?",
       "url": "https://fast-check.dev/docs/introduction/what-is-property-based-testing/",
-      "note": "Concepts of property, input randomization and shrinking"
+      "note": "Properties, random input generation, and shrinking."
     }
+  ],
+  "cheatsheet": [
+    "Test each risk at the lowest layer that can detect it; emphasize integration tests for code connecting to databases or services.",
+    "AAA means Arrange, Act, Assert; each test checks one behavior, but may use several assertions for the same result.",
+    "A stub returns predefined values; a fake is a simplified working implementation; a mock verifies calls and arguments.",
+    "Test immediately on both sides of a boundary: free shipping from 500 needs 499 and 500 to catch incorrect use of > versus >=.",
+    "A test level identifies where you test; a test type identifies what you test, and each type can apply at any level.",
+    "Confirmation testing checks that the original defect is fixed; regression testing checks that the change has not broken other areas.",
+    "In Jest, await or return promises, including .resolves and .rejects assertions, or the test may finish before checking the result.",
+    "Coverage shows execution, not whether results were asserted; use branch coverage to find blind spots, not to prove test quality.",
+    "Severity measures impact; priority describes the order of fixing defects, so the two need not align.",
+    "Prioritize tests by risk: assess it quantitatively with likelihood × impact, or qualitatively with a risk matrix."
   ]
 }

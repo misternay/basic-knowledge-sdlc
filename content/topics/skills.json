@@ -9,67 +9,79 @@
       "tier": "must",
       "title": "Skill คืออะไร",
       "body": "skill คือโฟลเดอร์ที่มีไฟล์ SKILL.md (คำสั่งและขั้นตอน) และอาจมีไฟล์ประกอบ เช่น scripts/, references/ และ assets/ ให้ agent หยิบมาใช้เมื่องานตรงกับ skill นั้น เหมาะกับงานที่คุณเคยต้องอธิบายหรือแปะคำสั่งชุดเดิมซ้ำ ๆ เพราะเขียนครั้งเดียวแล้ว agent ใช้ได้ทุกครั้ง รูปแบบนี้เป็นมาตรฐานเปิด (Agent Skills, agentskills.io) จึงใช้ได้กับหลายเครื่องมือ ไม่ใช่แค่ Claude",
-      "code": "pdf-processing/\n├── SKILL.md          # จำเป็น: frontmatter + คำสั่ง\n├── scripts/          # โค้ดที่ agent รัน\n│   └── extract.py\n├── references/       # เอกสารที่อ่านเมื่อจำเป็น\n│   └── forms.md\n└── assets/           # template, schema, รูป"
+      "code": "pdf-processing/\n├── SKILL.md          # จำเป็น: frontmatter + คำสั่ง\n├── scripts/          # โค้ดที่ agent รัน\n│   └── extract.py\n├── references/       # เอกสารที่อ่านเมื่อจำเป็น\n│   └── forms.md\n└── assets/           # template, schema, รูป",
+      "ref": "https://agentskills.io/home#what-are-agent-skills"
     },
     {
       "tier": "must",
       "title": "Frontmatter: กฎของ name และ description",
       "body": "SKILL.md ต้องขึ้นต้นด้วย YAML frontmatter ที่มี name และ description แล้วตามด้วยคำสั่งแบบ Markdown ตามสเปกเปิด name ยาว 1–64 ตัวอักษร ใช้ได้เฉพาะ a-z, 0-9 และขีดกลาง ห้ามขึ้นต้นหรือลงท้ายด้วยขีด ห้ามมี -- ติดกัน และต้องตรงกับชื่อโฟลเดอร์ ส่วน description ต้องไม่ว่างและยาวไม่เกิน 1024 ตัวอักษร ฝั่ง Anthropic เพิ่มว่าทั้งสองช่องห้ามมี XML tag และ name ห้ามมีคำว่า anthropic หรือ claude",
-      "code": "---\nname: invoice-pdf\ndescription: สร้างใบแจ้งหนี้ PDF จากข้อมูลคำสั่งซื้อ\n  ใช้เมื่อผู้ใช้ขอใบแจ้งหนี้ ใบเสร็จ หรือส่งเลขคำสั่งซื้อมา\n---\n\n# Invoice PDF\n1. ดึงข้อมูลคำสั่งซื้อ\n2. รัน scripts/render.py --order <id>"
+      "code": "---\nname: invoice-pdf\ndescription: สร้างใบแจ้งหนี้ PDF จากข้อมูลคำสั่งซื้อ\n  ใช้เมื่อผู้ใช้ขอใบแจ้งหนี้ ใบเสร็จ หรือส่งเลขคำสั่งซื้อมา\n---\n\n# Invoice PDF\n1. ดึงข้อมูลคำสั่งซื้อ\n2. รัน scripts/render.py --order <id>",
+      "ref": "https://agentskills.io/specification#frontmatter"
     },
     {
       "tier": "must",
       "title": "Description ต้องบอก “ทำอะไร” และ “ใช้เมื่อไร”",
       "body": "ก่อน skill ถูกใช้ agent เห็นแค่ name กับ description จึงใช้ description เป็นข้อมูลหลักในการตัดสินว่าจะหยิบ skill ไหน ให้เขียนเป็นบุคคลที่สามว่า skill ทำอะไร แล้วต่อด้วย “ใช้เมื่อ…” พร้อมคำที่ผู้ใช้น่าจะพูดจริง เช่น ชื่อไฟล์ ชนิดงาน หรือศัพท์ของทีม กับดักคือเขียนกว้างเกินจน skill ถูกเรียกผิดงาน หรือคลุมเครือ (“ช่วยเรื่องเอกสาร”) จนไม่ถูกเรียกเลย",
-      "code": "# คลุมเครือ: agent ไม่รู้ว่าเมื่อไรควรใช้\ndescription: ช่วยเรื่องรายงาน\n\n# ดี: ทำอะไร + ใช้เมื่อไร + คำที่ผู้ใช้พูด\ndescription: สร้างรายงานยอดขายรายเดือนเป็น Excel พร้อมกราฟ\n  จาก CSV ของระบบขาย ใช้เมื่อผู้ใช้ขอสรุปยอดขาย\n  รายงานประจำเดือน หรือส่งไฟล์ sales_*.csv มา"
+      "code": "# คลุมเครือ: agent ไม่รู้ว่าเมื่อไรควรใช้\ndescription: ช่วยเรื่องรายงาน\n\n# ดี: ทำอะไร + ใช้เมื่อไร + คำที่ผู้ใช้พูด\ndescription: สร้างรายงานยอดขายรายเดือนเป็น Excel พร้อมกราฟ\n  จาก CSV ของระบบขาย ใช้เมื่อผู้ใช้ขอสรุปยอดขาย\n  รายงานประจำเดือน หรือส่งไฟล์ sales_*.csv มา",
+      "ref": "https://platform.claude.com/docs/en/agents-and-tools/agent-skills/best-practices#writing-effective-descriptions"
     },
     {
       "tier": "must",
       "title": "Progressive disclosure 3 ระดับ",
-      "body": "ระดับ 1: name และ description ของ skill ที่เปิดให้โมเดลเรียกเองถูกโหลดตั้งแต่เริ่ม (ราว 100 token ต่อ skill ส่วนใน Claude Code ถ้ามี skill มากเกินงบ บาง description จะถูกตัด และ description ของ skill ที่ตั้ง disable-model-invocation: true จะไม่ถูกโหลดเข้า context ตั้งแต่เริ่ม) ระดับ 2: เนื้อหา SKILL.md ถูกโหลดเมื่อ skill ถูกเลือกใช้ (แนะนำให้ต่ำกว่า 5,000 token) ระดับ 3: ไฟล์ประกอบถูกอ่านหรือรันเฉพาะเมื่องานต้องใช้ ผลคือติดตั้ง skill ไว้หลายสิบตัวได้โดยแทบไม่กิน context และเป็นเหตุผลที่ต้องแยกเนื้อหาให้ถูกระดับ"
+      "body": "ระดับ 1: name และ description ของ skill ที่เปิดให้โมเดลเรียกเองถูกโหลดตั้งแต่เริ่ม (ราว 100 token ต่อ skill ส่วนใน Claude Code ถ้ามี skill มากเกินงบ บาง description อาจถูกตัดทอนหรือไม่ถูกโหลดเลย และ description ของ skill ที่ตั้ง disable-model-invocation: true จะไม่ถูกโหลดเข้า context ตั้งแต่เริ่ม) ระดับ 2: เนื้อหา SKILL.md ถูกโหลดเมื่อ skill ถูกเลือกใช้ (แนะนำให้ต่ำกว่า 5,000 token) ระดับ 3: ไฟล์ประกอบถูกอ่านหรือรันเฉพาะเมื่องานต้องใช้ ผลคือติดตั้ง skill ไว้หลายสิบตัวได้โดยแทบไม่กิน context และเป็นเหตุผลที่ต้องแยกเนื้อหาให้ถูกระดับ",
+      "ref": "https://agentskills.io/specification#progressive-disclosure"
     },
     {
       "tier": "must",
       "title": "Script ถูกรัน ไม่ได้ถูกอ่านเข้า context",
       "body": "เมื่อ agent รัน script ใน skill ตัวโค้ดไม่เข้า context มีแค่ผลลัพธ์ (output) ที่เข้า ต่างจากไฟล์ reference ที่ถูกอ่านทั้งไฟล์ งานที่ต้องได้ผลเหมือนเดิมทุกครั้ง เช่น แปลงไฟล์ ตรวจ schema หรือคำนวณ จึงควรเป็น script แทนการให้โมเดลเขียนโค้ดใหม่หรือทำเองทุกรอบ ใน SKILL.md ให้เขียนชัดว่า “รัน” script ไม่ใช่ “อ่าน” เพราะถ้าสั่งให้อ่าน โค้ดทั้งไฟล์จะเข้า context โดยเปล่าประโยชน์",
-      "code": "## ตรวจฟอร์ม\nรันคำสั่งนี้ (ไม่ต้องเปิดอ่านโค้ด):\n  python scripts/validate_form.py input.pdf\nถ้าได้ \"OK\" ไปขั้นถัดไป ถ้ามี error ให้แก้ตามข้อความแล้วรันซ้ำ"
+      "code": "## ตรวจฟอร์ม\nรันคำสั่งนี้ (ไม่ต้องเปิดอ่านโค้ด):\n  python scripts/validate_form.py input.pdf\nถ้าได้ \"OK\" ไปขั้นถัดไป ถ้ามี error ให้แก้ตามข้อความแล้วรันซ้ำ",
+      "ref": "https://platform.claude.com/docs/en/agents-and-tools/agent-skills/overview#level-3-resources-and-code-loaded-as-needed"
     },
     {
       "tier": "must",
       "title": "SKILL.md สั้น แยกรายละเอียดไปไฟล์อ้างอิง",
       "body": "เมื่อ skill ถูกเลือก SKILL.md ทั้งไฟล์จะเข้า context จึงควรให้สั้น (แนะนำไม่เกินราว 500 บรรทัด) และเก็บเฉพาะขั้นตอนหลัก ส่วนรายละเอียดที่ใช้เป็นบางกรณีให้แยกไปไฟล์ใน references/ แล้วบอกว่า “กรณีไหนให้อ่านไฟล์ไหน” อ้างไฟล์ลึกแค่ชั้นเดียวจาก SKILL.md เพราะการอ้างต่อกันเป็นทอด ๆ ทำให้ agent อ่านไม่ครบ และไฟล์อ้างอิงที่ยาวควรมีสารบัญไว้ด้านบน",
-      "code": "## ขั้นตอน\n1. ระบุว่าใช้ cloud เจ้าไหน\n2. อ่านเฉพาะไฟล์ที่ตรง:\n   - AWS → references/aws.md\n   - GCP → references/gcp.md\n   - Azure → references/azure.md"
+      "code": "## ขั้นตอน\n1. ระบุว่าใช้ cloud เจ้าไหน\n2. อ่านเฉพาะไฟล์ที่ตรง:\n   - AWS → references/aws.md\n   - GCP → references/gcp.md\n   - Azure → references/azure.md",
+      "ref": "https://platform.claude.com/docs/en/agents-and-tools/agent-skills/best-practices#progressive-disclosure-patterns"
     },
     {
       "tier": "should",
       "title": "Skill, MCP, CLAUDE.md หรือ sub-agent",
-      "body": "skill คือความรู้และขั้นตอนเฉพาะงานที่โหลดเมื่อจำเป็น MCP server คือการให้ “ความสามารถ” เชื่อมระบบภายนอก เช่น Jira หรือฐานข้อมูล CLAUDE.md (หรือ AGENTS.md) คือข้อตกลงของโปรเจกต์ที่โหลดทุก session ส่วน sub-agent คือการแยกงานย่อยไปทำใน context แยกแล้วส่งแค่ผลสรุปกลับ ใช้ร่วมกันได้ เช่น MCP ให้เข้าถึง Jira และ skill สอนว่าทีมเปิด ticket ตาม template อย่างไร"
+      "body": "skill คือความรู้และขั้นตอนเฉพาะงานที่โหลดเมื่อจำเป็น MCP server คือการให้ “ความสามารถ” เชื่อมระบบภายนอก เช่น Jira หรือฐานข้อมูล CLAUDE.md (หรือ AGENTS.md) คือข้อตกลงของโปรเจกต์ที่โหลดทุก session ส่วน sub-agent คือการแยกงานย่อยไปทำใน context แยกแล้วส่งแค่ผลสรุปกลับ ใช้ร่วมกันได้ เช่น MCP ให้เข้าถึง Jira และ skill สอนว่าทีมเปิด ticket ตาม template อย่างไร",
+      "ref": "https://code.claude.com/docs/en/features-overview#combine-features"
     },
     {
       "tier": "should",
       "title": "ทดสอบ skill ด้วยคำขอจริง",
-      "body": "skill ที่ทำงานเมื่อพิมพ์ชื่อ skill ตรง ๆ ยังไม่พิสูจน์ว่า description ดี ให้ลองคำขอหลายแบบที่ผู้ใช้พูดจริงโดยไม่เอ่ยชื่อ skill ทั้งกรณีที่ควรเรียกและไม่ควรเรียก แล้วเทียบผลกับตอนไม่มี skill เพื่อดูว่าช่วยจริงไหม สังเกตว่า agent อ่านไฟล์ไหน ข้ามส่วนไหน แล้วปรับ description หรือโครงสร้าง ถ้าใช้หลายโมเดลให้ทดสอบกับทุกตัว เพราะโมเดลเล็กอาจต้องการรายละเอียดมากกว่า"
+      "body": "skill ที่ทำงานเมื่อพิมพ์ชื่อ skill ตรง ๆ ยังไม่พิสูจน์ว่า description ดี ให้ลองคำขอหลายแบบที่ผู้ใช้พูดจริงโดยไม่เอ่ยชื่อ skill ทั้งกรณีที่ควรเรียกและไม่ควรเรียก แล้วเทียบผลกับตอนไม่มี skill เพื่อดูว่าช่วยจริงไหม สังเกตว่า agent อ่านไฟล์ไหน ข้ามส่วนไหน แล้วปรับ description หรือโครงสร้าง ถ้าใช้หลายโมเดลให้ทดสอบกับทุกตัว เพราะโมเดลเล็กอาจต้องการรายละเอียดมากกว่า",
+      "ref": "https://platform.claude.com/docs/en/agents-and-tools/agent-skills/best-practices#evaluation-and-iteration"
     },
     {
       "tier": "should",
       "title": "เขียนเฉพาะสิ่งที่ agent ยังไม่รู้",
-      "body": "ทุกบรรทัดใน SKILL.md แย่งพื้นที่ context กับงานจริง จึงไม่ต้องอธิบายสิ่งที่โมเดลรู้อยู่แล้ว เช่น PDF คืออะไร แต่ให้ใส่ความรู้เฉพาะของทีม ขั้นตอนที่ผิดง่าย และวิธีตรวจผล ระดับความเข้มงวดให้ตามความเสี่ยงของงาน งานรีวิวโค้ดเขียนเป็นแนวทางกว้าง ๆ ได้ แต่งาน migration ฐานข้อมูลควรระบุคำสั่งตายตัว และถ้ามีหลายเครื่องมือให้เลือก ให้กำหนดค่าเริ่มต้นหนึ่งตัวแทนการโยนตัวเลือกให้ agent"
+      "body": "ทุกบรรทัดใน SKILL.md แย่งพื้นที่ context กับงานจริง จึงไม่ต้องอธิบายสิ่งที่โมเดลรู้อยู่แล้ว เช่น PDF คืออะไร แต่ให้ใส่ความรู้เฉพาะของทีม ขั้นตอนที่ผิดง่าย และวิธีตรวจผล ระดับความเข้มงวดให้ตามความเสี่ยงของงาน งานรีวิวโค้ดเขียนเป็นแนวทางกว้าง ๆ ได้ แต่งาน migration ฐานข้อมูลควรระบุคำสั่งตายตัว และถ้ามีหลายเครื่องมือให้เลือก ให้กำหนดค่าเริ่มต้นหนึ่งตัวแทนการโยนตัวเลือกให้ agent",
+      "ref": "https://platform.claude.com/docs/en/agents-and-tools/agent-skills/best-practices#concise-is-key"
     },
     {
       "tier": "should",
       "title": "เรียก skill เองและกันไม่ให้ agent เรียกเอง",
       "body": "ใน Claude Code skill อยู่ที่ ~/.claude/skills/ (ส่วนตัว) หรือ .claude/skills/ ใน repo (ของโปรเจกต์) เรียกตรง ๆ ได้ด้วย /ชื่อ-skill หรือปล่อยให้ Claude เลือกเองจาก description งานที่มีผลข้างเคียง เช่น deploy หรือส่งข้อความหาลูกค้า ควรตั้ง disable-model-invocation: true เพื่อให้ทำงานเฉพาะเมื่อคนสั่งเท่านั้น",
-      "code": "---\nname: deploy-prod\ndescription: Deploy แอปขึ้น production ตามขั้นตอนของทีม\ndisable-model-invocation: true\n---"
+      "code": "---\nname: deploy-prod\ndescription: Deploy แอปขึ้น production ตามขั้นตอนของทีม\ndisable-model-invocation: true\n---",
+      "ref": "https://code.claude.com/docs/en/skills#control-who-invokes-a-skill"
     },
     {
       "tier": "advanced",
       "title": "ความปลอดภัยของ skill จากภายนอก",
-      "body": "skill สั่งให้ agent ใช้เครื่องมือและรันโค้ดบนเครื่องหรือ environment ของคุณได้ จึงเทียบได้กับการติดตั้งซอฟต์แวร์ ใช้เฉพาะ skill ที่คุณเขียนเองหรือมาจากแหล่งที่เชื่อถือได้ และอ่านทุกไฟล์ก่อนใช้ ทั้ง SKILL.md, script และไฟล์ประกอบ สัญญาณอันตรายคือการเรียก network ที่ไม่เกี่ยวกับงาน การอ่าน credential หรือไฟล์นอกงาน และการดึงคำสั่งจาก URL ภายนอกมาทำตาม เพราะเนื้อหาจาก URL เปลี่ยนได้ทุกเมื่อหลังคุณตรวจไปแล้ว"
+      "body": "skill สั่งให้ agent ใช้เครื่องมือและรันโค้ดบนเครื่องหรือ environment ของคุณได้ จึงเทียบได้กับการติดตั้งซอฟต์แวร์ ใช้เฉพาะ skill ที่คุณเขียนเองหรือมาจากแหล่งที่เชื่อถือได้ และอ่านทุกไฟล์ก่อนใช้ ทั้ง SKILL.md, script และไฟล์ประกอบ สัญญาณอันตรายคือการเรียก network ที่ไม่เกี่ยวกับงาน การอ่าน credential หรือไฟล์นอกงาน และการดึงคำสั่งจาก URL ภายนอกมาทำตาม เพราะเนื้อหาจาก URL เปลี่ยนได้ทุกเมื่อหลังคุณตรวจไปแล้ว",
+      "ref": "https://platform.claude.com/docs/en/agents-and-tools/agent-skills/overview#security-considerations"
     },
     {
       "tier": "advanced",
       "title": "แชร์ skill ในทีม",
-      "body": "ใน Claude Code วิธีที่ง่ายที่สุดคือ commit โฟลเดอร์ .claude/skills/ ไว้ใน repo ทุกคนที่ clone จะได้ skill ชุดเดียวกัน มีประวัติเวอร์ชัน และแก้ผ่าน PR review ได้เหมือนโค้ด ถ้าต้องใช้ข้ามหลาย repo ให้รวมเป็น plugin ส่วนฝั่ง Claude API skill ที่อัปโหลดจะใช้ร่วมกันได้ทั้ง workspace ข้อควรระวังคือการส่งไฟล์ให้แต่ละคนก๊อปไว้ในเครื่องเอง ซึ่งจะได้หลายเวอร์ชันปนกันในไม่ช้า"
+      "body": "ใน Claude Code วิธีที่ง่ายที่สุดคือ commit โฟลเดอร์ .claude/skills/ ไว้ใน repo ทุกคนที่ clone จะได้ skill ชุดเดียวกัน มีประวัติเวอร์ชัน และแก้ผ่าน PR review ได้เหมือนโค้ด ถ้าต้องใช้ข้ามหลาย repo ให้รวมเป็น plugin ส่วนฝั่ง Claude API skill ที่อัปโหลดจะใช้ร่วมกันได้ทั้ง workspace ข้อควรระวังคือการส่งไฟล์ให้แต่ละคนก๊อปไว้ในเครื่องเอง ซึ่งจะได้หลายเวอร์ชันปนกันในไม่ช้า",
+      "ref": "https://code.claude.com/docs/en/skills#share-skills"
     },
     {
       "tier": "must",
@@ -175,10 +187,10 @@
       "prompt": "skill นี้ไม่ผ่าน validator ของสเปก Agent Skills ควรแก้อย่างไรจึงถูกต้อง?",
       "code": "pdf_Tools/\n└── SKILL.md\n\n---\nname: PDF_Tools\ndescription: แยกข้อความและตารางจากไฟล์ PDF ใช้เมื่อผู้ใช้ส่ง PDF มา\n---",
       "options": [
-        "เปลี่ยน name เป็น pdf-tools แต่คงชื่อโฟลเดอร์ pdf_Tools ไว้",
-        "เปลี่ยนเป็น pdf_tools ทั้งชื่อโฟลเดอร์และ name",
+        "เปลี่ยน name เป็น pdf-tools แต่คงโฟลเดอร์ pdf_Tools ไว้",
+        "เปลี่ยนเป็น pdf_tools ทั้งชื่อโฟลเดอร์และ name ใน frontmatter",
         "เปลี่ยนเป็น pdf-tools ทั้งชื่อโฟลเดอร์และ name",
-        "ใส่เครื่องหมายคำพูดเป็น name: \"PDF Tools\""
+        "ใส่เครื่องหมายคำพูดครอบ name เป็น name: \"PDF Tools\""
       ],
       "answer": 2,
       "explain": "name ใช้ได้เฉพาะ a-z, 0-9 และขีดกลาง และต้องตรงกับชื่อโฟลเดอร์ การแก้แค่ name ยังไม่ผ่านเพราะโฟลเดอร์ไม่ตรง ส่วน pdf_tools ผิดเพราะขีดล่างไม่อยู่ในตัวอักษรที่อนุญาต"
@@ -186,10 +198,10 @@
     {
       "prompt": "skill สรุปยอดขายมี description ว่า “ช่วยเรื่องรายงาน” ผู้ใช้พิมพ์ว่า “สรุปยอดจาก sales_jan.csv ให้หน่อย” แต่ agent ไม่หยิบ skill มาใช้ ควรแก้ที่ไหนก่อน?",
       "options": [
-        "เพิ่มรายละเอียดขั้นตอนในเนื้อหา SKILL.md ให้ละเอียดขึ้น",
-        "เปลี่ยน name ให้ยาวและสื่อความหมายมากขึ้น",
-        "ย้ายขั้นตอนทั้งหมดไปไว้ในไฟล์ references/",
-        "เขียน description ใหม่ให้บอกว่าทำอะไรและใช้เมื่อไร พร้อมคำอย่าง “ยอดขาย” และ “CSV”"
+        "เพิ่มรายละเอียดของแต่ละขั้นตอนในเนื้อหา SKILL.md ให้ละเอียดขึ้นมาก",
+        "เปลี่ยน name ให้ยาวและสื่อความหมายมากขึ้น เช่น sales-summary-report-tool",
+        "ย้ายขั้นตอนทั้งหมดไปไว้ในไฟล์ references/ แล้วเหลือแค่หัวข้อใน SKILL.md",
+        "เขียน description ใหม่ให้บอกว่าทำอะไรและใช้เมื่อไร มีคำอย่าง “ยอดขาย” “CSV”"
       ],
       "answer": 3,
       "explain": "ก่อน skill ถูกเลือก agent เห็นแค่ name กับ description จึงต้องแก้ description ให้ตรงกับสิ่งที่ผู้ใช้พูด การเพิ่มเนื้อหา SKILL.md ไม่ช่วย เพราะส่วนนั้นยังไม่ถูกโหลดในตอนที่ agent ตัดสินใจ"
@@ -198,7 +210,7 @@
       "prompt": "SKILL.md มีขั้นตอนนี้ และ validate.py ยาว 800 บรรทัด ปัญหาหลักคืออะไร?",
       "code": "## ตรวจข้อมูล\n1. เปิดอ่าน scripts/validate.py ให้ครบทุกบรรทัด\n2. ตรวจไฟล์ของผู้ใช้ตามตรรกะในโค้ดนั้น",
       "options": [
-        "โค้ด 800 บรรทัดเข้า context และโมเดลต้องทำตามตรรกะเอง ควรสั่งให้รัน script แล้วใช้ผลลัพธ์",
+        "โค้ด 800 บรรทัดเข้า context ทั้งหมด ควรสั่งให้รัน script แล้วใช้แค่ผลลัพธ์",
         "skill ใส่ไฟล์ Python ไม่ได้ ต้องเขียนตรรกะเป็นข้อความใน SKILL.md",
         "ควรคัดลอกโค้ดทั้งหมดมาไว้ใน SKILL.md เพื่อให้ agent เห็นในครั้งเดียว",
         "script ควรย้ายไปอยู่ใน references/ เพราะ scripts/ ใช้ได้เฉพาะ Bash"
@@ -209,10 +221,10 @@
     {
       "prompt": "SKILL.md ของ skill deploy ยาว 2,000 บรรทัด เพราะรวมขั้นตอนของ AWS, GCP และ Azure ไว้ด้วยกัน แต่ละงานใช้แค่ cloud เดียว ควรจัดโครงสร้างอย่างไร?",
       "options": [
-        "ปล่อยไว้แบบนี้ เพราะ SKILL.md ถูกโหลดเฉพาะตอนที่ skill ถูกใช้อยู่แล้ว",
-        "ให้ SKILL.md มีขั้นตอนหลัก แล้วแยก references/aws.md, gcp.md, azure.md พร้อมบอกว่ากรณีไหนอ่านไฟล์ไหน",
-        "ให้ SKILL.md ชี้ไปที่ overview.md ซึ่งชี้ต่อไปที่ cloud.md แล้วค่อยชี้ไปไฟล์ของแต่ละเจ้า",
-        "ย่อเนื้อหาสำคัญทั้งหมดไปไว้ใน description ซึ่งรับได้ถึง 1024 ตัวอักษร"
+        "ปล่อยไว้แบบนี้ เพราะ SKILL.md ถูกโหลดเฉพาะตอนที่ skill ถูกใช้ ไม่ได้เข้า context ล่วงหน้า",
+        "เก็บขั้นตอนหลักใน SKILL.md แล้วแยก aws.md, gcp.md, azure.md ใน references/ ให้อ่านตามกรณี",
+        "ให้ SKILL.md ชี้ไป overview.md ซึ่งชี้ต่อไป cloud.md แล้วค่อยชี้ไปไฟล์ของแต่ละเจ้า",
+        "ย่อเนื้อหาสำคัญทั้งหมดไปไว้ใน description ซึ่งรับได้ถึง 1024 ตัวอักษร ทุกครั้งที่เริ่ม"
       ],
       "answer": 1,
       "explain": "เมื่อ skill ถูกใช้ SKILL.md ทั้ง 2,000 บรรทัดจะเข้า context แม้ใช้จริงแค่หนึ่งในสาม การแยกไฟล์ทำให้โหลดเฉพาะที่ต้องใช้ ส่วนการอ้างต่อกันหลายทอดไม่ดี เพราะ agent อาจอ่านไฟล์ปลายทางไม่ครบ ควรอ้างลึกชั้นเดียว"
@@ -220,10 +232,10 @@
     {
       "prompt": "ทีมมีข้อตกลงที่ต้องใช้ทุกงาน คือ “ใช้ pnpm ไม่ใช้ npm และรัน pnpm test ก่อน commit” ควรเก็บไว้ที่ไหน?",
       "options": [
-        "skill ชื่อ team-rules ที่มี description ว่าใช้กับทุกงาน",
-        "MCP server ที่ให้เครื่องมือรัน pnpm",
-        "CLAUDE.md หรือ AGENTS.md ของโปรเจกต์",
-        "sub-agent ที่คอยตรวจก่อน commit"
+        "skill team-rules ที่ description ระบุว่าใช้กับทุกงาน",
+        "MCP server ที่เปิดเครื่องมือสำหรับรัน pnpm test",
+        "CLAUDE.md หรือ AGENTS.md ของโปรเจกต์ทีม",
+        "sub-agent ที่คอยตรวจกฎก่อนทุกครั้งที่ commit"
       ],
       "answer": 2,
       "explain": "สิ่งที่ต้องใช้ทุก session ควรอยู่ในไฟล์ข้อตกลงของโปรเจกต์ที่โหลดเสมอ skill จะโหลดเฉพาะเมื่อ agent ตัดสินว่างานตรงกัน จึงเสี่ยงที่กฎจะไม่ถูกใช้ และการเขียน description ว่า “ใช้กับทุกงาน” ก็ทำให้ skill ถูกเรียกแบบไม่แม่นยำ"
@@ -231,10 +243,10 @@
     {
       "prompt": "ต้องการให้ agent เปิด ticket ใน Jira ของบริษัท โดยใช้ template และ label ตามมาตรฐานทีม วิธีใดเหมาะที่สุด?",
       "options": [
-        "skill ที่ใส่ API token ของ Jira ไว้ใน SKILL.md แล้วให้ agent เรียก API เอง",
-        "เขียน template ไว้ใน CLAUDE.md ให้โหลดทุก session",
-        "ใช้ sub-agent แยก context ไปเปิด ticket โดยไม่ต้องมีเครื่องมือเชื่อม Jira",
-        "MCP server สำหรับเชื่อม Jira คู่กับ skill ที่อธิบาย template และขั้นตอนของทีม"
+        "skill ที่ใส่ API token ของ Jira ไว้ใน SKILL.md ให้ agent เรียก API เอง",
+        "เขียน template ไว้ใน CLAUDE.md ให้โหลดทุก session แล้วให้ agent ทำตามเอง",
+        "ใช้ sub-agent แยก context เปิด ticket โดยไม่ต้องมีเครื่องมือเชื่อม Jira",
+        "MCP server เชื่อม Jira คู่กับ skill ที่อธิบาย template และขั้นตอนของทีม"
       ],
       "answer": 3,
       "explain": "MCP ให้ความสามารถในการเข้าถึง Jira ส่วน skill ให้ความรู้ว่าทีมทำงานอย่างไร จึงใช้คู่กัน การใส่ token ไว้ใน SKILL.md อันตรายเพราะไฟล์ skill มักถูก commit หรือแชร์ต่อ ส่วน sub-agent แค่แยก context ไม่ได้เพิ่มการเข้าถึงระบบภายนอก"
@@ -242,10 +254,10 @@
     {
       "prompt": "คุณเขียน skill pr-review เสร็จ ลองพิมพ์ “ใช้ skill pr-review รีวิว PR นี้” แล้วได้ผลดี ขั้นต่อไปที่ควรทำคืออะไร?",
       "options": [
-        "ลองคำขอหลายแบบที่ไม่เอ่ยชื่อ skill ทั้งที่ควรและไม่ควรเรียก แล้วเทียบกับตอนไม่มี skill",
-        "ถือว่าผ่านแล้ว เพราะ skill ทำงานถูกต้องในการทดสอบครั้งแรก",
+        "ลองคำขอหลายแบบที่ไม่เอ่ยชื่อ skill ทั้งที่ควรและไม่ควรเรียก แล้วเทียบกับไม่มี skill",
+        "ถือว่าเสร็จแล้ว เพราะ skill ทำงานถูกต้องตั้งแต่การทดสอบครั้งแรกที่ลอง",
         "ทดสอบซ้ำโดยใช้ประโยคเดียวกับใน description เพื่อยืนยันว่า skill ถูกเรียก",
-        "เขียน description ให้ยาวเต็ม 1024 ตัวอักษร เพื่อให้ครอบคลุมทุกคำที่ผู้ใช้อาจพูด"
+        "เขียน description ให้ยาวเต็ม 1024 ตัวอักษร เพื่อครอบคลุมทุกคำที่ผู้ใช้อาจพูด"
       ],
       "answer": 0,
       "explain": "การเอ่ยชื่อ skill ตรง ๆ ไม่ได้ทดสอบว่า description ทำให้ agent หยิบ skill ถูกตอนใช้งานจริง ต้องลองทั้งกรณีที่ควรและไม่ควรเรียก และเทียบกับตอนไม่มี skill จึงรู้ว่าช่วยจริงไหม description ที่ยาวที่สุดไม่ได้แปลว่าดีที่สุด และอาจทำให้ถูกเรียกผิดงาน"
@@ -254,9 +266,9 @@
       "prompt": "เจอ skill บน GitHub ที่ช่วยจัดการ AWS ได้ดี ใน scripts/ มีคำสั่ง curl ส่งข้อมูลไปยังโดเมนที่ไม่รู้จัก และมีขั้นตอนที่อ่าน ~/.aws/credentials ควรทำอย่างไร?",
       "options": [
         "ติดตั้งได้ เพราะ skill เป็นแค่ข้อความคำสั่ง agent จะไม่รันโค้ดที่อยู่ในนั้นเอง",
-        "ติดตั้งได้ถ้า repo มีดาวเยอะ เพราะแปลว่ามีคนตรวจโค้ดแล้ว",
-        "ไม่ใช้ skill นี้ หรือใช้หลังอ่านทุกไฟล์และตัดส่วนที่ส่งข้อมูลออกและอ่าน credential ทิ้งแล้วเท่านั้น",
-        "ติดตั้งได้ถ้า frontmatter ผ่าน validator ของสเปก Agent Skills"
+        "ติดตั้งได้ถ้า repo มีดาวหลายพันดวง เพราะแปลว่ามีผู้ใช้จำนวนมากตรวจโค้ดไปแล้ว",
+        "ไม่ใช้ skill นี้ หรือใช้หลังอ่านทุกไฟล์และตัดโค้ดที่ส่งข้อมูลหรืออ่าน credential ออกแล้ว",
+        "ติดตั้งได้ถ้า frontmatter ผ่าน validator ของสเปก Agent Skills เพราะแปลว่าปลอดภัย"
       ],
       "answer": 2,
       "explain": "skill สั่งให้ agent รัน script และใช้เครื่องมือได้จริง จึงต้องตรวจเหมือนติดตั้งซอฟต์แวร์ การส่งข้อมูลไปโดเมนแปลกคู่กับการอ่าน credential เป็นสัญญาณอันตรายชัดเจน ส่วน validator ตรวจแค่รูปแบบ frontmatter ไม่ได้ตรวจว่าปลอดภัย"
@@ -423,9 +435,9 @@
     {
       "prompt": "skill migrate-db มี SKILL.md ยาวมาก และกฎ “ห้ามรันบน production” อยู่ท้ายไฟล์ หลัง conversation ยาวจนเกิด auto-compaction Claude เริ่มละเลยกฎนี้ สาเหตุที่เป็นไปได้มากที่สุดคืออะไร?",
       "options": [
-        "Claude Code ลบ skill ที่เรียกแล้วออกจาก context ทั้งหมดตอน compaction จึงต้องเลือกจาก description ใหม่",
-        "skill หมดอายุเมื่อผ่านไป 5 turn จึงต้องเรียกซ้ำเพื่อให้กฎกลับมามีผล",
-        "หลัง compaction Claude Code แนบ skill กลับโดยเก็บแค่ 5,000 token แรก ส่วนท้ายไฟล์จึงหายไป",
+        "compaction ลบ skill ที่เรียกแล้วออกจาก context ทั้งหมด จึงต้องเลือกใหม่จาก description",
+        "skill หมดอายุเมื่อผ่านไป 5 turn จึงต้องเรียกซ้ำเพื่อให้กฎของ skill กลับมามีผลอีกครั้ง",
+        "หลัง compaction ระบบแนบ skill กลับเฉพาะ 5,000 token แรก ส่วนท้ายไฟล์จึงหายไป",
         "description ถูกตัดที่ 1,024 ตัวอักษรหลัง compaction ทำให้โมเดลไม่รู้ว่ามีกฎนี้"
       ],
       "answer": 2,
@@ -435,10 +447,10 @@
       "prompt": "skill นี้ใช้งานได้ดีใน Claude Code แต่เมื่อ zip แล้วอัปโหลดขึ้น claude.ai กลับไม่ผ่าน เกิดอะไรขึ้นและควรแก้อย่างไร?",
       "code": "---\nname: pr-summary\ndescription: สรุป pull request ใช้เมื่อผู้ใช้ขอสรุป PR\nargument-hint: [pr-number]\ndisable-model-invocation: true\n---",
       "options": [
-        "claude.ai ข้ามฟิลด์ที่ไม่รู้จักเหมือน Claude Code แต่ name ห้ามมีคำว่า claude จึงต้องเปลี่ยนชื่อ skill ใหม่ก่อนอัปโหลดซ้ำ",
-        "claude.ai รับเฉพาะฟิลด์ตามสเปก ส่วนที่เกินทำให้อัปโหลดล้มเหลว ต้องลบ argument-hint และ disable-model-invocation",
-        "อัปโหลดผ่านแต่ฟิลด์ที่ไม่รู้จักถูกย้ายไปไว้ใน metadata อัตโนมัติ จึงต้องเปิดใช้ใหม่ทีละฟิลด์ในหน้าตั้งค่า",
-        "ต้องเพิ่ม compatibility: claude-code เพื่อประกาศว่า skill ใช้ฟิลด์ที่เกินจากสเปกได้"
+        "claude.ai ข้ามฟิลด์ที่ไม่รู้จักเหมือน Claude Code แต่ name ห้ามมีคำว่า claude จึงต้องเปลี่ยนชื่อ",
+        "claude.ai รับเฉพาะฟิลด์ตามสเปก ต้องลบ argument-hint และ disable-model-invocation ออกก่อนอัปโหลด",
+        "อัปโหลดผ่าน แต่ฟิลด์ที่ไม่รู้จักถูกย้ายไปไว้ใน metadata อัตโนมัติ ต้องเปิดใช้ใหม่ในหน้าตั้งค่า",
+        "ต้องเพิ่ม compatibility: claude-code เพื่อประกาศว่า skill ใช้ฟิลด์ที่เกินจากสเปกได้ใน claude.ai"
       ],
       "answer": 1,
       "explain": "Claude Code รับฟิลด์เพิ่มเติมของมันได้ทั้งหมด แต่การอัปโหลดขึ้น claude.ai หรือ Skills API รับเฉพาะ name, description, license, compatibility, metadata และ allowed-tools ฟิลด์อื่นทำให้ล้มเหลวด้วย error ส่วน compatibility เป็นแค่ข้อความบอกข้อกำหนดของสภาพแวดล้อม ไม่ได้เปิดสิทธิ์ใช้ฟิลด์เพิ่ม"
@@ -447,10 +459,10 @@
       "prompt": "skill ของทีมฝังผล lint ด้วยคำสั่งด้านล่าง ซึ่งสคริปต์ check.sh (เขียนเอง) จะ exit code 1 เมื่อเจอปัญหา เมื่อเรียก skill ในกรณีที่ lint เจอปัญหา จะเกิดอะไรขึ้น และควรแก้อย่างไร?",
       "code": "---\nname: lint-report\ndescription: สรุปผล lint ก่อน commit\n---\n\nผล lint ล่าสุด:\n!`./scripts/check.sh`",
       "options": [
-        "Claude เห็นเนื้อหา skill ตามปกติ โดยแทนที่คำสั่งด้วยข้อความ error ของสคริปต์เท่านั้น ส่วนที่เหลือไม่เปลี่ยน",
+        "Claude เห็นเนื้อหา skill ตามปกติ โดยแทนที่เฉพาะคำสั่งนั้นด้วยข้อความ error ของสคริปต์",
         "Claude Code ข้ามเฉพาะบรรทัดนั้นแล้วทำ skill ส่วนที่เหลือต่อ โดยไม่มีผล lint ให้เห็น",
         "Claude Code รันคำสั่งซ้ำอัตโนมัติจนสำเร็จ จึงไม่ต้องแก้อะไรเพิ่มเติมในไฟล์ skill",
-        "การเรียก skill ถูกยกเลิกทั้งหมด ต้องต่อท้ายด้วย || true หากต้องการให้ผลที่ exit 1 ถูกแทรกเข้ามา"
+        "การเรียก skill ถูกยกเลิก ต้องต่อท้ายด้วย || true ถ้าต้องการให้ผลที่ exit 1 ถูกแทรก"
       ],
       "answer": 3,
       "explain": "คำสั่ง !`…` รันก่อน Claude เห็นเนื้อหา และถ้าคำสั่งล้มเหลว (exit code ไม่ใช่ 0 ในกรณีทั่วไป) การเรียก skill ทั้งก้อนจะถูกยกเลิก ไม่ใช่แค่บรรทัดนั้น การต่อท้าย || true ทำให้ผลที่ exit 1 ถูกแทรกเข้ามาแทน"
@@ -530,7 +542,7 @@
         },
         {
           "label": "description บอกว่า “ใช้เมื่อ…”",
-          "pattern": "^description:(?:(?!\\n(?:---|[a-z][\\w-]*:))[\\s\\S])*?(ใช้เมื่อ|ใช้ตอน|ใช้ในกรณี|use when|when )"
+          "pattern": "^description:(?:(?!\\n(?:---|[a-z][\\w-]*:))[\\s\\S])*?(ใช้เมื่อ|ใช้ตอน|ใช้ในกรณี|use when|when |whenever\\b)"
         },
         {
           "label": "มีขั้นตอนเป็นลำดับเลข",
@@ -725,5 +737,17 @@
       "url": "https://ai.google.dev/gemini-api/docs/function-calling",
       "note": "ฝั่ง Google: function declaration, โหมดการเรียก, parallel calling"
     }
+  ],
+  "cheatsheet": [
+    "Skill คือโฟลเดอร์ที่มี SKILL.md และไฟล์ประกอบได้ เพื่อให้ agent ใช้คำสั่งและขั้นตอนซ้ำเมื่องานตรงกัน",
+    "name ใน frontmatter ต้องตรงชื่อโฟลเดอร์ ยาว 1–64 ตัว ใช้ a-z, 0-9 และขีดกลาง ห้ามขีดที่หัวท้ายหรือ -- ติดกัน",
+    "description ต้องบอกว่าทำอะไรและใช้เมื่อไร ด้วยคำที่ผู้ใช้พูดจริง เพราะก่อนเลือก skill agent ยังไม่เห็นเนื้อหา SKILL.md",
+    "Progressive disclosure: metadata (~100 token ต่อ skill, Claude Code ตัดทอนได้ถ้าเกินงบ) โหลดก่อน, SKILL.md เมื่อเลือก, ไฟล์ประกอบเมื่อจำเป็น",
+    "สั่งให้รัน script เมื่อต้องการผลที่แน่นอน: มีแค่ output เข้า context แต่การอ่าน reference จะโหลดเนื้อหาทั้งไฟล์",
+    "ส่ง tool_result ใน user message ถัดจาก tool_use ทันที ก่อน text และให้ tool_use_id ตรงกับ id ของคำขอ",
+    "MCP มี tools สำหรับเรียกฟังก์ชัน, resources สำหรับอ่านข้อมูลบริบท และ prompts สำหรับ template ที่ใช้ซ้ำ",
+    "strict: true บังคับ input ของ tool ตาม JSON Schema ด้วย grammar-constrained sampling จึงไม่ต้องวน retry เรื่อง type ผิดหรือ field หาย",
+    "ทดสอบด้วยคำขอจริงที่ไม่เอ่ยชื่อ skill ทั้งกรณีที่ควรและไม่ควรเรียก แล้วเทียบกับตอนไม่มี skill",
+    "ใน Claude Code allowed-tools อนุญาตล่วงหน้าเฉพาะ turn ที่เรียก skill ไม่ได้จำกัด tool และหมดเมื่อผู้ใช้ส่งข้อความถัดไป"
   ]
 }

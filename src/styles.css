@@ -258,3 +258,7 @@ button, input, textarea { font: inherit; color: inherit; }
 @media (prefers-reduced-motion: no-preference) {
   .option, .btn, .chip { transition: background-color 0.12s, border-color 0.12s; }
 }
+
+/* cheat sheet */
+.cheatsheet { margin: 0; padding: 18px 22px 18px 40px; display: grid; gap: 8px; line-height: 1.65; }
+.cheatsheet li::marker { color: var(--accent); }

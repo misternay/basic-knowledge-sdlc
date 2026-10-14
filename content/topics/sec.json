@@ -8,68 +8,80 @@
     {
       "tier": "must",
       "title": "OWASP Top 10:2025 และวิธีใช้ให้เป็นประโยชน์",
-      "body": "OWASP Top 10 คือรายการ 10 หมวดความเสี่ยงของเว็บแอปที่จัดจากข้อมูลช่องโหว่จริง ฉบับ 2025 อันดับ 1 ยังเป็น Broken Access Control (รวม SSRF เข้ามาด้วย) ตามด้วย Security Misconfiguration, Software Supply Chain Failures, Cryptographic Failures และ Injection ส่วนหมวดใหม่ A10 Mishandling of Exceptional Conditions พูดถึงการจัดการ error ที่ทำให้ระบบ “fail open” ใช้เป็น checklist ตอนออกแบบและ review โค้ด แต่ผ่านครบ 10 ข้อไม่ได้แปลว่าระบบปลอดภัย"
+      "body": "OWASP Top 10 คือรายการ 10 หมวดความเสี่ยงของเว็บแอปที่จัดจากข้อมูลช่องโหว่จริง ฉบับ 2025 อันดับ 1 ยังเป็น Broken Access Control (รวม SSRF เข้ามาด้วย) ตามด้วย Security Misconfiguration, Software Supply Chain Failures, Cryptographic Failures และ Injection ส่วนหมวดใหม่ A10 Mishandling of Exceptional Conditions พูดถึงการจัดการ error ที่ทำให้ระบบ “fail open” ใช้เป็น checklist ตอนออกแบบและ review โค้ด แต่ผ่านครบ 10 ข้อไม่ได้แปลว่าระบบปลอดภัย",
+      "ref": "https://top10.owasp.org/2025/"
     },
     {
       "tier": "must",
       "title": "Broken access control และ IDOR",
       "body": "IDOR คือ server รับ id ของ object จาก client แล้วดึงข้อมูลให้โดยไม่ตรวจว่าผู้ใช้คนนี้มีสิทธิ์ใน object นั้น เจอบ่อยเพราะโค้ดดูทำงานปกติทุกอย่าง ต้องตรวจสิทธิ์ฝั่ง server ทุก request และ deny เป็นค่าเริ่มต้น การซ่อนปุ่มใน UI หรือเปลี่ยน id เป็น UUID ทำให้เดายากขึ้นเท่านั้น ไม่ใช่การตรวจสิทธิ์",
-      "code": "// เสี่ยง: ใครล็อกอินก็ขอใบไหนก็ได้\npool.query('SELECT * FROM invoices WHERE id = $1', [req.params.id]);\n\n// ปลอดภัย: ผูกเจ้าของไว้ในเงื่อนไขเดียวกัน ไม่พบก็ตอบ 404\npool.query(\n  'SELECT * FROM invoices WHERE id = $1 AND owner_id = $2',\n  [req.params.id, req.user.id]\n);"
+      "code": "// เสี่ยง: ใครล็อกอินก็ขอใบไหนก็ได้\npool.query('SELECT * FROM invoices WHERE id = $1', [req.params.id]);\n\n// ปลอดภัย: ผูกเจ้าของไว้ในเงื่อนไขเดียวกัน ไม่พบก็ตอบ 404\npool.query(\n  'SELECT * FROM invoices WHERE id = $1 AND owner_id = $2',\n  [req.params.id, req.user.id]\n);",
+      "ref": "https://cheatsheetseries.owasp.org/cheatsheets/Insecure_Direct_Object_Reference_Prevention_Cheat_Sheet.html"
     },
     {
       "tier": "must",
       "title": "Injection และ XSS: แยกข้อมูลออกจากคำสั่ง",
       "body": "ทั้งสองเกิดจากต้นเหตุเดียวกัน คือเอาข้อมูลจากผู้ใช้ไปต่อเป็นส่วนหนึ่งของคำสั่ง (SQL, shell หรือ HTML) ป้องกัน SQL injection ด้วย parameterized query และป้องกัน XSS ด้วยการ encode output ตามบริบท (HTML, attribute, URL, JavaScript) หรือใช้ API ที่ใส่เป็นข้อความอย่าง textContent กับดักที่พบบ่อยคือ placeholder ใช้แทนชื่อคอลัมน์หรือ ASC/DESC ไม่ได้ ต้องใช้ allowlist และ framework ที่ escape ให้อัตโนมัติก็ยังรั่วได้ถ้าใช้ innerHTML หรือ dangerouslySetInnerHTML",
-      "code": "// SQL: ส่งค่าแยกจากคำสั่ง driver จะไม่ตีความค่าเป็น SQL\nawait pool.query('SELECT id FROM users WHERE email = $1', [email]);\n\n// HTML: ใส่เป็นข้อความ ไม่ใช่ markup\nel.textContent = comment;   // ไม่ใช่ el.innerHTML = comment"
+      "code": "// SQL: ส่งค่าแยกจากคำสั่ง driver จะไม่ตีความค่าเป็น SQL\nawait pool.query('SELECT id FROM users WHERE email = $1', [email]);\n\n// HTML: ใส่เป็นข้อความ ไม่ใช่ markup\nel.textContent = comment;   // ไม่ใช่ el.innerHTML = comment",
+      "ref": "https://top10.owasp.org/2025/A05_2025-Injection/"
     },
     {
       "tier": "must",
       "title": "Authentication ต่างจาก Authorization",
-      "body": "authN ตอบว่า “คุณคือใคร” (login, MFA, session) ส่วน authZ ตอบว่า “คุณทำสิ่งนี้กับ resource นี้ได้ไหม” login สำเร็จจึงไม่ได้แปลว่าเข้าถึงได้ทุกอย่าง ต้องตรวจทั้งสองอย่างฝั่ง server ทุก request และห้ามเชื่อ role หรือ flag ที่ client ส่งมาเอง ใน HTTP ให้ตอบ 401 เมื่อยังไม่ได้ยืนยันตัวตน และ 403 เมื่อรู้ว่าเป็นใครแต่ไม่มีสิทธิ์"
+      "body": "authN ตอบว่า “คุณคือใคร” (login, MFA, session) ส่วน authZ ตอบว่า “คุณทำสิ่งนี้กับ resource นี้ได้ไหม” login สำเร็จจึงไม่ได้แปลว่าเข้าถึงได้ทุกอย่าง ต้องตรวจทั้งสองอย่างฝั่ง server ทุก request และห้ามเชื่อ role หรือ flag ที่ client ส่งมาเอง ใน HTTP ให้ตอบ 401 เมื่อยังไม่ได้ยืนยันตัวตน และ 403 เมื่อรู้ว่าเป็นใครแต่ไม่มีสิทธิ์",
+      "ref": "https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/403"
     },
     {
       "tier": "must",
       "title": "Password hashing: argon2id, bcrypt, scrypt",
       "body": "รหัสผ่านต้องเก็บเป็น hash ที่ตั้งใจให้ช้าและมี salt ต่อผู้ใช้ เพื่อให้การเดาแบบ offline หลังฐานข้อมูลรั่วมีต้นทุนสูงมาก OWASP แนะนำ argon2id เป็นตัวแรก (ขั้นต่ำ memory 19 MiB, iterations 2, parallelism 1) รองลงมาคือ scrypt และใช้ bcrypt กับระบบเดิม (cost 10 ขึ้นไป และระวังว่ารับ input ได้แค่ 72 byte) ห้ามใช้ MD5 หรือ SHA-256 ตรง ๆ แม้จะมี salt และห้ามเข้ารหัสแบบถอดกลับได้",
-      "code": "const argon2 = require('argon2');\n\nconst hash = await argon2.hash(password, {\n  type: argon2.argon2id,\n  memoryCost: 19456, // หน่วย KiB = 19 MiB\n  timeCost: 2,\n  parallelism: 1,\n});\nconst ok = await argon2.verify(hash, password);"
+      "code": "const argon2 = require('argon2');\n\nconst hash = await argon2.hash(password, {\n  type: argon2.argon2id,\n  memoryCost: 19456, // หน่วย KiB = 19 MiB\n  timeCost: 2,\n  parallelism: 1,\n});\nconst ok = await argon2.verify(hash, password);",
+      "ref": "https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html"
     },
     {
       "tier": "must",
       "title": "Secrets management และ rotation",
-      "body": "API key, รหัสผ่าน database และ private key ต้องไม่อยู่ในโค้ดหรือ Git ให้อ่านจาก secret manager (เช่น AWS Secrets Manager หรือ HashiCorp Vault) หรือ environment variable ที่ระบบ deploy ฉีดให้ เมื่อ secret หลุดให้ revoke และ rotate ก่อนเสมอ แล้วค่อยล้าง Git history เพราะสำเนาอาจถูก clone หรือสแกนไปแล้ว ควรออกแบบให้ rotate ได้โดยไม่ต้องแก้โค้ด และเปิด secret scanning ใน repo ไว้ตั้งแต่ต้น"
+      "body": "API key, รหัสผ่าน database และ private key ต้องไม่อยู่ในโค้ดหรือ Git ให้อ่านจาก secret manager (เช่น AWS Secrets Manager หรือ HashiCorp Vault) หรือ environment variable ที่ระบบ deploy ฉีดให้ เมื่อ secret หลุดให้ revoke และ rotate ก่อนเสมอ แล้วค่อยล้าง Git history เพราะสำเนาอาจถูก clone หรือสแกนไปแล้ว ควรออกแบบให้ rotate ได้โดยไม่ต้องแก้โค้ด และเปิด secret scanning ใน repo ไว้ตั้งแต่ต้น",
+      "ref": "https://cheatsheetseries.owasp.org/cheatsheets/Secrets_Management_Cheat_Sheet.html"
     },
     {
       "tier": "should",
       "title": "Software supply chain: lockfile, SCA, typosquatting",
       "body": "โค้ดส่วนใหญ่ในแอปมาจาก dependency ซึ่ง OWASP 2025 ยกเป็นความเสี่ยงอันดับ 3 ให้ commit lockfile แล้วใช้ npm ci ใน CI เพื่อให้ได้เวอร์ชันและ integrity hash เดิมทุกครั้ง รวมถึง dependency ทางอ้อม สแกนช่องโหว่ที่รู้แล้วด้วย SCA (เช่น npm audit หรือ Dependabot) และก่อนเพิ่ม package ใหม่ให้ตรวจชื่อให้ตรง เพราะมี typosquatting อย่าง crossenv ที่ปลอมเป็น cross-env รวมถึงชื่อ package ที่ AI แนะนำแต่ไม่มีอยู่จริงซึ่งผู้โจมตีอาจไปจดไว้ก่อน",
-      "code": "npm ci                         # ติดตั้งตาม lockfile เท่านั้น ไม่ตรงกับ package.json ก็ fail\nnpm audit --audit-level=high   # fail เมื่อพบช่องโหว่ระดับ high ขึ้นไป"
+      "code": "npm ci                         # ติดตั้งตาม lockfile เท่านั้น ไม่ตรงกับ package.json ก็ fail\nnpm audit --audit-level=high   # fail เมื่อพบช่องโหว่ระดับ high ขึ้นไป",
+      "ref": "https://cheatsheetseries.owasp.org/cheatsheets/NPM_Security_Cheat_Sheet.html"
     },
     {
       "tier": "should",
       "title": "OAuth 2.0, OIDC และการตรวจ JWT",
       "body": "OAuth 2.0 ใช้มอบสิทธิ์ให้แอปเรียก API แทนผู้ใช้ผ่าน access token ส่วน OIDC เพิ่มการยืนยันตัวตนด้วย ID token ซึ่งมีไว้ให้ client รู้ว่าใคร login ไม่ใช่ให้ API รับแทน access token แอปใหม่ควรใช้ Authorization Code + PKCE และเลิกใช้ implicit flow ตาม RFC 9700 เมื่อ API รับ JWT ต้องตรวจ signature ด้วย algorithm ที่กำหนดเอง (ไม่เชื่อ alg ใน header และไม่ยอมรับ none) แล้วตรวจ exp, iss และ aud ทุกครั้ง และบังคับให้ token ต้องมี exp ด้วย (ไลบรารีบางตัว เช่น jsonwebtoken ข้ามการตรวจวันหมดอายุถ้า token ไม่มี exp)",
-      "code": "const claims = jwt.verify(token, publicKey, {\n  algorithms: ['RS256'],\n  issuer: 'https://auth.example.com',\n  audience: 'orders-api',\n}); // ตรวจ signature, iss, aud และ exp (ถ้ามี) ไม่ผ่านจะ throw\nif (typeof claims.exp !== 'number') throw new Error('missing exp');\n// ห้ามใช้ jwt.decode() เพื่อยืนยันตัวตน เพราะไม่ตรวจ signature"
+      "code": "const claims = jwt.verify(token, publicKey, {\n  algorithms: ['RS256'],\n  issuer: 'https://auth.example.com',\n  audience: 'orders-api',\n}); // ตรวจ signature, iss, aud และ exp (ถ้ามี) ไม่ผ่านจะ throw\nif (typeof claims.exp !== 'number') throw new Error('missing exp');\n// ห้ามใช้ jwt.decode() เพื่อยืนยันตัวตน เพราะไม่ตรวจ signature",
+      "ref": "https://www.rfc-editor.org/rfc/rfc9700"
     },
     {
       "tier": "should",
       "title": "CSRF, CORS และ security headers",
       "body": "CSRF คือเว็บอื่นหลอกให้เบราว์เซอร์ส่ง request พร้อม cookie ของผู้ใช้ ป้องกันด้วย SameSite cookie, CSRF token และไม่เปลี่ยนข้อมูลด้วย GET (SameSite=Lax ยังส่ง cookie เมื่อผู้ใช้คลิกลิงก์) ส่วน CORS ไม่ใช่เครื่องมือกัน CSRF แต่เป็นการผ่อน same-origin policy ให้ origin อื่นอ่าน response ได้ จึงควรใช้ allowlist และห้ามสะท้อน Origin ทุกค่าคู่กับ credentials เสริมด้วย header อย่าง CSP, HSTS และ X-Content-Type-Options",
-      "code": "Set-Cookie: sid=...; Secure; HttpOnly; SameSite=Lax\nStrict-Transport-Security: max-age=31536000; includeSubDomains\nContent-Security-Policy: default-src 'self'; frame-ancestors 'none'\nX-Content-Type-Options: nosniff"
+      "code": "Set-Cookie: sid=...; Secure; HttpOnly; SameSite=Lax\nStrict-Transport-Security: max-age=31536000; includeSubDomains\nContent-Security-Policy: default-src 'self'; frame-ancestors 'none'\nX-Content-Type-Options: nosniff",
+      "ref": "https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_Request_Forgery_Prevention_Cheat_Sheet.html"
     },
     {
       "tier": "should",
       "title": "Least privilege และ threat modeling",
-      "body": "ให้ผู้ใช้ service account, DB role และ token มีสิทธิ์เท่าที่งานต้องใช้ เมื่อจุดใดถูกเจาะ ความเสียหายจะจำกัดอยู่แค่สิทธิ์นั้น threat modeling คือการไล่คิดตั้งแต่ตอนออกแบบว่าข้อมูลไหลผ่านจุดใด ผู้โจมตีจะทำอะไรได้ และเราจะป้องกันอย่างไร ตัวช่วยที่นิยมคือ STRIDE (Spoofing, Tampering, Repudiation, Information disclosure, Denial of service, Elevation of privilege) ซึ่งช่วยลดปัญหาหมวด Insecure Design ที่แก้ด้วยการ patch โค้ดทีหลังได้ยาก"
+      "body": "ให้ผู้ใช้ service account, DB role และ token มีสิทธิ์เท่าที่งานต้องใช้ เมื่อจุดใดถูกเจาะ ความเสียหายจะจำกัดอยู่แค่สิทธิ์นั้น threat modeling คือการไล่คิดตั้งแต่ตอนออกแบบว่าข้อมูลไหลผ่านจุดใด ผู้โจมตีจะทำอะไรได้ และเราจะป้องกันอย่างไร ตัวช่วยที่นิยมคือ STRIDE (Spoofing, Tampering, Repudiation, Information disclosure, Denial of service, Elevation of privilege) ซึ่งช่วยลดปัญหาหมวด Insecure Design ที่แก้ด้วยการ patch โค้ดทีหลังได้ยาก",
+      "ref": "https://cheatsheetseries.owasp.org/cheatsheets/Threat_Modeling_Cheat_Sheet.html"
     },
     {
       "tier": "advanced",
       "title": "Prompt injection ในแอป LLM",
-      "body": "Prompt injection เป็นอันดับ 1 ใน OWASP Top 10 for LLM Applications 2025 คือข้อความจากผู้ใช้ (direct) หรือจากเว็บ อีเมล ไฟล์ และผลลัพธ์ของ tool (indirect) มีคำสั่งแฝงที่โมเดลทำตาม ปัจจุบันยังไม่มีวิธีกันได้ 100% จึงต้องออกแบบให้พลาดแล้วเสียหายน้อย คือให้ agent มี tool และสิทธิ์น้อยที่สุด (กัน Excessive Agency) ให้คนยืนยันก่อน action สำคัญ และถือ output ของโมเดลเป็นข้อมูลไม่น่าไว้ใจก่อนนำไป render, รันคำสั่ง หรือเรียก API"
+      "body": "Prompt injection เป็นอันดับ 1 ใน OWASP Top 10 for LLM Applications 2025 คือข้อความจากผู้ใช้ (direct) หรือจากเว็บ อีเมล ไฟล์ และผลลัพธ์ของ tool (indirect) มีคำสั่งแฝงที่โมเดลทำตาม ปัจจุบันยังไม่มีวิธีกันได้ 100% จึงต้องออกแบบให้พลาดแล้วเสียหายน้อย คือให้ agent มี tool และสิทธิ์น้อยที่สุด (กัน Excessive Agency) ให้คนยืนยันก่อน action สำคัญ และถือ output ของโมเดลเป็นข้อมูลไม่น่าไว้ใจก่อนนำไป render, รันคำสั่ง หรือเรียก API",
+      "ref": "https://genai.owasp.org/llmrisk/llm01-prompt-injection/"
     },
     {
       "tier": "advanced",
       "title": "SAST, DAST และ secret scanning ใน CI",
-      "body": "SAST อ่านซอร์สโค้ดหา pattern อันตราย (เช่น CodeQL หรือ Semgrep) DAST ยิงทดสอบแอปที่รันอยู่จริง (เช่น ZAP) และ secret scanning (เช่น gitleaks) จับ key ที่หลุดเข้า commit ควรให้ทำงานทุก pull request และ block เฉพาะระดับร้ายแรง เพื่อไม่ให้ทีมชินจนเมิน alert เครื่องมือเหล่านี้จับ IDOR หรือ business logic ผิดได้ไม่ดี จึงใช้แทน code review และ test เรื่องสิทธิ์ไม่ได้"
+      "body": "SAST อ่านซอร์สโค้ดหา pattern อันตราย (เช่น CodeQL หรือ Semgrep) DAST ยิงทดสอบแอปที่รันอยู่จริง (เช่น ZAP) และ secret scanning (เช่น gitleaks) จับ key ที่หลุดเข้า commit ควรให้ทำงานทุก pull request และ block เฉพาะระดับร้ายแรง เพื่อไม่ให้ทีมชินจนเมิน alert เครื่องมือเหล่านี้จับ IDOR หรือ business logic ผิดได้ไม่ดี จึงใช้แทน code review และ test เรื่องสิทธิ์ไม่ได้",
+      "ref": "https://cheatsheetseries.owasp.org/cheatsheets/CI_CD_Security_Cheat_Sheet.html"
     },
     {
       "tier": "must",
@@ -162,10 +174,10 @@
       "prompt": "ผู้ใช้ที่ล็อกอินแล้วเปลี่ยนเลขใน URL จาก /invoices/1001 เป็น /invoices/1002 แล้วเห็นใบแจ้งหนี้ของบริษัทอื่น วิธีแก้ที่ถูกต้องคือข้อใด?",
       "code": "app.get('/invoices/:id', requireLogin, async (req, res) => {\n  const { rows } = await pool.query(\n    'SELECT * FROM invoices WHERE id = $1', [req.params.id]);\n  res.json(rows[0]);\n});",
       "options": [
-        "เปลี่ยน id เป็น UUID แบบสุ่มเพื่อให้ผู้ใช้เดาเลขไม่ได้",
+        "เปลี่ยน id เป็น UUID แบบสุ่มทุกแถวเพื่อให้ผู้ใช้เดาเลขไม่ได้เลย",
         "เพิ่มเงื่อนไข owner_id ของผู้ใช้ใน query และตอบ 404 เมื่อไม่พบ",
-        "ซ่อนลิงก์ใบแจ้งหนี้ที่ไม่ใช่ของผู้ใช้ออกจากหน้าเว็บ",
-        "ใส่ rate limit ที่ endpoint นี้เพื่อกันการไล่เลข id"
+        "ซ่อนลิงก์ใบแจ้งหนี้ที่ไม่ใช่ของผู้ใช้ออกจากหน้ารายการในเว็บ",
+        "ใส่ rate limit ที่ endpoint นี้เพื่อกันการไล่เลข id ของใบแจ้งหนี้"
       ],
       "answer": 1,
       "explain": "ต้นเหตุคือ server ไม่ตรวจสิทธิ์ต่อ resource (IDOR) การผูกเงื่อนไขเจ้าของไว้ใน query จึงแก้ตรงจุด ส่วน UUID หรือ rate limit แค่ทำให้เดายากขึ้น แต่ id ยังรั่วได้จาก log ลิงก์ที่แชร์ หรือ API อื่น"
@@ -197,10 +209,10 @@
     {
       "prompt": "ระบบเก่าเก็บรหัสผ่านเป็น SHA-256 ไม่มี salt ทีมเสนอให้เปลี่ยนเป็น SHA-256 ที่มี salt สุ่มต่อผู้ใช้ ข้อใดประเมินข้อเสนอนี้ได้ถูกต้อง?",
       "options": [
-        "เพียงพอแล้ว เพราะ salt ทำให้ rainbow table ใช้ไม่ได้",
-        "ยังไม่พอ SHA-256 เร็วเกินไป ควรใช้ argon2id หรือ bcrypt ที่ตั้ง cost ได้",
+        "เพียงพอแล้ว เพราะ salt ที่สุ่มต่อผู้ใช้ทำให้ rainbow table ใช้ไม่ได้",
+        "ยังไม่พอ SHA-256 เร็วเกินไป ควรใช้ argon2id หรือ bcrypt แทน",
         "ควรเปลี่ยนเป็น AES-256 แทน เพื่อให้กู้รหัสผ่านคืนให้ผู้ใช้ได้",
-        "แค่ hash SHA-256 ซ้ำสองรอบก็เทียบเท่า password hashing แล้ว"
+        "แค่ hash SHA-256 ซ้ำสองรอบก็ถือว่าเทียบเท่า password hashing แล้ว"
       ],
       "answer": 1,
       "explain": "salt กัน rainbow table และทำให้รหัสเดียวกันได้ hash ต่างกัน แต่ GPU ยังเดา SHA-256 ได้ในอัตรามหาศาลต่อวินาที password hashing อย่าง argon2id จึงตั้งใจให้ช้าและกินหน่วยความจำ ส่วน AES ถอดกลับได้ ถ้า key รั่วรหัสผ่านก็รั่วทั้งหมด"
@@ -209,9 +221,9 @@
       "prompt": "นักพัฒนา push ไฟล์ .env ที่มี AWS access key ขึ้น public repo บน GitHub แล้วรู้ตัวภายใน 10 นาที ควรทำอะไรเป็นอย่างแรก?",
       "options": [
         "git push --force เพื่อเขียนทับ commit นั้นให้หายไปจาก history",
-        "เปลี่ยน repo เป็น private ก่อน แล้วค่อยวางแผนแก้ต่อ",
-        "ลบไฟล์ .env ใน commit ใหม่ แล้วเพิ่มชื่อไฟล์ลง .gitignore",
-        "revoke key นั้นและออก key ใหม่ แล้วตรวจ log ว่ามีการใช้ key หรือไม่"
+        "เปลี่ยน repo เป็น private ก่อน แล้วค่อยวางแผนแก้ไขต่อภายหลัง",
+        "ลบไฟล์ .env ใน commit ใหม่ แล้วเพิ่มชื่อไฟล์ลงใน .gitignore",
+        "revoke key นั้นแล้วออก key ใหม่ พร้อมตรวจ log ว่ามีใครใช้หรือไม่"
       ],
       "answer": 3,
       "explain": "ต้องถือว่า key รั่วไปแล้ว เพราะมีบอตสแกน public repo ตลอดเวลา และอาจถูก clone หรือ fork ไปแล้ว การลบหรือเขียนทับ history จึงไม่ทำให้ key ปลอดภัย ต้อง revoke ก่อน แล้วค่อยล้าง history และกันไม่ให้เกิดซ้ำ"
@@ -222,7 +234,7 @@
         "ระบุเวอร์ชันตายตัว (ไม่มี ^) ให้ dependency ตรงใน package.json",
         "เปลี่ยนไปใช้ npm install --force ใน CI เพื่อให้ติดตั้งครบทุกครั้ง",
         "commit lockfile ใช้ npm ci ใน CI และสแกนด้วย SCA ก่อน merge",
-        "ย้ายไปโหลด library ทุกตัวจาก CDN สาธารณะแทน"
+        "ย้ายไปโหลด library ทุกตัวจาก CDN สาธารณะแทนการ bundle ไว้ในแอปเอง"
       ],
       "answer": 2,
       "explain": "lockfile ล็อกเวอร์ชันและ integrity hash ของทุก package รวมถึง dependency ทางอ้อม และ npm ci ติดตั้งตามนั้นเป๊ะ การ pin เฉพาะ dependency ตรงยังปล่อยให้ dependency ทางอ้อมลอยตาม version range ที่ package เหล่านั้นประกาศไว้"
@@ -231,10 +243,10 @@
       "prompt": "middleware นี้ใช้ตรวจ access token ที่ API ได้รับ ปัญหาร้ายแรงที่สุดคือข้อใด?",
       "code": "const jwt = require('jsonwebtoken');\n\nfunction auth(req, res, next) {\n  const token = req.headers.authorization?.slice(7);\n  const claims = jwt.decode(token);\n  if (!claims || claims.exp < Date.now() / 1000) return res.sendStatus(401);\n  req.user = claims;\n  next();\n}",
       "options": [
-        "jwt.decode ไม่ตรวจ signature ใครก็สร้าง token ที่มี role อะไรก็ได้",
-        "เทียบ exp ผิดหน่วย เพราะ exp ใน JWT เก็บเป็นมิลลิวินาที",
-        "ควรย้าย token ไปไว้ใน cookie แทน Authorization header",
-        "payload ยังเป็น plain text ต้องเข้ารหัสก่อนจึงจะปลอดภัย"
+        "jwt.decode ไม่ตรวจ signature ใครก็ปลอม token ที่มี role ใดก็ได้",
+        "เทียบ exp ผิดหน่วย เพราะ exp ใน JWT เก็บเป็นมิลลิวินาทีแทนวินาที",
+        "ควรย้าย token ไปไว้ใน cookie แทนการส่งผ่าน Authorization header",
+        "payload ยังเป็น plain text ต้องเข้ารหัสทั้งก้อนก่อนจึงจะปลอดภัย"
       ],
       "answer": 0,
       "explain": "payload ของ JWT แค่ base64url encode ใครก็สร้างใหม่ได้ ต้องใช้ jwt.verify พร้อมกำหนด algorithms, issuer และ audience ส่วน exp ใน JWT เป็นวินาทีอยู่แล้ว การหาร Date.now() ด้วย 1000 จึงถูกต้อง"
@@ -264,9 +276,9 @@
     {
       "prompt": "service ออกรายงานต่อ PostgreSQL ด้วย user ที่เป็น owner ของทุกตาราง ต่อมาพบ SQL injection ใน endpoint ของรายงาน ถ้าทำสิ่งใดไว้ก่อนจะจำกัดความเสียหายได้มากที่สุด?",
       "options": [
-        "ตั้งรหัสผ่าน database ให้ยาวและซับซ้อนกว่าเดิม",
-        "เปิด TLS ระหว่าง service กับ database",
-        "ให้ service ใช้ role ที่มีแค่สิทธิ์ SELECT บนตารางที่รายงานใช้",
+        "ตั้งรหัสผ่านของ database ให้ยาวและซับซ้อนกว่าเดิมมากขึ้นหลายเท่า",
+        "เปิด TLS ระหว่าง service กับ database เพื่อเข้ารหัสทุก connection",
+        "ให้ service ใช้ role ที่มีแค่สิทธิ์ SELECT บนตารางของรายงาน",
         "ย้าย database ไปอยู่ใน private subnet ที่เข้าจากภายนอกไม่ได้"
       ],
       "answer": 2,
@@ -320,7 +332,7 @@
     {
       "prompt": "เว็บมีช่อง XSS ที่ยังแก้ไม่เสร็จ แต่หัวหน้าบอกว่า \"session cookie ตั้ง HttpOnly แล้ว ผู้โจมตีทำอะไรไม่ได้\" ข้อใดถูกต้อง?",
       "options": [
-        "ไม่เสมอไป HttpOnly กันแค่การอ่าน cookie สคริปต์ที่แทรกยังสั่ง fetch ได้ และเบราว์เซอร์แนบ cookie ให้",
+        "ไม่เสมอไป HttpOnly กันแค่การอ่าน cookie แต่สคริปต์ที่แทรกยังสั่ง fetch ได้",
         "ถูก เพราะ HttpOnly ทำให้เบราว์เซอร์ไม่แนบ cookie ไปกับ request ที่สร้างโดยสคริปต์ในหน้า",
         "ถูก เพราะ HttpOnly บล็อกการรัน inline script ทั้งหมดที่ถูกแทรกเข้ามาในหน้าเว็บและกัน XSS",
         "ไม่ถูก เพราะ HttpOnly ใช้ได้เฉพาะกับ cookie ที่ไม่ได้ตั้ง Secure ไว้เท่านั้นอยู่แล้ว"
@@ -357,8 +369,8 @@
       "options": [
         "Express ซ่อน stack trace เสมอ ผู้ทดสอบน่าจะเปิด debug mode ไว้เองในเครื่องของตัวเอง ไม่เกี่ยวกับโค้ด",
         "ใช้ app.disable('x-powered-by') แล้ว Express จะซ่อน stack trace ออกจาก response ทั้งหมดโดยอัตโนมัติ",
-        "ต้องตั้ง res.statusCode เป็น 500 ด้วยตัวเองก่อน Express จึงจะซ่อน stack trace ออกให้ผู้ใช้",
-        "ตัว default ของ Express ส่ง stack ให้ client เมื่อ NODE_ENV ไม่ใช่ production ควรเขียน error handler เองและ log ที่ server"
+        "ต้องตั้ง res.statusCode เป็น 500 ด้วยตัวเองก่อน Express จึงจะซ่อน stack trace ออกจาก response ที่ส่งให้ผู้ใช้",
+        "ตัว default ของ Express ส่ง stack ให้ client เมื่อ NODE_ENV ไม่ใช่ production ควรเขียน error handler เอง"
       ],
       "answer": 3,
       "explain": "เอกสาร Express ระบุว่า error ที่ไม่มี handler ของเราจะถูกเขียนลง response พร้อม stack trace ยกเว้นเมื่อ NODE_ENV เป็น production ซึ่ง trace ที่มีชื่อ host ภายในเป็นข้อมูลสำรวจระบบให้ผู้โจมตี การปิด x-powered-by แค่ซ่อนชื่อ framework ใน header"
@@ -424,7 +436,7 @@
     {
       "prompt": "endpoint อัปโหลดรูปโปรไฟล์ตรวจแค่ req.file.mimetype === 'image/png' แล้วบันทึกไฟล์ด้วยชื่อเดิมที่ผู้ใช้ส่งมาใน public/uploads ข้อใดคือปัญหาหลักและทางแก้?",
       "options": [
-        "mimetype ปลอมได้ และชื่อไฟล์จากผู้ใช้เสี่ยงเขียนทับ ควร allowlist นามสกุล ตั้งชื่อสุ่ม และเก็บนอก webroot",
+        "mimetype ปลอมได้ ชื่อไฟล์เขียนทับได้ ควร allowlist นามสกุล ตั้งชื่อสุ่ม เก็บนอก webroot",
         "PNG ไม่ปลอดภัยโดยตัว format เอง ควรเปลี่ยนไปรับเฉพาะไฟล์ JPEG เท่านั้นแทน เพราะ JPEG ฝังโค้ดไม่ได้",
         "ไม่ได้บีบอัดไฟล์ก่อนบันทึก ทำให้ไฟล์ใหญ่เกินจำเป็นและเปลืองพื้นที่ของ server เป็นปัญหาความปลอดภัย",
         "ควรตรวจ mimetype ซ้ำอีกรอบหลังบันทึกไฟล์ เพื่อให้แน่ใจว่าเป็นรูป PNG จริงก่อนเปิดให้เข้าถึง"
@@ -471,7 +483,7 @@
       "prompt": "ทีมเปลี่ยนจาก 'unsafe-inline' มาใช้ nonce แต่ฮาร์ดโค้ดค่า abc123 ไว้ทุกหน้า ข้อใดถูกต้อง?",
       "code": "res.setHeader('Content-Security-Policy', \"script-src 'nonce-abc123'\");\nres.send('<script nonce=\"abc123\">init()</script>');",
       "options": [
-        "ไม่ถูก ค่า nonce ต้องสุ่มใหม่ทุก response และเดาไม่ได้ ค่าตายตัวจึงถูกใส่ใน script ที่แทรกมาได้",
+        "ไม่ถูก nonce ต้องสุ่มใหม่ทุก response ค่าตายตัวจึงถูกใส่ใน script ที่แทรกมาได้",
         "ไม่มีปัญหา ถ้าค่า nonce ยาวพอและประกอบด้วยตัวอักษรหลากหลายเพียงพอ แม้ใช้ซ้ำทุกหน้า",
         "ถูกต้องแล้ว เพราะ nonce ที่เหมือนกันทุกหน้าช่วยให้ cache หน้าเว็บได้ดีขึ้นและปลอดภัยเท่าเดิม",
         "ควรใส่ attribute nonce ที่ <img> ทุกตัวด้วย เพื่อให้เบราว์เซอร์โหลดรูปได้ตามนโยบาย"
@@ -681,5 +693,17 @@
       "url": "https://docs.github.com/en/actions/reference/security/secure-use",
       "note": "ใช้เป็นพื้นฐานของแบบฝึกหัด workflow"
     }
+  ],
+  "cheatsheet": [
+    "กัน IDOR ด้วยการตรวจสิทธิ์ต่อ object ฝั่ง server ทุก request และ deny เป็นค่าเริ่มต้น; UUID ไม่ใช่การตรวจสิทธิ์",
+    "authN ตรวจว่าคุณคือใคร ส่วน authZ ตรวจว่ามีสิทธิ์ไหม; 401 คือยังไม่ยืนยันตัวตน ส่วน 403 คือไม่มีสิทธิ์",
+    "กัน SQL injection ด้วย parameterized query; กัน XSS ด้วย output encoding ตามบริบทหรือ textContent",
+    "เก็บรหัสผ่านด้วย argon2id: memory อย่างน้อย 19 MiB, iterations 2, parallelism 1 พร้อม salt ต่อผู้ใช้",
+    "เมื่อ secret หลุด ให้ revoke และ rotate ก่อนล้าง Git history เพราะสำเนาอาจถูก clone ไปแล้ว",
+    "ตรวจ input ด้วย allowlist ฝั่ง server ทั้งรูปแบบและความหมาย; validation ไม่แทน parameterized query หรือ output encoding",
+    "ออก session ID ใหม่หลัง login เพื่อกัน session fixation; logout ต้องทำลาย session ฝั่ง server",
+    "ตรวจ JWT signature ด้วย algorithm ที่กำหนดเอง พร้อม exp, iss, aud และบังคับให้มี exp; อย่าเชื่อ alg ใน header",
+    "CORS ไม่กัน CSRF; ใช้ SameSite cookie และ CSRF token และห้ามเปลี่ยนข้อมูลด้วย GET",
+    "SAST ตรวจซอร์สโค้ด ส่วน DAST ทดสอบแอปที่รันอยู่; ทั้งคู่ใช้แทน code review และ authorization test ไม่ได้"
   ]
 }

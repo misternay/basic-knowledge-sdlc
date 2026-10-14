@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { parseContent } from '../src/lib/validate.js';
+import { parityDiff, thaiLeaks } from '../src/lib/parity.js';
 import { initialLanguage, LANGUAGE_KEY, localizeAttempt, localizeItem } from '../src/lib/locale.js';
 
 const root = new URL('../content/', import.meta.url).pathname;
@@ -32,38 +33,19 @@ function contentShape(value) {
 test('translated topics preserve machine fields, answer keys, counts, and references', () => {
   const th = readTopics(thDir);
   const en = readTopics(enDir);
-  const fields = (topic) => ({
-    id: topic.id,
-    code: topic.code ?? null,
-    track: topic.track,
-    mustKnow: (topic.mustKnow || []).map(({ tier, exam, ref, code }) => ({ tier: tier ?? null, exam: exam ?? null, ref: ref ?? null, code: code ?? null })),
-    questions: (topic.questions || []).map(({ answer, options, code }) => ({ answer, optionsCount: options?.length ?? 0, code: code ?? null })),
-    exercises: (topic.exercises || (topic.exercise ? [topic.exercise] : [])).map(({ level, lang, starter, solution, hints, checks }) => ({ level, lang, starter: starter ?? null, solution: solution ?? null, hintsCount: hints?.length ?? 0, checks: (checks || []).map(({ pattern, negate, json }) => ({ pattern: pattern ?? null, negate: negate ?? null, json: json ?? null })) })),
-    refs: (topic.refs || []).map(({ url }) => url),
-  });
   for (const [id, topic] of th) {
     assert.deepEqual(contentShape(en.get(id)), contentShape(topic), `${id} translation must preserve every field and array entry`);
-    assert.deepEqual(fields(en.get(id)), fields(topic), `${id} machine fields differ`);
+    // Real code may differ only in comments and string literals; prose in code boxes is translated (src/lib/parity.js).
+    assert.deepEqual(parityDiff(topic, en.get(id)), [], `${id} machine fields differ`);
   }
 });
 
 test('English learning text and track/exam labels contain no Thai characters', () => {
   assert.ok(existsSync(enDir), 'content/en/topics is required for the bilingual feature');
   const noThai = (value, where) => assert.ok(typeof value !== 'string' || !/[\u0E00-\u0E7F]/u.test(value), `${where} still contains Thai text`);
-  for (const [id, topic] of readTopics(enDir)) {
-    noThai(topic.title, `${id}.title`); noThai(topic.blurb, `${id}.blurb`);
-    (topic.mustKnow || []).forEach((item, i) => { noThai(item.title, `${id}.mustKnow[${i}].title`); noThai(item.body, `${id}.mustKnow[${i}].body`); });
-    (topic.questions || []).forEach((item, i) => {
-      noThai(item.prompt, `${id}.questions[${i}].prompt`); noThai(item.explain, `${id}.questions[${i}].explain`);
-      (item.options || []).forEach((option, j) => noThai(option, `${id}.questions[${i}].options[${j}]`));
-    });
-    (topic.exercises || (topic.exercise ? [topic.exercise] : [])).forEach((item, i) => {
-      noThai(item.title, `${id}.exercises[${i}].title`); noThai(item.prompt, `${id}.exercises[${i}].prompt`);
-      (item.hints || []).forEach((hint, j) => noThai(hint, `${id}.exercises[${i}].hints[${j}]`));
-      (item.checks || []).forEach((check, j) => noThai(check.label, `${id}.exercises[${i}].checks[${j}].label`));
-    });
-    (topic.refs || []).forEach((ref, i) => { noThai(ref.title, `${id}.refs[${i}].title`); noThai(ref.note, `${id}.refs[${i}].note`); });
-  }
+  // Includes code, starters and solutions: comments and prose in them are translated too.
+  const th = readTopics(thDir);
+  for (const [id, topic] of readTopics(enDir)) assert.deepEqual(thaiLeaks(topic, th.get(id)), [], `${id} still contains Thai text`);
   for (const [file, fields] of [['tracks.json', ['name', 'th']], ['exams.json', ['title', 'label', 'desc']]]) {
     const path = join(root, 'en', file);
     assert.ok(existsSync(path), `content/en/${file} is required`);

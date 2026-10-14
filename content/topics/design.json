@@ -8,67 +8,79 @@
     {
       "tier": "must",
       "title": "Coupling ต่ำ, cohesion สูง",
-      "body": "Cohesion คือของในโมดูลเดียวกันทำงานเพื่อเป้าหมายเดียวกันแค่ไหน ส่วน coupling คือโมดูลหนึ่งต้องรู้รายละเอียดของโมดูลอื่นมากแค่ไหน เป้าหมายคือ cohesion สูงและ coupling ต่ำ เพราะการเปลี่ยนแปลงหนึ่งครั้งจะจบในที่เดียวแทนที่จะลามไปหลายไฟล์ สัญญาณเตือนที่พบบ่อยคือไฟล์ utils ที่รวมทุกอย่าง (cohesion ต่ำ) และโค้ดที่ไล่อ่าน field ภายในของ object อื่นเป็นทอด ๆ เช่น order.customer.address.zip (coupling สูง)"
+      "body": "Cohesion คือของในโมดูลเดียวกันทำงานเพื่อเป้าหมายเดียวกันแค่ไหน ส่วน coupling คือโมดูลหนึ่งต้องรู้รายละเอียดของโมดูลอื่นมากแค่ไหน เป้าหมายคือ cohesion สูงและ coupling ต่ำ เพราะการเปลี่ยนแปลงหนึ่งครั้งจะจบในที่เดียวแทนที่จะลามไปหลายไฟล์ สัญญาณเตือนที่พบบ่อยคือไฟล์ utils ที่รวมทุกอย่าง (cohesion ต่ำ) และโค้ดที่ไล่อ่าน field ภายในของ object อื่นเป็นทอด ๆ เช่น order.customer.address.zip (coupling สูง)",
+      "ref": "https://en.wikipedia.org/wiki/Coupling_(computer_programming)"
     },
     {
       "tier": "must",
       "title": "SOLID เป็นเครื่องมือช่วยคิด ไม่ใช่กฎตายตัว",
-      "body": "SRP: class หนึ่งควรมีเหตุผลให้เปลี่ยนเพียงเรื่องเดียว · OCP: เพิ่มพฤติกรรมใหม่ได้โดยไม่ต้องแก้โค้ดเดิมที่ทำงานอยู่ · LSP: subclass ต้องใช้แทน class แม่ได้โดยผู้เรียกไม่พัง · ISP: อย่าบังคับให้ผู้ใช้พึ่ง method ที่ตัวเองไม่ได้ใช้ · DIP: โมดูลระดับสูงพึ่ง abstraction ไม่พึ่งรายละเอียดระดับต่ำ ให้หยิบมาใช้เมื่อเจอปัญหาจริง เช่น ไฟล์เดียวถูกแก้บ่อยด้วยเหตุผลคนละเรื่อง ส่วนการสร้าง interface ให้ทุก class ตั้งแต่วันแรกมักได้ความซับซ้อนโดยไม่ได้ประโยชน์"
+      "body": "SRP: class หนึ่งควรมีเหตุผลให้เปลี่ยนเพียงเรื่องเดียว · OCP: เพิ่มพฤติกรรมใหม่ได้โดยไม่ต้องแก้โค้ดเดิมที่ทำงานอยู่ · LSP: subclass ต้องใช้แทน class แม่ได้โดยผู้เรียกไม่พัง · ISP: อย่าบังคับให้ผู้ใช้พึ่ง method ที่ตัวเองไม่ได้ใช้ · DIP: โมดูลระดับสูงพึ่ง abstraction ไม่พึ่งรายละเอียดระดับต่ำ ให้หยิบมาใช้เมื่อเจอปัญหาจริง เช่น ไฟล์เดียวถูกแก้บ่อยด้วยเหตุผลคนละเรื่อง ส่วนการสร้าง interface ให้ทุก class ตั้งแต่วันแรกมักได้ความซับซ้อนโดยไม่ได้ประโยชน์",
+      "ref": "https://blog.cleancoder.com/uncle-bob/2020/10/18/Solid-Relevance.html"
     },
     {
       "tier": "must",
       "title": "Composition over inheritance",
       "body": "Inheritance ผูก subclass เข้ากับรายละเอียดของ class แม่ แก้ class แม่ทีเดียวอาจกระทบลูกทุกตัว (fragile base class) และเมื่อพฤติกรรมมีหลายมิติ จำนวน subclass จะเพิ่มแบบผลคูณ Composition คือให้ object ถือชิ้นส่วนที่ทำงานแทน แล้วสลับหรือประกอบชิ้นส่วนใหม่ได้ inheritance ยังเหมาะเมื่อความสัมพันธ์เป็น is-a จริงและ hierarchy ตื้น",
-      "code": "// แทน UrgentEmailNotifier, UrgentSmsNotifier, ...\nclass Notifier {\n  constructor(channel, formatter) {\n    this.channel = channel;     // email, sms, line\n    this.formatter = formatter; // ปกติ, ด่วน\n  }\n  send(user, msg) {\n    this.channel.deliver(user, this.formatter.format(msg));\n  }\n}"
+      "code": "// แทน UrgentEmailNotifier, UrgentSmsNotifier, ...\nclass Notifier {\n  constructor(channel, formatter) {\n    this.channel = channel;     // email, sms, line\n    this.formatter = formatter; // ปกติ, ด่วน\n  }\n  send(user, msg) {\n    this.channel.deliver(user, this.formatter.format(msg));\n  }\n}",
+      "ref": "https://refactoring.guru/replace-inheritance-with-delegation"
     },
     {
       "tier": "must",
       "title": "Strategy และ Factory: ใช้เมื่อไร ไม่ใช้เมื่อไร",
       "body": "Strategy แยกอัลกอริทึมที่สลับกันได้ออกเป็นชิ้น ๆ เหมาะเมื่อมีหลายแบบและเพิ่มบ่อย ใน JavaScript มักเป็นแค่ object ของฟังก์ชัน Factory รวมการตัดสินใจว่าจะสร้าง object แบบไหนไว้ที่เดียว เหมาะเมื่อการสร้างซับซ้อนหรือขึ้นกับ config ถ้ามีแค่ 2 กรณีที่ไม่ค่อยเปลี่ยน if/else ธรรมดาอ่านง่ายกว่า และ factory ที่แค่ห่อ new ไว้เฉย ๆ คือชั้นเพิ่มที่ไม่ได้อะไร",
-      "code": "const shipping = {\n  standard: (kg) => 40 + kg * 10,\n  express:  (kg) => 90 + kg * 15,\n};\n// เพิ่มแบบใหม่ = เพิ่ม entry ไม่ต้องแก้โค้ดที่เรียกใช้\nconst cost = shipping[method](weight);"
+      "code": "const shipping = {\n  standard: (kg) => 40 + kg * 10,\n  express:  (kg) => 90 + kg * 15,\n};\n// เพิ่มแบบใหม่ = เพิ่ม entry ไม่ต้องแก้โค้ดที่เรียกใช้\nconst cost = shipping[method](weight);",
+      "ref": "https://refactoring.guru/design-patterns/strategy"
     },
     {
       "tier": "must",
       "title": "REST: resource, method และ idempotency",
       "body": "URL แทน resource ที่เป็นคำนาม (/orders/42 ไม่ใช่ /getOrder) ส่วนการกระทำบอกด้วย HTTP method: GET อ่านโดยไม่เปลี่ยนสถานะ, POST สร้าง, PUT แทนที่ทั้งก้อน, PATCH แก้บางส่วน, DELETE ลบ GET, PUT และ DELETE เป็น idempotent คือเรียกซ้ำกี่ครั้งผลต่อ server ก็เหมือนเรียกครั้งเดียว จึง retry ได้ปลอดภัย แต่ POST ไม่ใช่ งานที่ client อาจ retry เช่น การชำระเงิน จึงควรใช้ idempotency key กันการทำซ้ำ",
-      "code": "GET    /orders?status=paid   200 + รายการ\nPOST   /orders               201 + Location: /orders/42\nGET    /orders/42            200 หรือ 404\nPATCH  /orders/42            200 (ส่งเฉพาะ field ที่แก้)\nDELETE /orders/42            204"
+      "code": "GET    /orders?status=paid   200 + รายการ\nPOST   /orders               201 + Location: /orders/42\nGET    /orders/42            200 หรือ 404\nPATCH  /orders/42            200 (ส่งเฉพาะ field ที่แก้)\nDELETE /orders/42            204",
+      "ref": "https://www.rfc-editor.org/rfc/rfc9110.html#name-method-definitions"
     },
     {
       "tier": "must",
       "title": "Status code และรูปแบบ error ที่สม่ำเสมอ",
       "body": "2xx คือสำเร็จ, 4xx คือ request ของ client มีปัญหา, 5xx คือ server ผิดพลาด คู่ที่สับสนบ่อยคือ 401 (ยังไม่ยืนยันตัวตนหรือ token ใช้ไม่ได้) กับ 403 (server เข้าใจ request แล้วแต่ปฏิเสธ เช่น ยืนยันตัวตนแล้วแต่ไม่มีสิทธิ์) และ 409 (ขัดกับสถานะปัจจุบัน เช่น จองซ้ำ) กับ 400/422 (ข้อมูลไม่ถูกต้อง) กับดักใหญ่คือตอบ 200 พร้อม {\"success\": false} เพราะ client, cache และ monitoring จะนับว่าสำเร็จ ควรใช้รูปแบบ error เดียวทั้ง API เช่น Problem Details (RFC 9457, application/problem+json)",
-      "code": "HTTP/1.1 409 Conflict\nContent-Type: application/problem+json\n\n{\n  \"type\": \"https://example.com/probs/room-taken\",\n  \"title\": \"ห้องถูกจองแล้ว\",\n  \"status\": 409,\n  \"detail\": \"ห้อง 301 ถูกจองช่วง 12–14 ต.ค. แล้ว\"\n}"
+      "code": "HTTP/1.1 409 Conflict\nContent-Type: application/problem+json\n\n{\n  \"type\": \"https://example.com/probs/room-taken\",\n  \"title\": \"ห้องถูกจองแล้ว\",\n  \"status\": 409,\n  \"detail\": \"ห้อง 301 ถูกจองช่วง 12–14 ต.ค. แล้ว\"\n}",
+      "ref": "https://www.rfc-editor.org/rfc/rfc9110.html#name-status-codes"
     },
     {
       "tier": "should",
       "title": "Observer และ Adapter: ข้อดีและราคาที่ต้องจ่าย",
-      "body": "Observer ให้ผู้ส่งประกาศเหตุการณ์ (เช่น order.paid) โดยไม่ต้องรู้ว่าใครฟังบ้าง จึงลด coupling ระหว่างโมดูล แต่ลำดับการทำงานจะมองไม่เห็นจากโค้ดตรงจุดนั้น debug ยากขึ้น และ listener ที่ลืมยกเลิกทำให้ memory leak ถ้ามีผู้รับรายเดียวที่ต้องทำเสมอ การเรียกฟังก์ชันตรง ๆ ชัดกว่า Adapter ห่อ library หรือ API ภายนอกให้มี interface ตามที่ระบบเราต้องการ เช่น ห่อ SDK ของผู้ให้บริการ SMS เป็น Notifier ทำให้เปลี่ยนผู้ให้บริการได้โดยแก้ที่เดียว"
+      "body": "Observer ให้ผู้ส่งประกาศเหตุการณ์ (เช่น order.paid) โดยไม่ต้องรู้ว่าใครฟังบ้าง จึงลด coupling ระหว่างโมดูล แต่ลำดับการทำงานจะมองไม่เห็นจากโค้ดตรงจุดนั้น debug ยากขึ้น และ listener ที่ลืมยกเลิกทำให้ memory leak ถ้ามีผู้รับรายเดียวที่ต้องทำเสมอ การเรียกฟังก์ชันตรง ๆ ชัดกว่า Adapter ห่อ library หรือ API ภายนอกให้มี interface ตามที่ระบบเราต้องการ เช่น ห่อ SDK ของผู้ให้บริการ SMS เป็น Notifier ทำให้เปลี่ยนผู้ให้บริการได้โดยแก้ที่เดียว",
+      "ref": "https://refactoring.guru/design-patterns/observer"
     },
     {
       "tier": "should",
       "title": "KISS และ YAGNI: ต้นทุนของการเผื่ออนาคต",
-      "body": "KISS คือเลือกวิธีที่ง่ายที่สุดที่แก้ปัญหาได้ YAGNI (You Aren't Gonna Need It) คืออย่าสร้างความสามารถหรือ abstraction เผื่ออนาคตที่ยังไม่มีใครขอ เพราะเรามักเดาทิศทางผิด และโค้ดที่เผื่อไว้ต้องถูกอ่าน ทดสอบ และดูแลทุกวัน แนวปฏิบัติที่ใช้กันคือ rule of three: เห็นรูปแบบซ้ำครั้งที่สามค่อยดึงเป็น abstraction ข้อยกเว้นคือสิ่งที่แก้ทีหลังแพงมาก เช่น public API contract หรือ schema ของข้อมูล ควรคิดล่วงหน้ามากกว่าโค้ดภายใน"
+      "body": "KISS คือเลือกวิธีที่ง่ายที่สุดที่แก้ปัญหาได้ YAGNI (You Aren't Gonna Need It) คืออย่าสร้างความสามารถหรือ abstraction เผื่ออนาคตที่ยังไม่มีใครขอ เพราะเรามักเดาทิศทางผิด และโค้ดที่เผื่อไว้ต้องถูกอ่าน ทดสอบ และดูแลทุกวัน แนวปฏิบัติที่ใช้กันคือ rule of three: เห็นรูปแบบซ้ำครั้งที่สามค่อยดึงเป็น abstraction ข้อยกเว้นคือสิ่งที่แก้ทีหลังแพงมาก เช่น public API contract หรือ schema ของข้อมูล ควรคิดล่วงหน้ามากกว่าโค้ดภายใน",
+      "ref": "https://martinfowler.com/bliki/Yagni.html"
     },
     {
       "tier": "should",
       "title": "Dependency injection",
       "body": "แทนที่ class จะสร้าง dependency เอง (new StripeClient() อยู่ข้างใน) ให้รับเข้ามาทาง constructor หรือพารามิเตอร์ ผลคือสลับ implementation ได้ และตอนทดสอบส่ง fake เข้าไปแทนการเรียก API จริง DI เป็นแค่เทคนิคส่งของเข้ามา ไม่จำเป็นต้องมี DI container เสมอ หลายโปรเจกต์ประกอบ object เองที่จุดเริ่มโปรแกรม (composition root) ก็เพียงพอ",
-      "code": "class OrderService {\n  constructor(payments, orders) { // รับเข้ามา ไม่ new เอง\n    this.payments = payments;\n    this.orders = orders;\n  }\n  async checkout(order) {\n    await this.payments.charge(order.total);\n    return this.orders.save({ ...order, status: 'paid' });\n  }\n}\n// prod: new OrderService(new StripeGateway(key), new PgOrderRepo(db))\n// test: new OrderService(fakeGateway, new InMemoryOrderRepo())"
+      "code": "class OrderService {\n  constructor(payments, orders) { // รับเข้ามา ไม่ new เอง\n    this.payments = payments;\n    this.orders = orders;\n  }\n  async checkout(order) {\n    await this.payments.charge(order.total);\n    return this.orders.save({ ...order, status: 'paid' });\n  }\n}\n// prod: new OrderService(new StripeGateway(key), new PgOrderRepo(db))\n// test: new OrderService(fakeGateway, new InMemoryOrderRepo())",
+      "ref": "https://martinfowler.com/articles/injection.html"
     },
     {
       "tier": "should",
       "title": "Layered, Clean และ Hexagonal architecture",
-      "body": "ทั้งสามแบบมีแก่นเดียวกันคือแยก business logic ออกจากรายละเอียดภายนอก เช่น HTTP framework, database, message queue และ UI Layered แบ่งเป็นชั้น เช่น controller → service → repository ส่วน Hexagonal (Ports and Adapters) และ Clean Architecture เน้นให้ dependency ชี้เข้าหา domain เสมอ: domain กำหนด interface (port) แล้วส่วนรอบนอกมา implement (adapter) ผลคือ unit test กฎธุรกิจได้โดยไม่ต้องเปิด database แต่สำหรับแอป CRUD เล็ก ๆ การแยกหลายชั้นอาจได้แค่โค้ดที่ส่งข้อมูลต่อกันไปมา"
+      "body": "ทั้งสามแบบมีแก่นเดียวกันคือแยก business logic ออกจากรายละเอียดภายนอก เช่น HTTP framework, database, message queue และ UI Layered แบ่งเป็นชั้น เช่น controller → service → repository ส่วน Hexagonal (Ports and Adapters) และ Clean Architecture เน้นให้ dependency ชี้เข้าหา domain เสมอ: domain กำหนด interface (port) แล้วส่วนรอบนอกมา implement (adapter) ผลคือ unit test กฎธุรกิจได้โดยไม่ต้องเปิด database แต่สำหรับแอป CRUD เล็ก ๆ การแยกหลายชั้นอาจได้แค่โค้ดที่ส่งข้อมูลต่อกันไปมา",
+      "ref": "https://alistair.cockburn.us/hexagonal-architecture/"
     },
     {
       "tier": "advanced",
       "title": "Domain-Driven Design เบื้องต้น",
-      "body": "DDD เริ่มจากให้ทีมพัฒนาและผู้เชี่ยวชาญธุรกิจใช้คำชุดเดียวกัน (ubiquitous language) และให้คำเหล่านั้นปรากฏในโค้ดจริง Bounded context คือขอบเขตที่คำหนึ่งมีความหมายเดียว เช่น Customer ของฝ่ายขายกับของฝ่ายจัดส่งควรเป็นคนละ model ไม่ต้องรวมเป็น class เดียวที่มี 60 field Aggregate คือกลุ่ม object ที่ต้องถูกต้องสอดคล้องกันเสมอ และแก้ผ่าน aggregate root เท่านั้น เช่น Order กับ OrderLine DDD คุ้มกับ domain ที่ซับซ้อน แต่เกินจำเป็นสำหรับระบบ CRUD ทั่วไป"
+      "body": "DDD เริ่มจากให้ทีมพัฒนาและผู้เชี่ยวชาญธุรกิจใช้คำชุดเดียวกัน (ubiquitous language) และให้คำเหล่านั้นปรากฏในโค้ดจริง Bounded context คือขอบเขตที่คำหนึ่งมีความหมายเดียว เช่น Customer ของฝ่ายขายกับของฝ่ายจัดส่งควรเป็นคนละ model ไม่ต้องรวมเป็น class เดียวที่มี 60 field Aggregate คือกลุ่ม object ที่ต้องถูกต้องสอดคล้องกันเสมอ และแก้ผ่าน aggregate root เท่านั้น เช่น Order กับ OrderLine DDD คุ้มกับ domain ที่ซับซ้อน แต่เกินจำเป็นสำหรับระบบ CRUD ทั่วไป",
+      "ref": "https://martinfowler.com/bliki/BoundedContext.html"
     },
     {
       "tier": "advanced",
       "title": "Modular monolith กับ microservices",
-      "body": "Modular monolith คือ deploy เป็นชิ้นเดียว แต่ภายในแบ่งโมดูลตาม domain ชัดเจน แต่ละโมดูลคุยผ่าน interface สาธารณะและไม่แตะตารางของกันและกัน Microservices ได้การ deploy และ scale แยกกันและให้แต่ละทีมเป็นอิสระ แต่แลกกับ network ที่ล้มเหลวได้, data consistency ข้าม service, การ trace ข้ามระบบ และงาน ops ที่มากขึ้น ทีมเล็กหรือ domain ที่ยังไม่นิ่งมักเริ่มจาก modular monolith แล้วค่อยแยก service เมื่อมีเหตุผลจริง ถ้าแยก service แต่ยังใช้ database ร่วมกันและต้อง deploy พร้อมกัน จะได้ distributed monolith ที่แย่กว่าเดิม"
+      "body": "Modular monolith คือ deploy เป็นชิ้นเดียว แต่ภายในแบ่งโมดูลตาม domain ชัดเจน แต่ละโมดูลคุยผ่าน interface สาธารณะและไม่แตะตารางของกันและกัน Microservices ได้การ deploy และ scale แยกกันและให้แต่ละทีมเป็นอิสระ แต่แลกกับ network ที่ล้มเหลวได้, data consistency ข้าม service, การ trace ข้ามระบบ และงาน ops ที่มากขึ้น ทีมเล็กหรือ domain ที่ยังไม่นิ่งมักเริ่มจาก modular monolith แล้วค่อยแยก service เมื่อมีเหตุผลจริง ถ้าแยก service แต่ยังใช้ database ร่วมกันและต้อง deploy พร้อมกัน จะได้ distributed monolith ที่แย่กว่าเดิม",
+      "ref": "https://martinfowler.com/bliki/MonolithFirst.html"
     },
     {
       "tier": "must",
@@ -163,10 +175,10 @@
       "prompt": "ฟังก์ชันคำนวณค่าส่งมี if/else 6 แบบ และฝ่ายธุรกิจเพิ่มแบบใหม่แทบทุกเดือน ทุกครั้งต้องแก้ฟังก์ชันเดิมและ test ของแบบอื่นพังบ่อย ควรปรับอย่างไร?",
       "code": "function shippingCost(method, kg) {\n  if (method === 'standard') return 40 + kg * 10;\n  else if (method === 'express') return 90 + kg * 15;\n  else if (method === 'cod') return 60 + kg * 10;\n  // ... อีก 3 แบบ\n}",
       "options": [
-        "ทำเป็น Singleton ShippingCalculator ให้มี instance เดียวทั้งระบบ",
-        "แยกแต่ละแบบเป็น strategy ใน map แล้วให้ฟังก์ชันหลักเลือกตาม method",
+        "ทำเป็น Singleton ShippingCalculator ให้มี instance เดียวใช้ร่วมกันทั้งระบบ",
+        "แยกแต่ละแบบเป็น strategy ใน map ให้ฟังก์ชันหลักเลือกตาม method",
         "เปลี่ยน if/else เป็น switch เพื่อให้อ่านง่ายและเพิ่ม case ได้สะดวก",
-        "ใช้ Observer ให้แต่ละวิธีขนส่งฟัง event ขอคำนวณราคา"
+        "ใช้ Observer ให้แต่ละวิธีขนส่งฟัง event ขอคำนวณราคาจากฟังก์ชันหลัก"
       ],
       "answer": 1,
       "explain": "Strategy ทำให้การเพิ่มแบบใหม่คือการเพิ่ม entry ใหม่โดยไม่แตะโค้ดของแบบอื่น (Open/Closed) และ test แต่ละแบบแยกกันได้ ส่วน switch แค่เปลี่ยนรูปร่าง ยังต้องแก้ฟังก์ชันเดิมทุกครั้งเหมือนเดิม"
@@ -219,10 +231,10 @@
     {
       "prompt": "แอปมือถือเรียก POST /payments แล้ว timeout จึง retry อัตโนมัติ ปรากฏว่าลูกค้าบางคนถูกตัดเงินสองครั้ง ควรแก้อย่างไร?",
       "options": [
-        "เปลี่ยนเป็น GET /payments?amount=… เพราะ GET retry ได้ปลอดภัย",
-        "ให้ client ส่ง idempotency key ต่อคำขอ แล้ว server คืนผลเดิมถ้าเคยเห็น key นั้น",
-        "ปิดการ retry อัตโนมัติ แล้วให้ผู้ใช้กดชำระใหม่เองถ้าไม่สำเร็จ",
-        "เพิ่ม timeout ฝั่ง client เป็น 5 นาที จะได้ไม่ต้อง retry เลย"
+        "เปลี่ยนเป็น GET /payments?amount=… เพราะ GET retry ได้ปลอดภัยกว่า POST",
+        "ให้ client ส่ง idempotency key แล้ว server คืนผลเดิมถ้าเคยเห็น key นั้น",
+        "ปิดการ retry อัตโนมัติ แล้วให้ผู้ใช้กดชำระใหม่เองถ้าไม่สำเร็จเท่านั้น",
+        "เพิ่ม timeout ฝั่ง client เป็น 5 นาที จะได้ไม่ต้อง retry อีกเลย"
       ],
       "answer": 1,
       "explain": "POST ไม่ idempotent การ retry จึงสร้างรายการซ้ำได้ idempotency key (เช่น header Idempotency-Key แบบที่ Stripe ใช้) ทำให้ server รู้ว่าเป็นคำขอเดิมแล้วคืนผลเดิม ส่วนการปิด retry แค่ย้ายปัญหาไปให้ผู้ใช้ ซึ่งก็กดซ้ำได้เหมือนกัน"
@@ -275,9 +287,9 @@
       "prompt": "ในโค้ดสมัครสมาชิกมีสองฟังก์ชันนี้ ทีมมองว่าซ้ำกันและอยากรวมเป็น validateLength ตัวเดียวตามหลัก DRY กฎ username มาจากฝ่ายผลิตภัณฑ์ ส่วนรหัสสินค้ามาจากระบบคลังที่มีแผนจะเปลี่ยนความยาวเป็น 12 ตัวอักษร ควรตัดสินใจอย่างไร?",
       "code": "const isValidUsername = (s) => s.length >= 3 && s.length <= 20;\nconst isValidSku      = (s) => s.length >= 3 && s.length <= 20;",
       "options": [
-        "รวมทันที เพราะ DRY ห้ามมีโค้ดหน้าตาเหมือนกันสองที่ไม่ว่ากรณีใด และโค้ดซ้ำคือหนี้เทคนิคเสมอ",
+        "รวมทันที เพราะ DRY ห้ามมีโค้ดหน้าตาเหมือนกันสองที่ และโค้ดซ้ำคือหนี้เทคนิคเสมอ",
         "รวมแล้วเพิ่มพารามิเตอร์ type ให้ฟังก์ชันเลือกกฎตามชนิด เผื่อกฎเปลี่ยนในอนาคต",
-        "คงแยกไว้ เพราะเป็นกฎคนละเรื่องที่บังเอิญหน้าตาเหมือนกัน",
+        "คงแยกไว้ เพราะเป็นกฎคนละเรื่องที่บังเอิญหน้าตาเหมือนกันและเปลี่ยนต่างกัน",
         "ย้ายทั้งสองฟังก์ชันไปไว้ใน utils.js เดียวกันเพื่อให้หาง่ายและแก้ได้ที่เดียว"
       ],
       "answer": 2,
@@ -355,9 +367,9 @@
     {
       "prompt": "ผู้ดูแลสองคนเปิดหน้าแก้สินค้า #9 พร้อมกัน คนแรกบันทึกชื่อใหม่ จากนั้นคนที่สองบันทึกราคาใหม่ ปรากฏว่าชื่อที่คนแรกแก้หายไป เพราะ PUT ของคนที่สองส่งทั้งก้อนทับ ควรแก้ที่ API อย่างไร?",
       "options": [
-        "เปลี่ยนทุก PUT เป็น POST เพราะ POST ไม่เขียนทับข้อมูลเดิม",
-        "ให้ GET ส่ง ETag และให้ PUT แนบ If-Match ถ้า ETag ไม่ตรงให้ตอบ 412 แล้วให้ client โหลดใหม่",
-        "ตอบ 200 เสมอแล้วเก็บเฉพาะคำขอล่าสุด เพราะ last-write-wins เป็นพฤติกรรมมาตรฐานของ PUT ที่ต้องยอมรับ",
+        "เปลี่ยนทุก PUT เป็น POST เพราะ POST ไม่เขียนทับข้อมูลเดิมของผู้ดูแลอีกคน",
+        "ให้ GET ส่ง ETag และให้ PUT แนบ If-Match ถ้าไม่ตรงให้ตอบ 412 แล้วให้ client โหลดใหม่",
+        "ตอบ 200 เสมอแล้วเก็บเฉพาะคำขอล่าสุด เพราะ last-write-wins เป็นพฤติกรรมมาตรฐานของ PUT",
         "ลด timeout ของ session ผู้ดูแลให้สั้นลง เพื่อลดโอกาสที่สองคนเปิดหน้าแก้ไขพร้อมกัน"
       ],
       "answer": 1,
@@ -388,9 +400,9 @@
     {
       "prompt": "page_token ของ API เป็น base64 ของ JSON {\"offset\":40} นักพัฒนา client บางรายเริ่ม decode แล้วสร้าง token เองเพื่อกระโดดไปหน้าที่ต้องการ ต่อมาทีม API อยากเปลี่ยนไปใช้ keyset แต่เกรงว่า client เหล่านั้นจะพัง สิ่งที่ควรออกแบบตั้งแต่แรกคืออะไร?",
       "options": [
-        "เข้ารหัส base64 สองชั้นเพื่อให้ถอดความหมายยากขึ้น",
+        "เข้ารหัส base64 สองชั้นเพื่อให้ถอดความหมายยากขึ้นสำหรับ client ทั่วไป",
         "ประกาศในเอกสารว่า token คือ JSON เพื่อให้ client พึ่งโครงสร้างได้อย่างถูกต้อง",
-        "ให้ token เป็นค่า opaque ที่ client ต้องส่งกลับตามที่ได้รับ โดยไม่ตีความ",
+        "ให้ token เป็นค่า opaque ที่ client ส่งกลับตามที่ได้รับ โดยไม่ตีความ",
         "ตัด page_token ทิ้งแล้วให้ client ส่ง offset เองตรง ๆ จะได้ไม่ต้องเดา"
       ],
       "answer": 2,
@@ -412,10 +424,10 @@
       "prompt": "ทีมห่อ repository สองชั้นด้วย const repo = withCache(withLogging(pgRepo)) แล้วพบว่า log แสดงเฉพาะครั้งที่ cache miss ทั้งที่อยากเห็นทุกการเรียกจากแอป ควรทำอย่างไร?",
       "code": "const repo = withCache(withLogging(pgRepo));",
       "options": [
-        "ย้าย console.log ไปไว้ใน PgUserRepository.findById เพื่อให้เห็นทุกครั้งที่มีการเรียกเข้ามา",
+        "ย้าย console.log ไปไว้ใน PgUserRepository.findById เพื่อให้เห็นทุกการเรียก",
         "ตั้ง TTL ของ cache ให้สั้นมาก จะได้ miss บ่อยขึ้นและ log ครบมากขึ้น",
         "เพิ่ม withLogging อีกชั้นห่อ pgRepo ให้มี logger ซ้อนสองตัวในสายเดียว",
-        "สลับเป็น withLogging(withCache(pgRepo)) เพราะชั้นนอกสุดเห็นทุกคำเรียก"
+        "สลับเป็น withLogging(withCache(pgRepo)) เพราะชั้นนอกสุดเห็นทุกการเรียก"
       ],
       "answer": 3,
       "explain": "Decorator ชั้นนอกสุดรับคำเรียกก่อน ถ้า cache อยู่นอก คำขอที่ hit จะไม่ถึง logger ที่อยู่ชั้นใน พฤติกรรมจึงขึ้นกับลำดับการห่อ การย้าย log ไปไว้ใน PgUserRepository ไม่ช่วย เพราะคำขอที่ cache hit ไม่เดินทางมาถึง repository ตัวใน log จึงยังขาดเหมือนเดิม"
@@ -677,5 +689,17 @@
       "url": "https://martinfowler.com/bliki/DomainDrivenDesign.html",
       "note": "ubiquitous language และ bounded context"
     }
+  ],
+  "cheatsheet": [
+    "ตั้งเป้า cohesion สูงและ coupling ต่ำ: รวมสิ่งที่ทำงานเพื่อเป้าหมายเดียวกัน และลดการรู้รายละเอียดภายในของโมดูลอื่น",
+    "DRY คือไม่ซ้ำกฎหรือความรู้เดียวกัน ไม่ใช่รวมโค้ดที่หน้าตาเหมือนกันแต่มีเหตุผลให้เปลี่ยนคนละเรื่อง",
+    "LSP: subclass ต้องรักษาสัญญาของ class แม่ โดยไม่เพิ่มความเข้มของ precondition หรือทำให้ postcondition อ่อนลง",
+    "ใช้ composition เมื่อพฤติกรรมมีหลายมิติ; inheritance เหมาะกับความสัมพันธ์ is-a จริงและ hierarchy ตื้น",
+    "Strategy แยกอัลกอริทึมที่สลับกันได้; Factory รวมการเลือกสร้าง object เมื่อการสร้างซับซ้อนหรือขึ้นกับ config",
+    "GET, PUT และ DELETE เป็น idempotent; POST ไม่ใช่ จึงควรใช้ idempotency key กับการชำระเงินที่อาจ retry",
+    "401 คือยังไม่ยืนยันตัวตนหรือ token ใช้ไม่ได้; 403 คือ server เข้าใจ request แต่ปฏิเสธ เช่น ผู้ใช้ไม่มีสิทธิ์",
+    "การเปลี่ยนชื่อ field, ชนิดข้อมูล, default หรือเพิ่ม field บังคับใน request เดิมเป็น breaking change",
+    "Clean/Hexagonal ให้ dependency ชี้เข้าหา domain: domain กำหนด port และส่วนรอบนอก implement adapter",
+    "Transactional outbox เขียนข้อมูลกับ event ใน transaction เดียวกัน; relay อาจส่งซ้ำ ฝั่งรับจึงต้อง idempotent"
   ]
 }

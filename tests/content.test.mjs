@@ -33,7 +33,27 @@ for (const f of files) {
     assert.ok(t.mustKnow.filter((m) => m.ref).length >= 12, 'mustKnow with ref');
     assert.ok(t.mustKnow.filter((m) => m.exam === true).length >= 5, 'exam flags');
     for (const q of t.questions) assert.equal(q.options.length, 4, 'question needs 4 options: ' + q.prompt.slice(0, 40));
+    assert.ok((t.cheatsheet || []).length >= 6 && t.cheatsheet.length <= 12, 'cheatsheet needs 6-12 lines');
   });
+
+  // Learners must not be able to guess the answer from option length, in either locale.
+  for (const [locale, file] of [['th', join(dir, f)], ['en', join(dir, '..', 'en', 'topics', f)]]) {
+    test(`${f} (${locale}) correct option is not given away by its length`, () => {
+      const [t] = parseContent(readFileSync(file, 'utf8')).topics;
+      const rank = [0, 0, 0, 0];
+      for (const q of t.questions) {
+        const lengths = q.options.map((o) => o.length);
+        rank[Math.min(3, lengths.filter((n) => n > lengths[q.answer]).length)]++;
+      }
+      const strictlyLongest = t.questions.filter((q) => {
+        const lengths = q.options.map((o) => o.length);
+        return lengths.filter((n) => n >= lengths[q.answer]).length === 1;
+      }).length;
+      assert.ok(strictlyLongest <= 11, `correct option strictly longest in ${strictlyLongest} questions`);
+      assert.ok(rank[0] + rank[1] <= 18, `correct option among the two longest in ${rank[0] + rank[1]} questions`);
+      assert.ok(rank[3] >= 3, `correct option shortest in only ${rank[3]} questions`);
+    });
+  }
 
   test(`${f} exercises: each solution passes, each starter does not`, () => {
     const [t] = parseContent(readFileSync(join(dir, f), 'utf8')).topics;

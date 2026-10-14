@@ -103,6 +103,14 @@ function Learn({ t: topic, topics, base, next }) {
           </section>
         );
       })}
+      {topic.cheatsheet.length > 0 && (
+        <section className="stack-12" aria-labelledby={'cheatsheet-' + topic.id}>
+          <div className="tier-head"><h2 className="h2" id={'cheatsheet-' + topic.id}>{t('สรุปย่อ', 'Cheat sheet')}</h2><span className="muted">{t('ทบทวนก่อนสอบหรือสัมภาษณ์', 'Quick review before an exam or interview')}</span></div>
+          <ul className="card cheatsheet">
+            {topic.cheatsheet.map((line, i) => <li key={i}>{line}</li>)}
+          </ul>
+        </section>
+      )}
       {topic.refs.length > 0 && (
         <section className="stack-12">
           <div className="tier-head"><h2 className="h2">{t('อ่านต่อ', 'Further reading')}</h2><span className="muted">{t('แหล่งอ้างอิงหลักของหัวข้อนี้', 'Primary references for this topic')}</span></div>

@@ -8,67 +8,79 @@
     {
       "tier": "must",
       "title": "Test pyramid และเมื่อไรรูปทรงควรเปลี่ยน",
-      "body": "แนวคิดของ Mike Cohn คือมี unit test จำนวนมากที่ฐานเพราะเร็วและชี้จุดพังได้แม่น มี integration test ตรงกลาง และมี E2E ไม่กี่ตัวบนยอดสำหรับ flow สำคัญ เพราะช้าและเปราะ แต่สัดส่วนนี้ไม่ใช่กฎตายตัว ถ้าโค้ดส่วนใหญ่เป็นงานเชื่อมกับ database หรือ service อื่น บั๊กมักอยู่ที่รอยต่อ จึงควรเพิ่มน้ำหนักให้ integration test (Kent C. Dodds เรียกรูปทรงนี้ว่า testing trophy) หลักที่ใช้ได้เสมอคือทดสอบแต่ละความเสี่ยงที่ชั้นต่ำสุดที่จับมันได้จริง และระวังรูปกรวยไอศกรีมที่มี E2E หรือ manual test มากกว่า unit test"
+      "body": "แนวคิดของ Mike Cohn คือมี unit test จำนวนมากที่ฐานเพราะเร็วและชี้จุดพังได้แม่น มี integration test ตรงกลาง และมี E2E ไม่กี่ตัวบนยอดสำหรับ flow สำคัญ เพราะช้าและเปราะ แต่สัดส่วนนี้ไม่ใช่กฎตายตัว ถ้าโค้ดส่วนใหญ่เป็นงานเชื่อมกับ database หรือ service อื่น บั๊กมักอยู่ที่รอยต่อ จึงควรเพิ่มน้ำหนักให้ integration test (Kent C. Dodds เรียกรูปทรงนี้ว่า testing trophy) หลักที่ใช้ได้เสมอคือทดสอบแต่ละความเสี่ยงที่ชั้นต่ำสุดที่จับมันได้จริง และระวังรูปกรวยไอศกรีมที่มี E2E หรือ manual test มากกว่า unit test",
+      "ref": "https://martinfowler.com/bliki/TestPyramid.html"
     },
     {
       "tier": "must",
       "title": "Unit test ที่ดี: AAA และหนึ่งพฤติกรรมต่อ test",
       "body": "แบ่ง test เป็น Arrange (เตรียมข้อมูล) Act (เรียกสิ่งที่ทดสอบ) และ Assert (ตรวจผล) ให้แต่ละ test ตรวจพฤติกรรมเดียวและตั้งชื่อบอกเงื่อนไขกับผลที่คาด เมื่อ fail จะรู้ทันทีว่าพฤติกรรมไหนเสียโดยไม่ต้องไล่อ่านโค้ด หนึ่งพฤติกรรมไม่ได้แปลว่าห้ามมี expect หลายบรรทัด ถ้าทุกบรรทัดตรวจผลลัพธ์เดียวกัน เช่น field ต่าง ๆ ของ object ที่คืนมา และ test ที่ดีต้องรันอิสระจากกัน ไม่พึ่งลำดับหรือ state ที่ test อื่นทิ้งไว้",
-      "code": "test('ส่งฟรีเมื่อยอดถึง 500 พอดี', () => {\n  const total = 500;              // Arrange\n  const fee = shippingFee(total); // Act\n  expect(fee).toBe(0);            // Assert\n});"
+      "code": "test('ส่งฟรีเมื่อยอดถึง 500 พอดี', () => {\n  const total = 500;              // Arrange\n  const fee = shippingFee(total); // Act\n  expect(fee).toBe(0);            // Assert\n});",
+      "ref": "https://xp123.com/3a-arrange-act-assert/"
     },
     {
       "tier": "must",
       "title": "ทดสอบพฤติกรรม ไม่ใช่ implementation",
       "body": "test ควรถามว่าใส่อะไรเข้าไปแล้วได้อะไรออกมาผ่าน public interface ไม่ใช่ตรวจว่า method ภายในถูกเรียกกี่ครั้งหรือตามลำดับไหน test ที่ผูกกับรายละเอียดภายในจะพังทุกครั้งที่ refactor ทั้งที่พฤติกรรมไม่เปลี่ยน ทีมจะเริ่มไม่กล้า refactor หรือแก้ test ตามโค้ดไปเรื่อย ๆ จนมันไม่จับบั๊กอีก สัญญาณเตือนที่พบบ่อยคือต้อง export ฟังก์ชันภายในออกมาเพียงเพื่อให้ทดสอบได้",
-      "code": "// เปราะ: ผูกกับวิธีคำนวณภายใน\nexpect(pricing.applyDiscount).toHaveBeenCalledWith(1000, 0.1);\n\n// ทนทาน: ตรวจผลที่ผู้ใช้เห็น\nexpect(checkout(cart).total).toBe(900);"
+      "code": "// เปราะ: ผูกกับวิธีคำนวณภายใน\nexpect(pricing.applyDiscount).toHaveBeenCalledWith(1000, 0.1);\n\n// ทนทาน: ตรวจผลที่ผู้ใช้เห็น\nexpect(checkout(cart).total).toBe(900);",
+      "ref": "https://kentcdodds.com/blog/testing-implementation-details"
     },
     {
       "tier": "must",
       "title": "Test double: mock, stub และ fake",
       "body": "ทั้งหมดคือของแทนสิ่งที่ช้าหรือควบคุมไม่ได้ เช่น network เวลา หรือ payment gateway โดย stub คืนค่าที่กำหนดไว้ล่วงหน้า fake คือของที่ทำงานได้จริงแบบย่อ เช่น repository ที่เก็บข้อมูลใน memory ส่วน mock ใช้ตรวจว่าถูกเรียกด้วยข้อมูลที่ถูกต้อง เหมาะกับผลข้างเคียงที่มองจากผลลัพธ์ไม่เห็น เช่น การส่งอีเมล ใน Jest ทุกแบบมักสร้างด้วย jest.fn() และถูกเรียกรวมว่า mock แต่การแยกบทบาทช่วยให้ตัดสินใจถูกว่าควรตรวจผลลัพธ์หรือตรวจการเรียก",
-      "code": "class InMemoryUserRepo {          // fake\n  users = new Map();\n  async save(u) { this.users.set(u.id, u); }\n  async findById(id) { return this.users.get(id) ?? null; }\n}\n\nconst sendEmail = jest.fn();      // mock\nawait registerUser({ repo: new InMemoryUserRepo(), sendEmail }, input);\nexpect(sendEmail).toHaveBeenCalledWith(\n  expect.objectContaining({ to: 'a@example.com' })\n);"
+      "code": "class InMemoryUserRepo {          // fake\n  users = new Map();\n  async save(u) { this.users.set(u.id, u); }\n  async findById(id) { return this.users.get(id) ?? null; }\n}\n\nconst sendEmail = jest.fn();      // mock\nawait registerUser({ repo: new InMemoryUserRepo(), sendEmail }, input);\nexpect(sendEmail).toHaveBeenCalledWith(\n  expect.objectContaining({ to: 'a@example.com' })\n);",
+      "ref": "https://martinfowler.com/bliki/TestDouble.html"
     },
     {
       "tier": "must",
       "title": "Boundary value: บั๊กชอบอยู่ที่ขอบ",
-      "body": "ความผิดพลาดอย่างใช้ > แทน >= หรือ off-by-one ในลูปมักหลุดรอดถ้าทดสอบแต่ค่ากลาง ๆ เพราะหลายแบบโผล่เฉพาะค่าที่อยู่ตรงขอบของเงื่อนไข ให้แบ่ง input เป็นกลุ่มที่ระบบทำแบบเดียวกัน (equivalence partition) แล้วทดสอบค่าติดขอบทั้งสองฝั่ง เช่น กฎส่งฟรีตั้งแต่ 500 ควรทดสอบ 499 กับ 500 ไม่ใช่ 100 กับ 1000 และอย่าลืมขอบที่มักถูกมองข้าม เช่น 0 ค่าติดลบ list ว่าง string ว่าง และ null"
+      "body": "ความผิดพลาดอย่างใช้ > แทน >= หรือ off-by-one ในลูปมักหลุดรอดถ้าทดสอบแต่ค่ากลาง ๆ เพราะหลายแบบโผล่เฉพาะค่าที่อยู่ตรงขอบของเงื่อนไข ให้แบ่ง input เป็นกลุ่มที่ระบบทำแบบเดียวกัน (equivalence partition) แล้วทดสอบค่าติดขอบทั้งสองฝั่ง เช่น กฎส่งฟรีตั้งแต่ 500 ควรทดสอบ 499 กับ 500 ไม่ใช่ 100 กับ 1000 และอย่าลืมขอบที่มักถูกมองข้าม เช่น 0 ค่าติดลบ list ว่าง string ว่าง และ null",
+      "ref": "https://istqb.org/wp-content/uploads/2024/11/ISTQB_CTFL_Syllabus_v4.0.1.pdf#page=39"
     },
     {
       "tier": "must",
       "title": "Linter, formatter และ static analysis",
-      "body": "เครื่องมือที่ตรวจโค้ดโดยไม่ต้องรัน เช่น ESLint, type checker ของ TypeScript และ formatter อย่าง Prettier ตรวจจับปัญหาประเภทเดียวกันได้ทั่วทั้งโค้ด เช่น ตัวแปรที่ไม่ได้ใช้ type ที่ไม่ตรงกัน หรือ promise ที่ลืม await (ผ่านกฎของ typescript-eslint) ได้เร็วและถูกกว่าการเขียน test ทีละกรณี ควรรันให้ผลเหมือนกันทั้งใน editor, pre-commit และ CI เพื่อให้คนรีวิวโฟกัสที่ logic และการออกแบบแทนการถกเรื่องสไตล์ แต่เครื่องมือเหล่านี้ไม่รู้ว่า business rule ถูกหรือไม่ จึงใช้แทน test ไม่ได้"
+      "body": "เครื่องมือที่ตรวจโค้ดโดยไม่ต้องรัน เช่น ESLint, type checker ของ TypeScript และ formatter อย่าง Prettier ตรวจจับปัญหาประเภทเดียวกันได้ทั่วทั้งโค้ด เช่น ตัวแปรที่ไม่ได้ใช้ type ที่ไม่ตรงกัน หรือ promise ที่ลืม await (ผ่านกฎของ typescript-eslint) ได้เร็วและถูกกว่าการเขียน test ทีละกรณี ควรรันให้ผลเหมือนกันทั้งใน editor, pre-commit และ CI เพื่อให้คนรีวิวโฟกัสที่ logic และการออกแบบแทนการถกเรื่องสไตล์ แต่เครื่องมือเหล่านี้ไม่รู้ว่า business rule ถูกหรือไม่ จึงใช้แทน test ไม่ได้",
+      "ref": "https://prettier.io/docs/comparison.html"
     },
     {
       "tier": "should",
       "title": "Code coverage บอกอะไร และไม่บอกอะไร",
       "body": "coverage บอกว่าบรรทัดหรือ branch ไหนถูกรันระหว่าง test จึงมีประโยชน์ในการหาโค้ดที่ยังไม่มีใครทดสอบเลย แต่ไม่ได้บอกว่าผลลัพธ์ถูกตรวจ test ที่เรียกฟังก์ชันโดยไม่มี expect ก็ทำให้ coverage ขึ้นได้ การตั้งตัวเลขเป็นเป้าบังคับจึงมักได้ test ที่ไร้ความหมาย ใช้ coverage (โดยเฉพาะ branch coverage) เพื่อหาจุดบอด ไม่ใช่เพื่อพิสูจน์ว่า test ดี",
-      "code": "test('คำนวณภาษี', () => {\n  calculateTax(1000);\n  // บรรทัดถูกรันครบ coverage ขึ้น แต่ไม่ได้ตรวจอะไรเลย\n});"
+      "code": "test('คำนวณภาษี', () => {\n  calculateTax(1000);\n  // บรรทัดถูกรันครบ coverage ขึ้น แต่ไม่ได้ตรวจอะไรเลย\n});",
+      "ref": "https://martinfowler.com/bliki/TestCoverage.html"
     },
     {
       "tier": "should",
       "title": "Flaky test: ผ่านบ้างไม่ผ่านบ้าง",
       "body": "test ที่ผลไม่แน่นอนทั้งที่โค้ดไม่เปลี่ยน มักเกิดจากการพึ่งเวลาจริง การรอด้วย sleep ลำดับการรัน state ที่แชร์ระหว่าง test หรือ network ภายนอก อันตรายที่สุดคือทีมชินกับการกด rerun จนมองข้ามสีแดงที่เป็นบั๊กจริง ให้แก้ที่ต้นเหตุ เช่น ใช้ fake timers หรือส่ง clock เข้าไป และแยก state ของแต่ละ test ถ้าแก้ทันทีไม่ได้ให้กัก (quarantine) ไว้พร้อมงานติดตาม ไม่ใช่ใส่ retry ทิ้งไว้ถาวร",
-      "code": "beforeEach(() => {\n  jest.useFakeTimers();\n  jest.setSystemTime(new Date('2026-01-31T23:00:00Z'));\n});\nafterEach(() => jest.useRealTimers());\n\ntest('คูปองยังใช้ได้ก่อนหมดเดือน', () => {\n  expect(isCouponValid(januaryCoupon)).toBe(true);\n});"
+      "code": "beforeEach(() => {\n  jest.useFakeTimers();\n  jest.setSystemTime(new Date('2026-01-31T23:00:00Z'));\n});\nafterEach(() => jest.useRealTimers());\n\ntest('คูปองยังใช้ได้ก่อนหมดเดือน', () => {\n  expect(isCouponValid(januaryCoupon)).toBe(true);\n});",
+      "ref": "https://martinfowler.com/articles/nonDeterminism.html"
     },
     {
       "tier": "should",
       "title": "TDD: Red, Green, Refactor",
-      "body": "เขียน test ที่ fail สำหรับพฤติกรรมถัดไปก่อน (Red) เขียนโค้ดน้อยที่สุดให้ผ่าน (Green) แล้วจัดโค้ดให้สะอาดโดยมี test คุ้มกัน (Refactor) การเห็น test fail ก่อนพิสูจน์ว่า test ตรวจสิ่งที่ตั้งใจได้จริง ถ้ามันผ่านตั้งแต่แรกแปลว่า test อาจผิดหรือพฤติกรรมนั้นมีอยู่แล้ว TDD เหมาะกับ logic ที่กฎชัดเจนและได้ feedback เร็ว ส่วนงานสำรวจหรือ UI ที่ยังเปลี่ยนบ่อยอาจเขียน test ตามหลังก็ได้"
+      "body": "เขียน test ที่ fail สำหรับพฤติกรรมถัดไปก่อน (Red) เขียนโค้ดน้อยที่สุดให้ผ่าน (Green) แล้วจัดโค้ดให้สะอาดโดยมี test คุ้มกัน (Refactor) การเห็น test fail ก่อนพิสูจน์ว่า test ตรวจสิ่งที่ตั้งใจได้จริง ถ้ามันผ่านตั้งแต่แรกแปลว่า test อาจผิดหรือพฤติกรรมนั้นมีอยู่แล้ว TDD เหมาะกับ logic ที่กฎชัดเจนและได้ feedback เร็ว ส่วนงานสำรวจหรือ UI ที่ยังเปลี่ยนบ่อยอาจเขียน test ตามหลังก็ได้",
+      "ref": "https://martinfowler.com/bliki/TestDrivenDevelopment.html"
     },
     {
       "tier": "should",
       "title": "Over-mocking: test เขียวแต่ระบบพัง",
-      "body": "เมื่อ mock ทุก dependency รวมถึงคลาสของเราเอง test จะตรวจแค่ว่าโค้ดเรียกสิ่งที่เราคิดว่าถูก ถ้า mock คืนค่าที่ของจริงไม่มีวันคืน เช่น SQL ผิดหรือ field เปลี่ยนชื่อ test ก็ยังเขียว สัญญาณคือ setup ของ mock ยาวกว่าตัว test หรือ test พังทุกครั้งที่ refactor ให้ mock เฉพาะขอบระบบที่เราไม่ได้เป็นเจ้าของ ใช้ fake เมื่อทำได้ และมี integration test กับของจริง เช่น ใช้ Testcontainers รัน database จริงใน container"
+      "body": "เมื่อ mock ทุก dependency รวมถึงคลาสของเราเอง test จะตรวจแค่ว่าโค้ดเรียกสิ่งที่เราคิดว่าถูก ถ้า mock คืนค่าที่ของจริงไม่มีวันคืน เช่น SQL ผิดหรือ field เปลี่ยนชื่อ test ก็ยังเขียว สัญญาณคือ setup ของ mock ยาวกว่าตัว test หรือ test พังทุกครั้งที่ refactor ให้ mock เฉพาะขอบระบบที่เราไม่ได้เป็นเจ้าของ ใช้ fake เมื่อทำได้ และมี integration test กับของจริง เช่น ใช้ Testcontainers รัน database จริงใน container",
+      "ref": "https://testing.googleblog.com/2020/07/testing-on-toilet-dont-mock-types-you.html"
     },
     {
       "tier": "advanced",
       "title": "Performance และ load testing",
-      "body": "วัดว่าระบบตอบสนองอย่างไรภายใต้โหลด เช่น load test ที่โหลดตามที่คาดไว้ stress test ที่ดันจนพังเพื่อหาขีดจำกัด และ soak test ที่รันนานเพื่อหา memory leak ให้ดู latency ที่ percentile สูง (p95, p99) ควบคู่กับ error rate แทนค่าเฉลี่ย เพราะค่าเฉลี่ยกลบกลุ่มผู้ใช้ที่ช้ามาก ผลจะมีความหมายเมื่อสภาพแวดล้อม ปริมาณข้อมูล และรูปแบบการใช้งานใกล้ของจริง เครื่องมือที่ใช้กันแพร่หลายเช่น k6, JMeter, Gatling และ Locust"
+      "body": "วัดว่าระบบตอบสนองอย่างไรภายใต้โหลด เช่น load test ที่โหลดตามที่คาดไว้ stress test ที่ดันจนพังเพื่อหาขีดจำกัด และ soak test ที่รันนานเพื่อหา memory leak ให้ดู latency ที่ percentile สูง (p95, p99) ควบคู่กับ error rate แทนค่าเฉลี่ย เพราะค่าเฉลี่ยกลบกลุ่มผู้ใช้ที่ช้ามาก ผลจะมีความหมายเมื่อสภาพแวดล้อม ปริมาณข้อมูล และรูปแบบการใช้งานใกล้ของจริง เครื่องมือที่ใช้กันแพร่หลายเช่น k6, JMeter, Gatling และ Locust",
+      "ref": "https://grafana.com/docs/k6/latest/testing-guides/test-types/"
     },
     {
       "tier": "advanced",
       "title": "Contract testing และ mutation testing",
-      "body": "Contract testing ตรวจว่า consumer กับ provider ยังคุยกันรู้เรื่อง ในแบบ consumer-driven (เช่น Pact) consumer บันทึกสิ่งที่คาดหวังจาก API เป็น contract แล้ว CI ของ provider นำไปตรวจทุกครั้ง จึงจับการเปลี่ยน field ได้โดยไม่ต้องมี E2E ข้ามทุก service ส่วน mutation testing (เช่น StrykerJS สำหรับ JavaScript หรือ PIT สำหรับ Java) แก้โค้ดทีละจุด เช่น เปลี่ยน >= เป็น > แล้วรัน test ถ้า test ยังผ่าน (mutant survived) มักแปลว่าไม่มี test ตรวจพฤติกรรมนั้นจริง (ยกเว้น equivalent mutant ที่ให้ผลเหมือนโค้ดเดิม ซึ่งไม่มี test ใดแยกได้) เป็นมาตรวัดคุณภาพ test ที่ตรงกว่า coverage แต่รันช้า จึงมักรันเฉพาะโค้ดที่เปลี่ยนหรือรันเป็นรอบ"
+      "body": "Contract testing ตรวจว่า consumer กับ provider ยังคุยกันรู้เรื่อง ในแบบ consumer-driven (เช่น Pact) consumer บันทึกสิ่งที่คาดหวังจาก API เป็น contract แล้ว CI ของ provider นำไปตรวจทุกครั้ง จึงจับการเปลี่ยน field ได้โดยไม่ต้องมี E2E ข้ามทุก service ส่วน mutation testing (เช่น StrykerJS สำหรับ JavaScript หรือ PIT สำหรับ Java) แก้โค้ดทีละจุด เช่น เปลี่ยน >= เป็น > แล้วรัน test ถ้า test ยังผ่าน (mutant survived) มักแปลว่าไม่มี test ตรวจพฤติกรรมนั้นจริง (ยกเว้น equivalent mutant ที่ให้ผลเหมือนโค้ดเดิม ซึ่งไม่มี test ใดแยกได้) เป็นมาตรวัดคุณภาพ test ที่ตรงกว่า coverage แต่รันช้า จึงมักรันเฉพาะโค้ดที่เปลี่ยนหรือรันเป็นรอบ",
+      "ref": "https://docs.pact.io/getting_started/how_pact_works"
     },
     {
       "tier": "must",
@@ -678,5 +690,17 @@
       "url": "https://fast-check.dev/docs/introduction/what-is-property-based-testing/",
       "note": "แนวคิด property, การสุ่ม input และ shrinking"
     }
+  ],
+  "cheatsheet": [
+    "ทดสอบแต่ละความเสี่ยงที่ชั้นต่ำสุดที่จับได้จริง; งานเชื่อม database หรือ service ควรเน้น integration test",
+    "AAA คือ Arrange, Act, Assert; แต่ละ test ตรวจหนึ่งพฤติกรรม แต่มีหลาย assertion ได้ถ้าตรวจผลลัพธ์เดียวกัน",
+    "stub คืนค่าที่กำหนดไว้; fake ทำงานจริงแบบย่อ; mock ตรวจการเรียกและ arguments",
+    "ทดสอบค่าติดขอบทั้งสองฝั่ง เช่น ส่งฟรีตั้งแต่ 500 ต้องตรวจ 499 และ 500 เพื่อจับ > กับ >= ที่ใช้ผิด",
+    "test level บอกว่าทดสอบชั้นไหน; test type บอกว่าทดสอบเรื่องอะไร และแต่ละ type ทำได้ทุก level",
+    "confirmation testing ตรวจว่าบั๊กเดิมถูกแก้แล้ว; regression testing ตรวจว่าการเปลี่ยนแปลงไม่ทำให้ส่วนอื่นพัง",
+    "ใน Jest ต้อง await หรือ return promise รวมถึง .resolves และ .rejects มิฉะนั้น test อาจจบก่อนตรวจผล",
+    "coverage บอกว่าโค้ดถูกรัน ไม่ได้บอกว่าตรวจผลแล้ว; ใช้ branch coverage หาจุดบอด ไม่ใช่พิสูจน์คุณภาพ test",
+    "severity คือระดับผลกระทบ; priority คือลำดับการแก้ จึงไม่จำเป็นต้องสูงหรือต่ำไปด้วยกัน",
+    "จัดลำดับ test ตามความเสี่ยง: ประเมินเชิงปริมาณด้วย likelihood × impact หรือเชิงคุณภาพด้วย risk matrix"
   ]
 }
